@@ -41,8 +41,12 @@ public class PackagesConfig {
 	
 	private static void writeDefaults() throws IOException {
 		yaml.createSection("packages.default");
-		yaml.set("packages.default.items.1", new ItemStack(Material.STICK, 3));
-		yaml.set("packages.default.items.2", new ItemStack(Material.OAK_PLANKS, 32));
+		yaml.createSection("packages.starter");
+		yaml.set("packages.starter.items.1", new ItemStack(Material.IRON_HELMET,1));
+		yaml.set("packages.starter.items.2", new ItemStack(Material.IRON_CHESTPLATE, 1));
+		yaml.set("packages.starter.items.3", new ItemStack(Material.IRON_LEGGINGS, 1));
+		yaml.set("packages.starter.items.4", new ItemStack(Material.IRON_BOOTS, 1));
+		yaml.set("packages.starter.items.5", new ItemStack(Material.BREAD, 2));
 		yaml.save(f);
 	}
 

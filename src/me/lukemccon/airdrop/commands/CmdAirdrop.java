@@ -6,6 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -113,9 +114,28 @@ public class CmdAirdrop implements CommandExecutor {
 			//args x z packagename
 			if (args.length == 3) {
 				World w = player.getWorld();
-				Double xloc = Double.parseDouble(args[0]);
-				Double zloc = Double.parseDouble(args[1]);
-				Location loc = new Location(w,xloc,zloc,0);
+				Double xloc = null;
+				Double zloc = null;
+				Double yloc = null;
+				Double ylocPackage = null;
+				
+				try {
+					
+				 xloc = Double.parseDouble(args[0]);
+				 zloc = Double.parseDouble(args[1]);
+				
+				} catch (NumberFormatException e) {
+					ChatHandler.sendErrorMessage(player, "You did not provide numbers");
+					
+				}
+				
+				
+				
+				Location topblock = new Location(w,xloc,0,zloc);
+				yloc = new Double(w.getHighestBlockAt(topblock).getY());
+				topblock = new Location(w,xloc,yloc,zloc);
+				ylocPackage = yloc + 1;
+				Location pkg = new Location(w,xloc,ylocPackage,zloc);
 
 				String packageName = args[2];
 
@@ -126,13 +146,13 @@ public class CmdAirdrop implements CommandExecutor {
 				}
 				
 				
-				w.getHighestBlockAt(loc);
 				
-				boolean noBlocksAbove = checkBlocksAbovePlayer(loc);
+				ChatHandler.sendMessage(player, pkg.toString() + " " + packageName);
+				boolean noBlocksAbove = checkBlocksAbovePlayer(pkg);
 				
 				if (noBlocksAbove) {
 
-					Crate crate = new Crate(loc, loc.getWorld(), getItemsInPackage(packageName, player));
+					Crate crate = new Crate(pkg, pkg.getWorld(), getItemsInPackage(packageName, player));
 					crate.dropCrate();
 
 					return true;
