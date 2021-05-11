@@ -20,12 +20,15 @@ public class CmdAirdrop implements CommandExecutor {
 
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+		
+		Player target = null;
+		Player player = null;
 
 		// Check if sender is a Player
 		if (sender instanceof Player) {
 
 			// Cast sender to Player
-			Player player = (Player) sender;
+			player = (Player) sender;
 
 			// If no arguments, return false
 			if (args.length == 0) {
@@ -40,6 +43,7 @@ public class CmdAirdrop implements CommandExecutor {
 				ArrayList<ItemStack> items = getItemsInPackage(packageName, player);
 
 				if (items.isEmpty()) {
+					ChatHandler.sendErrorMessage(player, "Couldn't find that package");
 					return false;
 				}
 
@@ -51,13 +55,13 @@ public class CmdAirdrop implements CommandExecutor {
 
 					Crate crate = new Crate(loc, loc.getWorld(), items);
 					crate.dropCrate();
+					ChatHandler.sendMessage(player, "Calling in airdrop " + packageName);
 
 					return true;
 
 				} else {
 					// Send some error
-					ChatHandler.sendErrorMessage(player);
-					System.out.println("No space above player");
+					ChatHandler.sendErrorMessage(player, "No space above player");
 				}
 
 			}
@@ -67,13 +71,14 @@ public class CmdAirdrop implements CommandExecutor {
 			
 			if (args.length == 2) {
 				
-				String p = args[0];
+				String targetPlayer = String.valueOf(args[0]);
 				
-				try {
-				Player target = Bukkit.getServer().getPlayer(p);
-				}
-				catch(Exception e) {
-					player.sendMessage("Invalid Player");
+				
+				target = Bukkit.getServer().getPlayer(targetPlayer);
+				
+				if (target == null) {
+					ChatHandler.sendErrorMessage(player, targetPlayer + " isn't online or is invalid");
+					return false;
 				}
 				
 				String packageName = args[1];
@@ -84,7 +89,7 @@ public class CmdAirdrop implements CommandExecutor {
 					return false;
 				}
 
-				Location loc = player.getLocation();
+				Location loc = target.getLocation();
 
 				boolean noBlocksAbovePlayer = checkBlocksAbovePlayer(loc);
 
@@ -98,7 +103,7 @@ public class CmdAirdrop implements CommandExecutor {
 				} else {
 					// Send some error
 					ChatHandler.sendErrorMessage(player);
-					System.out.println("No space above player");
+					System.out.println("No space above " + target.getName());
 				}
 				
 			}
@@ -110,8 +115,33 @@ public class CmdAirdrop implements CommandExecutor {
 				World w = player.getWorld();
 				Double xloc = Double.parseDouble(args[0]);
 				Double zloc = Double.parseDouble(args[1]);
+				Location loc = new Location(w,xloc,zloc,0);
 
-				Location l = new Location(w,xloc,zloc,(Double) null);
+				String packageName = args[2];
+
+				ArrayList<ItemStack> items = getItemsInPackage(packageName, player);
+
+				if (items.isEmpty()) {
+					return false;
+				}
+				
+				
+				w.getHighestBlockAt(loc);
+				
+				boolean noBlocksAbove = checkBlocksAbovePlayer(loc);
+				
+				if (noBlocksAbove) {
+
+					Crate crate = new Crate(loc, loc.getWorld(), getItemsInPackage(packageName, player));
+					crate.dropCrate();
+
+					return true;
+
+				} else {
+					// Send some error
+					ChatHandler.sendErrorMessage(player);
+					System.out.println("No space avaliable at that location");
+				}
 				//Find out how to determine highest y at point
 			}
 
@@ -152,7 +182,7 @@ public class CmdAirdrop implements CommandExecutor {
 	 * Checks if there are any blocks within 20 blocks above the player
 	 * 
 	 * @param loc
-	 * @return
+	 * @return true if a non-air block is above the player
 	 */
 	private boolean checkBlocksAbovePlayer(Location loc) {
 		boolean isAbove = true;

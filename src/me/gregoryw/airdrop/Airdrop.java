@@ -20,7 +20,6 @@ public class Airdrop extends JavaPlugin {
 		// Load configuration files
 		PackagesConfig.loadConfig();
 		
-		
 	}
 	
 	@Override
