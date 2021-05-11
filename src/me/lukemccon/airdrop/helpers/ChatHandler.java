@@ -1,12 +1,13 @@
 package me.lukemccon.airdrop.helpers;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 public class ChatHandler {
 	
 	public static void sendErrorMessage(Player player, String message) {
 		
-		player.sendMessage("This is a default error");
+		player.sendMessage(message);
 		
 	}
 	
@@ -20,6 +21,10 @@ public class ChatHandler {
 		
 		player.sendMessage(message);
 		
+	}
+	
+	public static void logMessage(String message) {
+		Bukkit.getLogger().info(message);
 	}
 
 }

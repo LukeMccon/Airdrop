@@ -8,6 +8,8 @@ import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
+import me.lukemccon.airdrop.helpers.ChatHandler;
+
 public class PackagesConfig {
 	
 	private static YamlConfiguration yaml;
@@ -26,6 +28,7 @@ public class PackagesConfig {
 				yaml.save(f);
 				writeDefaults();
 				loaded = true;
+				ChatHandler.logMessage("Config loaded successfully");
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
