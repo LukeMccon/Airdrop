@@ -1,5 +1,5 @@
 name: Airdrop
-main: me.gregoryw.airdrop.Airdrop
+main: me.lukemccon.airdrop.Airdrop
 version: 1.0
 api-version: 1.13
 commands:
@@ -7,6 +7,6 @@ commands:
         aliases: [drop, ad, carepackage]
         description: Call in an airdrop!
         usage: /airdrop <kit name>
-devlopers:
-  - lukey_c
-  - pianoman99987
+developers:
+  - lukey_c (LukeMccon)
+  - pianoman99987 (gregoryw)
