@@ -1,11 +1,11 @@
-package me.gregoryw.airdrop.helpers;
+package me.lukemccon.airdrop.helpers;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.bukkit.entity.FallingBlock;
 
-import me.gregoryw.airdrop.Crate;
+import me.lukemccon.airdrop.Crate;
 
 public class CrateList {
 	

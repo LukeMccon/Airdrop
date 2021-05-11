@@ -1,4 +1,4 @@
-package me.gregoryw.airdrop.helpers;
+package me.lukemccon.airdrop.helpers;
 
 import org.bukkit.entity.Player;
 

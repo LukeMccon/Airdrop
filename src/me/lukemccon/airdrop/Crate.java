@@ -1,4 +1,4 @@
-package me.gregoryw.airdrop;
+package me.lukemccon.airdrop;
 
 import java.util.ArrayList;
 
@@ -10,7 +10,7 @@ import org.bukkit.block.Chest;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.inventory.ItemStack;
 
-import me.gregoryw.airdrop.helpers.CrateList;
+import me.lukemccon.airdrop.helpers.CrateList;
 
 public class Crate {
 

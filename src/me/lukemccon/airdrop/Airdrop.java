@@ -1,10 +1,10 @@
-package me.gregoryw.airdrop;
+package me.lukemccon.airdrop;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import me.gregoryw.airdrop.commands.*;
-import me.gregoryw.airdrop.listeners.FallingBlockListener;
+import me.lukemccon.airdrop.commands.*;
+import me.lukemccon.airdrop.listeners.FallingBlockListener;
 
 public class Airdrop extends JavaPlugin {
 	

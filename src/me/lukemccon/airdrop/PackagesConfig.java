@@ -1,4 +1,4 @@
-package me.gregoryw.airdrop;
+package me.lukemccon.airdrop;
 
 import java.io.File;
 import java.io.IOException;

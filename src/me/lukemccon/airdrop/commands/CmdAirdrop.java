@@ -1,4 +1,4 @@
-package me.gregoryw.airdrop.commands;
+package me.lukemccon.airdrop.commands;
 
 import java.util.ArrayList;
 
@@ -12,9 +12,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import me.gregoryw.airdrop.Crate;
-import me.gregoryw.airdrop.PackagesConfig;
-import me.gregoryw.airdrop.helpers.ChatHandler;
+import me.lukemccon.airdrop.Crate;
+import me.lukemccon.airdrop.PackagesConfig;
+import me.lukemccon.airdrop.helpers.ChatHandler;
 
 public class CmdAirdrop implements CommandExecutor {
 
