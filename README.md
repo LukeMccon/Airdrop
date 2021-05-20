@@ -22,3 +22,11 @@ Display packages that are avaliable for you to order
 ### /airdrop packages
 
 ## Examples
+
+Call the starter package on yourself
+
+/airdrop drop starter 
+
+Call the starter package onto player notch
+
+/airdrop gift notch starter
