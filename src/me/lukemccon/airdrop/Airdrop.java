@@ -5,6 +5,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import me.lukemccon.airdrop.commands.*;
 import me.lukemccon.airdrop.listeners.FallingBlockListener;
+import me.lukemccon.airdrop.packages.PackageManager;
 
 public class Airdrop extends JavaPlugin {
 	
@@ -19,6 +20,9 @@ public class Airdrop extends JavaPlugin {
 		
 		// Load configuration files
 		PackagesConfig.loadConfig();
+		
+		// Start the package manager
+		PackageManager.reload();
 		
 	}
 	
