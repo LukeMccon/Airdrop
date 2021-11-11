@@ -13,7 +13,7 @@ import me.lukemccon.airdrop.PackagesConfig;
 public class DropHelper {
 
 	/**
-	 * Returns an ArrayList of ItemStack of items in the specified package. If the
+	 * Returns an ArrayList of ItemStacks in the specified package. If the
 	 * package is invalid, returns an empty ArrayList
 	 * 
 	 * @param packageName
@@ -75,13 +75,12 @@ public class DropHelper {
 		Double ylocPackage = null;
 		
 		try {
-			
+		
 		 xloc = (double) Math.round(Double.parseDouble(x));
 		 zloc = (double) Math.round(Double.parseDouble(z));
 		
 		} catch (NumberFormatException e) {
 			ChatHandler.sendErrorMessage(player, "You did not provide numbers");
-			
 		}
 		
 		

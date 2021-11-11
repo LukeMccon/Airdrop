@@ -112,7 +112,7 @@ public class DropController {
 			return true;
 
 		} else {
-			// Send some error
+			// Send a relevant error
 			ChatHandler.sendErrorMessage(player, "No space above " + dropPlayer.getName());
 		}
 		

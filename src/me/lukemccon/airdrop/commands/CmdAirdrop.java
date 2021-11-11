@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 
 import me.lukemccon.airdrop.controllers.DropController;
 import me.lukemccon.airdrop.controllers.PackageController;
+import me.lukemccon.airdrop.helpers.ChatHandler;
 
 public class CmdAirdrop implements CommandExecutor {
 
@@ -35,8 +36,12 @@ public class CmdAirdrop implements CommandExecutor {
 						case "packages":
 							return PackageController.onCommand(player, args);
 						case "gift":
+							return true;
 						case "drop":
 							return DropController.onCommand(player, args);
+						default:
+							ChatHandler.sendErrorMessage(player, "Invalid Command: " + args[0]);
+							return false;
 					}
 			}
 		}
