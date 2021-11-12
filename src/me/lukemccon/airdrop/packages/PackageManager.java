@@ -5,9 +5,12 @@ import java.util.HashMap;
 import java.util.Set;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
 import me.lukemccon.airdrop.PackagesConfig;
+import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
+import me.lukemccon.airdrop.helpers.ChatHandler;
 /**
  * Manages packages, keeps list of available packages and their contents
  * 
@@ -16,8 +19,9 @@ import me.lukemccon.airdrop.PackagesConfig;
  */
 public class PackageManager {
 
-	public static HashMap<String, ArrayList<ItemStack>> packages = new HashMap<String, ArrayList<ItemStack>>();
-	private static ConfigurationSection config = (ConfigurationSection) PackagesConfig.getConfig().get("packages");
+	public static HashMap<String, Package> packages = new HashMap<String, Package>();
+	private static YamlConfiguration fileConfig = PackagesConfig.getConfig();
+	private static ConfigurationSection config = (ConfigurationSection) fileConfig.get("packages");
 	
 	public static void reload() {
 		// Force a reload from config
@@ -39,11 +43,31 @@ public class PackageManager {
 		return config.getKeys(false);
 	}
 	
+	public static void populatePackages() {
+		
+		for (String pkg : getPackages()) {
+			ArrayList<ItemStack> items = new ArrayList<ItemStack>();
+			for (String item : ((ConfigurationSection) config.get(pkg + ".items")).getKeys(false)) {
+				items.add(config.getItemStack(pkg + ".items." + item));
+			}
+			String name = pkg;
+			PackageManager.packages.put(name, new Package(name, 0.0, items ));
+			
+		}
+	}
+	
 	public static Boolean has(String packageName) {
 		return getPackages().contains(packageName);
 	}
 	
-	public static String getInfo(String packageName) {
-		return config.get(packageName).toString();
+	public static String getInfo(String packageName) throws PackageNotFoundException {
+		
+		String packageInfo = config.get(packageName).toString();
+		if (packageInfo.equals(null)) {
+			throw new PackageNotFoundException(packageName);
+		} else {
+			return packageInfo;
+		}
+		
 	}
 }

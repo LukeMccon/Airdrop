@@ -9,18 +9,20 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import me.lukemccon.airdrop.PackagesConfig;
+import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
 
 public class DropHelper {
 
 	/**
-	 * Returns an ArrayList of ItemStack of items in the specified package. If the
+	 * Returns an ArrayList of ItemStacks in the specified package. If the
 	 * package is invalid, returns an empty ArrayList
 	 * 
 	 * @param packageName
 	 * @param player
 	 * @return
+	 * @throws PackageNotFoundException 
 	 */
-	public static ArrayList<ItemStack> getItemsInPackage(String packageName, Player player) {
+	public static ArrayList<ItemStack> getItemsInPackage(String packageName, Player player) throws PackageNotFoundException {
 
 		ArrayList<ItemStack> itemsToReturn = new ArrayList<ItemStack>();
 
@@ -32,7 +34,7 @@ public class DropHelper {
 				itemNumber++;
 			}
 		} else {
-			ChatHandler.sendMessage(player, "This is an invalid package!");
+			throw new PackageNotFoundException(packageName);
 		}
 
 		return itemsToReturn;
@@ -75,13 +77,12 @@ public class DropHelper {
 		Double ylocPackage = null;
 		
 		try {
-			
+		
 		 xloc = (double) Math.round(Double.parseDouble(x));
 		 zloc = (double) Math.round(Double.parseDouble(z));
 		
 		} catch (NumberFormatException e) {
 			ChatHandler.sendErrorMessage(player, "You did not provide numbers");
-			
 		}
 		
 		
