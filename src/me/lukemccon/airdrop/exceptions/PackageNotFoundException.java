@@ -4,7 +4,7 @@ package me.lukemccon.airdrop.exceptions;
 public class PackageNotFoundException extends Exception {
 
 	public PackageNotFoundException() {
-		
+		super("Unable to find package");
 	}
 	
 	public PackageNotFoundException(String message) {

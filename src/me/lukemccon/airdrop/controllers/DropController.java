@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import me.lukemccon.airdrop.Crate;
+import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
 import me.lukemccon.airdrop.helpers.ChatHandler;
 import me.lukemccon.airdrop.helpers.DropHelper;
 import me.lukemccon.airdrop.packages.PackageManager;
@@ -61,10 +62,15 @@ public class DropController {
 				break;
 
 			case "drop":
-				packageName = args[1];
-				dropPlayer = player;
-				loc = dropPlayer.getLocation();
+				
+				if (args.length == 2){
+					packageName = args[1];
+					dropPlayer = player;
+					loc = dropPlayer.getLocation();
+				}
+				
 				if (args.length > 2) {
+					
 					switch (args[1]) {
 						case "loc":
 							packageName = args[2];
@@ -75,6 +81,12 @@ public class DropController {
 					}
 				}
 				
+				if (args.length == 1) {
+					ChatHandler.sendErrorMessage(player, "Invalid Command: Example Useage - /airdrop drop starter");
+					return true;
+				}
+				
+				
 				break;
 	
 			default:
@@ -82,16 +94,14 @@ public class DropController {
 
 		}
 
-		ArrayList<ItemStack> items = DropHelper.getItemsInPackage(packageName, dropPlayer);
-
-		if (items.isEmpty()) {
-			String errorMsg =
-					"Couldn't find package " + packageName + "\n" +
-					"Use /airdrop packages to view avaliable packages";
-			ChatHandler.sendErrorMessage(player, errorMsg);
+		ArrayList<ItemStack> items = null;
+		
+		try {
+			DropHelper.getItemsInPackage(packageName, dropPlayer);
+		} catch (PackageNotFoundException e) {
+			ChatHandler.sendErrorMessage(player, e.getMessage());
 			return true;
 		}
-
 
 		boolean noBlocksAbovePlayer = DropHelper.checkBlocksAbovePlayer(loc);
 

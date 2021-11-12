@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import me.lukemccon.airdrop.PackagesConfig;
+import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
 
 public class DropHelper {
 
@@ -19,8 +20,9 @@ public class DropHelper {
 	 * @param packageName
 	 * @param player
 	 * @return
+	 * @throws PackageNotFoundException 
 	 */
-	public static ArrayList<ItemStack> getItemsInPackage(String packageName, Player player) {
+	public static ArrayList<ItemStack> getItemsInPackage(String packageName, Player player) throws PackageNotFoundException {
 
 		ArrayList<ItemStack> itemsToReturn = new ArrayList<ItemStack>();
 
@@ -32,7 +34,7 @@ public class DropHelper {
 				itemNumber++;
 			}
 		} else {
-			ChatHandler.sendMessage(player, "This is an invalid package!");
+			throw new PackageNotFoundException(packageName);
 		}
 
 		return itemsToReturn;
