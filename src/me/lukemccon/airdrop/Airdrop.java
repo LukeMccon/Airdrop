@@ -10,11 +10,16 @@ import me.lukemccon.airdrop.packages.PackageManager;
 
 public class Airdrop extends JavaPlugin {
 	
+	public static Airdrop PLUGIN_INSTANCE;
+	
 	@Override
 	public void onEnable() {
 		
+		PLUGIN_INSTANCE = this;
+		
 		// Register Commands
 		this.getCommand("airdrop").setExecutor(new CmdAirdrop());
+		this.getCommand("dropzone").setExecutor(new CmdDropzone());
 		
 		// Register Listeners
 		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);
