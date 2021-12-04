@@ -33,7 +33,7 @@ jobs:
           echo "Skipping maven installation, already found"
         fi
     - name: Install less
-      run: apt-get update; apt install less
+      run: sudo apt-get update; sudo apt install less
     - name: Install aws cli
       id: install-aws-cli
       uses: unfor19/install-aws-cli-action@v1
