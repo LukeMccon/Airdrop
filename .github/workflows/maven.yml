@@ -19,6 +19,8 @@ jobs:
       with:
         java-version: '11'
         distribution: 'adopt'
+    - name: Take super user permissions
+      run: sudo su
     - name: Download Maven
       run: |
         curl -sL https://www-eu.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.zip -o maven.zip
