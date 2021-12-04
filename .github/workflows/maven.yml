@@ -22,6 +22,7 @@ jobs:
     - name: Take super user permissions
       run: sudo su
     - name: Download Maven
+      if: test ! -f /usr/bin/mvn
       run: |
         sudo curl -sL https://www-eu.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.zip -o maven.zip
         sudo apt-get update
@@ -32,7 +33,8 @@ jobs:
         echo "M2_HOME=/usr/share/apache-maven-3.6.3" | tee -a /etc/environment
     - name: Install less
       run: apt-get update; apt install less
-    - id: install-aws-cli
+    - name: Install aws cli
+      id: install-aws-cli
       uses: unfor19/install-aws-cli-action@v1
       with:
         version: 2     # default
