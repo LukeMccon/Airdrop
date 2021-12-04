@@ -19,11 +19,9 @@ jobs:
       with:
         java-version: '11'
         distribution: 'adopt'
-    - name: Take super user permissions
-      run: sudo su
     - name: Download Maven
-      if: test ! -f /usr/bin/mvn
       run: |
+        if [ ! -f "/usr/bin/mvn" ]; then
         sudo curl -sL https://www-eu.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.zip -o maven.zip
         sudo apt-get update
         sudo apt-get -y install unzip
@@ -31,6 +29,9 @@ jobs:
         rm maven.zip
         ln -s /usr/share/apache-maven-3.6.3/bin/mvn /usr/bin/mvn
         echo "M2_HOME=/usr/share/apache-maven-3.6.3" | tee -a /etc/environment
+        else
+          echo "Skipping maven installation, already found"
+        fi
     - name: Install less
       run: apt-get update; apt install less
     - name: Install aws cli
