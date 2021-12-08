@@ -5,12 +5,12 @@ Packages can be dropped on another player, at a location or on yourself.
 
 
 ### Spigot 1.16.5 Plugin
-### Version: 0.01 
+### Version: 0.02
 
 ## Usage
 
 View general plugin help:
-### /airdrop 
+### /airdrop
 
 Order a carepackage at your location
 ### /airdrop drop [packagename]
@@ -25,7 +25,7 @@ Display packages that are avaliable for you to order
 
 Call the starter package on yourself
 
-/airdrop drop starter 
+/airdrop drop starter
 
 Call the starter package onto player notch
 

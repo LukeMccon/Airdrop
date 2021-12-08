@@ -10,7 +10,6 @@ import org.bukkit.inventory.ItemStack;
 
 import me.lukemccon.airdrop.PackagesConfig;
 import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
-import me.lukemccon.airdrop.helpers.ChatHandler;
 /**
  * Manages packages, keeps list of available packages and their contents
  * 

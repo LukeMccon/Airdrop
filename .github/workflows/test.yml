@@ -1,6 +1,6 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
-
+# # This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+#
 name: Install and unit test
 
 on:
@@ -21,16 +21,21 @@ jobs:
         distribution: 'adopt'
     - name: Download Maven
       run: |
-        curl -sL https://www-eu.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.zip -o maven.zip
-        apt-get update
-        apt-get -y install unzip
+        if [ ! -f "/usr/bin/mvn" ]; then
+        sudo curl -sL https://www-eu.apache.org/dist/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.zip -o maven.zip
+        sudo apt-get update
+        sudo apt-get -y install unzip
         unzip -d /usr/share maven.zip
         rm maven.zip
         ln -s /usr/share/apache-maven-3.6.3/bin/mvn /usr/bin/mvn
         echo "M2_HOME=/usr/share/apache-maven-3.6.3" | tee -a /etc/environment
+        else
+          echo "Skipping maven installation, already found"
+        fi
     - name: Install less
-      run: apt-get update; apt install less
-    - id: install-aws-cli
+      run: sudo apt-get update; sudo apt install less
+    - name: Install aws cli
+      id: install-aws-cli
       uses: unfor19/install-aws-cli-action@v1
       with:
         version: 2     # default
