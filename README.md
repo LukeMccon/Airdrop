@@ -9,4 +9,4 @@ Packages can be dropped on another player, at a location or on yourself.
 ### Spigot 1.16.5 Plugin
 ### Version: 0.02
 
-##[Wiki](https://github.com/LukeMccon/Airdrop/wiki)
+# [Wiki](https://github.com/LukeMccon/Airdrop/wiki)
