@@ -24,7 +24,7 @@ public class CmdAirdropTest {
 	void should_Fail_With_Invalid_Player_Supplied() {
 		
 		String[] args = {"gift"};
-		Boolean result = cmdAirdrop.onCommand(sender, null, null, args );
+		Boolean result = cmdAirdrop.onCommand(sender, null, null, args);
 		assertFalse(result);		
 //		when(Bukkit.getPluginManager()).thenReturn(null);
 		
@@ -34,15 +34,15 @@ public class CmdAirdropTest {
 	void should_Fail_With_Invalid_Args() {
 		sender = mock(Player.class);
 		String[] args = {""};
-		Boolean result = cmdAirdrop.onCommand(sender, null, null, args );
+		boolean result = cmdAirdrop.onCommand(sender, null, null, args);
 		assertFalse(result);				
 	}
 	
 	@Test
 	void should_Pass_With_Valid_Args() {
 		sender = mock(Player.class);
-		String[] args = {"gift"};
-		Boolean result = cmdAirdrop.onCommand(sender, null, null, args );
+		String[] args = {"packages"};
+		boolean result = cmdAirdrop.onCommand(sender, null, null, args);
 		assertTrue(result);				
 	}
 }
