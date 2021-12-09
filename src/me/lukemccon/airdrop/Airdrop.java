@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import me.lukemccon.airdrop.commands.*;
+import me.lukemccon.airdrop.listeners.BarrelInventoryCloseListener;
 import me.lukemccon.airdrop.listeners.FallingBlockListener;
 import me.lukemccon.airdrop.packages.PackageManager;
 
@@ -22,6 +23,7 @@ public class Airdrop extends JavaPlugin {
 		
 		// Register Listeners
 		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);
+		Bukkit.getPluginManager().registerEvents(new BarrelInventoryCloseListener(), this);
 		
 		// Load configuration files
 		PackagesConfig.loadConfig();
