@@ -7,14 +7,14 @@ import org.bukkit.inventory.ItemStack;
 public class Package {
 
 	private ArrayList<ItemStack> items;
-	private Double price;
+	private double price;
 	private String name;
 	
 	public Package() {
 		
 	}
 	
-	Package(String name, Double price, ArrayList<ItemStack> items) {
+	Package(String name, double price, ArrayList<ItemStack> items) {
 		this.name = name;
 		this.price = price;
 		this.items = items;
@@ -22,6 +22,14 @@ public class Package {
 	
 	public String toString() {
 		return this.name;
+	}
+	
+	public double getPrice() { 
+		return this.price;
+	}
+	
+	public ArrayList<ItemStack> getItems() {
+		return this.items;
 	}
 	
 }

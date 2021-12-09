@@ -76,7 +76,7 @@ public class CmdDropzone implements CommandExecutor {
 						
 						Bukkit.getServer().broadcastMessage("Dropping an airdrop at X: " + xLoc + ", Z: " + zLoc);
 						
-						Crate crate = new Crate(dropLocation, world, items);	
+						Crate crate = new Crate(dropLocation, world, items);
 						crate.dropCrate();
 					}
 				}, frequencyInSeconds * 20, frequencyInSeconds*20);

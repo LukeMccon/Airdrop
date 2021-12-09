@@ -38,7 +38,7 @@ public class PackageManager {
 		return printStr;
 	}
 	
-	public static Set<String> getPackages(){
+	public static Set<String> getPackages() {
 		return config.getKeys(false);
 	}
 	
