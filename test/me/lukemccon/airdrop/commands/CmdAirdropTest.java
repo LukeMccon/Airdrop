@@ -33,7 +33,7 @@ public class CmdAirdropTest {
 	@Test
 	void should_Fail_With_Invalid_Args() {
 		sender = mock(Player.class);
-		String[] args = {""};
+		String[] args = {};
 		boolean result = cmdAirdrop.onCommand(sender, null, null, args);
 		assertFalse(result);				
 	}
