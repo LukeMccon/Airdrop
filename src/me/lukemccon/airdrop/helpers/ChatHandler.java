@@ -1,13 +1,14 @@
 package me.lukemccon.airdrop.helpers;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 public class ChatHandler {
 	
 	public static void sendErrorMessage(Player player, String message) {
 		
-		player.sendMessage(message);
+		player.sendMessage(ChatColor.RED + message);
 		
 	}
 	
