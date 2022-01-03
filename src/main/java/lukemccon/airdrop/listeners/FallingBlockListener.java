@@ -1,12 +1,12 @@
-package me.lukemccon.airdrop.listeners;
+package lukemccon.airdrop.listeners;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 
-import me.lukemccon.airdrop.Crate;
-import me.lukemccon.airdrop.helpers.CrateList;
+import lukemccon.airdrop.helpers.CrateList;
+import lukemccon.airdrop.Crate;
 
 public class FallingBlockListener implements Listener {
 		

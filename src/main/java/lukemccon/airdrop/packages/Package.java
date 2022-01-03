@@ -1,4 +1,4 @@
-package me.lukemccon.airdrop.packages;
+package lukemccon.airdrop.packages;
 
 import java.util.ArrayList;
 

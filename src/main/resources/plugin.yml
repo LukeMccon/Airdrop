@@ -1,0 +1,15 @@
+name: Airdrop
+main: lukemccon.airdrop.Airdrop
+version: 1.0
+api-version: 1.13
+commands:
+    airdrop:
+        aliases: [drop, ad, carepackage]
+        description: Call in an airdrop!
+        usage: /airdrop <kit name>
+    dropzone:
+        description: Set the dropzone
+        usage: /dropzone <arg>
+developers:
+  - lukey_c (LukeMccon)
+  - pianoman99987 (gregoryw)

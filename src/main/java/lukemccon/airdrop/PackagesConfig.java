@@ -1,4 +1,4 @@
-package me.lukemccon.airdrop;
+package lukemccon.airdrop;
 
 import java.io.File;
 import java.io.IOException;
@@ -8,7 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
-import me.lukemccon.airdrop.helpers.ChatHandler;
+import lukemccon.airdrop.helpers.ChatHandler;
 
 public class PackagesConfig {
 	

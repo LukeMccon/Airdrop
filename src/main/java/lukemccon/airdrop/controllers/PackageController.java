@@ -1,10 +1,10 @@
-package me.lukemccon.airdrop.controllers;
+package lukemccon.airdrop.controllers;
 
 import org.bukkit.entity.Player;
 
-import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
-import me.lukemccon.airdrop.helpers.ChatHandler;
-import me.lukemccon.airdrop.packages.PackageManager;
+import lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.helpers.ChatHandler;
+import lukemccon.airdrop.packages.PackageManager;
 
 public class PackageController {
 	

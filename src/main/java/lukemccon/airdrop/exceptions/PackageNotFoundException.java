@@ -1,4 +1,4 @@
-package me.lukemccon.airdrop.exceptions;
+package lukemccon.airdrop.exceptions;
 
 @SuppressWarnings("serial")
 public class PackageNotFoundException extends Exception {
