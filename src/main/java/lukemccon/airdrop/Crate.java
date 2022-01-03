@@ -1,4 +1,4 @@
-package me.lukemccon.airdrop;
+package lukemccon.airdrop;
 
 import java.util.ArrayList;
 
@@ -16,7 +16,7 @@ import org.bukkit.entity.Slime;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import me.lukemccon.airdrop.helpers.CrateList;
+import lukemccon.airdrop.helpers.CrateList;
 
 public class Crate {
 

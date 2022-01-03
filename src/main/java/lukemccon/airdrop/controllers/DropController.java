@@ -1,4 +1,4 @@
-package me.lukemccon.airdrop.controllers;
+package lukemccon.airdrop.controllers;
 
 import java.util.ArrayList;
 
@@ -9,11 +9,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import me.lukemccon.airdrop.Crate;
-import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
-import me.lukemccon.airdrop.helpers.ChatHandler;
-import me.lukemccon.airdrop.helpers.DropHelper;
-import me.lukemccon.airdrop.packages.PackageManager;
+import lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.helpers.ChatHandler;
+import lukemccon.airdrop.helpers.DropHelper;
+import lukemccon.airdrop.packages.PackageManager;
+import lukemccon.airdrop.Crate;
 
 public class DropController {
 	

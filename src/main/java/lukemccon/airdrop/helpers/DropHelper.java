@@ -1,12 +1,12 @@
-package me.lukemccon.airdrop.helpers;
+package lukemccon.airdrop.helpers;
 
 import java.util.ArrayList;
 
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import me.lukemccon.airdrop.PackagesConfig;
-import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.PackagesConfig;
 
 public class DropHelper {
 

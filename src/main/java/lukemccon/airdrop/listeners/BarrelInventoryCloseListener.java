@@ -1,4 +1,4 @@
-package me.lukemccon.airdrop.listeners;
+package lukemccon.airdrop.listeners;
 
 import org.bukkit.Effect;
 import org.bukkit.Material;
@@ -9,7 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
 
-import me.lukemccon.airdrop.helpers.CrateList;
+import lukemccon.airdrop.helpers.CrateList;
 
 public class BarrelInventoryCloseListener implements Listener {
 	

@@ -1,4 +1,4 @@
-package me.lukemccon.airdrop.packages;
+package lukemccon.airdrop.packages;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,8 +8,8 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
-import me.lukemccon.airdrop.PackagesConfig;
-import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.PackagesConfig;
 /**
  * Manages packages, keeps list of available packages and their contents
  * 
@@ -17,6 +17,11 @@ import me.lukemccon.airdrop.exceptions.PackageNotFoundException;
  *
  */
 public class PackageManager {
+	
+	
+	PackageManager(){
+		
+	}
 
 	public static HashMap<String, Package> packages = new HashMap<String, Package>();
 	private static YamlConfiguration fileConfig = PackagesConfig.getConfig();

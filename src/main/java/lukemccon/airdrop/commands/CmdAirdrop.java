@@ -1,12 +1,12 @@
-package me.lukemccon.airdrop.commands;
+package lukemccon.airdrop.commands;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import me.lukemccon.airdrop.controllers.DropController;
-import me.lukemccon.airdrop.controllers.PackageController;
+import lukemccon.airdrop.controllers.DropController;
+import lukemccon.airdrop.controllers.PackageController;
 
 public class CmdAirdrop implements CommandExecutor {
 

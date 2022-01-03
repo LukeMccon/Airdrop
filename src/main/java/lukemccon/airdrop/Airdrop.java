@@ -1,16 +1,31 @@
-package me.lukemccon.airdrop;
+package lukemccon.airdrop;
+
+import java.io.File;
 
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.java.JavaPluginLoader;
 
-import me.lukemccon.airdrop.commands.*;
-import me.lukemccon.airdrop.listeners.BarrelInventoryCloseListener;
-import me.lukemccon.airdrop.listeners.FallingBlockListener;
-import me.lukemccon.airdrop.packages.PackageManager;
+import lukemccon.airdrop.commands.CmdAirdrop;
+import lukemccon.airdrop.commands.CmdDropzone;
+import lukemccon.airdrop.listeners.BarrelInventoryCloseListener;
+import lukemccon.airdrop.listeners.FallingBlockListener;
+import lukemccon.airdrop.packages.PackageManager;
 
 public class Airdrop extends JavaPlugin {
 	
 	public static Airdrop PLUGIN_INSTANCE;
+	
+	// Define constructors per BukkitMock setup instructions
+	public Airdrop() {
+		super();
+	}
+	
+	protected Airdrop(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file)
+    {
+        super(loader, description, dataFolder, file);
+    }
 	
 	@Override
 	public void onEnable() {
