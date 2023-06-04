@@ -13,6 +13,7 @@ import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.helpers.DropHelper;
 import lukemccon.airdrop.packages.PackageManager;
+import net.md_5.bungee.api.ChatColor;
 import lukemccon.airdrop.Crate;
 
 public class DropController {
@@ -44,6 +45,7 @@ public class DropController {
 				return false;
 			}
 			
+			ChatHandler.sendMessage(player, "Dropping package " + args[0] + " on " + player.getName());
 			Crate crate = new Crate(highestLocation.add(new Vector(0, 20, 0)), world, items);
 			crate.dropCrate();
 
@@ -65,6 +67,7 @@ public class DropController {
 				return false;
 			}
 			
+			ChatHandler.sendMessage(player, "Dropping package " + ChatColor.RED + args[0] + ChatColor.BLUE + " on " + ChatColor.RED + dropTarget.getName());
 			Crate crate = new Crate(highestLocation.add(new Vector(0, 20, 0)), world, items);
 			crate.dropCrate();
 			
@@ -84,7 +87,7 @@ public class DropController {
 			
 			
 			Location highestLocation = world.getHighestBlockAt(x, z).getLocation().add(new Vector(0.5, 20, 0.5));
-			
+			ChatHandler.sendMessage(player, "Dropping package "+ ChatColor.RED + args[0] + ChatColor.BLUE + " at " + "x: " + ChatColor.RED + x + ChatColor.BLUE + " z: " + ChatColor.RED + z);
 			Crate crate = new Crate(highestLocation, world, items);
 			crate.dropCrate();
 			
