@@ -20,7 +20,7 @@ public class ChatHandler {
 	
 	public static void sendMessage(Player player, String message) {
 		
-		player.sendMessage(message);
+		player.sendMessage("[Airdrop] " + ChatColor.BLUE + message);
 		
 	}
 	
