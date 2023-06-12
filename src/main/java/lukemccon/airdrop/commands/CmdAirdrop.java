@@ -1,12 +1,13 @@
 package lukemccon.airdrop.commands;
 
+import lukemccon.airdrop.controllers.PackageController;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import lukemccon.airdrop.controllers.DropController;
-import lukemccon.airdrop.controllers.PackageController;
+import lukemccon.airdrop.controllers.PackagesController;
 
 public class CmdAirdrop implements CommandExecutor {
 
@@ -25,8 +26,10 @@ public class CmdAirdrop implements CommandExecutor {
 			}
 			
 			switch (args[0]) {
+				case "package":
+					return PackageController.onCommand(player,args);
 				case "packages":
-					return PackageController.onCommand(player, args);
+					return PackagesController.onCommand(player, args);
 				default:
 					return DropController.onCommand(player, args);
 			}

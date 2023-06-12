@@ -5,22 +5,16 @@ import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 public class ChatHandler {
-	
+
+	private static String ChatPrefix = ChatColor.BLUE + "[" + ChatColor.WHITE + "Airdrop" + ChatColor.BLUE + "]";
 	public static void sendErrorMessage(Player player, String message) {
 		
-		player.sendMessage(ChatColor.RED + message);
+		player.sendMessage( ChatHandler.ChatPrefix + ChatColor.RED + " "+ message);
 		
 	}
-	
-	public static void sendErrorMessage(Player player) {
-		
-		sendErrorMessage(player, "This is a default error");
-		
-	}
-	
 	public static void sendMessage(Player player, String message) {
 		
-		player.sendMessage("[Airdrop] " + ChatColor.BLUE + message);
+		player.sendMessage(ChatHandler.ChatPrefix + ChatColor.BLUE + " " + message);
 		
 	}
 	

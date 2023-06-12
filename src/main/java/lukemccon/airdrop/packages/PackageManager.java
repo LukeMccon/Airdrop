@@ -3,7 +3,9 @@ package lukemccon.airdrop.packages;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
@@ -65,12 +67,26 @@ public class PackageManager {
 	}
 	
 	public static String getInfo(String packageName) throws PackageNotFoundException {
-		
-		String packageInfo = config.get(packageName).toString();
-		if (packageInfo.equals(null)) {
+		ArrayList<ItemStack> packageInfo = new ArrayList<ItemStack>();
+		String packageInfoString = null;
+
+		try {
+			ArrayList<ItemStack> items = new ArrayList<ItemStack>();
+			for (String key : ((ConfigurationSection) config.get(packageName + ".items")).getKeys(false)) {
+				packageInfo.add(config.getItemStack(packageName + ".items." + key));
+			}
+			Bukkit.getLogger().info(Integer.toString(items.size()));
+			packageInfoString = items.toString();
+		} catch (Exception e) {
+			Bukkit.getLogger().info(e.getMessage());
+			throw new PackageNotFoundException(packageName);
+		}
+
+		if (packageInfo.size() == 0) {
 			throw new PackageNotFoundException(packageName);
 		} else {
-			return packageInfo;
+
+			return packageInfoString;
 		}
 		
 	}
