@@ -34,6 +34,7 @@ public class Airdrop extends JavaPlugin {
 		
 		// Register Commands
 		this.getCommand("airdrop").setExecutor(new CmdAirdrop());
+		this.getCommand("airdrop").setTabCompleter(new AirdropTabCompleter());
 		this.getCommand("dropzone").setExecutor(new CmdDropzone());
 		
 		// Register Listeners

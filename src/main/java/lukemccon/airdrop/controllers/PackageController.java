@@ -1,44 +1,27 @@
 package lukemccon.airdrop.controllers;
 
-import org.bukkit.entity.Player;
-
 import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.packages.PackageManager;
+import org.bukkit.entity.Player;
 
 public class PackageController {
 	
 	public static boolean onCommand(Player player, String[] args) {
-		
-		/**
-		 * Handles package directory related commands
-		 */
-		
-		switch(args.length) {
-			case 2:
-				switch (args[1]) {
-				// Get information about a package
-				// Ex: /airdrop packages info starter
-				case "info":
-					String packageInfo;
-					try {
-						packageInfo = PackageManager.getInfo(args[2]);
-						ChatHandler.sendMessage(player, packageInfo );
-					} catch (PackageNotFoundException e) {
-						ChatHandler.sendErrorMessage(player, e.getMessage());
-					}
-					break;
-				}
-				
-			default:
-				
-				// Lists avaliable packages
-				// /airdrop packages
-				
-				String list = PackageManager.list();
-				ChatHandler.sendMessage(player, list);
-				return true;
+
+		if (args.length < 2) {
+			ChatHandler.sendErrorMessage(player, "Must specify a package name");
 		}
+
+		String packageName = args[1];
+
+		try {
+			ChatHandler.sendMessage(player, PackageManager.getInfo(packageName));
+		} catch (PackageNotFoundException e) {
+			ChatHandler.sendErrorMessage(player, e.getMessage());
+		}
+
+		return true;
 	}
 
 }
