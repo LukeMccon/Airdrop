@@ -25,8 +25,6 @@ public class AirdropTabCompleter implements TabCompleter {
         switch (args[0]) {
             case "package":
                 return (new PackageTabCompletion()).onTabComplete(commandSender, command, alias, args);
-//            case "packages":
-//                return PackagesController.onCommand(player, args);
         }
         return new ArrayList<String>();
     }

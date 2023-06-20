@@ -1,6 +1,9 @@
 package lukemccon.airdrop.commands;
 
+import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.controllers.PackageController;
+import lukemccon.airdrop.helpers.ChatHandler;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -30,6 +33,9 @@ public class CmdAirdrop implements CommandExecutor {
 					return PackageController.onCommand(player,args);
 				case "packages":
 					return PackagesController.onCommand(player, args);
+				case "version":
+					ChatHandler.sendMessage(player, ChatColor.WHITE + "\nVERSION: " + Airdrop.PLUGIN_VERSION + "\nAPI_VERSION: " + Airdrop.PLUGIN_API_VERSION);
+					return true;
 				default:
 					return DropController.onCommand(player, args);
 			}

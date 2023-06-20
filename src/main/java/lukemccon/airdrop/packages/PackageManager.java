@@ -33,6 +33,7 @@ public class PackageManager {
 		// Force a reload from config
 		PackagesConfig.loadConfig();
 		config = (ConfigurationSection) PackagesConfig.getConfig().get("packages");
+		PackageManager.populatePackages();
 	}
 	
 	
@@ -47,6 +48,10 @@ public class PackageManager {
 	
 	public static Set<String> getPackages() {
 		return config.getKeys(false);
+	}
+
+	public static Package get(String key) {
+		return packages.get((Object) key);
 	}
 	
 	public static void populatePackages() {
@@ -67,27 +72,14 @@ public class PackageManager {
 	}
 	
 	public static String getInfo(String packageName) throws PackageNotFoundException {
-		ArrayList<ItemStack> packageInfo = new ArrayList<ItemStack>();
 		String packageInfoString = null;
 
 		try {
-			ArrayList<ItemStack> items = new ArrayList<ItemStack>();
-			for (String key : ((ConfigurationSection) config.get(packageName + ".items")).getKeys(false)) {
-				packageInfo.add(config.getItemStack(packageName + ".items." + key));
-			}
-			Bukkit.getLogger().info(Integer.toString(items.size()));
-			packageInfoString = items.toString();
+			packageInfoString = PackageManager.packages.get(packageName).getItems().toString();
 		} catch (Exception e) {
-			Bukkit.getLogger().info(e.getMessage());
 			throw new PackageNotFoundException(packageName);
 		}
+		return packageInfoString;
 
-		if (packageInfo.size() == 0) {
-			throw new PackageNotFoundException(packageName);
-		} else {
-
-			return packageInfoString;
-		}
-		
 	}
 }

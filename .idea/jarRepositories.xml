@@ -2,6 +2,11 @@
 <project version="4">
   <component name="RemoteRepositoriesConfiguration">
     <remote-repository>
+      <option name="id" value="essentials-releases" />
+      <option name="name" value="essentials-releases" />
+      <option name="url" value="https://repo.essentialsx.net/releases/" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="central" />
       <option name="name" value="Central Repository" />
       <option name="url" value="https://repo.maven.apache.org/maven2" />
@@ -15,6 +20,11 @@
       <option name="id" value="maven3" />
       <option name="name" value="maven3" />
       <option name="url" value="https://oss.sonatype.org/content/repositories/central" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="paper-repo" />
+      <option name="name" value="paper-repo" />
+      <option name="url" value="https://papermc.io/repo/repository/maven-public/" />
     </remote-repository>
     <remote-repository>
       <option name="id" value="MavenLocal" />

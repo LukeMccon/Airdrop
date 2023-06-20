@@ -1,7 +1,11 @@
 package lukemccon.airdrop.controllers;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 
+import com.earth2me.essentials.User;
+import lukemccon.airdrop.Airdrop;
+import lukemccon.airdrop.packages.Package;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -19,14 +23,29 @@ import lukemccon.airdrop.Crate;
 public class DropController {
 	
 	public static boolean onCommand(Player player, String[] args) {
+
+		String packageName = args[0];
 			
 		// args[0] will be the kit name
 		if(!PackageManager.has(args[0])) {
 			ChatHandler.sendErrorMessage(player, "Invalid Package Name");
 			return false;
 		}
-		
-		String packageName = args[0];
+
+		if (!DropController.canDropPackage(player, packageName)) {
+			ChatHandler.sendErrorMessage(player, "Insufficient permissions to drop that package");
+			return false;
+		}
+
+		User user = new User(player, Airdrop.ESSENTIALS);
+		Package pkg = PackageManager.get(packageName);
+		BigDecimal price = new BigDecimal(pkg.getPrice());
+
+		if (!user.canAfford(price)) {
+			ChatHandler.sendErrorMessage(player, "User has Insufficient funds to drop that package");
+			return false;
+		}
+
 		ArrayList<ItemStack> items = null;
 		try {
 			items = DropHelper.getItemsInPackage(packageName, player);
@@ -48,6 +67,8 @@ public class DropController {
 			ChatHandler.sendMessage(player, "Dropping package " + args[0] + " on " + player.getName());
 			Crate crate = new Crate(highestLocation.add(new Vector(0, 20, 0)), world, items);
 			crate.dropCrate();
+
+			user.takeMoney(price);
 
 			
 		} else if (args.length == 2) {
@@ -97,6 +118,14 @@ public class DropController {
 		
 		return true;
 		
+	}
+
+	private static Boolean canDropPackage(Player player , String packageName) {
+		Boolean hasPermission = player.hasPermission("airdrop.package."+ packageName.toLowerCase()) ||
+				player.hasPermission("airdrop.package.all");
+		Boolean isAnAdmin = player.hasPermission("airdrop.admin");
+		return hasPermission || isAnAdmin || player.isOp();
+
 	}
 
 }

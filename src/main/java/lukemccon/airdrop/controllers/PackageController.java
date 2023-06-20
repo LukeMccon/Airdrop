@@ -3,6 +3,7 @@ package lukemccon.airdrop.controllers;
 import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.packages.PackageManager;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 public class PackageController {
@@ -16,7 +17,7 @@ public class PackageController {
 		String packageName = args[1];
 
 		try {
-			ChatHandler.sendMessage(player, PackageManager.getInfo(packageName));
+			ChatHandler.sendMessage(player, ChatColor.WHITE + PackageManager.getInfo(packageName));
 		} catch (PackageNotFoundException e) {
 			ChatHandler.sendErrorMessage(player, e.getMessage());
 		}
