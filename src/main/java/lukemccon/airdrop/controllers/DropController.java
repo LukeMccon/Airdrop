@@ -9,6 +9,8 @@ import lukemccon.airdrop.packages.Package;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
@@ -22,28 +24,33 @@ import lukemccon.airdrop.Crate;
 
 public class DropController {
 	
-	public static boolean onCommand(Player player, String[] args) {
+	public static boolean onCommand(CommandSender sender, String[] args) {
 
 		String packageName = args[0];
-			
-		// args[0] will be the kit name
-		if(!PackageManager.has(args[0])) {
-			ChatHandler.sendErrorMessage(player, "Invalid Package Name");
-			return false;
+		Package pkg;
+
+		if (!(sender instanceof Player)) {
+			ChatHandler.sendErrorMessage(sender,"Must be a player to use this command");
+			return true;
+		}
+
+		Player player = (Player) sender;
+
+		try {
+			pkg = PackageManager.get(packageName);
+		} catch (PackageNotFoundException e) {
+			ChatHandler.sendErrorMessage(player, e.getMessage());
+			return true;
 		}
 
 		if (!DropController.canDropPackage(player, packageName)) {
-			ChatHandler.sendErrorMessage(player, "Insufficient permissions to drop that package");
-			return false;
+			ChatHandler.sendErrorMessage(player, "You have insufficient permissions to drop that package, you must have" + ChatColor.AQUA + "airdrop.package." + packageName);
+			return true;
 		}
 
-		User user = new User(player, Airdrop.ESSENTIALS);
-		Package pkg = PackageManager.get(packageName);
-		BigDecimal price = new BigDecimal(pkg.getPrice());
-
-		if (!user.canAfford(price)) {
-			ChatHandler.sendErrorMessage(player, "User has Insufficient funds to drop that package");
-			return false;
+		if (!pkg.canAfford(player)) {
+			ChatHandler.sendErrorMessage(player, "You don't have enough money to drop that package. you need at-least: " + ChatColor.AQUA + "$" + pkg.getPrice());
+			return true;
 		}
 
 		ArrayList<ItemStack> items = null;
@@ -61,14 +68,14 @@ public class DropController {
 			
 			if (playerLoc.getBlockY() <= highestLocation.getBlockY()) {
 				ChatHandler.sendErrorMessage(player, "Must be below open sky for an airdrop!");
-				return false;
+				return true;
 			}
 			
 			ChatHandler.sendMessage(player, "Dropping package " + args[0] + " on " + player.getName());
 			Crate crate = new Crate(highestLocation.add(new Vector(0, 20, 0)), world, items);
 			crate.dropCrate();
 
-			user.takeMoney(price);
+			pkg.chargeUser(player);
 
 			
 		} else if (args.length == 2) {
@@ -76,7 +83,7 @@ public class DropController {
 			Player dropTarget = Bukkit.getServer().getPlayer(args[1]);
 			if (dropTarget == null) {
 				ChatHandler.sendErrorMessage(player, "Player " + args[1] + " is not online!");
-				return false;
+				return true;
 			}
 			
 			World world = dropTarget.getWorld();
@@ -85,7 +92,7 @@ public class DropController {
 			
 			if (playerLoc.getBlockY() <= highestLocation.getBlockY()) {
 				ChatHandler.sendErrorMessage(player, "Target must be below open sky for an airdrop!");
-				return false;
+				return true;
 			}
 			
 			ChatHandler.sendMessage(player, "Dropping package " + ChatColor.RED + args[0] + ChatColor.BLUE + " on " + ChatColor.RED + dropTarget.getName());
@@ -103,7 +110,7 @@ public class DropController {
 				z = Integer.parseInt(args[2]);
 			} catch (NumberFormatException e) {
 				ChatHandler.sendErrorMessage(player, "Invalid x or z location! Please input valid integers.");
-				return false;
+				return true;
 			}
 			
 			
@@ -113,7 +120,7 @@ public class DropController {
 			crate.dropCrate();
 			
 		} else {
-			return false;
+			return true;
 		}
 		
 		return true;
@@ -125,7 +132,6 @@ public class DropController {
 				player.hasPermission("airdrop.package.all");
 		Boolean isAnAdmin = player.hasPermission("airdrop.admin");
 		return hasPermission || isAnAdmin || player.isOp();
-
 	}
 
 }
