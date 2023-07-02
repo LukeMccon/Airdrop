@@ -1,5 +1,5 @@
 bin/
 .DS_Store
 .classpath
-/target/
+target/
 copy.sh

@@ -38,7 +38,40 @@ Use the existing `starter` package as an example.
 
 An example of adding another package to the config in addition to the `starter` package:
 
-```
+```yaml
+packages:
+  starter:
+    items:
+      '1':
+        ==: org.bukkit.inventory.ItemStack
+        v: 3337
+        type: IRON_HELMET
+      '2':
+        ==: org.bukkit.inventory.ItemStack
+        v: 3337
+        type: IRON_CHESTPLATE
+      '3':
+        ==: org.bukkit.inventory.ItemStack
+        v: 3337
+        type: IRON_LEGGINGS
+      '4':
+        ==: org.bukkit.inventory.ItemStack
+        v: 3337
+        type: IRON_BOOTS
+      '5':
+        ==: org.bukkit.inventory.ItemStack
+        v: 3337
+        type: BREAD
+        amount: 2
+    price: 10
+  mypackage:
+    items:
+      '1':
+        ==: org.bukkit.inventory.ItemStack
+        v: 3337
+        type: OAK_LOG
+        amount: 3
+    price: 3
 
 ```
 
