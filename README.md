@@ -1,6 +1,13 @@
 # Airdrop
 
-Spigot plugin that allows users to call in customizable care packages that fall from the sky.
+A Spigot plugin that allows players to call in customizable care packages that fall from the sky
+
+## Index
+
+- [Usage](#usage)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Commands](#commands)
 
 ## Usage
 
@@ -10,12 +17,32 @@ Spigot plugin that allows users to call in customizable care packages that fall 
 
 ## Installation
 
-Install the following dependencies:
+Install the following plugins:
+
+Download and copy the `.jar` files for these plugins into your `plugins` folder:
 
 - [LuckPerms](https://luckperms.net/)
 - [EssentialsX](https://essentialsx.net/)
 
-## CLI reference
+Download the latest stable release of `Airdrop`
+Place the `.jar` into your plugins folder
+
+## Configuration
+
+#### Setting up packages
+
+In your `plugins` folder look for the `Airdrop` folder.
+Open the `packages.yml` in your favorite text editor (reccommended to use one that supports YAML)
+
+Use the existing `starter` package as an example.
+
+An example of adding another package to the config in addition to the `starter` package:
+
+```
+
+```
+
+## Commands
 
 `/airdrop <command> [args]`
 
