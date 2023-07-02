@@ -1,1 +1,0 @@
-cp ./target/*.jar /Users/lukemcconnaughey/Documents/spigot-server/plugins
