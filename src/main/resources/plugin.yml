@@ -1,15 +1,15 @@
 name: Airdrop
 main: lukemccon.airdrop.Airdrop
-version: 1.0
-api-version: 1.13
+version: 2.0
+api-version: 1.19
+depend:
+  - LuckPerms
+  - Essentials
 commands:
     airdrop:
-        aliases: [drop, ad, carepackage]
+        aliases: [drop, ad]
         description: Call in an airdrop!
-        usage: /airdrop <kit name>
-    dropzone:
-        description: Set the dropzone
-        usage: /dropzone <arg>
+        usage: /airdrop <package name>
 developers:
-  - lukey_c (LukeMccon)
+  - LukeMccon
   - pianoman99987 (gregoryw)

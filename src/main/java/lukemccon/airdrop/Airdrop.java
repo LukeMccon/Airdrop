@@ -14,7 +14,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.java.JavaPluginLoader;
 
 import lukemccon.airdrop.commands.CmdAirdrop;
-import lukemccon.airdrop.commands.CmdDropzone;
 import lukemccon.airdrop.listeners.BarrelInventoryCloseListener;
 import lukemccon.airdrop.listeners.FallingBlockListener;
 import lukemccon.airdrop.packages.PackageManager;
@@ -49,7 +48,6 @@ public class Airdrop extends JavaPlugin {
 		// Register Commands
 		this.getCommand("airdrop").setExecutor(new CmdAirdrop());
 		this.getCommand("airdrop").setTabCompleter(new AirdropTabCompleter());
-		this.getCommand("dropzone").setExecutor(new CmdDropzone());
 		
 		// Register Listeners
 		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);

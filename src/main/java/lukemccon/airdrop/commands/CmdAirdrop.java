@@ -17,32 +17,22 @@ public class CmdAirdrop implements CommandExecutor {
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
-		// Check if sender is a Player
-		if (sender instanceof Player) {
-
-			// Cast sender to Player
-			Player player = (Player) sender;
-
-			// If no arguments, return false
+			// If no arguments exit
 			if (args.length == 0) {
 				return false;
 			}
 			
 			switch (args[0]) {
 				case "package":
-					return PackageController.onCommand(player,args);
+					return PackageController.onCommand(sender,args);
 				case "packages":
-					return PackagesController.onCommand(player, args);
+					return PackagesController.onCommand(sender, args);
 				case "version":
-					ChatHandler.sendMessage(player, ChatColor.WHITE + "\nVERSION: " + Airdrop.PLUGIN_VERSION + "\nAPI_VERSION: " + Airdrop.PLUGIN_API_VERSION);
+					ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nAirdrop Version: " + ChatColor.AQUA + Airdrop.PLUGIN_VERSION + ChatColor.WHITE + "\nSpigot API Version: " + ChatColor.AQUA + Airdrop.PLUGIN_API_VERSION);
 					return true;
 				default:
-					return DropController.onCommand(player, args);
+					return DropController.onCommand(sender, args);
 			}
-		}
-
-		// If sender isn't player, return false
-		return false;
 	}
 
 }

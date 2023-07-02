@@ -15,6 +15,8 @@ public class PackageTabCompletion implements TabCompleter {
 
         // args[0] verified to be "package"
 
+
+        // Return a list of packages
         if (args.length == 2) {
             return PackageManager.getPackages().stream().toList();
         } else {
