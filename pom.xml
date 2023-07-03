@@ -33,6 +33,7 @@
         </configuration>
     </plugin>
     </plugins>
+      <finalName>Airdrop</finalName>
   </build>
   <repositories>
     <!-- This adds the Spigot Maven repository to the build -->
@@ -73,4 +74,5 @@
   <properties>
     <maven.compiler.release>16</maven.compiler.release>
 </properties>
+<packaging>jar</packaging>
 </project>
