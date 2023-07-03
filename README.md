@@ -1,4 +1,4 @@
-<div style="text-align: center;">
+<div style="text-align: center;" align="center">
 <h1>Airdrop</h1>
 
 ![Spigot SVG](readme/spigot-1.19.svg)
