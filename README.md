@@ -1,4 +1,15 @@
-# Airdrop
+<p align="center">
+  <h1>Airdrop</h1>
+</p>
+
+![Spigot SVG](readme/spigot-1.19.svg)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.16+-brightgreen.svg)](https://www.minecraft.net)
+
+<!-- [![Spigot](https://img.shields.io/badge/Spigot-1.16.5-orange.svg)](https://www.spigotmc.org) -->
+
+[![Build Status](https://img.shields.io/travis/your-username/airdrop-plugin/master.svg)](https://travis-ci.org/your-username/airdrop-plugin)
+[![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/your-username/airdrop-plugin/releases/latest)
 
 A Spigot plugin that allows players to call in customizable care packages that fall from the sky
 
@@ -42,23 +53,23 @@ An example of adding another package to the config in addition to the `starter` 
 packages:
   starter:
     items:
-      '1':
+      "1":
         ==: org.bukkit.inventory.ItemStack
         v: 3337
         type: IRON_HELMET
-      '2':
+      "2":
         ==: org.bukkit.inventory.ItemStack
         v: 3337
         type: IRON_CHESTPLATE
-      '3':
+      "3":
         ==: org.bukkit.inventory.ItemStack
         v: 3337
         type: IRON_LEGGINGS
-      '4':
+      "4":
         ==: org.bukkit.inventory.ItemStack
         v: 3337
         type: IRON_BOOTS
-      '5':
+      "5":
         ==: org.bukkit.inventory.ItemStack
         v: 3337
         type: BREAD
@@ -66,13 +77,12 @@ packages:
     price: 10
   mypackage:
     items:
-      '1':
+      "1":
         ==: org.bukkit.inventory.ItemStack
         v: 3337
         type: OAK_LOG
         amount: 3
     price: 3
-
 ```
 
 ## Commands
