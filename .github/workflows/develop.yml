@@ -2,7 +2,7 @@ name: Tag
 on:
   push:
     branches:
-      - main
+      - develop
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,7 +21,7 @@ jobs:
         uses: mathieudutour/github-tag-action@v6.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: main
+          pre_release_branches: develop
       - name: Create a GitHub release
         uses: ncipollo/release-action@v1
         with:
@@ -29,4 +29,5 @@ jobs:
           name: Release ${{ steps.tag_version.outputs.new_tag }}
           body: ${{ steps.tag_version.outputs.changelog }}
           artifacts: target/*.jar
-          makeLatest: true
+          prerelease: true
+          makeLatest: false
