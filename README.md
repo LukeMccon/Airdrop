@@ -4,7 +4,7 @@
 ![Spigot SVG](readme/spigot-1.19.svg) ![Java SVG](readme/java-19.svg)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.16+-brightgreen.svg)](https://www.minecraft.net) [![Build Status](https://img.shields.io/travis/your-username/airdrop-plugin/master.svg)](https://travis-ci.org/your-username/airdrop-plugin) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/your-username/airdrop-plugin/releases/latest)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.16+-brightgreen.svg)](https://www.minecraft.net) ![build and release](https://github.com/LukeMccon/Airdrop/actions/workflows/main.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
 
 A Spigot plugin that allows players to call in customizable care packages that fall from the sky
 
