@@ -19,9 +19,20 @@ A Spigot plugin that allows players to call in customizable care packages that f
 
 ## Usage
 
+As a server operator you can call in packages using:
 ```
 /airdrop starter # drops the starter package
 ```
+
+Otherwise, using LuckPerms you can allow everyone to use packages through *either* of these methods:
+
+```
+/lp group default permission set airdrop.package.all
+```
+
+OR 
+
+Add the `airdrop-user` group to the desired players
 
 ## Installation
 

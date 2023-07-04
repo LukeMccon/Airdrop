@@ -1,15 +1,10 @@
 package lukemccon.airdrop.controllers;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 
-import com.earth2me.essentials.User;
-import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.packages.Package;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -78,49 +73,6 @@ public class DropController {
 			pkg.chargeUser(player);
 
 			
-		} else if (args.length == 2) {
-			
-			Player dropTarget = Bukkit.getServer().getPlayer(args[1]);
-			if (dropTarget == null) {
-				ChatHandler.sendErrorMessage(player, "Player " + args[1] + " is not online!");
-				return true;
-			}
-			
-			World world = dropTarget.getWorld();
-			Location playerLoc = dropTarget.getLocation();
-			Location highestLocation = world.getHighestBlockAt(playerLoc.getBlockX(), playerLoc.getBlockZ()).getLocation().add(new Vector(0.5, 0, 0.5));
-			
-			if (playerLoc.getBlockY() <= highestLocation.getBlockY()) {
-				ChatHandler.sendErrorMessage(player, "Target must be below open sky for an airdrop!");
-				return true;
-			}
-			
-			ChatHandler.sendMessage(player, "Dropping package " + ChatColor.RED + args[0] + ChatColor.BLUE + " on " + ChatColor.RED + dropTarget.getName());
-			Crate crate = new Crate(highestLocation.add(new Vector(0, 20, 0)), world, items);
-			crate.dropCrate();
-			
-		} else if (args.length == 3) {
-			
-			World world = player.getWorld();
-			int x = 0;
-			int z = 0;
-			
-			try {
-				x = Integer.parseInt(args[1]);
-				z = Integer.parseInt(args[2]);
-			} catch (NumberFormatException e) {
-				ChatHandler.sendErrorMessage(player, "Invalid x or z location! Please input valid integers.");
-				return true;
-			}
-			
-			
-			Location highestLocation = world.getHighestBlockAt(x, z).getLocation().add(new Vector(0.5, 20, 0.5));
-			ChatHandler.sendMessage(player, "Dropping package "+ ChatColor.RED + args[0] + ChatColor.BLUE + " at " + "x: " + ChatColor.RED + x + ChatColor.BLUE + " z: " + ChatColor.RED + z);
-			Crate crate = new Crate(highestLocation, world, items);
-			crate.dropCrate();
-			
-		} else {
-			return true;
 		}
 		
 		return true;
