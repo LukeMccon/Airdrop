@@ -66,7 +66,7 @@ public class DropController {
 				return true;
 			}
 			
-			ChatHandler.sendMessage(player, "Dropping package " + args[0] + " on " + player.getName());
+			ChatHandler.sendMessage(player, "Dropping package " + ChatColor.AQUA + args[0] + " on " + player.getName());
 			Crate crate = new Crate(highestLocation.add(new Vector(0, 20, 0)), world, items);
 			crate.dropCrate();
 

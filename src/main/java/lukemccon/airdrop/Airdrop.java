@@ -2,6 +2,7 @@ package lukemccon.airdrop;
 
 import java.io.File;
 
+import lukemccon.airdrop.packages.PackagesGui;
 import net.ess3.api.IEssentials;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.group.Group;
@@ -26,6 +27,8 @@ public class Airdrop extends JavaPlugin {
 	public static String PLUGIN_VERSION;
 	public static String PLUGIN_API_VERSION;
 	public static LuckPerms LUCK_PERMS;
+
+	public static PackagesGui PACKAGES_GUI;
 	
 	// Define constructors per BukkitMock setup instructions
 	public Airdrop() {
@@ -44,6 +47,7 @@ public class Airdrop extends JavaPlugin {
 		PLUGIN_INSTANCE = this;
 		PLUGIN_VERSION = pdf.getVersion();
 		PLUGIN_API_VERSION = pdf.getAPIVersion();
+
 		
 		// Register Commands
 		this.getCommand("airdrop").setExecutor(new CmdAirdrop());
@@ -52,12 +56,16 @@ public class Airdrop extends JavaPlugin {
 		// Register Listeners
 		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);
 		Bukkit.getPluginManager().registerEvents(new BarrelInventoryCloseListener(), this);
+
 		
 		// Load configuration files
 		PackagesConfig.loadConfig();
 		
 		// Start the package manager
 		PackageManager.reload();
+
+		PACKAGES_GUI = new PackagesGui();
+		Bukkit.getPluginManager().registerEvents(PACKAGES_GUI, this);
 
 		RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
 		if (provider != null) {

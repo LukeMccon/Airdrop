@@ -1,5 +1,7 @@
 package lukemccon.airdrop.controllers;
 
+import lukemccon.airdrop.Airdrop;
+import lukemccon.airdrop.packages.PackagesGui;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -17,6 +19,9 @@ public class PackagesController {
 
 		// Lists available packages
 		// /airdrop packages
+		System.out.println("this command was executed");
+
+		Airdrop.PACKAGES_GUI.openInventory((Player) sender);
 
 		String list = PackageManager.list();
 		ChatHandler.sendMessage(sender, list);

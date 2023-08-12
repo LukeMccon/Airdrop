@@ -37,7 +37,6 @@ public class PackageManager {
 		PackageManager.populatePackages();
 	}
 	
-	
 	public static String list() {
 		String printStr = "Available Packages\n";
 		printStr += "=============== \n" + ChatColor.AQUA;
@@ -112,6 +111,10 @@ public class PackageManager {
 	public static String getInfo(String packageName) throws PackageNotFoundException {
 		Package p = PackageManager.get(packageName);
 		return p.toString();
+	}
+
+	public static int getNumberofPackages() {
+		return packages.size();
 	}
 	
 }
