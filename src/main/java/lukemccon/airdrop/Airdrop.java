@@ -1,7 +1,10 @@
 package lukemccon.airdrop;
 
 import java.io.File;
+import java.util.HashMap;
 
+import lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.packages.PackageGui;
 import lukemccon.airdrop.packages.PackagesGui;
 import net.ess3.api.IEssentials;
 import net.luckperms.api.LuckPerms;
@@ -27,8 +30,9 @@ public class Airdrop extends JavaPlugin {
 	public static String PLUGIN_VERSION;
 	public static String PLUGIN_API_VERSION;
 	public static LuckPerms LUCK_PERMS;
-
 	public static PackagesGui PACKAGES_GUI;
+
+	public static HashMap<String, PackageGui> PACKAGE_GUIS = new HashMap<String,PackageGui>();
 	
 	// Define constructors per BukkitMock setup instructions
 	public Airdrop() {
@@ -66,6 +70,14 @@ public class Airdrop extends JavaPlugin {
 
 		PACKAGES_GUI = new PackagesGui();
 		Bukkit.getPluginManager().registerEvents(PACKAGES_GUI, this);
+
+		PackageManager.packages.values().stream()
+				.map(pkg -> new PackageGui(pkg))
+				.map(pkg -> {
+					PACKAGE_GUIS.put(pkg.getName(), pkg);
+					return pkg;
+				})
+				.forEach(gui -> Bukkit.getPluginManager().registerEvents(gui, this));
 
 		RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
 		if (provider != null) {

@@ -1,5 +1,6 @@
 package lukemccon.airdrop.packages;
 
+import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -45,14 +46,6 @@ public class PackagesGui implements Listener {
 
         List<ItemStack> pkglist = packages.stream().map(this::packageGuiItem).collect(Collectors.toList());
         pkglist.forEach(item -> inv.addItem(item));
-
-        int inventorySize = inv.getSize();
-
-        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save"));
-        inv.setItem(inventorySize -1 ,createGuiItem(Material.RED_WOOL, "Cancel"));
-//
-//        inv.addItem(createGuiItem(Material.DIAMOND_SWORD, "Example Sword", "§aFirst line of the lore", "§bSecond line of the lore"));
-//        inv.addItem(createGuiItem(Material.IRON_HELMET, "§bExample Helmet", "§aFirst line of the lore", "§bSecond line of the lore"));
     }
 
     private ItemStack packageGuiItem(String packageName) {
@@ -90,7 +83,6 @@ public class PackagesGui implements Listener {
     // Check for clicks on items
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
-        System.out.println("triggered");
         if (!e.getInventory().equals(inv)) return;
 
         e.setCancelled(true);
@@ -102,8 +94,8 @@ public class PackagesGui implements Listener {
 
         final Player p = (Player) e.getWhoClicked();
 
-        // Using slots click is a best option for your inventory click's
-        p.sendMessage("You clicked at slot " + e.getRawSlot());
+        String packageName =  e.getCurrentItem().getItemMeta().getDisplayName().toLowerCase();
+        Airdrop.PACKAGE_GUIS.get(packageName).openInventory(p);
     }
 
     // Cancel dragging in our inventory

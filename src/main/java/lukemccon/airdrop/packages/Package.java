@@ -35,6 +35,8 @@ public class Package {
 		return this.price;
 	}
 
+	public String getName() { return this.name; }
+
 	public Boolean canAfford(Player player) {
 		User user = new User(player, Airdrop.ESSENTIALS);
 		BigDecimal price = new BigDecimal(this.getPrice());

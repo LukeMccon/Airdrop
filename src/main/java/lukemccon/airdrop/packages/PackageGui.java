@@ -23,25 +23,26 @@ public class PackageGui implements Listener {
     private final int SAVE_CANCEL_PADDING = 3;
     private final Package pkg;
 
+    private final String name;
+
     public PackageGui(Package pkg) {
 
         this.pkg = pkg;
+        this.name = pkg.getName();
 
         int inventorySize;
         int packageCount = PackageManager.getNumberofPackages();
 
         System.out.println(packageCount);
 
+        // Logic to determine how large to make the inventory
         inventorySize = (int) (ROW_SIZE * Math.ceil(((packageCount + SAVE_CANCEL_PADDING)/ROW_SIZE) + 1 ));
 
-        // Create a new inventory, with no owner (as this isn't a real inventory), a size of nine, called example
-        inv = Bukkit.createInventory(null, inventorySize, "Packages");
+        inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
 
-        // Put the items into the inventory
         initializeItems();
     }
 
-    // You can call this whenever you want to put the items in
     public void initializeItems() {
 
         List<ItemStack> itemList = this.getItems();
@@ -58,7 +59,6 @@ public class PackageGui implements Listener {
         return pkg.getItems().stream().map(item -> createGuiItem(item.getType(), "")).collect(Collectors.toList());
     }
 
-    // Nice little method to create a gui item with a custom name, and description
     protected ItemStack createGuiItem(final Material material, final String name, final String... lore) {
         final ItemStack item = new ItemStack(material, 1);
         final ItemMeta meta = item.getItemMeta();
@@ -74,12 +74,10 @@ public class PackageGui implements Listener {
         return item;
     }
 
-    // You can open the inventory with this
     public void openInventory(final HumanEntity ent) {
         ent.openInventory(inv);
     }
 
-    // Check for clicks on items
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
         if (!e.getInventory().equals(inv)) return;
@@ -97,11 +95,12 @@ public class PackageGui implements Listener {
         p.sendMessage("You clicked at slot " + e.getRawSlot());
     }
 
-    // Cancel dragging in our inventory
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
         if (e.getInventory().equals(inv)) {
             e.setCancelled(true);
         }
     }
+
+    public String getName() { return this.name; }
 }
