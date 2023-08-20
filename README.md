@@ -1,7 +1,14 @@
 <div style="text-align: center;" align="center">
+
+<img src="readme/banner.png" height="200px" width="200px"/>
+
 <h1>Airdrop</h1>
 
-![Spigot SVG](readme/spigot-1.19.svg) ![Java SVG](readme/java-19.svg)
+<h3> <i> From the skies! </i> </h3>
+
+<br />
+
+![Spigot SVG](readme/spigot-1.20.1.svg) ![Java SVG](readme/java-19.svg)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.16+-brightgreen.svg)](https://www.minecraft.net) ![build and release](https://github.com/LukeMccon/Airdrop/actions/workflows/main.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
@@ -20,17 +27,18 @@ A Spigot plugin that allows players to call in customizable care packages that f
 ## Usage
 
 As a server operator you can call in packages using:
+
 ```
 /airdrop starter # drops the starter package
 ```
 
-Otherwise, using LuckPerms you can allow everyone to use packages through *either* of these methods:
+Otherwise, using LuckPerms you can allow everyone to use packages through _either_ of these methods:
 
 ```
 /lp group default permission set airdrop.package.all
 ```
 
-OR 
+OR
 
 Add the `airdrop-user` group to the desired players
 
