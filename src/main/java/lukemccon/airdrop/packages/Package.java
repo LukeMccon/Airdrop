@@ -1,11 +1,13 @@
 package lukemccon.airdrop.packages;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 import com.earth2me.essentials.User;
 import lukemccon.airdrop.Airdrop;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -57,5 +59,7 @@ public class Package {
 	public ArrayList<ItemStack> getItems() {
 		return this.items;
 	}
+
+	public void setItems(ArrayList<ItemStack> items) { this.items = items; }
 	
 }

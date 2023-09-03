@@ -116,5 +116,17 @@ public class PackageManager {
 	public static int getNumberofPackages() {
 		return packages.size();
 	}
+
+	public static void updatePackageInventory(String packageName, ArrayList<ItemStack> items) {
+
+		Package pkg;
+		try {
+			pkg = PackageManager.get(packageName);
+		} catch (PackageNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+
+		pkg.setItems(items);
+	}
 	
 }

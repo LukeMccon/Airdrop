@@ -2,6 +2,7 @@ package lukemccon.airdrop.packages;
 
 import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
@@ -19,6 +20,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * GUI that shows available packages within airdrop
+ */
 public class PackagesGui implements Listener {
     private final Inventory inv;
     private final int ROW_SIZE = 9;
@@ -59,7 +63,7 @@ public class PackagesGui implements Listener {
         return createGuiItem(Material.CHEST, packageName, "test");
     }
 
-    // Nice little method to create a gui item with a custom name, and description
+    // Creates a gui item with a custom name, and description
     protected ItemStack createGuiItem(final Material material, final String name, final String... lore) {
         final ItemStack item = new ItemStack(material, 1);
         final ItemMeta meta = item.getItemMeta();
@@ -75,12 +79,10 @@ public class PackagesGui implements Listener {
         return item;
     }
 
-    // You can open the inventory with this
     public void openInventory(final HumanEntity ent) {
         ent.openInventory(inv);
     }
 
-    // Check for clicks on items
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
         if (!e.getInventory().equals(inv)) return;
@@ -98,7 +100,6 @@ public class PackagesGui implements Listener {
         Airdrop.PACKAGE_GUIS.get(packageName).openInventory(p);
     }
 
-    // Cancel dragging in our inventory
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
         if (e.getInventory().equals(inv)) {

@@ -1,6 +1,9 @@
 package lukemccon.airdrop.packages;
 
+import lukemccon.airdrop.helpers.ChatHandler;
+import lukemccon.airdrop.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -12,6 +15,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -22,7 +26,6 @@ public class PackageGui implements Listener {
     private final int ROW_SIZE = 9;
     private final int SAVE_CANCEL_PADDING = 3;
     private final Package pkg;
-
     private final String name;
 
     public PackageGui(Package pkg) {
@@ -33,10 +36,8 @@ public class PackageGui implements Listener {
         int inventorySize;
         int packageCount = PackageManager.getNumberofPackages();
 
-        System.out.println(packageCount);
-
         // Logic to determine how large to make the inventory
-        inventorySize = (int) (ROW_SIZE * Math.ceil(((packageCount + SAVE_CANCEL_PADDING)/ROW_SIZE) + 1 ));
+        inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_PADDING)/ROW_SIZE) + 1 ) + 1));
 
         inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
 
@@ -80,27 +81,61 @@ public class PackageGui implements Listener {
 
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
-        if (!e.getInventory().equals(inv)) return;
+        final Player p = (Player) e.getWhoClicked();
 
-        e.setCancelled(true);
+        if (!e.getInventory().equals(inv)) return;
 
         final ItemStack clickedItem = e.getCurrentItem();
 
-        // verify current item is not null
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        final Player p = (Player) e.getWhoClicked();
-
-        // Using slots click is a best option for your inventory click's
         p.sendMessage("You clicked at slot " + e.getRawSlot());
+
+        String itemStackName = clickedItem.getItemMeta().getDisplayName();
+
+        switch(itemStackName){
+
+            case "Save":
+                this.save(e);
+                break;
+
+            case "Cancel":
+                this.cancel(e);
+                break;
+
+            default:
+                if (!PermissionsHelper.isAdmin(p)) {
+                    e.setCancelled(true);
+                }
+        }
     }
 
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
-        if (e.getInventory().equals(inv)) {
+        Player p = (Player) e.getWhoClicked();
+        if (e.getInventory().equals(inv) && !PermissionsHelper.isAdmin(p)) {
             e.setCancelled(true);
         }
     }
 
     public String getName() { return this.name; }
+
+    public void save(final InventoryClickEvent e) {
+
+        Player p = (Player) e.getWhoClicked();
+
+        ItemStack[] newPackageItems = e.getInventory().getContents();
+        PackageManager.updatePackageInventory(this.getName(), new ArrayList<>(Arrays.asList(newPackageItems)));
+
+        p.closeInventory();
+        ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was saved successfully");
+    }
+
+    public void cancel(final InventoryClickEvent e) {
+        Player p = (Player) e.getWhoClicked();
+        p.closeInventory();
+        ChatHandler.sendMessage(p,"Package edit was canceled");
+    }
+
+
 }
