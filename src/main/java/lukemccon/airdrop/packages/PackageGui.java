@@ -1,5 +1,6 @@
 package lukemccon.airdrop.packages;
 
+import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
@@ -24,9 +25,11 @@ import java.util.stream.Collectors;
 public class PackageGui implements Listener {
     private final Inventory inv;
     private final int ROW_SIZE = 9;
-    private final int SAVE_CANCEL_PADDING = 3;
+    private final int SAVE_CANCEL_BACK_PADDING = 4;
     private final Package pkg;
     private final String name;
+
+    private static final String[] controlItemNames = { "Back","Save", "Cancel" };
 
     public PackageGui(Package pkg) {
 
@@ -37,7 +40,7 @@ public class PackageGui implements Listener {
         int packageCount = PackageManager.getNumberofPackages();
 
         // Logic to determine how large to make the inventory
-        inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_PADDING)/ROW_SIZE) + 1 ) + 1));
+        inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_BACK_PADDING)/ROW_SIZE) + 1 ) + 1));
 
         inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
 
@@ -51,6 +54,7 @@ public class PackageGui implements Listener {
 
         int inventorySize = inv.getSize();
 
+        inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, "Back"));
         inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save"));
         inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel"));
 
@@ -89,14 +93,21 @@ public class PackageGui implements Listener {
 
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        p.sendMessage("You clicked at slot " + e.getRawSlot());
-
         String itemStackName = clickedItem.getItemMeta().getDisplayName();
 
         switch(itemStackName){
 
+            case "Back":
+                this.back(e);
+                break;
+
             case "Save":
-                this.save(e);
+                if (PermissionsHelper.isAdmin(p)) {
+                    this.save(e);
+                } else {
+                    ChatHandler.sendErrorMessage(p,"Must be admin to save edits to a package a package ");
+                    e.setCancelled(true);
+                }
                 break;
 
             case "Cancel":
@@ -136,6 +147,18 @@ public class PackageGui implements Listener {
         p.closeInventory();
         ChatHandler.sendMessage(p,"Package edit was canceled");
     }
+
+    public void back(final InventoryClickEvent e) {
+        Player p = (Player) e.getWhoClicked();
+        p.closeInventory();
+        Airdrop.PACKAGES_GUI.openInventory(p);
+    }
+
+    public static Boolean isControlItemStack(ItemStack itemstack) {
+        String itemName = itemstack.getItemMeta().getDisplayName();
+        return Arrays.stream(PackageGui.controlItemNames).anyMatch(itemName::equals);
+    }
+
 
 
 }

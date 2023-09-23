@@ -19,12 +19,8 @@ public class PackagesController {
 
 		// Lists available packages
 		// /airdrop packages
-		System.out.println("this command was executed");
 
 		Airdrop.PACKAGES_GUI.openInventory((Player) sender);
-
-		String list = PackageManager.list();
-		ChatHandler.sendMessage(sender, list);
 		return true;
 	}
 

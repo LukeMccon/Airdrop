@@ -1,12 +1,11 @@
 package lukemccon.airdrop.packages;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
@@ -62,18 +61,14 @@ public class PackageManager {
 	public static void populatePackages() {
 		
 		for (String pkg : getPackages()) {
-			ArrayList<ItemStack> items = new ArrayList<ItemStack>();
-			Set<String> section = null;
-			try {
-				section = ((ConfigurationSection) config.get(pkg + ".items")).getKeys(false);
-			} catch (NullPointerException e) {
+			ArrayList<ItemStack> items;
+			ConfigurationSection section = (ConfigurationSection) config.get(pkg);
 
-			}
+			if (section != null) {
 
-			if (section != null && !section.isEmpty()) {
-				for (String item : section) {
-					items.add(config.getItemStack(pkg + ".items." + item));
-				}
+				items = new ArrayList<>( (List<ItemStack>) config.getList(pkg + ".items"));
+				System.out.println(items);
+
 				String name = pkg;
 				Double price = 0.0;
 
@@ -127,6 +122,13 @@ public class PackageManager {
 		}
 
 		pkg.setItems(items);
+
+		config.set(packageName + ".items", items.stream().filter(Objects::nonNull).filter((itemstack) -> !PackageGui.isControlItemStack(itemstack)).toArray());
+
+		fileConfig.set("packages", config);
+		PackagesConfig.saveConfig(fileConfig);
 	}
+
+
 	
 }

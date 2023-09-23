@@ -53,14 +53,7 @@ public class PackagesGui implements Listener {
     }
 
     private ItemStack packageGuiItem(String packageName) {
-        Package pkg;
-        try {
-           pkg = PackageManager.get(packageName);
-        } catch (PackageNotFoundException e) {
-            // Skip package
-        }
-
-        return createGuiItem(Material.CHEST, packageName, "test");
+        return createGuiItem(Material.CHEST, packageName, "");
     }
 
     // Creates a gui item with a custom name, and description

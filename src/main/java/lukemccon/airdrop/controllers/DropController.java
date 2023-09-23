@@ -12,7 +12,6 @@ import org.bukkit.util.Vector;
 
 import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import lukemccon.airdrop.helpers.ChatHandler;
-import lukemccon.airdrop.helpers.DropHelper;
 import lukemccon.airdrop.packages.PackageManager;
 import net.md_5.bungee.api.ChatColor;
 import lukemccon.airdrop.Crate;
@@ -50,7 +49,7 @@ public class DropController {
 
 		ArrayList<ItemStack> items = null;
 		try {
-			items = DropHelper.getItemsInPackage(packageName, player);
+			items = PackageManager.getItems(packageName);
 		} catch (PackageNotFoundException e) {
 			items = new ArrayList<ItemStack>();
 		}

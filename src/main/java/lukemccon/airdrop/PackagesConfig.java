@@ -34,6 +34,15 @@ public class PackagesConfig {
 			}
 		}
 	}
+
+	public static void saveConfig(YamlConfiguration config) {
+		f = new File(Bukkit.getServer().getPluginManager().getPlugin("Airdrop").getDataFolder(), "packages.yml");
+		try {
+			config.save(f);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
 	
 	public static YamlConfiguration getConfig() {
 		if(!loaded) {
