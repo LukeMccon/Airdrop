@@ -57,6 +57,7 @@ public class PackageController {
 
 			if ( packageName == null || packageName.isEmpty()) {
 				ChatHandler.sendErrorMessage(sender, "You must provide a name for the package");
+				return true;
 			}
 
 			if ( priceString != null && !priceString.isEmpty()) {
@@ -74,7 +75,7 @@ public class PackageController {
 
 			createGui.openInventory(player);
 
-			return false;
+			return true;
 
 	}
 
