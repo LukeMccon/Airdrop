@@ -1,6 +1,5 @@
 package lukemccon.airdrop.packages;
 
-import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
@@ -18,23 +17,20 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-public class PackageGui implements Listener {
+public class CreatePackageGui implements Listener {
     private final Inventory inv;
     private final int ROW_SIZE = 9;
     private final int SAVE_CANCEL_BACK_PADDING = 4;
-    private final Package pkg;
+    private Package pkg;
     private final String name;
-
+    private final double price;
     private static final String[] controlItemNames = { "Save", "Cancel" };
 
-    public PackageGui(Package pkg) {
+    public CreatePackageGui(String name, double price) {
 
-        this.pkg = pkg;
-        this.name = pkg.getName();
+        this.name = name;
+        this.price = price;
 
         int inventorySize;
         int packageCount = PackageManager.getNumberofPackages();
@@ -47,23 +43,15 @@ public class PackageGui implements Listener {
         initializeItems();
     }
 
+    /**
+     * Setup control item blocks
+     */
     public void initializeItems() {
-
-        List<ItemStack> itemList = this.getItems();
-        itemList.forEach(item -> inv.addItem(item));
-
         int inventorySize = inv.getSize();
 
-        inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, "Back"));
         inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save"));
         inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel"));
-
     }
-
-    private List<ItemStack> getItems() {
-        return pkg.getItems().stream().map(item -> createGuiItem(item.getType(), "")).collect(Collectors.toList());
-    }
-
     protected ItemStack createGuiItem(final Material material, final String name, final String... lore) {
         final ItemStack item = new ItemStack(material, 1);
         final ItemMeta meta = item.getItemMeta();
@@ -96,11 +84,6 @@ public class PackageGui implements Listener {
         String itemStackName = clickedItem.getItemMeta().getDisplayName();
 
         switch(itemStackName){
-
-            case "Back":
-                this.back(e);
-                break;
-
             case "Save":
                 if (PermissionsHelper.isAdmin(p)) {
                     this.save(e);
@@ -136,27 +119,23 @@ public class PackageGui implements Listener {
         Player p = (Player) e.getWhoClicked();
 
         ItemStack[] newPackageItems = e.getInventory().getContents();
-        PackageManager.updatePackageInventory(this.getName(), new ArrayList<>(Arrays.asList(newPackageItems)));
-
         p.closeInventory();
-        ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was saved successfully");
+
+        pkg = new Package(this.name, this.price, new ArrayList<>(Arrays.asList(newPackageItems)));
+        PackageManager.createPackage(pkg);
+
+        ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was created successfully");
     }
 
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();
-        ChatHandler.sendMessage(p,"Package edit was canceled");
-    }
-
-    public void back(final InventoryClickEvent e) {
-        Player p = (Player) e.getWhoClicked();
-        p.closeInventory();
-        Airdrop.PACKAGES_GUI.openInventory(p);
+        ChatHandler.sendMessage(p,"Package creation was canceled");
     }
 
     public static Boolean isControlItemStack(ItemStack itemstack) {
         String itemName = itemstack.getItemMeta().getDisplayName();
-        return Arrays.stream(PackageGui.controlItemNames).anyMatch(itemName::equals);
+        return Arrays.asList(CreatePackageGui.controlItemNames).contains(itemName);
     }
 
 

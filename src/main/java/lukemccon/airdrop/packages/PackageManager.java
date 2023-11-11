@@ -67,7 +67,6 @@ public class PackageManager {
 			if (section != null) {
 
 				items = new ArrayList<>( (List<ItemStack>) config.getList(pkg + ".items"));
-				System.out.println(items);
 
 				String name = pkg;
 				Double price = 0.0;
@@ -128,6 +127,11 @@ public class PackageManager {
 		fileConfig.set("packages", config);
 		PackagesConfig.saveConfig(fileConfig);
 	}
+
+	public static void createPackage(Package pkg) {
+
+	}
+
 
 
 	

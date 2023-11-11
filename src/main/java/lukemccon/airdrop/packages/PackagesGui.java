@@ -1,8 +1,7 @@
 package lukemccon.airdrop.packages;
 
 import lukemccon.airdrop.Airdrop;
-import lukemccon.airdrop.exceptions.PackageNotFoundException;
-import lukemccon.airdrop.helpers.PermissionsHelper;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
@@ -18,7 +17,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * GUI that shows available packages within airdrop
@@ -27,6 +25,8 @@ public class PackagesGui implements Listener {
     private final Inventory inv;
     private final int ROW_SIZE = 9;
     private final int SAVE_CANCEL_PADDING = 3;
+
+    public int inventorySize;
 
     public PackagesGui() {
 
@@ -48,8 +48,10 @@ public class PackagesGui implements Listener {
     public void initializeItems() {
         Set<String> packages = PackageManager.getPackages();
 
-        List<ItemStack> pkglist = packages.stream().map(this::packageGuiItem).collect(Collectors.toList());
-        pkglist.forEach(item -> inv.addItem(item));
+        List<ItemStack> pkglist = packages.stream().map(this::packageGuiItem).toList();
+        pkglist.forEach(inv::addItem);
+
+        inv.setItem(inventorySize - 1 ,createGuiItem(Material.OAK_SIGN, "Create Package"));
     }
 
     private ItemStack packageGuiItem(String packageName) {

@@ -7,6 +7,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.Objects;
+
 public class PackageController {
 	
 	public static boolean onCommand(CommandSender sender, String[] args) {
@@ -16,6 +18,14 @@ public class PackageController {
 			ChatHandler.sendErrorMessage(sender, "Example: /airdrop starter");
 			return true;
 		}
+
+		if (Objects.equals(args[1], "create")) {
+			// Create a new package
+
+			String packageName = args[2];
+			Double price = Double.parseDouble(args[3]);
+		}
+
 
 		String packageName = args[1];
 

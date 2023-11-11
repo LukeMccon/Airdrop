@@ -52,7 +52,6 @@ public class Airdrop extends JavaPlugin {
 		PLUGIN_VERSION = pdf.getVersion();
 		PLUGIN_API_VERSION = pdf.getAPIVersion();
 
-		
 		// Register Commands
 		this.getCommand("airdrop").setExecutor(new CmdAirdrop());
 		this.getCommand("airdrop").setTabCompleter(new AirdropTabCompleter());
