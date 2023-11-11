@@ -126,13 +126,15 @@ public class PackageManager {
 
 		fileConfig.set("packages", config);
 		PackagesConfig.saveConfig(fileConfig);
+		PackageManager.reload();
 	}
 
 	public static void createPackage(Package pkg) {
-
+		config.set(pkg.getName() + ".price", pkg.getPrice());
+		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull).filter((itemstack) -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		fileConfig.set("packages", config);
+		PackagesConfig.saveConfig(fileConfig);
+		PackageManager.reload();
 	}
 
-
-
-	
 }

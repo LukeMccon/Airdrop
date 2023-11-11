@@ -1,5 +1,6 @@
 package lukemccon.airdrop.packages;
 
+import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
@@ -32,15 +33,17 @@ public class CreatePackageGui implements Listener {
         this.name = name;
         this.price = price;
 
-        int inventorySize;
+        int inventorySize = 27;
         int packageCount = PackageManager.getNumberofPackages();
 
         // Logic to determine how large to make the inventory
         inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_BACK_PADDING)/ROW_SIZE) + 1 ) + 1));
 
-        inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
+        inv = Bukkit.createInventory(null, inventorySize, name);
 
         initializeItems();
+
+        Bukkit.getPluginManager().registerEvents(this, Airdrop.PLUGIN_INSTANCE);
     }
 
     /**

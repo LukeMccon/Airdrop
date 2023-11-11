@@ -33,9 +33,11 @@ public class PackagesGui implements Listener {
         int inventorySize;
         int packageCount = PackageManager.getNumberofPackages();
 
-        System.out.println(packageCount);
-
         inventorySize = (int) (ROW_SIZE * Math.ceil(((packageCount + SAVE_CANCEL_PADDING)/ROW_SIZE) + 1 ));
+
+        if (inventorySize < 9) {
+            inventorySize = 9;
+        }
 
         // Create a new inventory, with no owner (as this isn't a real inventory), a size of nine, called example
         inv = Bukkit.createInventory(null, inventorySize, "Packages");
@@ -51,7 +53,7 @@ public class PackagesGui implements Listener {
         List<ItemStack> pkglist = packages.stream().map(this::packageGuiItem).toList();
         pkglist.forEach(inv::addItem);
 
-        inv.setItem(inventorySize - 1 ,createGuiItem(Material.OAK_SIGN, "Create Package"));
+//        inv.setItem(9 - 1 ,createGuiItem(Material.OAK_SIGN, "Create Package"));
     }
 
     private ItemStack packageGuiItem(String packageName) {
@@ -80,6 +82,7 @@ public class PackagesGui implements Listener {
 
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
+
         if (!e.getInventory().equals(inv)) return;
 
         e.setCancelled(true);
@@ -90,6 +93,7 @@ public class PackagesGui implements Listener {
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
         final Player p = (Player) e.getWhoClicked();
+
 
         String packageName =  e.getCurrentItem().getItemMeta().getDisplayName().toLowerCase();
         Airdrop.PACKAGE_GUIS.get(packageName).openInventory(p);

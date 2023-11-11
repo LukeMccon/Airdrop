@@ -2,6 +2,7 @@ package lukemccon.airdrop.controllers;
 
 import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import lukemccon.airdrop.helpers.ChatHandler;
+import lukemccon.airdrop.packages.CreatePackageGui;
 import lukemccon.airdrop.packages.PackageManager;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -20,12 +21,8 @@ public class PackageController {
 		}
 
 		if (Objects.equals(args[1], "create")) {
-			// Create a new package
-
-			String packageName = args[2];
-			Double price = Double.parseDouble(args[3]);
+			return createPackageCommand(sender, args);
 		}
-
 
 		String packageName = args[1];
 
@@ -36,6 +33,49 @@ public class PackageController {
 		}
 
 		return true;
+	}
+
+
+	public static boolean createPackageCommand(CommandSender sender, String[] args) {
+
+			if (args.length != 4) {
+				ChatHandler.sendErrorMessage(sender, "Package create command requires 4 total arguments");
+				ChatHandler.sendErrorMessage(sender, "Example: /airdrop package create myPackage 12.0");
+			}
+
+			// Create a new package
+			if (!(sender instanceof Player)) {
+				ChatHandler.sendErrorMessage(sender,"Must be a player to use this command");
+				return true;
+			}
+
+			Player player = (Player) sender;
+
+			String packageName = args[2];
+			String priceString = args[3];
+			Double price = null;
+
+			if ( packageName == null || packageName.isEmpty()) {
+				ChatHandler.sendErrorMessage(sender, "You must provide a name for the package");
+			}
+
+			if ( priceString != null && !priceString.isEmpty()) {
+				try {
+					price = Double.parseDouble(priceString);
+				} catch (NumberFormatException e) {
+					ChatHandler.sendErrorMessage(sender, "You must provide the package price as a double");
+					ChatHandler.sendErrorMessage(sender, "Example: /airdrop package create myPackage 12.0");
+					return true;
+				}
+			}
+
+
+			CreatePackageGui createGui = new CreatePackageGui(packageName, price);
+
+			createGui.openInventory(player);
+
+			return false;
+
 	}
 
 }
