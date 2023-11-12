@@ -103,7 +103,7 @@ Displays the current version of the plugin
 
 ##### /airdrop packages
 
-Lists all the airdrop packages that are installed
+Lists all the airdrop packages and view contents
 
 ##### /airdrop package [packageName]
 
