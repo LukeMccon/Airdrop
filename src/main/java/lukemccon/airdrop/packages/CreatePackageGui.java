@@ -26,7 +26,7 @@ public class CreatePackageGui implements Listener {
     private Package pkg;
     private final String name;
     private final double price;
-    private static final String[] controlItemNames = { "Save", "Cancel" };
+    private static final String[] controlItemNames = { "Save", "Cancel", "Back" };
 
     public CreatePackageGui(String name, double price) {
 

@@ -29,7 +29,7 @@ public class PackageGui implements Listener {
     private final Package pkg;
     private final String name;
 
-    private static final String[] controlItemNames = { "Save", "Cancel" };
+    private static final String[] controlItemNames = { "Save", "Cancel", "Back" };
 
     public PackageGui(Package pkg) {
 
