@@ -22,9 +22,10 @@ public class PackageTabCompletion implements TabCompleter {
             case 2:
                 List<String> commands = new ArrayList<>(PackageManager.getPackages().stream().toList());
                 commands.add("create");
+                commands.add("delete");
                 return commands;
             case 3:
-                if (args[1].equals("create")) {
+                if (args[1].equals("create") || args[1].equals("delete")) {
                     return new ArrayList<>(List.of("[packageName]"));
                 }
             case 4:

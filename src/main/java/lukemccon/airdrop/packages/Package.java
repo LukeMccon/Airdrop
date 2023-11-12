@@ -7,12 +7,17 @@ import java.util.stream.Collectors;
 
 import com.earth2me.essentials.User;
 import lukemccon.airdrop.Airdrop;
+import lukemccon.airdrop.helpers.ChatHandler;
+import net.milkbowl.vault.chat.Chat;
+import net.milkbowl.vault.economy.Economy;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class Package {
 
+	private static Economy econ = Airdrop.AIRDROP_ECONOMY;
 	private ArrayList<ItemStack> items;
 	private double price;
 	private String name;
@@ -40,17 +45,15 @@ public class Package {
 	public String getName() { return this.name; }
 
 	public Boolean canAfford(Player player) {
-		User user = new User(player, Airdrop.ESSENTIALS);
-		BigDecimal price = new BigDecimal(this.getPrice());
+		double balance = econ.getBalance(player);
+		int comparison = Double.compare(balance, this.price);
 
-		System.out.println(user.getMoney());
-		return user.canAfford(price);
-	}
+        return comparison >= 0;
+    }
 
 	public void chargeUser(Player player) {
-		User user = new User(player, Airdrop.ESSENTIALS);
-		BigDecimal price = new BigDecimal(this.getPrice());
-		user.takeMoney(price);
+		econ.withdrawPlayer(player, this.price);
+		ChatHandler.sendMessage(player, ChatColor.AQUA + "$" + this.price + ChatColor.BLUE + " has been taken from your account");
 	}
 
 	public String toString() {

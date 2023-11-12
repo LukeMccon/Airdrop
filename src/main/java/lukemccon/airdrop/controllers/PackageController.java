@@ -5,6 +5,7 @@ import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.packages.CreatePackageGui;
 import lukemccon.airdrop.packages.PackageManager;
 import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -24,6 +25,10 @@ public class PackageController {
 			return createPackageCommand(sender, args);
 		}
 
+		if (Objects.equals(args[1], "delete")) {
+			return deletePackageCommand(sender, args);
+		}
+
 		String packageName = args[1];
 
 		try {
@@ -34,6 +39,24 @@ public class PackageController {
 
 		return true;
 	}
+
+	public static boolean deletePackageCommand(CommandSender sender, String[] args) {
+		if (args.length != 3 ) {
+			ChatHandler.sendErrorMessage(sender, "Need to specify a package name to delete");
+		}
+
+		System.out.println(args);
+
+		String packageName = args[2];
+		try {
+			PackageManager.deletePackage(packageName);
+			ChatHandler.sendMessage(sender, ChatColor.AQUA + packageName + ChatColor.BLUE + " was successfully deleted");
+		} catch (PackageNotFoundException e) {
+			ChatHandler.sendErrorMessage(sender, "Unable to delete package " + ChatColor.DARK_RED + packageName + ChatColor.RED + " not found");
+		}
+		return true;
+	}
+
 
 
 	public static boolean createPackageCommand(CommandSender sender, String[] args) {

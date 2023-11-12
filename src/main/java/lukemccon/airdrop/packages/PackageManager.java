@@ -3,6 +3,7 @@ package lukemccon.airdrop.packages;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import lukemccon.airdrop.Airdrop;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.Configuration;
@@ -34,6 +35,7 @@ public class PackageManager {
 		PackagesConfig.loadConfig();
 		config = (ConfigurationSection) PackagesConfig.getConfig().get("packages");
 		PackageManager.populatePackages();
+		Airdrop.PLUGIN_INSTANCE.setupPackageGuis();
 	}
 	
 	public static String list() {
@@ -132,6 +134,16 @@ public class PackageManager {
 	public static void createPackage(Package pkg) {
 		config.set(pkg.getName() + ".price", pkg.getPrice());
 		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull).filter((itemstack) -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		fileConfig.set("packages", config);
+		PackagesConfig.saveConfig(fileConfig);
+		PackageManager.reload();
+	}
+
+	public static void deletePackage (String name) throws PackageNotFoundException {
+
+		// Make sure the package exists
+		get(name);
+		config.set(name, null);
 		fileConfig.set("packages", config);
 		PackagesConfig.saveConfig(fileConfig);
 		PackageManager.reload();
