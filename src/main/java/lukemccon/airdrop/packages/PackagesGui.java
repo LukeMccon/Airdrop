@@ -52,8 +52,6 @@ public class PackagesGui implements Listener {
 
         List<ItemStack> pkglist = packages.stream().map(this::packageGuiItem).toList();
         pkglist.forEach(inv::addItem);
-
-//        inv.setItem(9 - 1 ,createGuiItem(Material.OAK_SIGN, "Create Package"));
     }
 
     private ItemStack packageGuiItem(String packageName) {
