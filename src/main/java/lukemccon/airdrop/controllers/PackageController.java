@@ -75,12 +75,12 @@ public class PackageController {
 			String priceString = args[3];
 			Double price = null;
 
-			if ( packageName == null || packageName.isEmpty()) {
+			if ( packageName == null || packageName.isBlank()) {
 				ChatHandler.sendErrorMessage(sender, "You must provide a name for the package");
 				return true;
 			}
 
-			if ( priceString != null && !priceString.isEmpty()) {
+			if ( priceString != null && !priceString.isBlank()) {
 				try {
 					price = Double.parseDouble(priceString);
 				} catch (NumberFormatException e) {
