@@ -2,6 +2,7 @@ package lukemccon.airdrop.packages;
 
 import lukemccon.airdrop.Airdrop;
 
+import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
@@ -55,7 +56,16 @@ public class PackagesGui implements Listener {
     }
 
     private ItemStack packageGuiItem(String packageName) {
-        return createGuiItem(Material.CHEST, packageName, "");
+        Package pkg;
+        double price;
+
+        try {
+           pkg = PackageManager.get(packageName);
+           price = pkg.getPrice();
+        } catch (PackageNotFoundException e) {
+           price = 0.0;
+        }
+        return createGuiItem(Material.CHEST, packageName, "$" + price);
     }
 
     // Creates a gui item with a custom name, and description

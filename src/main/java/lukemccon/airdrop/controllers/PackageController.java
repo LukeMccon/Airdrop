@@ -44,7 +44,6 @@ public class PackageController {
 		if (args.length != 3 ) {
 			ChatHandler.sendErrorMessage(sender, "Need to specify a package name to delete");
 		}
-
 		String packageName = args[2];
 		try {
 			PackageManager.deletePackage(packageName);

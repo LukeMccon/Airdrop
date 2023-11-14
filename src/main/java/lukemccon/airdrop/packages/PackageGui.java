@@ -49,23 +49,19 @@ public class PackageGui implements Listener {
 
     public void initializeItems() {
 
-        List<ItemStack> itemList = this.getItems();
-        itemList.forEach(item -> inv.addItem(item));
+        List<ItemStack> itemList = pkg.getItems();
+        itemList.forEach(inv::addItem);
 
         int inventorySize = inv.getSize();
 
-        inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, "Back"));
-        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save"));
-        inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel"));
+        inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, "Back", 1));
+        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save", 1));
+        inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel", 1));
 
     }
 
-    private List<ItemStack> getItems() {
-        return pkg.getItems().stream().map(item -> createGuiItem(item.getType(), "")).collect(Collectors.toList());
-    }
-
-    protected ItemStack createGuiItem(final Material material, final String name, final String... lore) {
-        final ItemStack item = new ItemStack(material, 1);
+    protected ItemStack createGuiItem(final Material material, final String name, int amount, final String... lore) {
+        final ItemStack item = new ItemStack(material, amount);
         final ItemMeta meta = item.getItemMeta();
 
         // Set the name of the item

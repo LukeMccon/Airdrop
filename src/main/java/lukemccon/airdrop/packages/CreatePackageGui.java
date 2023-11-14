@@ -30,10 +30,10 @@ public class CreatePackageGui implements Listener {
 
     public CreatePackageGui(String name, double price) {
 
-        this.name = name;
+        this.name = name.toLowerCase();
         this.price = price;
 
-        int inventorySize = 27;
+        int inventorySize = 36;
         int packageCount = PackageManager.getNumberofPackages();
 
         // Logic to determine how large to make the inventory
