@@ -96,7 +96,7 @@ public class PackageManager {
 
 		try {
 			Package foundPackage = PackageManager.packages.get(packageName);
-			items = foundPackage.getItems();
+			items = (ArrayList<ItemStack>) foundPackage.getItems();
 		} catch (Exception e) {
 			throw new PackageNotFoundException(packageName);
 		}

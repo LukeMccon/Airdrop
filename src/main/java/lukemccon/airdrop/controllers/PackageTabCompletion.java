@@ -6,10 +6,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import java.sql.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class PackageTabCompletion implements TabCompleter {
     @Override
@@ -26,14 +23,14 @@ public class PackageTabCompletion implements TabCompleter {
                 return commands;
             case 3:
                 if (args[1].equals("create") || args[1].equals("delete")) {
-                    return new ArrayList<>(List.of("[packageName]"));
+                    return List.of("[packageName]");
                 }
             case 4:
                 if (args[1].equals("create")) {
-                    return new ArrayList<>(List.of("[price]"));
+                    return List.of("[price]");
                 }
             default:
-                return new ArrayList<String>();
+                return Collections.emptyList();
         }
     }
 }

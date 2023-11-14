@@ -21,9 +21,6 @@ import java.util.Arrays;
 
 public class CreatePackageGui implements Listener {
     private final Inventory inv;
-    private final int ROW_SIZE = 9;
-    private final int SAVE_CANCEL_BACK_PADDING = 4;
-    private Package pkg;
     private final String name;
     private final double price;
     private static final String[] controlItemNames = { "Save", "Cancel", "Back" };
@@ -35,9 +32,6 @@ public class CreatePackageGui implements Listener {
 
         int inventorySize = 36;
         int packageCount = PackageManager.getNumberofPackages();
-
-        // Logic to determine how large to make the inventory
-        inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_BACK_PADDING)/ROW_SIZE) + 1 ) + 1));
 
         inv = Bukkit.createInventory(null, inventorySize, name);
 
@@ -124,7 +118,7 @@ public class CreatePackageGui implements Listener {
         ItemStack[] newPackageItems = e.getInventory().getContents();
         p.closeInventory();
 
-        pkg = new Package(this.name, this.price, new ArrayList<>(Arrays.asList(newPackageItems)));
+        Package pkg = new Package(this.name, this.price, new ArrayList<>(Arrays.asList(newPackageItems)));
         PackageManager.createPackage(pkg);
 
         ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was created successfully");
@@ -135,12 +129,5 @@ public class CreatePackageGui implements Listener {
         p.closeInventory();
         ChatHandler.sendMessage(p,"Package creation was canceled");
     }
-
-    public static Boolean isControlItemStack(ItemStack itemstack) {
-        String itemName = itemstack.getItemMeta().getDisplayName();
-        return Arrays.asList(CreatePackageGui.controlItemNames).contains(itemName);
-    }
-
-
 
 }

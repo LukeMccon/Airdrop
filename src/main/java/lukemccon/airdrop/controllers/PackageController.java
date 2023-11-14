@@ -49,7 +49,7 @@ public class PackageController {
 			PackageManager.deletePackage(packageName);
 			ChatHandler.sendMessage(sender, ChatColor.AQUA + packageName + ChatColor.BLUE + " was successfully deleted");
 		} catch (PackageNotFoundException e) {
-			ChatHandler.sendErrorMessage(sender, "Unable to delete package " + ChatColor.DARK_RED + packageName + ChatColor.RED + " not found");
+			ChatHandler.sendErrorMessage(sender, "Unable to delete package: " + ChatColor.DARK_RED + packageName + ChatColor.RED + " not found");
 		}
 		return true;
 	}

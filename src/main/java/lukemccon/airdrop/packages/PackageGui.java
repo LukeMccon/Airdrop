@@ -36,11 +36,10 @@ public class PackageGui implements Listener {
         this.pkg = pkg;
         this.name = pkg.getName();
 
-        int inventorySize;
         int packageCount = PackageManager.getNumberofPackages();
 
         // Logic to determine how large to make the inventory
-        inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_BACK_PADDING)/ROW_SIZE) + 1 ) + 1));
+        int inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_BACK_PADDING)/ROW_SIZE) + 1 ) + 1));
 
         inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
 
@@ -154,7 +153,5 @@ public class PackageGui implements Listener {
         String itemName = itemstack.getItemMeta().getDisplayName();
         return Arrays.stream(PackageGui.controlItemNames).anyMatch(itemName::equals);
     }
-
-
 
 }

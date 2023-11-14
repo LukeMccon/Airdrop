@@ -20,6 +20,11 @@ public class PackagesController {
 		// Lists available packages
 		// /airdrop packages
 
+		if (!(sender instanceof Player)) {
+			ChatHandler.sendErrorMessage(sender,"Must be a player to use this command");
+			return true;
+		}
+
 		Airdrop.PACKAGES_GUI.openInventory((Player) sender);
 		return true;
 	}
