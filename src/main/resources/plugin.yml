@@ -1,10 +1,11 @@
 name: Airdrop
 main: lukemccon.airdrop.Airdrop
-version: 2.1.1
-api-version: 1.20
+version: 3.0
+api-version: '1.20'
 depend:
   - LuckPerms
   - Essentials
+  - Vault
 commands:
     airdrop:
         aliases: [drop, ad]

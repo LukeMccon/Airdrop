@@ -1,17 +1,25 @@
 package lukemccon.airdrop.packages;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import com.earth2me.essentials.User;
 import lukemccon.airdrop.Airdrop;
+import lukemccon.airdrop.helpers.ChatHandler;
+import net.milkbowl.vault.chat.Chat;
+import net.milkbowl.vault.economy.Economy;
+import org.bukkit.ChatColor;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class Package {
 
-	private ArrayList<ItemStack> items;
+	private static Economy econ = Airdrop.AIRDROP_ECONOMY;
+	private List<ItemStack> items;
 	private double price;
 	private String name;
 	
@@ -19,7 +27,7 @@ public class Package {
 		
 	}
 	
-	Package(String name, double price, ArrayList<ItemStack> items) {
+	Package(String name, double price, List<ItemStack> items) {
 		this.name = name;
 		this.price = price;
 
@@ -35,25 +43,24 @@ public class Package {
 		return this.price;
 	}
 
-	public Boolean canAfford(Player player) {
-		User user = new User(player, Airdrop.ESSENTIALS);
-		BigDecimal price = new BigDecimal(this.getPrice());
+	public String getName() { return this.name; }
 
-		System.out.println(user.getMoney());
-		return user.canAfford(price);
-	}
+	public Boolean canAfford(Player player) {
+        return Double.compare(econ.getBalance(player), this.price) >= 0;
+    }
 
 	public void chargeUser(Player player) {
-		User user = new User(player, Airdrop.ESSENTIALS);
-		BigDecimal price = new BigDecimal(this.getPrice());
-		user.takeMoney(price);
+		econ.withdrawPlayer(player, this.price);
+		ChatHandler.sendMessage(player, ChatColor.AQUA + "$" + this.price + ChatColor.BLUE + " has been taken from your account");
 	}
 
 	public String toString() {
 		return this.items.stream().map(ItemStack::toString).collect(Collectors.joining("\n")) + "\nprice: " + this.price + "\n";
 	}
-	public ArrayList<ItemStack> getItems() {
+	public List<ItemStack> getItems() {
 		return this.items;
 	}
+
+	public void setItems(ArrayList<ItemStack> items) { this.items = items; }
 	
 }
