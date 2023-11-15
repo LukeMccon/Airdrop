@@ -1,12 +1,12 @@
 package lukemccon.airdrop.packages;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import lukemccon.airdrop.Airdrop;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
@@ -35,8 +35,8 @@ public class PackageManager {
 		PackagesConfig.loadConfig();
 		config = (ConfigurationSection) PackagesConfig.getConfig().get("packages");
 		PackageManager.populatePackages();
+		Airdrop.PLUGIN_INSTANCE.setupPackageGuis();
 	}
-	
 	
 	public static String list() {
 		String printStr = "Available Packages\n";
@@ -63,18 +63,13 @@ public class PackageManager {
 	public static void populatePackages() {
 		
 		for (String pkg : getPackages()) {
-			ArrayList<ItemStack> items = new ArrayList<ItemStack>();
-			Set<String> section = null;
-			try {
-				section = ((ConfigurationSection) config.get(pkg + ".items")).getKeys(false);
-			} catch (NullPointerException e) {
+			ArrayList<ItemStack> items;
+			ConfigurationSection section = (ConfigurationSection) config.get(pkg);
 
-			}
+			if (section != null) {
 
-			if (section != null && !section.isEmpty()) {
-				for (String item : section) {
-					items.add(config.getItemStack(pkg + ".items." + item));
-				}
+				items = new ArrayList<>( (List<ItemStack>) config.getList(pkg + ".items"));
+
 				String name = pkg;
 				Double price = 0.0;
 
@@ -101,7 +96,7 @@ public class PackageManager {
 
 		try {
 			Package foundPackage = PackageManager.packages.get(packageName);
-			items = foundPackage.getItems();
+			items = (ArrayList<ItemStack>) foundPackage.getItems();
 		} catch (Exception e) {
 			throw new PackageNotFoundException(packageName);
 		}
@@ -113,5 +108,45 @@ public class PackageManager {
 		Package p = PackageManager.get(packageName);
 		return p.toString();
 	}
-	
+
+	public static int getNumberofPackages() {
+		return packages.size();
+	}
+
+	public static void updatePackageInventory(String packageName, ArrayList<ItemStack> items) {
+
+		Package pkg;
+		try {
+			pkg = PackageManager.get(packageName);
+		} catch (PackageNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+
+		pkg.setItems(items);
+
+		config.set(packageName + ".items", items.stream().filter(Objects::nonNull).filter((itemstack) -> !PackageGui.isControlItemStack(itemstack)).toArray());
+
+		fileConfig.set("packages", config);
+		PackagesConfig.saveConfig(fileConfig);
+		PackageManager.reload();
+	}
+
+	public static void createPackage(Package pkg) {
+		config.set(pkg.getName() + ".price", pkg.getPrice());
+		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull).filter((itemstack) -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		fileConfig.set("packages", config);
+		PackagesConfig.saveConfig(fileConfig);
+		PackageManager.reload();
+	}
+
+	public static void deletePackage (String name) throws PackageNotFoundException {
+
+		// Make sure the package exists
+		get(name);
+		config.set(name, null);
+		fileConfig.set("packages", config);
+		PackagesConfig.saveConfig(fileConfig);
+		PackageManager.reload();
+	}
+
 }
