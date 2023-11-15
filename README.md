@@ -50,6 +50,7 @@ Download and copy the `.jar` files for these plugins into your `plugins` folder:
 
 - [LuckPerms](https://luckperms.net/)
 - [EssentialsX](https://essentialsx.net/)
+- [Vault](https://github.com/milkbowl/Vault)
 
 Download the latest stable release of `Airdrop`
 Place the `.jar` into your plugins folder
@@ -69,36 +70,23 @@ An example of adding another package to the config in addition to the `starter` 
 packages:
   starter:
     items:
-      "1":
-        ==: org.bukkit.inventory.ItemStack
-        v: 3337
-        type: IRON_HELMET
-      "2":
-        ==: org.bukkit.inventory.ItemStack
-        v: 3337
-        type: IRON_CHESTPLATE
-      "3":
-        ==: org.bukkit.inventory.ItemStack
-        v: 3337
-        type: IRON_LEGGINGS
-      "4":
-        ==: org.bukkit.inventory.ItemStack
-        v: 3337
-        type: IRON_BOOTS
-      "5":
-        ==: org.bukkit.inventory.ItemStack
-        v: 3337
-        type: BREAD
-        amount: 2
-    price: 10
-  mypackage:
-    items:
-      "1":
-        ==: org.bukkit.inventory.ItemStack
-        v: 3337
-        type: OAK_LOG
-        amount: 3
-    price: 3
+    - ==: org.bukkit.inventory.ItemStack
+      v: 3465
+      type: IRON_HELMET
+    - ==: org.bukkit.inventory.ItemStack
+      v: 3465
+      type: IRON_CHESTPLATE
+    - ==: org.bukkit.inventory.ItemStack
+      v: 3465
+      type: IRON_LEGGINGS
+    - ==: org.bukkit.inventory.ItemStack
+      v: 3465
+      type: IRON_BOOTS
+    - ==: org.bukkit.inventory.ItemStack
+      v: 3465
+      type: BREAD
+      amount: 2
+    price: 10.0
 ```
 
 ## Commands
@@ -115,6 +103,16 @@ Displays the current version of the plugin
 
 ##### /airdrop packages
 
-Lists all the airdrop packages that are installed
+Lists all the airdrop packages and view contents
 
 ##### /airdrop package [packageName]
+
+Show details about a package
+
+##### /airdrop package create [packageName] [price]
+
+Create a new package, opens up a GUI to add items
+
+##### /airdrop package delete [packageName]
+
+Delete a package

@@ -3,4 +3,5 @@ bin/
 .classpath
 target/
 copy.sh
-.idea/
+/.idea
+.project
