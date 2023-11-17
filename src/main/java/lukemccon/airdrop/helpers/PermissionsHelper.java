@@ -5,9 +5,9 @@ import org.bukkit.entity.Player;
 public class PermissionsHelper {
 
 
-    public static String AIRDROP_ADMIN = "airdrop.admin";
-    public static String AIRDROP_PACKAGES_ALL = "airdrop.package.all";
-    public static String AIRDROP_PACKAGE = "airdrop.package";
+    private static final String AIRDROP_ADMIN = "airdrop.admin";
+    private static final String AIRDROP_PACKAGES_ALL = "airdrop.package.all";
+    private static final String AIRDROP_PACKAGE = "airdrop.package";
 
 
     /**

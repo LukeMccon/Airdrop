@@ -65,8 +65,8 @@ public class CreatePackageGui extends Gui implements Listener {
 
         try {
              itemStackName = clickedItem.getItemMeta().getDisplayName();
-        } catch (NullPointerException ignored) {
-
+        } catch (NullPointerException err) {
+            ChatHandler.logMessage(err.getMessage());
         }
 
         switch(itemStackName){
