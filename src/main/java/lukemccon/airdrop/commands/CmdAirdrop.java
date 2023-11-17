@@ -21,18 +21,16 @@ public class CmdAirdrop implements CommandExecutor {
 			if (args.length == 0) {
 				return false;
 			}
-			
-			switch (args[0]) {
-				case "package":
-					return PackageController.onCommand(sender,args);
-				case "packages":
-					return PackagesController.onCommand(sender, args);
-				case "version":
-					ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nAirdrop Version: " + ChatColor.AQUA + Airdrop.PLUGIN_VERSION + ChatColor.WHITE + "\nSpigot API Version: " + ChatColor.AQUA + Airdrop.PLUGIN_API_VERSION);
-					return true;
-				default:
-					return DropController.onCommand(sender, args);
-			}
+
+        return switch (args[0]) {
+            case "package" -> PackageController.onCommand(sender, args);
+            case "packages" -> PackagesController.onCommand(sender, args);
+            case "version" -> {
+                ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nAirdrop Version: " + ChatColor.AQUA + Airdrop.PLUGIN_VERSION + ChatColor.WHITE + "\nSpigot API Version: " + ChatColor.AQUA + Airdrop.PLUGIN_API_VERSION);
+                yield true;
+            }
+            default -> DropController.onCommand(sender, args);
+        };
 	}
 
 }
