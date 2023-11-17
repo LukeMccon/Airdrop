@@ -80,8 +80,8 @@ public class PackageGui extends Gui implements Listener {
 
         try {
             itemStackName = clickedItem.getItemMeta().getDisplayName();
-        } catch (NullPointerException ignored) {
-
+        } catch (NullPointerException err) {
+            ChatHandler.logMessage(err.getMessage());
         }
 
         switch(itemStackName){
@@ -160,8 +160,8 @@ public class PackageGui extends Gui implements Listener {
         String itemName = "";
         try {
             itemName = itemstack.getItemMeta().getDisplayName();
-        } catch (NullPointerException ignored) {
-
+        } catch (NullPointerException err) {
+            ChatHandler.logMessage(err.getMessage());
         }
         return Arrays.stream(PackageGui.controlItemNames).anyMatch(itemName::equals);
     }
