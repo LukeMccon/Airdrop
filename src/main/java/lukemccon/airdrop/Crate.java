@@ -20,10 +20,10 @@ import lukemccon.airdrop.helpers.CrateList;
 
 public class Crate {
 
-	private Location location;
-	private World world;
+	private final Location location;
+	private final World world;
 
-	private ArrayList<ItemStack> contents;
+	private final ArrayList<ItemStack> contents;
 
 	private FallingBlock fallingCrate;
 	private Block blockChest;

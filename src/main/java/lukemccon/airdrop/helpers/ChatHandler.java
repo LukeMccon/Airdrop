@@ -9,6 +9,12 @@ import org.bukkit.entity.Player;
 public class ChatHandler {
 
 	private static String ChatPrefix = ChatColor.BLUE + "[" + ChatColor.WHITE + "Airdrop" + ChatColor.BLUE + "]";
+
+	/**
+	 * Sends error message to a CommandSender
+	 * @param sender who to send the message to
+	 * @param message the message to send
+	 */
 	public static void sendErrorMessage(CommandSender sender, String message) {
 
 		String formattedMessage = ChatHandler.ChatPrefix + ChatColor.RED + " "+ message;
@@ -21,6 +27,12 @@ public class ChatHandler {
 
 
 	}
+
+	/**
+	 * Sends message to a CommandSender
+	 * @param sender who to send the message to
+	 * @param message the message to send
+	 */
 	public static void sendMessage(CommandSender sender, String message) {
 		String formattedMessage = ChatHandler.ChatPrefix + ChatColor.BLUE + " " + message;
 
@@ -31,7 +43,11 @@ public class ChatHandler {
 		}
 
 	}
-	
+
+	/**
+	 * Logs info message to the console
+	 * @param message to log
+	 */
 	public static void logMessage(String message) {
 		Bukkit.getLogger().info(message);
 	}

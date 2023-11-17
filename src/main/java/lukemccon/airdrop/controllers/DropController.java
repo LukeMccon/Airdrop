@@ -2,6 +2,8 @@ package lukemccon.airdrop.controllers;
 
 import java.util.ArrayList;
 
+import lukemccon.airdrop.Airdrop;
+import lukemccon.airdrop.helpers.PermissionsHelper;
 import lukemccon.airdrop.packages.Package;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -37,7 +39,9 @@ public class DropController {
 			return true;
 		}
 
-		if (!DropController.canDropPackage(player, packageName)) {
+		boolean canDropPackage = PermissionsHelper.hasPermission(player, packageName);
+
+		if (!canDropPackage) {
 			ChatHandler.sendErrorMessage(player, "You have insufficient permissions to drop that package, you must have" + ChatColor.AQUA + "airdrop.package." + packageName);
 			return true;
 		}
@@ -76,13 +80,6 @@ public class DropController {
 		
 		return true;
 		
-	}
-
-	private static Boolean canDropPackage(Player player , String packageName) {
-		Boolean hasPermission = player.hasPermission("airdrop.package."+ packageName.toLowerCase()) ||
-				player.hasPermission("airdrop.package.all");
-		Boolean isAnAdmin = player.hasPermission("airdrop.admin");
-		return hasPermission || isAnAdmin || player.isOp();
 	}
 
 }

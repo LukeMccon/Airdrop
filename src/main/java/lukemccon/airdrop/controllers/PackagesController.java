@@ -12,12 +12,8 @@ import lukemccon.airdrop.packages.PackageManager;
 public class PackagesController {
 	
 	public static boolean onCommand(CommandSender sender, String[] args) {
-		
-		/**
-		 * Handles command involving multiple packages
-		 */
 
-		// Lists available packages
+        // Lists available packages
 		// /airdrop packages
 
 		if (!(sender instanceof Player)) {
