@@ -8,6 +8,8 @@ import java.util.Arrays;
 
 public abstract class Gui {
 
+    protected static final String[] controlItemNames = { "Save", "Cancel", "Back" };
+
     /**
      * Creates a ItemStack that will be placed within the GUI
      * @param material of the ItemStack

@@ -5,13 +5,16 @@ import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.packages.CreatePackageGui;
 import lukemccon.airdrop.packages.PackageManager;
 import org.bukkit.ChatColor;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.Objects;
 
 public class PackageController {
+
+	PackageController() {
+
+	}
 	
 	public static boolean onCommand(CommandSender sender, String[] args) {
 
