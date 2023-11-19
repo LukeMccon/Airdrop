@@ -24,23 +24,17 @@ import java.util.stream.Collectors;
 
 public class PackageGui extends Gui implements Listener {
     private final Inventory inv;
-    private final int ROW_SIZE = 9;
-    private final int SAVE_CANCEL_BACK_PADDING = 4;
     private final Package pkg;
     private final String name;
-
-    private static final String[] controlItemNames = { "Save", "Cancel", "Back" };
 
     public PackageGui(Package pkg) {
 
         this.pkg = pkg;
         this.name = pkg.getName();
 
-        int packageCount = PackageManager.getNumberofPackages();
+        int inventorySize = 27;
 
         // Logic to determine how large to make the inventory
-        int inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_BACK_PADDING)/ROW_SIZE) + 1 ) + 1));
-
         inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
 
         initializeItems();
@@ -148,7 +142,7 @@ public class PackageGui extends Gui implements Listener {
     public void back(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();
-        Airdrop.PACKAGES_GUI.openInventory(p);
+        Airdrop.getPackagesGui().openInventory(p);
     }
 
     /**

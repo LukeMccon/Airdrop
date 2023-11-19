@@ -21,7 +21,7 @@ public class PackagesController {
 			return true;
 		}
 
-		Airdrop.PACKAGES_GUI.openInventory((Player) sender);
+		Airdrop.getPackagesGui().openInventory((Player) sender);
 		return true;
 	}
 

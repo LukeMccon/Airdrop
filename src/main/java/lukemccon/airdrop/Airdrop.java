@@ -2,20 +2,14 @@ package lukemccon.airdrop;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.Objects;
 
-import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import lukemccon.airdrop.helpers.ChatHandler;
+import lukemccon.airdrop.helpers.PermissionsHelper;
 import lukemccon.airdrop.packages.PackageGui;
 import lukemccon.airdrop.packages.PackagesGui;
-import net.ess3.api.IEssentials;
 import net.luckperms.api.LuckPerms;
-import net.luckperms.api.model.group.Group;
-import net.luckperms.api.model.group.GroupManager;
-import net.luckperms.api.node.Node;
-import net.milkbowl.vault.chat.Chat;
 import net.milkbowl.vault.economy.Economy;
-import net.milkbowl.vault.economy.EconomyResponse;
-import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -27,21 +21,20 @@ import lukemccon.airdrop.listeners.BarrelInventoryCloseListener;
 import lukemccon.airdrop.listeners.FallingBlockListener;
 import lukemccon.airdrop.packages.PackageManager;
 
-import static org.bukkit.Bukkit.getServer;
-
 
 public class Airdrop extends JavaPlugin {
 
-	public static IEssentials ESSENTIALS = (IEssentials) Bukkit.getPluginManager().getPlugin("Essentials");
-	public static Airdrop PLUGIN_INSTANCE;
-	public static String PLUGIN_VERSION;
-	public static String PLUGIN_API_VERSION;
-	public static LuckPerms LUCK_PERMS;
-	public static PackagesGui PACKAGES_GUI;
+	public static final String PLUGIN_NAME = "Airdrop";
+	private static Airdrop pluginInstance;
+	private static String pluginVersion;
+	private static String pluginApiVersion;
+	private static LuckPerms luckPerms;
 
-	public static HashMap<String, PackageGui> PACKAGE_GUIS = new HashMap<String,PackageGui>();
+	private static PackagesGui packagesGui;
 
-	public static Economy AIRDROP_ECONOMY = null;
+	public static final HashMap<String, PackageGui> PACKAGE_GUIS = new HashMap<String,PackageGui>();
+
+	private static Economy airdropEconomy = null;
 	
 	// Define constructors per BukkitMock setup instructions
 	public Airdrop() {
@@ -57,20 +50,20 @@ public class Airdrop extends JavaPlugin {
 	public void onEnable() {
 		PluginDescriptionFile pdf = this.getDescription();
 
-		PLUGIN_INSTANCE = this;
-		PLUGIN_VERSION = pdf.getVersion();
-		PLUGIN_API_VERSION = pdf.getAPIVersion();
+		pluginInstance = this;
+		pluginVersion = pdf.getVersion();
+		pluginApiVersion = pdf.getAPIVersion();
 
 		// Economy
 		if (!setupEconomy() ) {
 			ChatHandler.logMessage("Disabling due to no Vault dependency");
-			getServer().getPluginManager().disablePlugin(Airdrop.PLUGIN_INSTANCE);
+			getServer().getPluginManager().disablePlugin(Airdrop.pluginInstance);
 			return;
 		}
 
 		// Register Commands
-		this.getCommand("airdrop").setExecutor(new CmdAirdrop());
-		this.getCommand("airdrop").setTabCompleter(new AirdropTabCompleter());
+		Objects.requireNonNull(this.getCommand("airdrop")).setExecutor(new CmdAirdrop());
+		Objects.requireNonNull(this.getCommand("airdrop")).setTabCompleter(new AirdropTabCompleter());
 		
 		// Register Listeners
 		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);
@@ -83,34 +76,13 @@ public class Airdrop extends JavaPlugin {
 		// Start the package manager
 		PackageManager.reload();
 
-		RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-		if (provider != null) {
-			LUCK_PERMS = provider.getProvider();
-
-			GroupManager manager = LUCK_PERMS.getGroupManager();
-			Group adminGroup = manager.getGroup("airdrop-admin");
-			Group userGroup = manager.getGroup("airdrop-user");
-			Node allPackagesNode = Node.builder("airdrop.package.all").build();
-			Node adminNode = Node.builder("airdrop.admin").build();
-
-			if (adminGroup == null) {
-				// group doesn't exist.
-				adminGroup = manager.createAndLoadGroup("airdrop-admin").join();
-				adminGroup.data().add(adminNode);
-			}
-
-			if (userGroup == null) {
-				userGroup = manager.createAndLoadGroup("airdrop-user").join();
-				adminGroup.data().add(allPackagesNode);
-			}
-
-		}
+		PermissionsHelper.initialize();
 		
 	}
 	
 	@Override
 	public void onDisable() {
-		
+
 	}
 
 	private boolean setupEconomy() {
@@ -121,13 +93,13 @@ public class Airdrop extends JavaPlugin {
 		if (rsp == null) {
 			return false;
 		}
-		AIRDROP_ECONOMY = rsp.getProvider();
-		return AIRDROP_ECONOMY != null;
+		airdropEconomy = rsp.getProvider();
+		return airdropEconomy != null;
 	}
 
 	public void setupPackageGuis () {
-		PACKAGES_GUI = new PackagesGui();
-		Bukkit.getPluginManager().registerEvents(PACKAGES_GUI, this);
+		packagesGui = new PackagesGui();
+		Bukkit.getPluginManager().registerEvents(packagesGui, this);
 
 		PackageManager.packages.values().stream()
 				.map(pkg -> new PackageGui(pkg))
@@ -138,4 +110,35 @@ public class Airdrop extends JavaPlugin {
 				.forEach(gui -> Bukkit.getPluginManager().registerEvents(gui, this));
 	}
 
+	public static Airdrop getPluginInstance() {
+		return pluginInstance;
+	}
+
+	public static void setPluginInstance(Airdrop pluginInstance) {
+		Airdrop.pluginInstance = pluginInstance;
+	}
+
+	public static String getPluginApiVersion() {
+		return pluginApiVersion;
+	}
+
+	public static LuckPerms getLuckPerms() {
+		return luckPerms;
+	}
+
+	public static void setLuckPerms(LuckPerms luckPerms) {
+		Airdrop.luckPerms = luckPerms;
+	}
+
+	public static PackagesGui getPackagesGui() {
+		return packagesGui;
+	}
+
+	public static Economy getAirdropEconomy() {
+		return airdropEconomy;
+	}
+
+	public static String getVersion() {
+		return pluginVersion;
+	}
 }

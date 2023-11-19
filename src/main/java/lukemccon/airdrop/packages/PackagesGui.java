@@ -35,7 +35,6 @@ public class PackagesGui extends Gui implements Listener {
         initializeItems();
     }
 
-    // You can call this whenever you want to put the items in
     public void initializeItems() {
         Set<String> packages = PackageManager.getPackages();
 

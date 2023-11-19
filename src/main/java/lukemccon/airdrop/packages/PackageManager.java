@@ -35,7 +35,7 @@ public class PackageManager {
 		PackagesConfig.loadConfig();
 		config = (ConfigurationSection) PackagesConfig.getConfig().get("packages");
 		PackageManager.populatePackages();
-		Airdrop.PLUGIN_INSTANCE.setupPackageGuis();
+		Airdrop.getPluginInstance().setupPackageGuis();
 	}
 	
 	public static String list() {

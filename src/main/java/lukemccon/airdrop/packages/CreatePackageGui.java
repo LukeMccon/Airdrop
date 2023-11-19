@@ -33,7 +33,7 @@ public class CreatePackageGui extends Gui implements Listener {
 
         initializeItems();
 
-        Bukkit.getPluginManager().registerEvents(this, Airdrop.PLUGIN_INSTANCE);
+        Bukkit.getPluginManager().registerEvents(this, Airdrop.getPluginInstance());
     }
 
     /**

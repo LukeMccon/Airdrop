@@ -1,5 +1,6 @@
 package lukemccon.airdrop.listeners;
 
+import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -12,13 +13,17 @@ public class FallingBlockListener implements Listener {
 		
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onEntityChangeBlockEvent(EntityChangeBlockEvent e) {
-		
-		if(CrateList.crateMap.containsKey(e.getEntity())) {
-			e.setCancelled(true);
-			Crate aCrate = CrateList.crateMap.get(e.getEntity());
-			aCrate.setChestBlock(e.getEntity().getLocation().getBlock());
+
+		Entity entity = e.getEntity();
+
+		Crate aCrate = CrateList.crateMap.get(entity);
+
+		if (aCrate != null) {
+			aCrate.setChestBlock(entity.getLocation().getBlock());
 			aCrate.spawnChest();
-			CrateList.crateMap.remove(e.getEntity());
+			CrateList.crateMap.remove(entity);
+		} else {
+			e.setCancelled(true);
 		}
 
 	}
