@@ -87,7 +87,7 @@ public class PackagesGui extends Gui implements Listener {
             ChatHandler.logMessage(err.getMessage());
         }
 
-        Airdrop.PACKAGE_GUIS.get(packageName).openInventory(p);
+        Airdrop.getPackageGuis().get(packageName).openInventory(p);
     }
 
     @EventHandler

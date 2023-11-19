@@ -11,7 +11,7 @@ import lukemccon.airdrop.packages.PackageManager;
 
 public class PackagesController {
 	
-	public static boolean onCommand(CommandSender sender, String[] args) {
+	public static boolean onCommand(CommandSender sender) {
 
         // Lists available packages
 		// /airdrop packages

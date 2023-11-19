@@ -23,7 +23,7 @@ public class CmdAirdrop implements CommandExecutor {
 
         return switch (args[0]) {
             case "package" -> PackageController.onCommand(sender, args);
-            case "packages" -> PackagesController.onCommand(sender, args);
+            case "packages" -> PackagesController.onCommand(sender);
             case "version" -> {
                 ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nAirdrop Version: " + ChatColor.AQUA + Airdrop.getVersion() + ChatColor.WHITE + "\nSpigot API Version: " + ChatColor.AQUA + Airdrop.getPluginApiVersion());
                 yield true;
