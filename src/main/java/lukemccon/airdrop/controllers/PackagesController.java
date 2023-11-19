@@ -11,13 +11,9 @@ import lukemccon.airdrop.packages.PackageManager;
 
 public class PackagesController {
 	
-	public static boolean onCommand(CommandSender sender, String[] args) {
-		
-		/**
-		 * Handles command involving multiple packages
-		 */
+	public static boolean onCommand(CommandSender sender) {
 
-		// Lists available packages
+        // Lists available packages
 		// /airdrop packages
 
 		if (!(sender instanceof Player)) {
@@ -25,7 +21,7 @@ public class PackagesController {
 			return true;
 		}
 
-		Airdrop.PACKAGES_GUI.openInventory((Player) sender);
+		Airdrop.getPackagesGui().openInventory((Player) sender);
 		return true;
 	}
 

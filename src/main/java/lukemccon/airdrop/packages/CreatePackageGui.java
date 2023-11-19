@@ -14,30 +14,26 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class CreatePackageGui implements Listener {
+public class CreatePackageGui extends Gui implements Listener {
     private final Inventory inv;
     private final String name;
     private final double price;
-    private static final String[] controlItemNames = { "Save", "Cancel", "Back" };
-
     public CreatePackageGui(String name, double price) {
 
         this.name = name.toLowerCase();
         this.price = price;
 
         int inventorySize = 36;
-        int packageCount = PackageManager.getNumberofPackages();
 
         inv = Bukkit.createInventory(null, inventorySize, name);
 
         initializeItems();
 
-        Bukkit.getPluginManager().registerEvents(this, Airdrop.PLUGIN_INSTANCE);
+        Bukkit.getPluginManager().registerEvents(this, Airdrop.getPluginInstance());
     }
 
     /**
@@ -46,22 +42,9 @@ public class CreatePackageGui implements Listener {
     public void initializeItems() {
         int inventorySize = inv.getSize();
 
-        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save"));
-        inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel"));
-    }
-    protected ItemStack createGuiItem(final Material material, final String name, final String... lore) {
-        final ItemStack item = new ItemStack(material, 1);
-        final ItemMeta meta = item.getItemMeta();
-
-        // Set the name of the item
-        meta.setDisplayName(name);
-
-        // Set the lore of the item
-        meta.setLore(Arrays.asList(lore));
-
-        item.setItemMeta(meta);
-
-        return item;
+        // Add a save an cancel ItemStack to the package
+        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save", 1));
+        inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel", 1));
     }
 
     public void openInventory(final HumanEntity ent) {
@@ -78,7 +61,13 @@ public class CreatePackageGui implements Listener {
 
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        String itemStackName = clickedItem.getItemMeta().getDisplayName();
+        String itemStackName = "";
+
+        try {
+             itemStackName = clickedItem.getItemMeta().getDisplayName();
+        } catch (NullPointerException err) {
+            ChatHandler.logMessage(err.getMessage());
+        }
 
         switch(itemStackName){
             case "Save":
@@ -101,6 +90,10 @@ public class CreatePackageGui implements Listener {
         }
     }
 
+    /**
+     * Handle when a player drags an item
+     * @param e drag event
+     */
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
         Player p = (Player) e.getWhoClicked();
@@ -111,6 +104,10 @@ public class CreatePackageGui implements Listener {
 
     public String getName() { return this.name; }
 
+    /**
+     * When the save control ItemStack is clicked, create the package
+     * @param e event from clicking save
+     */
     public void save(final InventoryClickEvent e) {
 
         Player p = (Player) e.getWhoClicked();
@@ -124,6 +121,10 @@ public class CreatePackageGui implements Listener {
         ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was created successfully");
     }
 
+    /**
+     * When the cancel control ItemStack is clicked, create the package
+     * @param e event from clicking cancel
+     */
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();

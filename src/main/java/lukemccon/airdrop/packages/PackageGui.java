@@ -22,30 +22,27 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class PackageGui implements Listener {
+public class PackageGui extends Gui implements Listener {
     private final Inventory inv;
-    private final int ROW_SIZE = 9;
-    private final int SAVE_CANCEL_BACK_PADDING = 4;
     private final Package pkg;
     private final String name;
-
-    private static final String[] controlItemNames = { "Save", "Cancel", "Back" };
 
     public PackageGui(Package pkg) {
 
         this.pkg = pkg;
         this.name = pkg.getName();
 
-        int packageCount = PackageManager.getNumberofPackages();
+        int inventorySize = 27;
 
         // Logic to determine how large to make the inventory
-        int inventorySize = (int) (ROW_SIZE * (Math.ceil(((packageCount + SAVE_CANCEL_BACK_PADDING)/ROW_SIZE) + 1 ) + 1));
-
         inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
 
         initializeItems();
     }
 
+    /**
+     * Setup control item blocks
+     */
     public void initializeItems() {
 
         List<ItemStack> itemList = pkg.getItems();
@@ -57,21 +54,6 @@ public class PackageGui implements Listener {
         inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save", 1));
         inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel", 1));
 
-    }
-
-    protected ItemStack createGuiItem(final Material material, final String name, int amount, final String... lore) {
-        final ItemStack item = new ItemStack(material, amount);
-        final ItemMeta meta = item.getItemMeta();
-
-        // Set the name of the item
-        meta.setDisplayName(name);
-
-        // Set the lore of the item
-        meta.setLore(Arrays.asList(lore));
-
-        item.setItemMeta(meta);
-
-        return item;
     }
 
     public void openInventory(final HumanEntity ent) {
@@ -88,7 +70,13 @@ public class PackageGui implements Listener {
 
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        String itemStackName = clickedItem.getItemMeta().getDisplayName();
+        String itemStackName = "";
+
+        try {
+            itemStackName = clickedItem.getItemMeta().getDisplayName();
+        } catch (NullPointerException err) {
+            ChatHandler.logMessage(err.getMessage());
+        }
 
         switch(itemStackName){
 
@@ -116,6 +104,10 @@ public class PackageGui implements Listener {
         }
     }
 
+    /**
+     * Cancel actions that are not done by an admin
+     * @param e inventory interaction
+     */
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
         Player p = (Player) e.getWhoClicked();
@@ -143,14 +135,28 @@ public class PackageGui implements Listener {
         ChatHandler.sendMessage(p,"Package edit was canceled");
     }
 
+    /**
+     * Go back to the packages inventory (showing all packages)
+     * @param e click event
+     */
     public void back(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();
-        Airdrop.PACKAGES_GUI.openInventory(p);
+        Airdrop.getPackagesGui().openInventory(p);
     }
 
+    /**
+     * Determines if the given ItemStack is a control stack (is not an item in the package)
+     * @param itemstack to check
+     * @return is the ItemStack used to control the plugin
+     */
     public static Boolean isControlItemStack(ItemStack itemstack) {
-        String itemName = itemstack.getItemMeta().getDisplayName();
+        String itemName = "";
+        try {
+            itemName = itemstack.getItemMeta().getDisplayName();
+        } catch (NullPointerException err) {
+            ChatHandler.logMessage(err.getMessage());
+        }
         return Arrays.stream(PackageGui.controlItemNames).anyMatch(itemName::equals);
     }
 

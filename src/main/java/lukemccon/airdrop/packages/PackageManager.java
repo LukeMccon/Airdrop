@@ -21,21 +21,22 @@ import lukemccon.airdrop.PackagesConfig;
  */
 public class PackageManager {
 	
-	
+	public static final String PACKAGES = "packages";
+
 	PackageManager(){
 		
 	}
 
-	public static HashMap<String, Package> packages = new HashMap<String, Package>();
+	public static Map<String, Package> packages = new HashMap<String, Package>();
 	private static YamlConfiguration fileConfig = PackagesConfig.getConfig();
-	private static ConfigurationSection config = (ConfigurationSection) fileConfig.get("packages");
+	private static ConfigurationSection config = (ConfigurationSection) fileConfig.get(PACKAGES);
 	
 	public static void reload() {
 		// Force a reload from config
 		PackagesConfig.loadConfig();
-		config = (ConfigurationSection) PackagesConfig.getConfig().get("packages");
+		config = (ConfigurationSection) PackagesConfig.getConfig().get(PACKAGES);
 		PackageManager.populatePackages();
-		Airdrop.PLUGIN_INSTANCE.setupPackageGuis();
+		Airdrop.getPluginInstance().setupPackageGuis();
 	}
 	
 	public static String list() {

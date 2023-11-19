@@ -1,24 +1,19 @@
 package lukemccon.airdrop.packages;
 
-import java.lang.reflect.Array;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.earth2me.essentials.User;
 import lukemccon.airdrop.Airdrop;
 import lukemccon.airdrop.helpers.ChatHandler;
-import net.milkbowl.vault.chat.Chat;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class Package {
 
-	private static Economy econ = Airdrop.AIRDROP_ECONOMY;
+	private static final Economy econ = Airdrop.AIRDROP_ECONOMY;
 	private List<ItemStack> items;
 	private double price;
 	private String name;
@@ -34,7 +29,7 @@ public class Package {
 		if (items != null && !items.isEmpty()) {
 			this.items = items;
 		} else {
-			this.items = new ArrayList<ItemStack>();
+			this.items = new ArrayList<>();
 		}
 
 	}
