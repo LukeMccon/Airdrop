@@ -20,13 +20,14 @@ public class BarrelInventoryCloseListener implements Listener {
 			return;
 		
 		Barrel barrel = (Barrel) e.getInventory().getHolder();
-		
-		if (CrateList.barrelList.contains(barrel.getBlock().getLocation())) {
-			if(barrel.getInventory().isEmpty()) {
-				barrel.getWorld().playEffect(barrel.getLocation(), Effect.STEP_SOUND, Material.BARREL);
-				barrel.getBlock().setType(Material.AIR);
-				CrateList.barrelList.remove(barrel.getBlock().getLocation());
-			}
+
+		boolean barrelListHasLocation = CrateList.barrelList.contains(barrel.getBlock().getLocation());
+		boolean barrelInventoryIsEmpty = barrel.getInventory().isEmpty();
+
+		if(barrelListHasLocation && barrelInventoryIsEmpty) {
+			barrel.getWorld().playEffect(barrel.getLocation(), Effect.STEP_SOUND, Material.BARREL);
+			barrel.getBlock().setType(Material.AIR);
+			CrateList.barrelList.remove(barrel.getBlock().getLocation());
 		}
 		
 	}

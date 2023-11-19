@@ -3,6 +3,7 @@ package lukemccon.airdrop.packages;
 import lukemccon.airdrop.Airdrop;
 
 import lukemccon.airdrop.exceptions.PackageNotFoundException;
+import lukemccon.airdrop.helpers.ChatHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
@@ -13,32 +14,19 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 /**
  * GUI that shows available packages within airdrop
  */
-public class PackagesGui implements Listener {
+public class PackagesGui extends Gui implements Listener {
     private final Inventory inv;
-    private final int ROW_SIZE = 9;
-    private final int SAVE_CANCEL_PADDING = 3;
-
-    public int inventorySize;
 
     public PackagesGui() {
 
-        int inventorySize;
-        int packageCount = PackageManager.getNumberofPackages();
-
-        inventorySize = (int) (ROW_SIZE * Math.ceil(((packageCount + SAVE_CANCEL_PADDING)/ROW_SIZE) + 1 ));
-
-        if (inventorySize < 9) {
-            inventorySize = 9;
-        }
+        int inventorySize = 27;
 
         // Create a new inventory, with no owner (as this isn't a real inventory), a size of nine, called example
         inv = Bukkit.createInventory(null, inventorySize, "Packages");
@@ -47,7 +35,6 @@ public class PackagesGui implements Listener {
         initializeItems();
     }
 
-    // You can call this whenever you want to put the items in
     public void initializeItems() {
         Set<String> packages = PackageManager.getPackages();
 
@@ -55,6 +42,11 @@ public class PackagesGui implements Listener {
         pkglist.forEach(inv::addItem);
     }
 
+    /**
+     * Creates a ItemStack that represents one of the configured packages
+     * @param packageName name of package the ItemStack references
+     * @return created ItemStack
+     */
     private ItemStack packageGuiItem(String packageName) {
         Package pkg;
         double price;
@@ -65,23 +57,7 @@ public class PackagesGui implements Listener {
         } catch (PackageNotFoundException e) {
            price = 0.0;
         }
-        return createGuiItem(Material.CHEST, packageName, "$" + price);
-    }
-
-    // Creates a gui item with a custom name, and description
-    protected ItemStack createGuiItem(final Material material, final String name, final String... lore) {
-        final ItemStack item = new ItemStack(material, 1);
-        final ItemMeta meta = item.getItemMeta();
-
-        // Set the name of the item
-        meta.setDisplayName(name);
-
-        // Set the lore of the item
-        meta.setLore(Arrays.asList(lore));
-
-        item.setItemMeta(meta);
-
-        return item;
+        return createGuiItem(Material.CHEST, packageName,1 , "$" + price);
     }
 
     public void openInventory(final HumanEntity ent) {
@@ -103,8 +79,15 @@ public class PackagesGui implements Listener {
         final Player p = (Player) e.getWhoClicked();
 
 
-        String packageName =  e.getCurrentItem().getItemMeta().getDisplayName().toLowerCase();
-        Airdrop.PACKAGE_GUIS.get(packageName).openInventory(p);
+        String packageName = null;
+
+        try {
+            packageName = e.getCurrentItem().getItemMeta().getDisplayName().toLowerCase();
+        } catch (NullPointerException err) {
+            ChatHandler.logMessage(err.getMessage());
+        }
+
+        Airdrop.getPackageGuis().get(packageName).openInventory(p);
     }
 
     @EventHandler

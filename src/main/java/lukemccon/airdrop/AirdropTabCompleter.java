@@ -14,7 +14,7 @@ import java.util.List;
 
 public class AirdropTabCompleter implements TabCompleter {
 
-    public static List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version");
+    protected static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version");
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
         // If no arguments, return false
@@ -22,10 +22,9 @@ public class AirdropTabCompleter implements TabCompleter {
             return subCommands;
         }
 
-        switch (args[0]) {
-            case "package":
-                return (new PackageTabCompletion()).onTabComplete(commandSender, command, alias, args);
+        if (args[0].equals("package")) {
+            return (new PackageTabCompletion()).onTabComplete(commandSender, command, alias, args);
         }
-        return new ArrayList<String>();
+        return new ArrayList<>();
     }
 }

@@ -1,6 +1,7 @@
 package lukemccon.airdrop;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Effect;
@@ -20,10 +21,10 @@ import lukemccon.airdrop.helpers.CrateList;
 
 public class Crate {
 
-	private Location location;
-	private World world;
+	private final Location location;
+	private final World world;
 
-	private ArrayList<ItemStack> contents;
+	private final ArrayList<ItemStack> contents;
 
 	private FallingBlock fallingCrate;
 	private Block blockChest;
@@ -32,15 +33,15 @@ public class Crate {
 	 * Construct a new Crate object with a location, world, and ArrayList of
 	 * contents
 	 * 
-	 * @param location
-	 * @param world
-	 * @param contents
+	 * @param location where crate will drop
+	 * @param world where it will drop in
+	 * @param contents of the crate
 	 */
-	public Crate(Location location, World world, ArrayList<ItemStack> contents) {
+	public Crate(Location location, World world, List<ItemStack> contents) {
 
 		this.location = location;
 		this.world = world;
-		this.contents = contents;
+		this.contents = (ArrayList<ItemStack>) contents;
 
 	}
 
@@ -73,7 +74,7 @@ public class Crate {
 		
 		fallingCrate.setGravity(false);
 		
-		Bukkit.getServer().getScheduler().runTaskTimer(Airdrop.PLUGIN_INSTANCE, new Runnable() {
+		Bukkit.getServer().getScheduler().runTaskTimer(Airdrop.getPluginInstance(), new Runnable() {
 			
 			@Override
 			public void run() {
@@ -84,12 +85,11 @@ public class Crate {
 						double xVel = Math.random() < 0.5 ? Math.random()*0.5*-1 : Math.random()*0.5;
 						double zVel = Math.random() < 0.5 ? Math.random()*0.5*-1 : Math.random()*0.5;
 						c.setVelocity(new Vector(xVel, 0.5, zVel));
-						Bukkit.getServer().getScheduler().runTaskLater(Airdrop.PLUGIN_INSTANCE, new Runnable() {
+						Bukkit.getServer().getScheduler().runTaskLater(Airdrop.getPluginInstance(), new Runnable() {
 							@Override
 							public void run() {
 								c.remove();
-								return;
-							}
+                            }
 						}, 60);
 					}
 					parachuteLeash.remove();

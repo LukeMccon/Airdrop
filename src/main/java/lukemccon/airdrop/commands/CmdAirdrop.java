@@ -7,7 +7,6 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
 import lukemccon.airdrop.controllers.DropController;
 import lukemccon.airdrop.controllers.PackagesController;
@@ -21,18 +20,16 @@ public class CmdAirdrop implements CommandExecutor {
 			if (args.length == 0) {
 				return false;
 			}
-			
-			switch (args[0]) {
-				case "package":
-					return PackageController.onCommand(sender,args);
-				case "packages":
-					return PackagesController.onCommand(sender, args);
-				case "version":
-					ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nAirdrop Version: " + ChatColor.AQUA + Airdrop.PLUGIN_VERSION + ChatColor.WHITE + "\nSpigot API Version: " + ChatColor.AQUA + Airdrop.PLUGIN_API_VERSION);
-					return true;
-				default:
-					return DropController.onCommand(sender, args);
-			}
+
+        return switch (args[0]) {
+            case "package" -> PackageController.onCommand(sender, args);
+            case "packages" -> PackagesController.onCommand(sender);
+            case "version" -> {
+                ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nAirdrop Version: " + ChatColor.AQUA + Airdrop.getVersion() + ChatColor.WHITE + "\nSpigot API Version: " + ChatColor.AQUA + Airdrop.getPluginApiVersion());
+                yield true;
+            }
+            default -> DropController.onCommand(sender, args);
+        };
 	}
 
 }
