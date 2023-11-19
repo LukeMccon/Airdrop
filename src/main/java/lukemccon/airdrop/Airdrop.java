@@ -2,6 +2,7 @@ package lukemccon.airdrop;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import lukemccon.airdrop.helpers.ChatHandler;
@@ -32,7 +33,7 @@ public class Airdrop extends JavaPlugin {
 
 	private static PackagesGui packagesGui;
 
-	public static final HashMap<String, PackageGui> PACKAGE_GUIS = new HashMap<String,PackageGui>();
+	protected static final Map<String, PackageGui> PACKAGE_GUIS = new HashMap<>();
 
 	private static Economy airdropEconomy = null;
 	
@@ -102,11 +103,8 @@ public class Airdrop extends JavaPlugin {
 		Bukkit.getPluginManager().registerEvents(packagesGui, this);
 
 		PackageManager.packages.values().stream()
-				.map(pkg -> new PackageGui(pkg))
-				.map(pkg -> {
-					PACKAGE_GUIS.put(pkg.getName(), pkg);
-					return pkg;
-				})
+				.map(PackageGui::new)
+				.peek(pkg -> PACKAGE_GUIS.put(pkg.getName(), pkg))
 				.forEach(gui -> Bukkit.getPluginManager().registerEvents(gui, this));
 	}
 
@@ -133,6 +131,8 @@ public class Airdrop extends JavaPlugin {
 	public static PackagesGui getPackagesGui() {
 		return packagesGui;
 	}
+
+	public static Map<String, PackageGui> getPackageGuis(){ return PACKAGE_GUIS; }
 
 	public static Economy getAirdropEconomy() {
 		return airdropEconomy;
