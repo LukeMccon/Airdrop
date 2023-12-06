@@ -1,6 +1,6 @@
 <div style="text-align: center;" align="center">
 
-<img src="readme/banner.png" height="270px" width="200px"/>
+<img src="readme/airdrop-banner.png" height="270px" width="200px"/>
 
 <h3> <i> From the skies! </i> </h3>
 
