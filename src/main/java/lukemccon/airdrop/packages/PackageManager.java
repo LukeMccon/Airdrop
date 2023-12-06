@@ -91,22 +91,14 @@ public class PackageManager {
 			}
 		}
 	}
-	
+
+	/**
+	 * Lookup if a package exists
+	 * @param packageName package name
+	 * @return package exists
+	 */
 	public static Boolean has(String packageName) {
 		return getPackages().contains(packageName);
-	}
-
-	public static List<ItemStack> getItems(String packageName) throws PackageNotFoundException {
-		ArrayList<ItemStack> items;
-
-		try {
-			Package foundPackage = PackageManager.packages.get(packageName);
-			items = (ArrayList<ItemStack>) foundPackage.getItems();
-		} catch (Exception e) {
-			throw new PackageNotFoundException(packageName);
-		}
-
-		return items;
 	}
 
 	/**
