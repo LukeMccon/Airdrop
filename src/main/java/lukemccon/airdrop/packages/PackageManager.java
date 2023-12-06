@@ -28,10 +28,13 @@ public class PackageManager {
 		
 	}
 
-	public static Map<String, Package> packages = new HashMap<String, Package>();
+	private static Map<String, Package> packages = new HashMap<>();
 	private static final YamlConfiguration fileConfig = PackagesConfig.getConfig();
 	private static ConfigurationSection config = (ConfigurationSection) fileConfig.get(PACKAGES);
-	
+
+	/**
+	 * Syncs the package manager with the packages.yml file
+	 */
 	public static void reload() {
 		// Force a reload from config
 		PackagesConfig.loadConfig();
@@ -39,30 +42,34 @@ public class PackageManager {
 		PackageManager.populatePackages();
 		Airdrop.getPluginInstance().setupPackageGuis();
 	}
-	
-	public static String list() {
-		String printStr = "Available Packages\n";
-		printStr += "=============== \n" + ChatColor.AQUA;
-				for (String s: getPackages()) {
-					printStr += s + "\n";
-				}
-		return printStr;
-	}
-	
+
+	/**
+	 * Get all packages as a set from the config
+	 * @return set of package names
+	 */
 	public static Set<String> getPackages() {
 		return config.getKeys(false);
 	}
 
-	public static Package get(String key) throws PackageNotFoundException {
-		Package pkg = packages.get(key);
+	/**
+	 * Get a package given the package name
+	 * @param packageName name of package
+	 * @return the package
+	 * @throws PackageNotFoundException if the package does not exist
+	 */
+	public static Package get(String packageName) throws PackageNotFoundException {
+		Package pkg = packages.get(packageName);
 
 		if (pkg == null) {
-			throw new PackageNotFoundException(key);
+			throw new PackageNotFoundException(packageName);
 		}
 		return pkg;
 	}
-	
-	public static void populatePackages() {
+
+	/**
+	 * Initializes or updates the package manager with configuration from the config file
+	 */
+	private static void populatePackages() {
 		
 		for (String pkg : getPackages()) {
 			ArrayList<ItemStack> items;
@@ -80,12 +87,8 @@ public class PackageManager {
 				} catch (Exception e) {
 					ChatHandler.getLogger().warning("Could not find price for package: " + name);
 				}
-
 				PackageManager.packages.put(name, new Package(name, price, items ));
-
 			}
-
-
 		}
 	}
 	
@@ -93,8 +96,8 @@ public class PackageManager {
 		return getPackages().contains(packageName);
 	}
 
-	public static ArrayList<ItemStack> getItems(String packageName) throws PackageNotFoundException {
-		ArrayList<ItemStack> items = null;
+	public static List<ItemStack> getItems(String packageName) throws PackageNotFoundException {
+		ArrayList<ItemStack> items;
 
 		try {
 			Package foundPackage = PackageManager.packages.get(packageName);
@@ -105,24 +108,29 @@ public class PackageManager {
 
 		return items;
 	}
-	
+
+	/**
+	 * Gives information about a package as a string
+	 * @param packageName of package to lookup
+	 * @return information as a string
+	 * @throws PackageNotFoundException if the package does not exist
+	 */
 	public static String getInfo(String packageName) throws PackageNotFoundException {
 		Package p = PackageManager.get(packageName);
 		return p.toString();
 	}
 
-	public static int getNumberofPackages() {
-		return packages.size();
-	}
-
-	public static void updatePackageInventory(String packageName, ArrayList<ItemStack> items) throws PackageNotFoundException {
+	/**
+	 * Given a package and a list of items, update the packages items
+	 * @param packageName name of package to lookup
+	 * @param items to update
+	 * @throws PackageNotFoundException if the package doesn't exist
+	 */
+	public static void updatePackageInventory(String packageName, List<ItemStack> items) throws PackageNotFoundException {
 
 		Package pkg;
-
 		pkg = PackageManager.get(packageName);
-
 		pkg.setItems(items);
-
 		config.set(packageName + ".items", items.stream().filter(Objects::nonNull).filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
 
 		fileConfig.set(PACKAGES, config);
@@ -130,6 +138,10 @@ public class PackageManager {
 		PackageManager.reload();
 	}
 
+	/**
+	 * Create a new package
+	 * @param pkg to create
+	 */
 	public static void createPackage(Package pkg) {
 		config.set(pkg.getName() + ".price", pkg.getPrice());
 		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull).filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
@@ -138,11 +150,16 @@ public class PackageManager {
 		PackageManager.reload();
 	}
 
-	public static void deletePackage (String name) throws PackageNotFoundException {
+	/**
+	 * Delete a package given a name
+	 * @param packageName name of the package to delete
+	 * @throws PackageNotFoundException package couldn't be found
+	 */
+	public static void deletePackage (String packageName) throws PackageNotFoundException {
 
 		// Make sure the package exists
-		get(name);
-		config.set(name, null);
+		get(packageName);
+		config.set(packageName, null);
 		fileConfig.set(PACKAGES, config);
 		PackagesConfig.saveConfig(fileConfig);
 		PackageManager.reload();
