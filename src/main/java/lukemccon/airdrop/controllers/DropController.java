@@ -53,7 +53,7 @@ public class DropController {
 
 		ArrayList<ItemStack> items = null;
 		try {
-			items = PackageManager.getItems(packageName);
+			items = (ArrayList<ItemStack>) PackageManager.getItems(packageName);
 		} catch (PackageNotFoundException e) {
 			items = new ArrayList<>();
 		}

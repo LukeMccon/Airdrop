@@ -90,7 +90,7 @@ public class PackagesGui extends Gui implements Listener {
 
         Package pkg = null;
         try {
-            PackageManager.get(packageName);
+            pkg = PackageManager.get(packageName);
         } catch (PackageNotFoundException error) {
             ChatHandler.sendErrorMessage(p, error.getMessage());
             return;
