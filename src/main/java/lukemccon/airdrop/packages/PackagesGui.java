@@ -98,8 +98,6 @@ public class PackagesGui extends Gui implements Listener {
         PackageGui packageGui = new PackageGui(pkg);
         Bukkit.getPluginManager().registerEvents(packageGui, Airdrop.getPluginInstance());
         packageGui.openInventory(p);
-
-        //Airdrop.getPackageGuis().get(packageName).openInventory(p);
     }
 
     @EventHandler
