@@ -1,6 +1,7 @@
 package lukemccon.airdrop.packages;
 
 import lukemccon.airdrop.Airdrop;
+import lukemccon.airdrop.exceptions.PackageNotFoundException;
 import lukemccon.airdrop.helpers.ChatHandler;
 import lukemccon.airdrop.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
@@ -123,7 +124,11 @@ public class PackageGui extends Gui implements Listener {
         Player p = (Player) e.getWhoClicked();
 
         ItemStack[] newPackageItems = e.getInventory().getContents();
-        PackageManager.updatePackageInventory(this.getName(), new ArrayList<>(Arrays.asList(newPackageItems)));
+        try {
+            PackageManager.updatePackageInventory(this.getName(), new ArrayList<>(Arrays.asList(newPackageItems)));
+        } catch (PackageNotFoundException error) {
+            ChatHandler.sendErrorMessage(p, error.getMessage());
+        }
 
         p.closeInventory();
         ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was saved successfully");
@@ -157,7 +162,7 @@ public class PackageGui extends Gui implements Listener {
         } catch (NullPointerException err) {
             ChatHandler.logMessage(err.getMessage());
         }
-        return Arrays.stream(PackageGui.controlItemNames).anyMatch(itemName::equals);
+        return Arrays.asList(PackageGui.controlItemNames).contains(itemName);
     }
 
 }

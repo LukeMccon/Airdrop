@@ -13,7 +13,7 @@ import org.bukkit.inventory.ItemStack;
 
 public class Package {
 
-	private static final Economy econ = Airdrop.AIRDROP_ECONOMY;
+	private static final Economy econ = Airdrop.getAirdropEconomy();
 	private List<ItemStack> items;
 	private double price;
 	private String name;
@@ -56,6 +56,6 @@ public class Package {
 		return this.items;
 	}
 
-	public void setItems(ArrayList<ItemStack> items) { this.items = items; }
+	public void setItems(List<ItemStack> items) { this.items = items; }
 	
 }
