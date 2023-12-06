@@ -26,15 +26,12 @@ import lukemccon.airdrop.packages.PackageManager;
 public class Airdrop extends JavaPlugin {
 
 	public static final String PLUGIN_NAME = "Airdrop";
+	public static final String AIRDROP_COMMAND = "airdrop";
 	private static Airdrop pluginInstance;
 	private static String pluginVersion;
 	private static String pluginApiVersion;
 	private static LuckPerms luckPerms;
-
 	private static PackagesGui packagesGui;
-
-	protected static final Map<String, PackageGui> PACKAGE_GUIS = new HashMap<>();
-
 	private static Economy airdropEconomy = null;
 	
 	// Define constructors per BukkitMock setup instructions
@@ -62,14 +59,13 @@ public class Airdrop extends JavaPlugin {
 			return;
 		}
 
-		// Register Commands
-		Objects.requireNonNull(this.getCommand("airdrop")).setExecutor(new CmdAirdrop());
-		Objects.requireNonNull(this.getCommand("airdrop")).setTabCompleter(new AirdropTabCompleter());
+		// Register Command and tab completer
+		Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setExecutor(new CmdAirdrop());
+		Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setTabCompleter(new AirdropTabCompleter());
 		
 		// Register Listeners
 		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);
 		Bukkit.getPluginManager().registerEvents(new BarrelInventoryCloseListener(), this);
-
 		
 		// Load configuration files
 		PackagesConfig.loadConfig();
@@ -101,11 +97,6 @@ public class Airdrop extends JavaPlugin {
 	public void setupPackageGuis () {
 		packagesGui = new PackagesGui();
 		Bukkit.getPluginManager().registerEvents(packagesGui, this);
-
-		PackageManager.packages.values().stream()
-				.map(PackageGui::new)
-				.peek(pkg -> PACKAGE_GUIS.put(pkg.getName(), pkg))
-				.forEach(gui -> Bukkit.getPluginManager().registerEvents(gui, this));
 	}
 
 	public static Airdrop getPluginInstance() {
@@ -131,8 +122,6 @@ public class Airdrop extends JavaPlugin {
 	public static PackagesGui getPackagesGui() {
 		return packagesGui;
 	}
-
-	public static Map<String, PackageGui> getPackageGuis(){ return PACKAGE_GUIS; }
 
 	public static Economy getAirdropEconomy() {
 		return airdropEconomy;
