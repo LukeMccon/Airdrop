@@ -5,13 +5,15 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.logging.Logger;
+
 public class ChatHandler {
 
 	ChatHandler() {
 
 	}
 
-	private static String ChatPrefix = ChatColor.BLUE + "[" + ChatColor.WHITE + "Airdrop" + ChatColor.BLUE + "]";
+	private static final String CHAT_PREFIX = ChatColor.BLUE + "[" + ChatColor.WHITE + "Airdrop" + ChatColor.BLUE + "]";
 
 	/**
 	 * Sends error message to a CommandSender
@@ -20,7 +22,7 @@ public class ChatHandler {
 	 */
 	public static void sendErrorMessage(CommandSender sender, String message) {
 
-		String formattedMessage = ChatHandler.ChatPrefix + ChatColor.RED + " "+ message;
+		String formattedMessage = CHAT_PREFIX + ChatColor.RED + " "+ message;
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);
@@ -37,7 +39,7 @@ public class ChatHandler {
 	 * @param message the message to send
 	 */
 	public static void sendMessage(CommandSender sender, String message) {
-		String formattedMessage = ChatHandler.ChatPrefix + ChatColor.BLUE + " " + message;
+		String formattedMessage = CHAT_PREFIX + ChatColor.BLUE + " " + message;
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);
@@ -53,6 +55,10 @@ public class ChatHandler {
 	 */
 	public static void logMessage(String message) {
 		Bukkit.getLogger().info(message);
+	}
+
+	public static Logger getLogger() {
+		return Bukkit.getLogger();
 	}
 
 }

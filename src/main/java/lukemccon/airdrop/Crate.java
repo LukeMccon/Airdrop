@@ -108,7 +108,7 @@ public class Crate {
 			
 		}, 0, 2);
 		
-		CrateList.crateMap.put(fallingCrate, this);
+		CrateList.getCrateMap().put(fallingCrate, this);
 
 	}
 
@@ -125,7 +125,7 @@ public class Crate {
 			barrel.getInventory().addItem(is);
 		}
 		
-		CrateList.barrelList.add(barrel.getLocation());
+		CrateList.getBarrelList().add(barrel.getLocation());
 
 	}
 	

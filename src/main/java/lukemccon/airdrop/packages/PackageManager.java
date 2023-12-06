@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import lukemccon.airdrop.Airdrop;
+import lukemccon.airdrop.helpers.ChatHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.Configuration;
@@ -28,7 +29,7 @@ public class PackageManager {
 	}
 
 	public static Map<String, Package> packages = new HashMap<String, Package>();
-	private static YamlConfiguration fileConfig = PackagesConfig.getConfig();
+	private static final YamlConfiguration fileConfig = PackagesConfig.getConfig();
 	private static ConfigurationSection config = (ConfigurationSection) fileConfig.get(PACKAGES);
 	
 	public static void reload() {
@@ -72,12 +73,12 @@ public class PackageManager {
 				items = new ArrayList<>( (List<ItemStack>) config.getList(pkg + ".items"));
 
 				String name = pkg;
-				Double price = 0.0;
+				double price = 0.0;
 
 				try {
 					price = config.getDouble(pkg + ".price");
 				} catch (Exception e) {
-					System.out.println("Could not find price for package: " + name);
+					ChatHandler.getLogger().warning("Could not find price for package: " + name);
 				}
 
 				PackageManager.packages.put(name, new Package(name, price, items ));
@@ -114,28 +115,25 @@ public class PackageManager {
 		return packages.size();
 	}
 
-	public static void updatePackageInventory(String packageName, ArrayList<ItemStack> items) {
+	public static void updatePackageInventory(String packageName, ArrayList<ItemStack> items) throws PackageNotFoundException {
 
 		Package pkg;
-		try {
-			pkg = PackageManager.get(packageName);
-		} catch (PackageNotFoundException e) {
-			throw new RuntimeException(e);
-		}
+
+		pkg = PackageManager.get(packageName);
 
 		pkg.setItems(items);
 
-		config.set(packageName + ".items", items.stream().filter(Objects::nonNull).filter((itemstack) -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		config.set(packageName + ".items", items.stream().filter(Objects::nonNull).filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
 
-		fileConfig.set("packages", config);
+		fileConfig.set(PACKAGES, config);
 		PackagesConfig.saveConfig(fileConfig);
 		PackageManager.reload();
 	}
 
 	public static void createPackage(Package pkg) {
 		config.set(pkg.getName() + ".price", pkg.getPrice());
-		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull).filter((itemstack) -> !PackageGui.isControlItemStack(itemstack)).toArray());
-		fileConfig.set("packages", config);
+		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull).filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		fileConfig.set(PACKAGES, config);
 		PackagesConfig.saveConfig(fileConfig);
 		PackageManager.reload();
 	}
@@ -145,7 +143,7 @@ public class PackageManager {
 		// Make sure the package exists
 		get(name);
 		config.set(name, null);
-		fileConfig.set("packages", config);
+		fileConfig.set(PACKAGES, config);
 		PackagesConfig.saveConfig(fileConfig);
 		PackageManager.reload();
 	}

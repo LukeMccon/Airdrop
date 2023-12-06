@@ -65,7 +65,7 @@ public class PackagesGui extends Gui implements Listener {
     }
 
     @EventHandler
-    public void onInventoryClick(final InventoryClickEvent e) {
+    public void onInventoryClick(final InventoryClickEvent e) throws PackageNotFoundException {
 
         if (!e.getInventory().equals(inv)) return;
 
@@ -87,7 +87,19 @@ public class PackagesGui extends Gui implements Listener {
             ChatHandler.logMessage(err.getMessage());
         }
 
-        Airdrop.getPackageGuis().get(packageName).openInventory(p);
+
+        Package pkg = null;
+        try {
+            PackageManager.get(packageName);
+        } catch (PackageNotFoundException error) {
+            ChatHandler.sendErrorMessage(p, error.getMessage());
+            return;
+        }
+        PackageGui packageGui = new PackageGui(pkg);
+        Bukkit.getPluginManager().registerEvents(packageGui, Airdrop.getPluginInstance());
+        packageGui.openInventory(p);
+
+        //Airdrop.getPackageGuis().get(packageName).openInventory(p);
     }
 
     @EventHandler
