@@ -16,12 +16,12 @@ public class FallingBlockListener implements Listener {
 
 		Entity entity = e.getEntity();
 
-		Crate aCrate = CrateList.crateMap.get(entity);
+		Crate aCrate = CrateList.getCrateMap().get(entity);
 
 		if (aCrate != null) {
 			aCrate.setChestBlock(entity.getLocation().getBlock());
 			aCrate.spawnChest();
-			CrateList.crateMap.remove(entity);
+			CrateList.getCrateMap().remove(entity);
 		} else {
 			e.setCancelled(true);
 		}
