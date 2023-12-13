@@ -1,4 +1,4 @@
-package lukemccon.airdrop.exceptions;
+package com.airdropmc.exceptions;
 
 import org.bukkit.ChatColor;
 

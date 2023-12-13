@@ -1,9 +1,9 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
-import lukemccon.airdrop.Airdrop;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.Airdrop;
 
-import lukemccon.airdrop.exceptions.PackageNotFoundException;
-import lukemccon.airdrop.helpers.ChatHandler;
+import com.airdropmc.exceptions.PackageNotFoundException;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;

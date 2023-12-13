@@ -1,11 +1,11 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import lukemccon.airdrop.Airdrop;
-import lukemccon.airdrop.helpers.ChatHandler;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.Airdrop;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -17,12 +17,8 @@ public class Package {
 	private List<ItemStack> items;
 	private double price;
 	private String name;
-	
-	public Package() {
-		
-	}
-	
-	Package(String name, double price, List<ItemStack> items) {
+
+	public Package(String name, double price, List<ItemStack> items) {
 		this.name = name;
 		this.price = price;
 
