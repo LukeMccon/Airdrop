@@ -1,5 +1,5 @@
 name: Airdrop
-main: lukemccon.airdrop.Airdrop
+main: com.airdropmc.Airdrop
 version: 3.0
 api-version: '1.20'
 depend:

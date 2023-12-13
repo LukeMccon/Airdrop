@@ -1,9 +1,6 @@
-package lukemccon.airdrop;
+package com.airdropmc;
 
-import lukemccon.airdrop.controllers.DropController;
-import lukemccon.airdrop.controllers.PackageController;
-import lukemccon.airdrop.controllers.PackageTabCompletion;
-import lukemccon.airdrop.controllers.PackagesController;
+import com.airdropmc.commands.PackageTabCompletion;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;

@@ -1,8 +1,9 @@
-package lukemccon.airdrop;
+package com.airdropmc;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import com.airdropmc.helpers.CrateList;
 import org.bukkit.Bukkit;
 import org.bukkit.Effect;
 import org.bukkit.Location;
@@ -16,8 +17,6 @@ import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Slime;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
-
-import lukemccon.airdrop.helpers.CrateList;
 
 public class Crate {
 

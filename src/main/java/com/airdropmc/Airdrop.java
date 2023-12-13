@@ -1,14 +1,14 @@
-package lukemccon.airdrop;
+package com.airdropmc;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
-import lukemccon.airdrop.helpers.ChatHandler;
-import lukemccon.airdrop.helpers.PermissionsHelper;
-import lukemccon.airdrop.packages.PackageGui;
-import lukemccon.airdrop.packages.PackagesGui;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.listeners.BarrelInventoryCloseListener;
+import com.airdropmc.listeners.FallingBlockListener;
+import com.airdropmc.packages.PackageManager;
+import com.airdropmc.packages.PackagesGui;
 import net.luckperms.api.LuckPerms;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
@@ -17,10 +17,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.java.JavaPluginLoader;
 
-import lukemccon.airdrop.commands.CmdAirdrop;
-import lukemccon.airdrop.listeners.BarrelInventoryCloseListener;
-import lukemccon.airdrop.listeners.FallingBlockListener;
-import lukemccon.airdrop.packages.PackageManager;
+import com.airdropmc.commands.CmdAirdrop;
 
 
 public class Airdrop extends JavaPlugin {
@@ -33,6 +30,7 @@ public class Airdrop extends JavaPlugin {
 	private static LuckPerms luckPerms;
 	private static PackagesGui packagesGui;
 	private static Economy airdropEconomy = null;
+
 	
 	// Define constructors per BukkitMock setup instructions
 	public Airdrop() {
@@ -130,4 +128,5 @@ public class Airdrop extends JavaPlugin {
 	public static String getVersion() {
 		return pluginVersion;
 	}
+
 }

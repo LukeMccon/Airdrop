@@ -1,9 +1,8 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
-import lukemccon.airdrop.Airdrop;
-import lukemccon.airdrop.exceptions.PackageNotFoundException;
-import lukemccon.airdrop.helpers.ChatHandler;
-import lukemccon.airdrop.helpers.PermissionsHelper;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.Airdrop;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -15,46 +14,37 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-public class PackageGui extends Gui implements Listener {
+public class CreatePackageGui extends Gui implements Listener {
     private final Inventory inv;
-    private final Package pkg;
     private final String name;
+    private final double price;
+    public CreatePackageGui(String name, double price) {
 
-    public PackageGui(Package pkg) {
+        this.name = name.toLowerCase();
+        this.price = price;
 
-        this.pkg = pkg;
-        this.name = pkg.getName();
+        int inventorySize = 36;
 
-        int inventorySize = 27;
-
-        // Logic to determine how large to make the inventory
-        inv = Bukkit.createInventory(null, inventorySize, pkg.getName());
+        inv = Bukkit.createInventory(null, inventorySize, name);
 
         initializeItems();
+
+        Bukkit.getPluginManager().registerEvents(this, Airdrop.getPluginInstance());
     }
 
     /**
      * Setup control item blocks
      */
     public void initializeItems() {
-
-        List<ItemStack> itemList = pkg.getItems();
-        itemList.forEach(inv::addItem);
-
         int inventorySize = inv.getSize();
 
-        inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, "Back", 1));
+        // Add a save an cancel ItemStack to the package
         inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save", 1));
         inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel", 1));
-
     }
 
     public void openInventory(final HumanEntity ent) {
@@ -74,17 +64,12 @@ public class PackageGui extends Gui implements Listener {
         String itemStackName = "";
 
         try {
-            itemStackName = clickedItem.getItemMeta().getDisplayName();
+             itemStackName = clickedItem.getItemMeta().getDisplayName();
         } catch (NullPointerException err) {
             ChatHandler.logMessage(err.getMessage());
         }
 
         switch(itemStackName){
-
-            case "Back":
-                this.back(e);
-                break;
-
             case "Save":
                 if (PermissionsHelper.isAdmin(p)) {
                     this.save(e);
@@ -106,8 +91,8 @@ public class PackageGui extends Gui implements Listener {
     }
 
     /**
-     * Cancel actions that are not done by an admin
-     * @param e inventory interaction
+     * Handle when a player drags an item
+     * @param e drag event
      */
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
@@ -119,50 +104,31 @@ public class PackageGui extends Gui implements Listener {
 
     public String getName() { return this.name; }
 
+    /**
+     * When the save control ItemStack is clicked, create the package
+     * @param e event from clicking save
+     */
     public void save(final InventoryClickEvent e) {
 
         Player p = (Player) e.getWhoClicked();
 
         ItemStack[] newPackageItems = e.getInventory().getContents();
-        try {
-            PackageManager.updatePackageInventory(this.getName(), new ArrayList<>(Arrays.asList(newPackageItems)));
-        } catch (PackageNotFoundException error) {
-            ChatHandler.sendErrorMessage(p, error.getMessage());
-        }
-
         p.closeInventory();
-        ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was saved successfully");
+
+        Package pkg = new Package(this.name, this.price, new ArrayList<>(Arrays.asList(newPackageItems)));
+        PackageManager.createPackage(pkg);
+
+        ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was created successfully");
     }
 
+    /**
+     * When the cancel control ItemStack is clicked, create the package
+     * @param e event from clicking cancel
+     */
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();
-        ChatHandler.sendMessage(p,"Package edit was canceled");
-    }
-
-    /**
-     * Go back to the packages inventory (showing all packages)
-     * @param e click event
-     */
-    public void back(final InventoryClickEvent e) {
-        Player p = (Player) e.getWhoClicked();
-        p.closeInventory();
-        Airdrop.getPackagesGui().openInventory(p);
-    }
-
-    /**
-     * Determines if the given ItemStack is a control stack (is not an item in the package)
-     * @param itemstack to check
-     * @return is the ItemStack used to control the plugin
-     */
-    public static Boolean isControlItemStack(ItemStack itemstack) {
-        String itemName = "";
-        try {
-            itemName = itemstack.getItemMeta().getDisplayName();
-        } catch (NullPointerException err) {
-            ChatHandler.logMessage(err.getMessage());
-        }
-        return Arrays.asList(PackageGui.controlItemNames).contains(itemName);
+        ChatHandler.sendMessage(p,"Package creation was canceled");
     }
 
 }
