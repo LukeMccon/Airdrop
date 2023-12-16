@@ -38,7 +38,7 @@ public class Package {
 	public void chargeUser(Player player) throws CannotAffordException {
 		if (!econ.withdrawPlayer(player, this.price).transactionSuccess()) {
 			// Handle transaction failure
-			throw new CannotAffordException(player.getName() + "cannot afford" + this.price);
+			throw new CannotAffordException(player.getName() +  "cannot afford " + this.price);
 		}
 		ChatHandler.sendMessage(player, ChatColor.AQUA + "$" + this.price + ChatColor.BLUE + " has been taken from your account");
 	}
