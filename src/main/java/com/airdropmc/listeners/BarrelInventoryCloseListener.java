@@ -21,7 +21,10 @@ public class BarrelInventoryCloseListener implements Listener {
 		
 		Barrel barrel = (Barrel) e.getInventory().getHolder();
 
-        assert barrel != null;
+        if (barrel == null) {
+			return;
+		}
+
         boolean barrelListHasLocation = CrateList.getBarrelList().contains(barrel.getBlock().getLocation());
 		boolean barrelInventoryIsEmpty = barrel.getInventory().isEmpty();
 

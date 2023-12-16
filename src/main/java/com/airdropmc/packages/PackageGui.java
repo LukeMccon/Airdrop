@@ -107,7 +107,7 @@ public class PackageGui extends Gui implements Listener {
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
         Player p = (Player) e.getWhoClicked();
-        if (e.getInventory().equals(inv) && Boolean.TRUE.equals(!PermissionsHelper.isAdmin(p))) {
+        if (e.getInventory().equals(inv) && !PermissionsHelper.isAdmin(p)) {
             e.setCancelled(true);
         }
     }

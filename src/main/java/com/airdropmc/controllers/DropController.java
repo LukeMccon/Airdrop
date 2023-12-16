@@ -75,12 +75,9 @@ public class DropController {
 			throw new InsufficientPermissionsException("You have insufficient permissions to drop that package, you must have" + ChatColor.AQUA + "airdrop.package." + pkg.getName());
 		}
 
-		if (Boolean.FALSE.equals(pkg.canAfford(player))) {
-			throw new CannotAffordException("You don't have enough money to drop that package. you need at-least: " + ChatColor.AQUA + "$" + pkg.getPrice());
-		}
-
-		dropPackageOnPlayer(pkg, player);
 		pkg.chargeUser(player);
+		dropPackageOnPlayer(pkg, player);
+
 	}
 
 }
