@@ -1,9 +1,9 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
-import lukemccon.airdrop.Airdrop;
-import lukemccon.airdrop.exceptions.PackageNotFoundException;
-import lukemccon.airdrop.helpers.ChatHandler;
-import lukemccon.airdrop.helpers.PermissionsHelper;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.Airdrop;
+import com.airdropmc.exceptions.PackageNotFoundException;
+import com.airdropmc.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -15,13 +15,8 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class PackageGui extends Gui implements Listener {
     private final Inventory inv;
@@ -74,7 +69,7 @@ public class PackageGui extends Gui implements Listener {
         String itemStackName = "";
 
         try {
-            itemStackName = clickedItem.getItemMeta().getDisplayName();
+            itemStackName = Objects.requireNonNull(clickedItem.getItemMeta()).getDisplayName();
         } catch (NullPointerException err) {
             ChatHandler.logMessage(err.getMessage());
         }
@@ -86,7 +81,7 @@ public class PackageGui extends Gui implements Listener {
                 break;
 
             case "Save":
-                if (PermissionsHelper.isAdmin(p)) {
+                if (Boolean.TRUE.equals(PermissionsHelper.isAdmin(p))) {
                     this.save(e);
                 } else {
                     ChatHandler.sendErrorMessage(p,"Must be admin to save edits to a package a package ");
@@ -99,7 +94,7 @@ public class PackageGui extends Gui implements Listener {
                 break;
 
             default:
-                if (!PermissionsHelper.isAdmin(p)) {
+                if (Boolean.FALSE.equals(PermissionsHelper.isAdmin(p))) {
                     e.setCancelled(true);
                 }
         }
@@ -155,14 +150,14 @@ public class PackageGui extends Gui implements Listener {
      * @param itemstack to check
      * @return is the ItemStack used to control the plugin
      */
-    public static Boolean isControlItemStack(ItemStack itemstack) {
+    public static boolean isControlItemStack(ItemStack itemstack) {
         String itemName = "";
         try {
-            itemName = itemstack.getItemMeta().getDisplayName();
+            itemName = Objects.requireNonNull(itemstack.getItemMeta()).getDisplayName();
         } catch (NullPointerException err) {
             ChatHandler.logMessage(err.getMessage());
         }
-        return Arrays.asList(PackageGui.controlItemNames).contains(itemName);
+        return Arrays.asList(controlItemNames).contains(itemName);
     }
 
 }

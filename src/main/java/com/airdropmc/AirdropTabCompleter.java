@@ -1,9 +1,6 @@
-package lukemccon.airdrop;
+package com.airdropmc;
 
-import lukemccon.airdrop.controllers.DropController;
-import lukemccon.airdrop.controllers.PackageController;
-import lukemccon.airdrop.controllers.PackageTabCompletion;
-import lukemccon.airdrop.controllers.PackagesController;
+import com.airdropmc.commands.PackageTabCompletion;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -14,7 +11,7 @@ import java.util.List;
 
 public class AirdropTabCompleter implements TabCompleter {
 
-    protected static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version");
+    private static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version");
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
         // If no arguments, return false

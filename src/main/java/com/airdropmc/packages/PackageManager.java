@@ -1,19 +1,15 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
-import lukemccon.airdrop.Airdrop;
-import lukemccon.airdrop.helpers.ChatHandler;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.configuration.Configuration;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.Airdrop;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
-import lukemccon.airdrop.exceptions.PackageNotFoundException;
-import lukemccon.airdrop.PackagesConfig;
+import com.airdropmc.exceptions.PackageNotFoundException;
+import com.airdropmc.PackagesConfig;
 /**
  * Manages packages, keeps list of available packages and their contents
  * 

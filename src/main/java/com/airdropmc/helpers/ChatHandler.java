@@ -1,4 +1,4 @@
-package lukemccon.airdrop.helpers;
+package com.airdropmc.helpers;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
