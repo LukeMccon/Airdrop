@@ -150,7 +150,7 @@ public class PackageGui extends Gui implements Listener {
      * @param itemstack to check
      * @return is the ItemStack used to control the plugin
      */
-    public static Boolean isControlItemStack(ItemStack itemstack) {
+    public static boolean isControlItemStack(ItemStack itemstack) {
         String itemName = "";
         try {
             itemName = Objects.requireNonNull(itemstack.getItemMeta()).getDisplayName();
