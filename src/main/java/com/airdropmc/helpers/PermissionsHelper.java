@@ -1,6 +1,6 @@
-package lukemccon.airdrop.helpers;
+package com.airdropmc.helpers;
 
-import lukemccon.airdrop.Airdrop;
+import com.airdropmc.Airdrop;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.group.GroupManager;

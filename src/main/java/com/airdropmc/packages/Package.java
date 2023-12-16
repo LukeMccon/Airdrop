@@ -1,11 +1,12 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import lukemccon.airdrop.Airdrop;
-import lukemccon.airdrop.helpers.ChatHandler;
+import com.airdropmc.exceptions.CannotAffordException;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.Airdrop;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -17,21 +18,11 @@ public class Package {
 	private List<ItemStack> items;
 	private double price;
 	private String name;
-	
-	public Package() {
-		
-	}
-	
-	Package(String name, double price, List<ItemStack> items) {
+
+	public Package(String name, double price, List<ItemStack> items) {
 		this.name = name;
 		this.price = price;
-
-		if (items != null && !items.isEmpty()) {
-			this.items = items;
-		} else {
-			this.items = new ArrayList<>();
-		}
-
+		this.setItems(items);
 	}
 	
 	public double getPrice() { 
@@ -44,8 +35,11 @@ public class Package {
         return Double.compare(econ.getBalance(player), this.price) >= 0;
     }
 
-	public void chargeUser(Player player) {
-		econ.withdrawPlayer(player, this.price);
+	public void chargeUser(Player player) throws CannotAffordException {
+		if (!econ.withdrawPlayer(player, this.price).transactionSuccess()) {
+			// Handle transaction failure
+			throw new CannotAffordException(player.getName() +  " cannot afford " + this.price);
+		}
 		ChatHandler.sendMessage(player, ChatColor.AQUA + "$" + this.price + ChatColor.BLUE + " has been taken from your account");
 	}
 
@@ -56,6 +50,12 @@ public class Package {
 		return this.items;
 	}
 
-	public void setItems(List<ItemStack> items) { this.items = items; }
+	public void setItems(List<ItemStack> items) {
+		if (items != null && !items.isEmpty()) {
+			this.items = items;
+		} else {
+			this.items = new ArrayList<>();
+		}
+	}
 	
 }

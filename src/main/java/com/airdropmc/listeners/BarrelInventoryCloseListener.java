@@ -1,4 +1,4 @@
-package lukemccon.airdrop.listeners;
+package com.airdropmc.listeners;
 
 import org.bukkit.Effect;
 import org.bukkit.Material;
@@ -9,7 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
 
-import lukemccon.airdrop.helpers.CrateList;
+import com.airdropmc.helpers.CrateList;
 
 public class BarrelInventoryCloseListener implements Listener {
 	
@@ -21,7 +21,11 @@ public class BarrelInventoryCloseListener implements Listener {
 		
 		Barrel barrel = (Barrel) e.getInventory().getHolder();
 
-		boolean barrelListHasLocation = CrateList.getBarrelList().contains(barrel.getBlock().getLocation());
+        if (barrel == null) {
+			return;
+		}
+
+        boolean barrelListHasLocation = CrateList.getBarrelList().contains(barrel.getBlock().getLocation());
 		boolean barrelInventoryIsEmpty = barrel.getInventory().isEmpty();
 
 		if(barrelListHasLocation && barrelInventoryIsEmpty) {

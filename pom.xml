@@ -78,7 +78,13 @@
           <version>1.7</version>
           <scope>provided</scope>
       </dependency>
-   <!-- https://mvnrepository.com/artifact/junit/junit -->
+      <dependency>
+          <groupId>org.jetbrains</groupId>
+          <artifactId>annotations</artifactId>
+          <version>RELEASE</version>
+          <scope>compile</scope>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/junit/junit -->
   </dependencies>
   <properties>
     <maven.compiler.release>16</maven.compiler.release>

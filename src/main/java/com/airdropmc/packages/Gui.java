@@ -1,4 +1,4 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;

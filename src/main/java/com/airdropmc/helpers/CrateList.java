@@ -1,4 +1,4 @@
-package lukemccon.airdrop.helpers;
+package com.airdropmc.helpers;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,7 +8,7 @@ import java.util.Map;
 import org.bukkit.Location;
 import org.bukkit.entity.FallingBlock;
 
-import lukemccon.airdrop.Crate;
+import com.airdropmc.Crate;
 
 public class CrateList {
 
@@ -26,9 +26,9 @@ public class CrateList {
 
 	// Correlates a particular falling block to a crate object that contains information about
 	// what's in the crate, where it is etc.
-	protected static Map<FallingBlock, Crate> crateMap = new HashMap<FallingBlock, Crate>();
+	protected static Map<FallingBlock, Crate> crateMap = new HashMap<>();
 	
 	// ArrayList of the locations of created barrels
-	protected static List<Location> barrelList = new ArrayList<Location>();
+	protected static List<Location> barrelList = new ArrayList<>();
 
 }

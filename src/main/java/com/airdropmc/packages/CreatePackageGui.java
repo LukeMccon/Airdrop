@@ -1,8 +1,8 @@
-package lukemccon.airdrop.packages;
+package com.airdropmc.packages;
 
-import lukemccon.airdrop.Airdrop;
-import lukemccon.airdrop.helpers.ChatHandler;
-import lukemccon.airdrop.helpers.PermissionsHelper;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.Airdrop;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
