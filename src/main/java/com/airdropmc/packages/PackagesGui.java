@@ -16,6 +16,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -65,7 +66,7 @@ public class PackagesGui extends Gui implements Listener {
     }
 
     @EventHandler
-    public void onInventoryClick(final InventoryClickEvent e) throws PackageNotFoundException {
+    public void onInventoryClick(final InventoryClickEvent e) {
 
         if (!e.getInventory().equals(inv)) return;
 
@@ -76,17 +77,15 @@ public class PackagesGui extends Gui implements Listener {
         // verify current item is not null
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        final Player p = (Player) e.getWhoClicked();
-
+        if (!(e.getWhoClicked() instanceof Player p)) return;
 
         String packageName = null;
 
-        try {
+        if (e.getCurrentItem().hasItemMeta() && Objects.requireNonNull(e.getCurrentItem().getItemMeta()).hasDisplayName()) {
             packageName = e.getCurrentItem().getItemMeta().getDisplayName().toLowerCase();
-        } catch (NullPointerException err) {
-            ChatHandler.logMessage(err.getMessage());
+        } else {
+            return;
         }
-
 
         Package pkg = null;
         try {

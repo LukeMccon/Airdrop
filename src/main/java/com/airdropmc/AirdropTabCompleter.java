@@ -11,7 +11,7 @@ import java.util.List;
 
 public class AirdropTabCompleter implements TabCompleter {
 
-    protected static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version");
+    private static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version");
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
         // If no arguments, return false
