@@ -50,7 +50,7 @@ Download and copy the `.jar` files for these plugins into your `plugins` folder:
 - [EssentialsX](https://essentialsx.net/)
 - [Vault](https://github.com/milkbowl/Vault)
 
-Download the latest stable release of `Airdrop`
+Download the latest stable release of `Airdrop` [here](https://github.com/LukeMccon/Airdrop/releases/latest)
 Place the `.jar` into your plugins folder
 
 ## Configuration
