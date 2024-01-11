@@ -5,3 +5,4 @@ target/
 copy.sh
 /.idea
 .project
+.idea/
