@@ -1,8 +1,6 @@
 <div style="text-align: center;" align="center">
 
-<img src="readme/banner.png" height="200px" width="200px"/>
-
-<h1>Airdrop</h1>
+<img src="readme/airdrop-banner.png" height="270px" width="200px"/>
 
 <h3> <i> From the skies! </i> </h3>
 
@@ -52,7 +50,7 @@ Download and copy the `.jar` files for these plugins into your `plugins` folder:
 - [EssentialsX](https://essentialsx.net/)
 - [Vault](https://github.com/milkbowl/Vault)
 
-Download the latest stable release of `Airdrop`
+Download the latest stable release of `Airdrop` [here](https://github.com/LukeMccon/Airdrop/releases/latest)
 Place the `.jar` into your plugins folder
 
 ## Configuration
