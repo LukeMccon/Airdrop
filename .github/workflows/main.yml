@@ -2,7 +2,7 @@ name: Release
 on:
   push:
     branches:
-      - main
+      - main-fix
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -50,8 +50,6 @@ jobs:
         server-password: MAVEN_PASSWORD
         gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
         gpg-passphrase: MAVEN_GPG_PASSPHRASE
-    - name: Start gpg-agent
-      run: gpg-agent --daemon --allow-preset-passphrase
     - name: Import GPG key
       run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import --passphrase "$MAVEN_GPG_PASSPHRASE"
     - name: Deploy with Maven
