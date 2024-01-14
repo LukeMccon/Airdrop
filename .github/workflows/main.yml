@@ -16,20 +16,20 @@ jobs:
           cache: maven
       - name: Build with Maven
         run: mvn -B package --file pom.xml
-      - name: Bump version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: main
-      - name: Create a GitHub release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ steps.tag_version.outputs.new_tag }}
-          name: Release ${{ steps.tag_version.outputs.new_tag }}
-          body: ${{ steps.tag_version.outputs.changelog }}
-          artifacts: target/*.jar
-          makeLatest: true# This workflow will build a Java project with Maven
+      # - name: Bump version and push tag
+      #   id: tag_version
+      #   uses: mathieudutour/github-tag-action@v6.1
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     release_branches: main
+      # - name: Create a GitHub release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     tag: ${{ steps.tag_version.outputs.new_tag }}
+      #     name: Release ${{ steps.tag_version.outputs.new_tag }}
+      #     body: ${{ steps.tag_version.outputs.changelog }}
+      #     artifacts: target/*.jar
+      #     makeLatest: true# This workflow will build a Java project with Maven
   build:
     runs-on: ubuntu-latest
     steps:
@@ -44,7 +44,7 @@ jobs:
         gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
         gpg-passphrase: MAVEN_GPG_PASSPHRASE
     - name: Deploy with Maven
-      run: mvn -DperformRelease=true -B clean deploy -Pci-cd -
+      run: mvn -DperformRelease=true -B clean deploy -Prelease-sign-artifacts -
       env:
         MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
         MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
