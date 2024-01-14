@@ -31,6 +31,13 @@ jobs:
       #     artifacts: target/*.jar
       #     makeLatest: true# This workflow will build a Java project with Maven
   build:
+
+    env:
+      MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+      GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -43,10 +50,9 @@ jobs:
         server-password: MAVEN_PASSWORD
         gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
         gpg-passphrase: MAVEN_GPG_PASSPHRASE
+    - name: Start gpg-agent
+      run: gpg-agent --daemon --allow-preset-passphrase
+    - name: Import GPG key
+      run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import --passphrase "$MAVEN_GPG_PASSPHRASE"
     - name: Deploy with Maven
       run: mvn -DperformRelease=true -Prelease-sign-artifacts -B clean deploy 
-      env:
-        MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
-        MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-
