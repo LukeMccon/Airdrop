@@ -10,6 +10,13 @@
         <distribution>repo</distribution>
     </license>
 </licenses>
+<distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <name>Central Repository OSSRH</name>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
     <developers>
         <developer>
             <id>LukeMccon</id>
@@ -166,6 +173,12 @@
                                 </goals>
                             </execution>
                         </executions>
+                        <configuration>
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                          </configuration>
                     </plugin>
                 </plugins>
             </build>
