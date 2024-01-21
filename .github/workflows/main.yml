@@ -52,5 +52,7 @@ jobs:
         gpg-passphrase: ${{ env.MAVEN_GPG_PASSPHRASE }}
     - name: Import GPG key
       run: echo "$GPG_PRIVATE_KEY" | gpg --batch --import --passphrase "$MAVEN_GPG_PASSPHRASE"
+    - name: Import GPG key and passphrase
+      run: echo "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}" | gpg --batch --import --passphrase "${{ secrets.MAVEN_GPG_PASSPHRASE }}"
     - name: Deploy with Maven
       run: mvn --no-transfer-progress --batch-mode -DperformRelease=true -Prelease-sign-artifacts -B clean deploy 
