@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import com.airdropmc.exceptions.ConfigSaveException;
 import com.airdropmc.helpers.ChatHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -45,7 +46,7 @@ public class PackagesConfig {
 		try {
 			config.save(f);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			throw new ConfigSaveException(e);
 		}
 	}
 	
