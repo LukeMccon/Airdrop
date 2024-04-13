@@ -45,7 +45,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         java-version: 17
-        server-id: ossrh
+        server-id: oss-sonatype-snapshots
         server-username: ${{ env.MAVEN_USERNAME }}
         server-password: ${{ env.MAVEN_PASSWORD }}
         gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
