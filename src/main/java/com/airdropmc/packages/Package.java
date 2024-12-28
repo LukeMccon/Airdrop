@@ -31,7 +31,7 @@ public class Package {
 
 	public String getName() { return this.name; }
 
-	public Boolean canAfford(Player player) {
+	public boolean canAfford(Player player) {
         return Double.compare(econ.getBalance(player), this.price) >= 0;
     }
 
