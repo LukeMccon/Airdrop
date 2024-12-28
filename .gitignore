@@ -6,3 +6,4 @@ copy.sh
 /.idea
 .project
 .idea/
+build.sh
