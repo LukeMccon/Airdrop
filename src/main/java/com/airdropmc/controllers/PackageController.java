@@ -1,6 +1,7 @@
 package com.airdropmc.controllers;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.exceptions.PackageNotFoundException;
@@ -24,6 +25,13 @@ public class PackageController {
 		if (args.length != 3 ) {
 			ChatHandler.sendErrorMessage(sender, "Need to specify a package name to delete");
 		}
+
+		// Create a new package
+		if (!PermissionsHelper.isAdmin(sender)) {
+			ChatHandler.sendErrorMessage(sender,"Must be an admin with airdrop.admin permissions or a server operator to delete a package");
+			return;
+		}
+
 		String packageName = args[2];
 		try {
 			PackageManager.deletePackage(packageName);
@@ -52,7 +60,7 @@ public class PackageController {
 				return;
 			}
 
-		String packageName = args[2];
+			String packageName = args[2];
 			String priceString = args[3];
 			double price = 0;
 
@@ -70,7 +78,6 @@ public class PackageController {
 					return;
 				}
 			}
-
 
 			CreatePackageGui createGui = new CreatePackageGui(packageName, price);
 
