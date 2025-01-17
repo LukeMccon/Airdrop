@@ -89,28 +89,46 @@ packages:
 
 ## Commands
 
-`/airdrop <command> [args]`
+All commands start with `/airdrop`. The following commands are available:
 
-##### /airdrop [packageName]
+### Dropping a package
 
-Drops a package on the current players location
+##### `/airdrop <packageName>`
+- Drops the specified package at your location
+- Requires one of:
+  - `airdrop.package.all` permission
+  - `airdrop.package.<packageName>` permission for specific package
+  - Membership in the `airdrop-user` luckperms group
+- Costs in-game currency if package has a price set
 
-##### /airdrop version
+### Package Management
 
-Displays the current version of the plugin
+##### `/airdrop package create <name> <price>`
+- Creates a new package with the specified name and price
+- Opens a GUI to configure the items in the package
+- Requires `airdrop.admin` permission or server op
 
-##### /airdrop packages
+##### `/airdrop package delete <name>`
+- Deletes an existing package
+- Requires `airdrop.admin` permission or server op
 
-Lists all the airdrop packages and view contents
+##### `/airdrop package <name>`
+- Shows detailed information about a specific package
+- Available to all players
 
-##### /airdrop package [packageName]
+##### `/airdrop packages`
+- Opens a GUI showing all available packages
+- Available to all players
 
-Show details about a package
+### Other Commands
 
-##### /airdrop package create [packageName] [price]
+##### `/airdrop version`
+- Displays the current version of the plugin and API version
 
-Create a new package, opens up a GUI to add items
+### Permissions
 
-##### /airdrop package delete [packageName]
-
-Delete a package
+- `airdrop.admin`: Full access to all plugin features (recommended for admins)
+- `airdrop.package.all`: Access to use all packages
+- `airdrop.package.<packageName>`: Access to use a specific package
+- `airdrop-user` group: Access to use all packages (alternative to individual permissions)
+- `airdrop-admin` group: Full administrative access (alternative to individual permissions)
