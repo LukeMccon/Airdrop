@@ -6,6 +6,8 @@ import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.group.GroupManager;
 import net.luckperms.api.node.Node;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
@@ -30,6 +32,22 @@ public class PermissionsHelper {
     public static boolean isAdmin(Player player) {
         return player.hasPermission(PermissionsHelper.AIRDROP_ADMIN) || player.isOp();
     }
+
+    /**
+     * Determines if the sender is an admin
+     * @param sender either a player or the server console
+     * @return is the sender a superuser
+     */
+    public static boolean isAdmin(CommandSender sender) {
+        if (sender instanceof  Player player) {
+            return isAdmin(player);
+        }
+        // Sender is the server console
+        if (sender instanceof ConsoleCommandSender) {
+            return true;
+        }
+    }
+
 
     /**
      * Checks if player has permission to drop a package
