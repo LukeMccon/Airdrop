@@ -39,13 +39,11 @@ public class PermissionsHelper {
      * @return is the sender a superuser
      */
     public static boolean isAdmin(CommandSender sender) {
-        if (sender instanceof  Player player) {
-            return isAdmin(player);
-        }
-        // Sender is the server console
-        if (sender instanceof ConsoleCommandSender) {
-            return true;
-        }
+        return switch (sender) {
+            case Player player -> isAdmin(player);
+            case ConsoleCommandSender _ -> true;
+            default -> false;
+        };
     }
 
 
