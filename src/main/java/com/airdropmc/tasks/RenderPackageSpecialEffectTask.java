@@ -1,6 +1,5 @@
 package com.airdropmc.tasks;
 
-import org.bukkit.util.Vector;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
@@ -12,12 +11,22 @@ public class RenderPackageSpecialEffectTask extends BukkitRunnable {
     private World world;
     private boolean shouldContinue = true;
     private int ticksElapsed = 0;
-    private static final int MAX_TICKS = 100; // 5 seconds (20 ticks per second)
+    private static final int MAX_TICKS = 72000; // 1 hour
+    private static final int AMBIENT_PARTICLE_INTERVAL = 5;
+    private static final int AMBIENT_PARTICLE_COUNT = 3;
+    private static final double AMBIENT_PARTICLE_SPREAD = 0.3;
+    private static final double AMBIENT_PARTICLE_SPEED = 0.0;
 
-    public RenderPackageSpecialEffectTask(Location location) {
-        Vector reposition = new Vector(0, .5, 0);
-        this.location = location.add(reposition);
-        this.world = location.getWorld();
+    /**
+     * Renders a single package's special effects once
+     * 
+     * @param location location of the block the package is on
+     * @param world    world the package is in
+     */
+    public RenderPackageSpecialEffectTask(Location location, World world) {
+        // Center the effects in the block
+        this.location = location.getBlock().getLocation().add(0.5, 1.0, 0.5);
+        this.world = world;
     }
 
     @Override
@@ -27,20 +36,11 @@ public class RenderPackageSpecialEffectTask extends BukkitRunnable {
             return;
         }
 
-        // Create main spiral effect
-        double radius = 0.8;
-        double y = Math.sin(ticksElapsed * 0.2) * 0.2;
-        double x = Math.cos(ticksElapsed * 0.2) * radius;
-        double z = Math.sin(ticksElapsed * 0.2) * radius;
-
-        Location particleLoc = location.clone().add(x, y, z);
-
-        // Main glowing particles
-        world.spawnParticle(Particle.END_ROD, particleLoc, 2, 0.02, 0.02, 0.02, 0.01, null, false);
-
         // Ambient glow effect
-        if (ticksElapsed % 5 == 0) { // Every 5 ticks
-            world.spawnParticle(Particle.GLOW, location, 3, 0.3, 0.3, 0.3, 0, null, false);
+        if (ticksElapsed % AMBIENT_PARTICLE_INTERVAL == 0) {
+            world.spawnParticle(Particle.GLOW, location, AMBIENT_PARTICLE_COUNT,
+                    AMBIENT_PARTICLE_SPREAD, AMBIENT_PARTICLE_SPREAD, AMBIENT_PARTICLE_SPREAD, AMBIENT_PARTICLE_SPEED,
+                    null, false);
         }
 
         ticksElapsed++;
@@ -48,5 +48,6 @@ public class RenderPackageSpecialEffectTask extends BukkitRunnable {
 
     public void stopEffect() {
         this.shouldContinue = false;
+        this.cancel(); // Explicitly cancel the BukkitRunnable task
     }
 }

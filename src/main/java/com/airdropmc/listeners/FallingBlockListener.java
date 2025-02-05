@@ -1,37 +1,43 @@
 package com.airdropmc.listeners;
 
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.Bukkit;
 
-import com.airdropmc.helpers.CrateList;
-import com.airdropmc.tasks.RenderPackageSpecialEffectTask;
-import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
+import com.airdropmc.LandedCrate;
+import com.airdropmc.helpers.CrateList;
 
-import java.util.Map;
+import com.airdropmc.events.PackageLandEvent;
 
 public class FallingBlockListener implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onEntityChangeBlockEvent(EntityChangeBlockEvent e) {
-
-		Map<FallingBlock, Crate> crateMap = CrateList.getCrateMap();
 		Entity entity = e.getEntity();
 
-		if (crateMap.containsKey(entity)) {
+		if (!(entity instanceof FallingBlock)) {
+			return;
+		}
+
+		FallingBlock fallingBlock = (FallingBlock) entity;
+		if (CrateList.hasCrate(fallingBlock)) {
 			e.setCancelled(true);
 			Location loc = entity.getLocation();
-			Crate aCrate = crateMap.get(entity);
-			aCrate.setChestBlock(loc.getBlock());
-			aCrate.spawnChest();
-			crateMap.remove(entity);
-			RenderPackageSpecialEffectTask effect = new RenderPackageSpecialEffectTask(loc);
-			effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 1L);
+			World world = loc.getWorld();
+			Crate aCrate = CrateList.removeCrate(fallingBlock);
+			aCrate.setLandingBlock(loc.getBlock());
+
+			// Call the PackageLandEvent before creating the landed crate
+			LandedCrate landedCrate = aCrate.createLandedCrate();
+			PackageLandEvent landEvent = new PackageLandEvent(landedCrate, world, loc, loc.getBlock());
+			Bukkit.getPluginManager().callEvent(landEvent);
 		}
 	}
 }
