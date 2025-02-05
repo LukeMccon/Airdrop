@@ -1,0 +1,14 @@
+# Airdrop Configuration
+
+# Plugin Settings
+settings:
+  particles:
+    # Whether to show particle effects when the package lands
+    landing-effects: true
+    # Whether to show continuous particle effects while the package exists
+    continuous-effects: true
+
+# Economy settings
+economy:
+  # Whether to enable economy features
+  enabled: true

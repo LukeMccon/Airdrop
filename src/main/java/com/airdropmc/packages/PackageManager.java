@@ -10,6 +10,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.PackagesConfig;
+
 /**
  * Manages packages, keeps list of available packages and their contents
  * 
@@ -17,11 +18,11 @@ import com.airdropmc.PackagesConfig;
  *
  */
 public class PackageManager {
-	
+
 	public static final String PACKAGES = "packages";
 
-	PackageManager(){
-		
+	PackageManager() {
+
 	}
 
 	private static Map<String, Package> packages = new HashMap<>();
@@ -41,6 +42,7 @@ public class PackageManager {
 
 	/**
 	 * Get all packages as a set from the config
+	 * 
 	 * @return set of package names
 	 */
 	public static Set<String> getPackages() {
@@ -49,6 +51,7 @@ public class PackageManager {
 
 	/**
 	 * Get a package given the package name
+	 * 
 	 * @param packageName name of package
 	 * @return the package
 	 * @throws PackageNotFoundException if the package does not exist
@@ -63,17 +66,25 @@ public class PackageManager {
 	}
 
 	/**
-	 * Initializes or updates the package manager with configuration from the config file
+	 * Initializes or updates the package manager with configuration from the config
+	 * file
 	 */
 	private static void populatePackages() {
-		
+
 		for (String pkg : getPackages()) {
-			ArrayList<ItemStack> items;
+			ArrayList<ItemStack> items = new ArrayList<>();
 			ConfigurationSection section = (ConfigurationSection) config.get(pkg);
 
 			if (section != null) {
 
-				items = new ArrayList<>( (List<ItemStack>) config.getList(pkg + ".items"));
+				List<?> rawList = config.getList(pkg + ".items");
+				if (rawList != null) {
+					for (Object obj : rawList) {
+						if (obj instanceof ItemStack) {
+							items.add((ItemStack) obj);
+						}
+					}
+				}
 
 				String name = pkg;
 				double price = 0.0;
@@ -83,13 +94,14 @@ public class PackageManager {
 				} catch (Exception e) {
 					ChatHandler.getLogger().warning("Could not find price for package: " + name);
 				}
-				PackageManager.packages.put(name, new Package(name, price, items ));
+				PackageManager.packages.put(name, new Package(name, price, items));
 			}
 		}
 	}
 
 	/**
 	 * Lookup if a package exists
+	 * 
 	 * @param packageName package name
 	 * @return package exists
 	 */
@@ -99,6 +111,7 @@ public class PackageManager {
 
 	/**
 	 * Gives information about a package as a string
+	 * 
 	 * @param packageName of package to lookup
 	 * @return information as a string
 	 * @throws PackageNotFoundException if the package does not exist
@@ -110,16 +123,19 @@ public class PackageManager {
 
 	/**
 	 * Given a package and a list of items, update the packages items
+	 * 
 	 * @param packageName name of package to lookup
-	 * @param items to update
+	 * @param items       to update
 	 * @throws PackageNotFoundException if the package doesn't exist
 	 */
-	public static void updatePackageInventory(String packageName, List<ItemStack> items) throws PackageNotFoundException {
+	public static void updatePackageInventory(String packageName, List<ItemStack> items)
+			throws PackageNotFoundException {
 
 		Package pkg;
 		pkg = PackageManager.get(packageName);
 		pkg.setItems(items);
-		config.set(packageName + ".items", items.stream().filter(Objects::nonNull).filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		config.set(packageName + ".items", items.stream().filter(Objects::nonNull)
+				.filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
 
 		fileConfig.set(PACKAGES, config);
 		PackagesConfig.saveConfig(fileConfig);
@@ -128,11 +144,13 @@ public class PackageManager {
 
 	/**
 	 * Create a new package
+	 * 
 	 * @param pkg to create
 	 */
 	public static void createPackage(Package pkg) {
 		config.set(pkg.getName() + ".price", pkg.getPrice());
-		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull).filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull)
+				.filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
 		fileConfig.set(PACKAGES, config);
 		PackagesConfig.saveConfig(fileConfig);
 		PackageManager.reload();
@@ -140,10 +158,11 @@ public class PackageManager {
 
 	/**
 	 * Delete a package given a name
+	 * 
 	 * @param packageName name of the package to delete
 	 * @throws PackageNotFoundException package couldn't be found
 	 */
-	public static void deletePackage (String packageName) throws PackageNotFoundException {
+	public static void deletePackage(String packageName) throws PackageNotFoundException {
 
 		// Make sure the package exists
 		get(packageName);
