@@ -2,7 +2,7 @@ name: Develop Release
 on:
   push:
     branches:
-      - develop
+      - pedro-pipeline
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -21,7 +21,8 @@ jobs:
         uses: mathieudutour/github-tag-action@v6.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          pre_release_branches: develop
+          pre_release_branches: pedro-pipeline
+          dry_run: true
       - name: Create a GitHub release
         uses: ncipollo/release-action@v1
         with:
