@@ -132,3 +132,6 @@ All commands start with `/airdrop`. The following commands are available:
 - `airdrop.package.<packageName>`: Access to use a specific package
 - `airdrop-user` group: Access to use all packages (alternative to individual permissions)
 - `airdrop-admin` group: Full administrative access (alternative to individual permissions)
+
+### TEMP TEXT
+- Just adding this here so i can easily make changes to commit while i test stuff
