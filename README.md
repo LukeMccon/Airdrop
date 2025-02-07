@@ -134,4 +134,4 @@ All commands start with `/airdrop`. The following commands are available:
 - `airdrop-admin` group: Full administrative access (alternative to individual permissions)
 
 ### TEMP TEXT
-- Just adding this here so i can easily make changes to commit while I test stuff
+- Just adding this here so I can easily make changes to commit while I test stuff.
