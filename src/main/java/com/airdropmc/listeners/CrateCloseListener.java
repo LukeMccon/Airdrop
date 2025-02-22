@@ -12,7 +12,7 @@ import org.bukkit.event.inventory.InventoryType;
 
 import com.airdropmc.helpers.CrateList;
 
-public class BarrelInventoryCloseListener implements Listener {
+public class CrateCloseListener implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onInventoryClose(InventoryCloseEvent e) {

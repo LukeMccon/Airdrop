@@ -9,7 +9,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 
 import com.airdropmc.helpers.CrateList;
 
-public class BarrelBlockDestroyListener implements Listener {
+public class CrateDestroyListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)
     public void onBlockBreak(BlockBreakEvent e) {

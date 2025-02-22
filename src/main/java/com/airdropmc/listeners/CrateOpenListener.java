@@ -11,7 +11,7 @@ import org.bukkit.block.Barrel;
 import com.airdropmc.LandedCrate;
 import com.airdropmc.helpers.CrateList;
 
-public class BarrelInventoryOpenListener implements Listener {
+public class CrateOpenListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)
     public void onInventoryOpen(InventoryOpenEvent e) {

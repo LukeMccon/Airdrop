@@ -5,10 +5,10 @@ import java.util.Objects;
 
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
-import com.airdropmc.listeners.BarrelBlockDestroyListener;
-import com.airdropmc.listeners.BarrelInventoryCloseListener;
-import com.airdropmc.listeners.BarrelInventoryOpenListener;
-import com.airdropmc.listeners.FallingBlockListener;
+import com.airdropmc.listeners.CrateDestroyListener;
+import com.airdropmc.listeners.CrateCloseListener;
+import com.airdropmc.listeners.CrateOpenListener;
+import com.airdropmc.listeners.FallingCrateListener;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
 import net.luckperms.api.LuckPerms;
@@ -69,10 +69,10 @@ public class Airdrop extends JavaPlugin {
 		Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setTabCompleter(new AirdropTabCompleter());
 
 		// Register Listeners
-		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);
-		Bukkit.getPluginManager().registerEvents(new BarrelInventoryCloseListener(), this);
-		Bukkit.getPluginManager().registerEvents(new BarrelInventoryOpenListener(), this);
-		Bukkit.getPluginManager().registerEvents(new BarrelBlockDestroyListener(), this);
+		Bukkit.getPluginManager().registerEvents(new FallingCrateListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateCloseListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(), this);
 
 		// Load configuration files
 		PackagesConfig.loadConfig();
