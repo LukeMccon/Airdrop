@@ -16,7 +16,7 @@ import com.airdropmc.helpers.CrateList;
 
 import com.airdropmc.events.PackageLandEvent;
 
-public class FallingBlockListener implements Listener {
+public class FallingCrateListener implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onEntityChangeBlockEvent(EntityChangeBlockEvent e) {
