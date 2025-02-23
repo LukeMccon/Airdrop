@@ -8,20 +8,14 @@ import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.tasks.RenderPackageInitialSpecialEffectTask;
 import com.airdropmc.tasks.RenderPackageSpecialEffectTask;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Chicken;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.FallingBlock;
-import org.bukkit.entity.Slime;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Vector;
 
 /**
  * Represents a crate that can be dropped from the sky
@@ -40,8 +34,7 @@ public class Crate {
     // Falling state fields
     private Location dropLocation;
     private FallingBlock fallingCrate;
-    private ArrayList<Chicken> chickenParachutes;
-    private Slime parachuteLeash;
+    private ParachuteSystem parachuteSystem;
 
     // Landed state fields
     private Location landedLocation;
@@ -64,7 +57,7 @@ public class Crate {
         this.world = world;
         this.contents = new ArrayList<>(contents);
         this.state = State.FALLING;
-        this.chickenParachutes = new ArrayList<>();
+        this.parachuteSystem = new ParachuteSystem(world);
     }
 
     /**
@@ -76,67 +69,10 @@ public class Crate {
             throw new IllegalStateException("Cannot drop a crate that is not in FALLING state");
         }
 
-        // Create a tiny invisible slime to hold leashes for the crate
-        parachuteLeash = (Slime) world.spawnEntity(dropLocation.add(new Vector(0, 1, 0)), EntityType.SLIME);
-        parachuteLeash.setAI(false);
-        parachuteLeash.setSize(1);
-        parachuteLeash.setInvisible(true);
-        parachuteLeash.setInvulnerable(true);
-
         fallingCrate = world.spawnFallingBlock(dropLocation, Material.BARREL, (byte) 0);
-
-        // Create chicken parachuters and attach them to the slime
-        for (int i = 0; i < 5; i++) {
-            Chicken chicken = (Chicken) world.spawnEntity(
-                    dropLocation.add(new Vector(Math.random() * 0.25, 1, Math.random() * 0.25)), EntityType.CHICKEN);
-            chicken.setInvulnerable(true);
-            chicken.setLeashHolder(parachuteLeash);
-            chickenParachutes.add(chicken);
-        }
-
-        // Add the slime as a passenger on the fallingCrate
-        fallingCrate.addPassenger(parachuteLeash);
-        fallingCrate.setGravity(false);
-
-        Bukkit.getServer().getScheduler().runTaskTimer(Airdrop.getPluginInstance(), new Runnable() {
-            @Override
-            public void run() {
-                if (fallingCrate.isDead()) {
-                    // Release chickens and set their velocities
-                    for (Chicken chicken : chickenParachutes) {
-                        chicken.setLeashHolder(null);
-                        double xVel = Math.random() < 0.5 ? Math.random() * 0.5 * -1 : Math.random() * 0.5;
-                        double zVel = Math.random() < 0.5 ? Math.random() * 0.5 * -1 : Math.random() * 0.5;
-                        chicken.setVelocity(new Vector(xVel, .5, zVel));
-                    }
-
-                    // Schedule cleanup after the chickens have had time to float up
-                    Bukkit.getServer().getScheduler().runTaskLater(Airdrop.getPluginInstance(), () -> {
-                        for (Chicken chicken : chickenParachutes) {
-                            chicken.remove();
-                        }
-                        chickenParachutes.clear();
-                        parachuteLeash.remove();
-                    }, 60);
-                    return;
-                }
-
-                // Play smoke effects
-                Location effectLoc = fallingCrate.getLocation().add(new Vector(0, 1, 0));
-                for (int i = 0; i < 3; i++) {
-                    fallingCrate.getWorld().playEffect(effectLoc, Effect.SMOKE, 0);
-                }
-
-                // Maintain falling velocity
-                fallingCrate.setVelocity(new Vector(0, -0.3, 0));
-            }
-        }, 0, 2);
+        parachuteSystem.initialize(dropLocation, fallingCrate);
 
         CrateManager.addCrate(fallingCrate, this);
-    }
-
-    private void releaseParachutes() {
-
     }
 
     /**
