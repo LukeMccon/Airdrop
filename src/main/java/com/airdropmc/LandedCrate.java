@@ -51,8 +51,9 @@ public class LandedCrate {
         }
 
         if (ConfigKeys.shouldShowContinuousParticleEffects()) {
-            RenderPackageIndicatorTask particleEffect = new RenderPackageIndicatorTask(loc, world, barrel);
-            particleEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
+            this.setParticleEffect(new RenderPackageIndicatorTask(loc, world));
+//            RenderPackageIndicatorTask particleEffect = new RenderPackageIndicatorTask(loc, world, barrel);
+//            particleEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
         }
     }
 
@@ -86,7 +87,8 @@ public class LandedCrate {
         }
         this.particleEffect = effect;
         if (effect != null) {
-            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 30L, 1L);
+//            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 30L, 1L);
+            this.repeatingParticleTask = effect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
         }
     }
 
@@ -104,11 +106,6 @@ public class LandedCrate {
             Bukkit.getLogger().warning("[Airdrop] No particle task found to cancel");
         }
         particleEffect = null;
-    }
-
-    public void stopSmoke() {
-        System.out.println("Here in my stop smoke method");
-        particleEffect.cancel();
     }
 
     public void destroy() {

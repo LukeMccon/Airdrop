@@ -11,9 +11,8 @@ import org.bukkit.block.Barrel;
 public class RenderPackageIndicatorTask extends BukkitRunnable {
     private Location location;
     private World world;
-    private Barrel barrel;
 
-    public RenderPackageIndicatorTask(Location location, World world, Barrel barrel) {
+    public RenderPackageIndicatorTask(Location location, World world) {
         this.location = location.getBlock().getLocation().add(0.5, 1.0, 0.5);
         this.world = world;
     }
@@ -23,11 +22,9 @@ public class RenderPackageIndicatorTask extends BukkitRunnable {
 
         Vector offset = new Vector(0, 1, 0);
         for(int i =0; i < 20; i ++) {
-//            Location newLocation = location.add(offset);
             Location newLocation = location.clone().add(offset.clone().multiply(i));
             world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, newLocation, 0, 0,0,0,0,null ,true );
         }
-//        stopEffect();
     }
 
     public void stopEffect() {
