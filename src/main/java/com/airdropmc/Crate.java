@@ -114,7 +114,9 @@ public class Crate {
 
         }, 0, 2);
 
+        System.out.println("Adding to crateList");
         CrateList.addCrate(fallingCrate, this);
+        System.out.println("Shouldbe added to crate list");
 
     }
 

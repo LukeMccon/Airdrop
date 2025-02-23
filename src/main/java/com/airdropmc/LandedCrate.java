@@ -6,6 +6,7 @@ import java.util.List;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.helpers.CrateList;
 import com.airdropmc.tasks.RenderPackageInitialSpecialEffectTask;
+import com.airdropmc.tasks.RenderPackageIndicatorTask;
 import com.airdropmc.tasks.RenderPackageSpecialEffectTask;
 
 import org.bukkit.Bukkit;
@@ -19,7 +20,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 public class LandedCrate {
     private final Block blockChest;
-    private RenderPackageSpecialEffectTask particleEffect;
+    private RenderPackageIndicatorTask particleEffect;
     private BukkitTask repeatingParticleTask;
     private final ArrayList<ItemStack> contents;
     private Location loc;
@@ -41,8 +42,6 @@ public class LandedCrate {
             barrel.getInventory().addItem(is);
         }
 
-        CrateList.addLandedCrate(barrel.getLocation(), this);
-
         if (ConfigKeys.shouldShowLandingParticleEffects()) {
             RenderPackageInitialSpecialEffectTask intitalParticleEffect = new RenderPackageInitialSpecialEffectTask(loc,
                     world);
@@ -50,7 +49,8 @@ public class LandedCrate {
         }
 
         if (ConfigKeys.shouldShowContinuousParticleEffects()) {
-            this.setParticleEffect(new RenderPackageSpecialEffectTask(loc, world));
+            RenderPackageIndicatorTask particleEffect = new RenderPackageIndicatorTask(loc, world, barrel);
+            particleEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
         }
     }
 
@@ -68,7 +68,7 @@ public class LandedCrate {
      * 
      * @return The particle effect task, or null if none
      */
-    public RenderPackageSpecialEffectTask getParticleEffect() {
+    public RenderPackageIndicatorTask getParticleEffect() {
         return particleEffect;
     }
 
@@ -77,7 +77,8 @@ public class LandedCrate {
      * 
      * @param effect The particle effect task
      */
-    public void setParticleEffect(RenderPackageSpecialEffectTask effect) {
+    // Indicator support
+    public void setParticleEffect(RenderPackageIndicatorTask effect) {
         if (this.repeatingParticleTask != null) {
             stopParticleEffect();
         }
@@ -90,7 +91,9 @@ public class LandedCrate {
     /**
      * Stops the particle effect if one is running
      */
+    // Indicator
     public void stopParticleEffect() {
+        System.out.println("I am here in stop Particle effect");
         Bukkit.getLogger().info("[Airdrop] Attempting to stop particle effect");
         if (repeatingParticleTask != null) {
             Bukkit.getLogger().info("[Airdrop] Found particle task, cancelling it");
@@ -100,6 +103,11 @@ public class LandedCrate {
             Bukkit.getLogger().warning("[Airdrop] No particle task found to cancel");
         }
         particleEffect = null;
+    }
+
+    public void stopSmoke() {
+        System.out.println("Here in my stop smoke method");
+        particleEffect.cancel();
     }
 
     public void destroy() {
