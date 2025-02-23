@@ -80,7 +80,6 @@ public class LandedCrate {
      * 
      * @param effect The particle effect task
      */
-    // Indicator support
     public void setParticleEffect(RenderPackageIndicatorTask effect) {
         if (this.repeatingParticleTask != null) {
             stopParticleEffect();
@@ -88,14 +87,13 @@ public class LandedCrate {
         this.particleEffect = effect;
         if (effect != null) {
 //            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 30L, 1L);
-            this.repeatingParticleTask = effect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
+            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
         }
     }
 
     /**
      * Stops the particle effect if one is running
      */
-    // Indicator
     public void stopParticleEffect() {
         Bukkit.getLogger().info("[Airdrop] Attempting to stop particle effect");
         if (repeatingParticleTask != null) {
