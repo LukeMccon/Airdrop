@@ -10,7 +10,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
 
-import com.airdropmc.helpers.CrateList;
+import com.airdropmc.helpers.CrateManager;
 
 public class CrateCloseListener implements Listener {
 
@@ -32,7 +32,7 @@ public class CrateCloseListener implements Listener {
 			barrel.getWorld().playEffect(barrel.getLocation(), Effect.STEP_SOUND, Material.BARREL);
 
 			barrel.getBlock().setType(Material.AIR);
-			CrateList.removeLandedCrate(barrelLocation);
+			CrateManager.removeCrate(barrelLocation);
 		}
 
 	}
