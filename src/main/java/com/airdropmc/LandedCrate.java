@@ -42,6 +42,8 @@ public class LandedCrate {
             barrel.getInventory().addItem(is);
         }
 
+        CrateList.addLandedCrate(barrel.getLocation(), this);
+
         if (ConfigKeys.shouldShowLandingParticleEffects()) {
             RenderPackageInitialSpecialEffectTask intitalParticleEffect = new RenderPackageInitialSpecialEffectTask(loc,
                     world);
@@ -93,7 +95,6 @@ public class LandedCrate {
      */
     // Indicator
     public void stopParticleEffect() {
-        System.out.println("I am here in stop Particle effect");
         Bukkit.getLogger().info("[Airdrop] Attempting to stop particle effect");
         if (repeatingParticleTask != null) {
             Bukkit.getLogger().info("[Airdrop] Found particle task, cancelling it");
