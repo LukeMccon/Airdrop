@@ -41,13 +41,15 @@ public class CrateManager {
 	}
 
 	// Thread-safe access methods for CrateMap
-	public static synchronized void addCrate(Location location, Crate Crate) {
-		landedCrateMap.put(location, Crate);
+	public static synchronized void addCrate(Location location, Crate crate) {
+		landedCrateMap.put(location, crate);
 	}
 
 	public static synchronized Crate removeCrate(Location location) {
-		Crate crate = landedCrateMap.get(location);
-		crate.destroy();
+		Crate crate = landedCrateMap.remove(location);
+		if (crate != null) {
+			crate.destroy();
+		}
 		return crate;
 	}
 
