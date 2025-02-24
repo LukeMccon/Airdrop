@@ -11,6 +11,8 @@ drop:
     landing-effects: true
     # Whether to show continuous particle effects while the package exists
     continuous-effects: true
+    # Whether to show the flare effect when the package is dropped
+    flare-effects: true
   # How fast the crate falls when dropped
   falling-speed: 0.3
   # Height in blocks from which to drop the crate
