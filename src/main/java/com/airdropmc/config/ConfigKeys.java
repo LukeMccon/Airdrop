@@ -14,6 +14,7 @@ public final class ConfigKeys {
     // Drop settings paths
     public static final String DROP_LANDING_PARTICLE_EFFECTS = "drop.particles.landing-effects";
     public static final String DROP_CONTINUOUS_PARTICLE_EFFECTS = "drop.particles.continuous-effects";
+    public static final String DROP_FLARE_PARTICLE_EFFECTS = "drop.particles.flare-effects";
     public static final String DROP_PARACHUTE_CHICKEN_COUNT = "drop.parachute.chicken-count";
     public static final String DROP_FALLING_SPEED = "drop.parachute.falling-speed";
     public static final String DROP_HEIGHT = "drop.height";
@@ -40,6 +41,10 @@ public final class ConfigKeys {
 
     public static boolean shouldShowContinuousParticleEffects() {
         return getConfig().getBoolean(DROP_CONTINUOUS_PARTICLE_EFFECTS, true);
+    }
+
+    public static boolean shouldShowFlareParticleEffects() {
+        return getConfig().getBoolean(DROP_FLARE_PARTICLE_EFFECTS, true);
     }
 
     // Economy getters

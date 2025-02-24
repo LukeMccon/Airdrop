@@ -7,9 +7,11 @@ import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.tasks.RenderPackageInitialSpecialEffectTask;
 import com.airdropmc.tasks.RenderPackageSpecialEffectTask;
+import com.airdropmc.tasks.RenderFlareEffectTask;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
@@ -43,6 +45,7 @@ public class Crate {
     private Block blockChest;
     private RenderPackageSpecialEffectTask particleEffect;
     private BukkitTask repeatingParticleTask;
+    private RenderFlareEffectTask flareEffect;
 
     /**
      * Construct a new Crate object with a location, world, and ArrayList of
@@ -69,6 +72,13 @@ public class Crate {
             throw new IllegalStateException("Cannot drop a crate that is not in FALLING state");
         }
 
+        // Create flare effect at ground level (drop height blocks below drop location)
+        Location groundLocation = dropLocation.clone();
+        groundLocation.setY(dropLocation.getY() - ConfigKeys.getDropHeight() + 1);
+        if (ConfigKeys.shouldShowFlareParticleEffects()) {
+            flareEffect = new RenderFlareEffectTask(groundLocation, world);
+            flareEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 1L);
+        }
         fallingCrate = world.spawnFallingBlock(dropLocation, Material.BARREL, (byte) 0);
         parachuteSystem.initialize(dropLocation, fallingCrate);
 
@@ -107,6 +117,13 @@ public class Crate {
 
         if (ConfigKeys.shouldShowContinuousParticleEffects()) {
             setParticleEffect(new RenderPackageSpecialEffectTask(landedLocation, world));
+        }
+
+        // Play landing sound effect
+        world.playSound(landedLocation, Sound.ENTITY_PLAYER_LEVELUP, .05f, .05f);
+
+        if (this.flareEffect != null) {
+            this.flareEffect.cancel();
         }
     }
 
