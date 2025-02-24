@@ -11,22 +11,30 @@ import org.bukkit.Bukkit;
 import org.bukkit.Effect;
 import org.bukkit.util.Vector;
 
+import com.airdropmc.config.ConfigKeys;
+
 /**
- * Manages the parachute system for airdrops, including chicken parachutes and effects
+ * Manages the parachute system for airdrops, including chicken parachutes and
+ * effects
  */
 public class ParachuteSystem {
     private final World world;
     private final ArrayList<Chicken> chickenParachutes;
+    private final int chickenCount;
+    private final double fallingSpeed;
     private Slime parachuteLeash;
     private FallingBlock fallingCrate;
 
     public ParachuteSystem(World world) {
         this.world = world;
         this.chickenParachutes = new ArrayList<>();
+        this.chickenCount = ConfigKeys.getParachuteChickenCount();
+        this.fallingSpeed = ConfigKeys.getDropFallingSpeed();
     }
 
     /**
      * Initializes the parachute system for a falling crate
+     * 
      * @param dropLocation The location where the crate is being dropped
      * @param fallingCrate The falling block representing the crate
      */
@@ -41,7 +49,7 @@ public class ParachuteSystem {
         parachuteLeash.setInvulnerable(true);
 
         // Create chicken parachuters and attach them to the slime
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < chickenCount; i++) {
             Chicken chicken = (Chicken) world.spawnEntity(
                     dropLocation.add(new Vector(Math.random() * 0.25, 1, Math.random() * 0.25)), EntityType.CHICKEN);
             chicken.setInvulnerable(true);
@@ -71,8 +79,11 @@ public class ParachuteSystem {
                     fallingCrate.getWorld().playEffect(effectLoc, Effect.SMOKE, 0);
                 }
 
+                // Set the falling velocity equal to the speed in a downward direction
+                double fallingVelocity = -ParachuteSystem.this.fallingSpeed;
+
                 // Maintain falling velocity
-                fallingCrate.setVelocity(new Vector(0, -0.3, 0));
+                fallingCrate.setVelocity(new Vector(0, fallingVelocity, 0));
             }
         }, 0, 2);
     }
