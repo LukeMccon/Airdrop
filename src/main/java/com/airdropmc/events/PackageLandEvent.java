@@ -12,13 +12,13 @@ import com.airdropmc.Crate;
  */
 public class PackageLandEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
-    private final Crate Crate;
+    private final Crate crate;
     private final World world;
     private final Location landingLocation;
     private final Block landedBlock;
 
     public PackageLandEvent(Crate crate, World world, Location landingLocation, Block landedBlock) {
-        this.Crate = crate;
+        this.crate = crate;
         this.world = world;
         this.landingLocation = landingLocation;
         this.landedBlock = landedBlock;
@@ -30,7 +30,7 @@ public class PackageLandEvent extends Event {
      * @return The crate
      */
     public Crate getCrate() {
-        return Crate;
+        return crate;
     }
 
     /**
