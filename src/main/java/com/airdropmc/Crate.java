@@ -135,11 +135,15 @@ public class Crate {
     }
 
     /**
-     *
+     * Stop particle effects
      */
     public void stopEffects() {
-        glowTask.cancel();
-        smokeTask.cancel();
+        if (glowTask != null) {
+            glowTask.cancel();
+        }
+        if (smokeTask != null) {
+            smokeTask.cancel();
+        }
     }
 
     /**
