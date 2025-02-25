@@ -6,7 +6,7 @@ import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.scheduler.BukkitRunnable;
 
-public class RenderPackageInitialSpecialEffectTask extends BukkitRunnable {
+public class RenderPackageLandedTask extends BukkitRunnable {
 
     private Location location;
     private World world;
@@ -21,7 +21,7 @@ public class RenderPackageInitialSpecialEffectTask extends BukkitRunnable {
     private static final int WAVE_PARTICLE_COUNT = 20;
     private static final double WAVE_HEIGHT = 0.1;
 
-    public RenderPackageInitialSpecialEffectTask(Location location, World world) {
+    public RenderPackageLandedTask(Location location, World world) {
         // Make the effects appear midway in the block
         Vector reposition = new Vector(0.5, VERTICAL_OFFSET, 0.5);
         this.location = location.add(reposition);
