@@ -17,10 +17,14 @@ import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class LandedCrate {
     private final Block blockChest;
-    private RenderPackageIndicatorTask particleEffect;
+    private RenderPackageIndicatorTask indicatorParticleEffect;
+    private RenderPackageSpecialEffectTask specialParticleEffect;
+    private BukkitTask indicatorTask;
+    private BukkitTask specialTask;
     private BukkitTask repeatingParticleTask;
     private final ArrayList<ItemStack> contents;
     private Location loc;
@@ -51,9 +55,11 @@ public class LandedCrate {
         }
 
         if (ConfigKeys.shouldShowContinuousParticleEffects()) {
-            this.setParticleEffect(new RenderPackageIndicatorTask(loc, world));
-//            RenderPackageIndicatorTask particleEffect = new RenderPackageIndicatorTask(loc, world, barrel);
-//            particleEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
+            indicatorParticleEffect = new RenderPackageIndicatorTask(loc, world);
+            this.indicatorTask = indicatorParticleEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+
+            specialParticleEffect = new RenderPackageSpecialEffectTask(loc, world);
+            this.specialTask = specialParticleEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
         }
     }
 
@@ -71,8 +77,8 @@ public class LandedCrate {
      * 
      * @return The particle effect task, or null if none
      */
-    public RenderPackageIndicatorTask getParticleEffect() {
-        return particleEffect;
+    public String getParticleEffect() {
+        return "particleEffect";
     }
 
     /**
@@ -80,33 +86,41 @@ public class LandedCrate {
      * 
      * @param effect The particle effect task
      */
-    public void setParticleEffect(RenderPackageIndicatorTask effect) {
-        if (this.repeatingParticleTask != null) {
-            stopParticleEffect();
-        }
-        this.particleEffect = effect;
-        if (effect != null) {
-//            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 30L, 1L);
-            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
-        }
-    }
+//    public void setParticleEffect(RenderPackageIndicatorTask effect) {
+//        if (this.repeatingParticleTask != null) {
+//            stopParticleEffect();
+//        }
+//        this.particleEffect = effect;
+//        if (effect != null) {
+////            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 30L, 1L);
+//            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+//        }
+//    }
 
     /**
      * Stops the particle effect if one is running
      */
-    public void stopParticleEffect() {
-        Bukkit.getLogger().info("[Airdrop] Attempting to stop particle effect");
-        if (repeatingParticleTask != null) {
-            Bukkit.getLogger().info("[Airdrop] Found particle task, cancelling it");
-            repeatingParticleTask.cancel();
-            repeatingParticleTask = null;
-        } else {
-            Bukkit.getLogger().warning("[Airdrop] No particle task found to cancel");
-        }
-        particleEffect = null;
+//    public void stopParticleEffect() {
+//        Bukkit.getLogger().info("[Airdrop] Attempting to stop particle effect");
+//        if (repeatingParticleTask != null) {
+//            Bukkit.getLogger().info("[Airdrop] Found particle task, cancelling it");
+//            repeatingParticleTask.cancel();
+//            repeatingParticleTask = null;
+//        } else {
+//            Bukkit.getLogger().warning("[Airdrop] No particle task found to cancel");
+//        }
+//        particleEffect = null;
+//    }
+
+    public void stopSmoke() {
+        indicatorTask.cancel();
+        specialTask.cancel();
+        indicatorParticleEffect = null;
+        specialParticleEffect = null;
+
     }
 
     public void destroy() {
-        stopParticleEffect();
+//        stopParticleEffect();
     }
 }

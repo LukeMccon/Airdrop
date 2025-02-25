@@ -28,7 +28,6 @@ public class RenderPackageIndicatorTask extends BukkitRunnable {
     }
 
     public void stopEffect() {
-        System.out.println("Cancelling this now.....");
         this.cancel();
     }
 

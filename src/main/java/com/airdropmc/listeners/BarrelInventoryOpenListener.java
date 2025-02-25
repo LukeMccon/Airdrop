@@ -36,7 +36,7 @@ public class BarrelInventoryOpenListener implements Listener {
 
         if (landedCrate != null) {
             System.out.println("Here gonna call stopParticleEffect");
-            landedCrate.stopParticleEffect();
+            landedCrate.stopSmoke();
         }
     }
 }
