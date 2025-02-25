@@ -5,9 +5,10 @@ import java.util.List;
 
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.helpers.CrateManager;
-import com.airdropmc.tasks.RenderPackageInitialSpecialEffectTask;
-import com.airdropmc.tasks.RenderPackageSpecialEffectTask;
-import com.airdropmc.tasks.RenderFlareEffectTask;
+import com.airdropmc.tasks.RenderFlareTask;
+import com.airdropmc.tasks.RenderPackageGlowTask;
+import com.airdropmc.tasks.RenderPackageLandedTask;
+import com.airdropmc.tasks.RenderPackageSmokeTask;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -43,9 +44,11 @@ public class Crate {
 
     // Landed state fields
     private Block blockChest;
-    private RenderPackageSpecialEffectTask particleEffect;
-    private BukkitTask repeatingParticleTask;
-    private RenderFlareEffectTask flareEffect;
+    private BukkitTask glowTask;
+    private BukkitTask smokeTask;
+    private RenderFlareTask flareEffect;
+    private RenderPackageGlowTask glowEffect;
+    private RenderPackageSmokeTask smokeEffect;
 
     /**
      * Construct a new Crate object with a location, world, and ArrayList of
@@ -76,7 +79,7 @@ public class Crate {
         Location groundLocation = dropLocation.clone();
         groundLocation.setY(dropLocation.getY() - ConfigKeys.getDropHeight() + 1);
         if (ConfigKeys.shouldShowFlareParticleEffects()) {
-            flareEffect = new RenderFlareEffectTask(groundLocation, world);
+            flareEffect = new RenderFlareTask(groundLocation, world);
             flareEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 1L);
         }
         fallingCrate = world.spawnFallingBlock(dropLocation, Material.BARREL, (byte) 0);
@@ -110,13 +113,17 @@ public class Crate {
         CrateManager.addCrate(barrel.getLocation(), this);
 
         if (ConfigKeys.shouldShowLandingParticleEffects()) {
-            RenderPackageInitialSpecialEffectTask initialParticleEffect = new RenderPackageInitialSpecialEffectTask(
+            RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
                     this.landedLocation, world);
-            initialParticleEffect.runTaskAsynchronously(Airdrop.getPluginInstance());
+            landedEffect.runTaskAsynchronously(Airdrop.getPluginInstance());
         }
 
         if (ConfigKeys.shouldShowContinuousParticleEffects()) {
-            setParticleEffect(new RenderPackageSpecialEffectTask(landedLocation, world));
+            smokeEffect = new RenderPackageSmokeTask(landedLocation, world);
+            this.smokeTask = smokeEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+
+            glowEffect = new RenderPackageGlowTask(landedLocation, world);
+            this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
         }
 
         // Play landing sound effect
@@ -128,38 +135,11 @@ public class Crate {
     }
 
     /**
-     * Gets the current particle effect task
-     * 
-     * @return The particle effect task, or null if none
+     *
      */
-    public RenderPackageSpecialEffectTask getParticleEffect() {
-        return particleEffect;
-    }
-
-    /**
-     * Sets the particle effect task and stores it for later cleanup
-     * 
-     * @param effect The particle effect task
-     */
-    public void setParticleEffect(RenderPackageSpecialEffectTask effect) {
-        if (this.repeatingParticleTask != null) {
-            stopParticleEffect();
-        }
-        this.particleEffect = effect;
-        if (effect != null) {
-            this.repeatingParticleTask = effect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 30L, 1L);
-        }
-    }
-
-    /**
-     * Stops the particle effect if one is running
-     */
-    public void stopParticleEffect() {
-        if (repeatingParticleTask != null) {
-            repeatingParticleTask.cancel();
-            repeatingParticleTask = null;
-        }
-        particleEffect = null;
+    public void stopEffects() {
+        glowTask.cancel();
+        smokeTask.cancel();
     }
 
     /**
@@ -167,7 +147,7 @@ public class Crate {
      */
     public void destroy() {
         if (state == State.LANDED) {
-            stopParticleEffect();
+            stopEffects();
         }
     }
 
