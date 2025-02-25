@@ -6,7 +6,7 @@ import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.scheduler.BukkitRunnable;
 
-public class RenderFlareEffectTask extends BukkitRunnable {
+public class RenderFlareTask extends BukkitRunnable {
 
     private Location location;
     private World world;
@@ -27,7 +27,7 @@ public class RenderFlareEffectTask extends BukkitRunnable {
      * @param location location where the package will land
      * @param world    world the package will be in
      */
-    public RenderFlareEffectTask(Location location, World world) {
+    public RenderFlareTask(Location location, World world) {
         this.location = location.getBlock().getLocation().add(0.5, 0.0, 0.5);
         this.world = world;
     }
