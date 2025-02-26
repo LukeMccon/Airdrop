@@ -7,11 +7,13 @@ import org.bukkit.Location;
 import org.bukkit.entity.FallingBlock;
 
 import com.airdropmc.Crate;
-import com.airdropmc.LandedCrate;
 
-public class CrateList {
+/**
+ * Manages crates
+ */
+public class CrateManager {
 
-	private CrateList() {
+	private CrateManager() {
 		// Private constructor to prevent instantiation
 	}
 
@@ -19,7 +21,7 @@ public class CrateList {
 	private static final Map<FallingBlock, Crate> crateMap = new ConcurrentHashMap<>();
 
 	// Thread-safe map for landed crates by location
-	private static final Map<Location, LandedCrate> landedCrateMap = new ConcurrentHashMap<>();
+	private static final Map<Location, Crate> landedCrateMap = new ConcurrentHashMap<>();
 
 	// Thread-safe access methods for crateMap
 	public static synchronized void addCrate(FallingBlock block, Crate crate) {
@@ -38,18 +40,20 @@ public class CrateList {
 		return crateMap.containsKey(block);
 	}
 
-	// Thread-safe access methods for landedCrateMap
-	public static synchronized void addLandedCrate(Location location, LandedCrate landedCrate) {
-		landedCrateMap.put(location, landedCrate);
+	// Thread-safe access methods for CrateMap
+	public static synchronized void addCrate(Location location, Crate crate) {
+		landedCrateMap.put(location, crate);
 	}
 
-	public static synchronized LandedCrate removeLandedCrate(Location location) {
-		LandedCrate crate = landedCrateMap.get(location);
-		crate.destroy();
+	public static synchronized Crate removeCrate(Location location) {
+		Crate crate = landedCrateMap.remove(location);
+		if (crate != null) {
+			crate.destroy();
+		}
 		return crate;
 	}
 
-	public static synchronized LandedCrate getLandedCrate(Location location) {
+	public static synchronized Crate getCrate(Location location) {
 		return landedCrateMap.get(location);
 	}
 

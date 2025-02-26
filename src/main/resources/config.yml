@@ -1,12 +1,22 @@
 # Airdrop Configuration
 
-# Plugin Settings
-settings:
+# Drop Settings
+drop:
+  parachute:
+    # Number of chickens to use for the parachute system
+    # Warning: Increasing this may cause some chickens to be unleashed
+    chicken-count: 5
   particles:
     # Whether to show particle effects when the package lands
     landing-effects: true
     # Whether to show continuous particle effects while the package exists
     continuous-effects: true
+    # Whether to show the flare effect when the package is dropped
+    flare-effects: true
+  # How fast the crate falls when dropped
+  falling-speed: 0.3
+  # Height in blocks from which to drop the crate
+  height: 20
 
 # Economy settings
 economy:

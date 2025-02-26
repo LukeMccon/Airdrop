@@ -5,20 +5,20 @@ import org.bukkit.World;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.block.Block;
-import com.airdropmc.LandedCrate;
+import com.airdropmc.Crate;
 
 /**
  * Event that is called when a package lands and transforms into a barrel
  */
 public class PackageLandEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
-    private final LandedCrate landedCrate;
+    private final Crate crate;
     private final World world;
     private final Location landingLocation;
     private final Block landedBlock;
 
-    public PackageLandEvent(LandedCrate crate, World world, Location landingLocation, Block landedBlock) {
-        this.landedCrate = crate;
+    public PackageLandEvent(Crate crate, World world, Location landingLocation, Block landedBlock) {
+        this.crate = crate;
         this.world = world;
         this.landingLocation = landingLocation;
         this.landedBlock = landedBlock;
@@ -29,8 +29,8 @@ public class PackageLandEvent extends Event {
      * 
      * @return The crate
      */
-    public LandedCrate getLandedCrate() {
-        return landedCrate;
+    public Crate getCrate() {
+        return crate;
     }
 
     /**
