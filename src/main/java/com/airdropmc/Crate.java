@@ -122,7 +122,7 @@ public class Crate {
 
         if (options.shouldShowContinuousEffects()) {
             glowEffect = new RenderPackageGlowTask(landedLocation, world);
-            this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+            this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 10L);
         }
 
         if (options.isSmokeEnabled()) {
