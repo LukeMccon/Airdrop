@@ -15,15 +15,16 @@ import org.bukkit.util.Vector;
 
 import net.md_5.bungee.api.ChatColor;
 import com.airdropmc.Crate;
+import com.airdropmc.config.ConfigKeys;
 
 public class DropController {
 
-	private static final int TWENTY_BLOCKS = 20;
 	private static final int ZERO_BLOCKS = 0;
 	private static final double HALF_BLOCK = 0.5;
+	private static final int dropHeight;
 
-	private DropController() {
-
+	static {
+		dropHeight = ConfigKeys.getDropHeight();
 	}
 
 	/**
@@ -43,7 +44,7 @@ public class DropController {
 			throw new SkyNotClearException(loc);
 		}
 
-		Crate crate = new Crate(highestLocation.add(new Vector(ZERO_BLOCKS, TWENTY_BLOCKS, ZERO_BLOCKS)), world, items);
+		Crate crate = new Crate(highestLocation.add(new Vector(ZERO_BLOCKS, dropHeight, ZERO_BLOCKS)), world, items);
 		crate.dropCrate();
 	}
 

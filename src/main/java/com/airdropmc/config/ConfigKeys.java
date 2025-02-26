@@ -11,20 +11,40 @@ public final class ConfigKeys {
         // Prevent instantiation
     }
 
-    // Settings paths
-    public static final String SETTINGS_LANDING_PARTICLE_EFFECTS = "settings.particles.landing-effects";
-    public static final String SETTINGS_CONTINUOUS_PARTICLE_EFFECTS = "settings.particles.continuous-effects";
+    // Drop settings paths
+    public static final String DROP_LANDING_PARTICLE_EFFECTS = "drop.particles.landing-effects";
+    public static final String DROP_CONTINUOUS_PARTICLE_EFFECTS = "drop.particles.continuous-effects";
+    public static final String DROP_FLARE_PARTICLE_EFFECTS = "drop.particles.flare-effects";
+    public static final String DROP_PARACHUTE_CHICKEN_COUNT = "drop.parachute.chicken-count";
+    public static final String DROP_FALLING_SPEED = "drop.parachute.falling-speed";
+    public static final String DROP_HEIGHT = "drop.height";
 
     // Economy paths
     public static final String ECONOMY_ENABLED = "economy.enabled";
 
-    // Settings getters
+    // Drop settings getters
+    public static int getParachuteChickenCount() {
+        return getConfig().getInt(DROP_PARACHUTE_CHICKEN_COUNT, 5);
+    }
+
+    public static double getDropFallingSpeed() {
+        return getConfig().getDouble(DROP_FALLING_SPEED, .3);
+    }
+
+    public static int getDropHeight() {
+        return getConfig().getInt(DROP_HEIGHT, 20);
+    }
+
     public static boolean shouldShowLandingParticleEffects() {
-        return getConfig().getBoolean(SETTINGS_LANDING_PARTICLE_EFFECTS, true);
+        return getConfig().getBoolean(DROP_LANDING_PARTICLE_EFFECTS, true);
     }
 
     public static boolean shouldShowContinuousParticleEffects() {
-        return getConfig().getBoolean(SETTINGS_CONTINUOUS_PARTICLE_EFFECTS, true);
+        return getConfig().getBoolean(DROP_CONTINUOUS_PARTICLE_EFFECTS, true);
+    }
+
+    public static boolean shouldShowFlareParticleEffects() {
+        return getConfig().getBoolean(DROP_FLARE_PARTICLE_EFFECTS, true);
     }
 
     // Economy getters

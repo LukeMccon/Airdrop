@@ -8,10 +8,10 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.block.Barrel;
 
-import com.airdropmc.LandedCrate;
-import com.airdropmc.helpers.CrateList;
+import com.airdropmc.Crate;
+import com.airdropmc.helpers.CrateManager;
 
-public class BarrelInventoryOpenListener implements Listener {
+public class CrateOpenListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)
     public void onInventoryOpen(InventoryOpenEvent e) {
@@ -26,9 +26,9 @@ public class BarrelInventoryOpenListener implements Listener {
         }
 
         Location barrelLocation = barrel.getBlock().getLocation();
-        LandedCrate landedCrate = CrateList.getLandedCrate(barrelLocation);
+        Crate landedCrate = CrateManager.getCrate(barrelLocation);
         if (landedCrate != null) {
-            landedCrate.stopParticleEffect();
+            landedCrate.stopEffects();
         }
     }
 }

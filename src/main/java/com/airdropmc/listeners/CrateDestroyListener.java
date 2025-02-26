@@ -7,9 +7,9 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 
-import com.airdropmc.helpers.CrateList;
+import com.airdropmc.helpers.CrateManager;
 
-public class BarrelBlockDestroyListener implements Listener {
+public class CrateDestroyListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)
     public void onBlockBreak(BlockBreakEvent e) {
@@ -18,6 +18,6 @@ public class BarrelBlockDestroyListener implements Listener {
         }
         Location barrelLocation = e.getBlock().getLocation();
 
-        CrateList.removeLandedCrate(barrelLocation);
+        CrateManager.removeCrate(barrelLocation);
     }
 }
