@@ -13,7 +13,7 @@ import com.airdropmc.controllers.DropController;
 
 public class DropCommand {
 
-    private DropCommand(){
+    private DropCommand() {
 
     }
 
@@ -23,7 +23,7 @@ public class DropCommand {
         Package pkg;
 
         if (!(sender instanceof Player player)) {
-            ChatHandler.sendErrorMessage(sender,"Must be a player to use this command");
+            ChatHandler.sendErrorMessage(sender, "Must be a player to use this command");
             return;
         }
 
@@ -34,7 +34,7 @@ public class DropCommand {
             return;
         }
 
-        if(args.length == 1) {
+        if (args.length == 1) {
 
             try {
                 DropController.playerInitiatedDropPackage(pkg, player);
