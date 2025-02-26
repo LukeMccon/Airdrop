@@ -6,20 +6,24 @@ import org.bukkit.World;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+import com.airdropmc.config.ConfigKeys;
+
 public class RenderPackageSmokeTask extends BukkitRunnable {
     private Location location;
     private World world;
+    private int smokeHeight;
 
     public RenderPackageSmokeTask(Location location, World world) {
         this.location = location.getBlock().getLocation().add(0.5, 1.0, 0.5);
         this.world = world;
+        smokeHeight = ConfigKeys.getSmokeHeight();
     }
 
     @Override
     public void run() {
 
         Vector offset = new Vector(0, 1, 0);
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < this.smokeHeight; i++) {
             Location newLocation = location.clone().add(offset.clone().multiply(i));
             world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, newLocation, 0, 0, 0, 0, 0, null, true);
         }
