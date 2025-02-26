@@ -12,6 +12,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+/**
+ * Represents a package within the airdrop
+ * Which includes the name, price, and items
+ */
 public class Package {
 
 	private static final Economy econ = Airdrop.getAirdropEconomy();
@@ -24,28 +28,33 @@ public class Package {
 		this.price = price;
 		this.setItems(items);
 	}
-	
-	public double getPrice() { 
+
+	public double getPrice() {
 		return this.price;
 	}
 
-	public String getName() { return this.name; }
+	public String getName() {
+		return this.name;
+	}
 
 	public boolean canAfford(Player player) {
-        return Double.compare(econ.getBalance(player), this.price) >= 0;
-    }
+		return Double.compare(econ.getBalance(player), this.price) >= 0;
+	}
 
 	public void chargeUser(Player player) throws CannotAffordException {
 		if (!econ.withdrawPlayer(player, this.price).transactionSuccess()) {
 			// Handle transaction failure
-			throw new CannotAffordException(player.getName() +  " cannot afford " + this.price);
+			throw new CannotAffordException(player.getName() + " cannot afford " + this.price);
 		}
-		ChatHandler.sendMessage(player, ChatColor.AQUA + "$" + this.price + ChatColor.BLUE + " has been taken from your account");
+		ChatHandler.sendMessage(player,
+				ChatColor.AQUA + "$" + this.price + ChatColor.BLUE + " has been taken from your account");
 	}
 
 	public String toString() {
-		return this.items.stream().map(ItemStack::toString).collect(Collectors.joining("\n")) + "\nprice: " + this.price + "\n";
+		return this.items.stream().map(ItemStack::toString).collect(Collectors.joining("\n")) + "\nprice: " + this.price
+				+ "\n";
 	}
+
 	public List<ItemStack> getItems() {
 		return this.items;
 	}
@@ -57,5 +66,5 @@ public class Package {
 			this.items = new ArrayList<>();
 		}
 	}
-	
+
 }
