@@ -6,17 +6,15 @@ import org.bukkit.World;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
-import com.airdropmc.config.ConfigKeys;
-
 public class RenderPackageSmokeTask extends BukkitRunnable {
     private Location location;
     private World world;
     private int smokeHeight;
 
-    public RenderPackageSmokeTask(Location location, World world) {
+    public RenderPackageSmokeTask(Location location, World world, int smokeHeight) {
         this.location = location.getBlock().getLocation().add(0.5, 1.0, 0.5);
         this.world = world;
-        smokeHeight = ConfigKeys.getSmokeHeight();
+        this.smokeHeight = smokeHeight;
     }
 
     @Override

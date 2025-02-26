@@ -3,7 +3,7 @@ package com.airdropmc;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.airdropmc.config.ConfigKeys;
+import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.tasks.RenderFlareTask;
 import com.airdropmc.tasks.RenderPackageGlowTask;
@@ -33,6 +33,7 @@ public class Crate {
     private final World world;
     private final ArrayList<ItemStack> contents;
     private State state;
+    private final DropOptions options;
 
     // Falling state fields
     private Location dropLocation;
@@ -58,12 +59,13 @@ public class Crate {
      * @param world    where it will drop in
      * @param contents of the crate
      */
-    public Crate(Location location, World world, List<ItemStack> contents) {
+    public Crate(Location location, World world, List<ItemStack> contents, DropOptions options) {
         this.dropLocation = location.clone();
         this.world = world;
         this.contents = new ArrayList<>(contents);
         this.state = State.FALLING;
-        this.parachuteSystem = new ParachuteSystem(world);
+        this.options = options;
+        this.parachuteSystem = new ParachuteSystem(world, options);
     }
 
     /**
@@ -77,8 +79,8 @@ public class Crate {
 
         // Create flare effect at ground level (drop height blocks below drop location)
         Location groundLocation = dropLocation.clone();
-        groundLocation.setY(dropLocation.getY() - ConfigKeys.getDropHeight() + 1);
-        if (ConfigKeys.shouldShowFlareParticleEffects()) {
+        groundLocation.setY(dropLocation.getY() - options.getDropHeight() + 1);
+        if (options.shouldShowFlareEffects()) {
             flareEffect = new RenderFlareTask(groundLocation, world);
             flareEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 1L);
         }
@@ -112,19 +114,19 @@ public class Crate {
 
         CrateManager.addCrate(barrel.getLocation(), this);
 
-        if (ConfigKeys.shouldShowLandingParticleEffects()) {
+        if (options.shouldShowLandingEffects()) {
             RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
                     this.landedLocation, world);
             landedEffect.runTaskAsynchronously(Airdrop.getPluginInstance());
         }
 
-        if (ConfigKeys.shouldShowContinuousParticleEffects()) {
-
+        if (options.shouldShowContinuousEffects()) {
             glowEffect = new RenderPackageGlowTask(landedLocation, world);
             this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
         }
-        if (ConfigKeys.isSmokeEnabled()) {
-            smokeEffect = new RenderPackageSmokeTask(landedLocation, world);
+
+        if (options.isSmokeEnabled()) {
+            smokeEffect = new RenderPackageSmokeTask(landedLocation, world, options.getSmokeHeight());
             this.smokeTask = smokeEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
         }
 
