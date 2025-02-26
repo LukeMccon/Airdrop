@@ -119,11 +119,13 @@ public class Crate {
         }
 
         if (ConfigKeys.shouldShowContinuousParticleEffects()) {
-            smokeEffect = new RenderPackageSmokeTask(landedLocation, world);
-            this.smokeTask = smokeEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
 
             glowEffect = new RenderPackageGlowTask(landedLocation, world);
             this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+        }
+        if (ConfigKeys.isSmokeEnabled()) {
+            smokeEffect = new RenderPackageSmokeTask(landedLocation, world);
+            this.smokeTask = smokeEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
         }
 
         // Play landing sound effect
