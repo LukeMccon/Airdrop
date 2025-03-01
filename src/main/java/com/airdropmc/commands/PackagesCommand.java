@@ -19,7 +19,7 @@ public class PackagesCommand {
 
         if (!(sender instanceof Player)) {
             ChatHandler.sendErrorMessage(sender, "Must be a player to use this command");
-            ChatHandler.sendErrorMessage(sender, "Uses inventory GUI, not avaialbe to the console");
+            ChatHandler.sendErrorMessage(sender, "Uses inventory GUI, not available to the console");
             return;
         }
 
