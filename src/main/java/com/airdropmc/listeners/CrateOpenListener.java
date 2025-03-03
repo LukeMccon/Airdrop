@@ -28,7 +28,7 @@ public class CrateOpenListener implements Listener {
         Location barrelLocation = barrel.getBlock().getLocation();
         Crate landedCrate = CrateManager.getCrate(barrelLocation);
         if (landedCrate != null) {
-            landedCrate.stopEffects();
+            landedCrate.setOpened(true);
         }
     }
 }
