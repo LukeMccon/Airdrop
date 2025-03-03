@@ -47,11 +47,26 @@
             </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.6.0</version>
                 <configuration>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.airdropmc.Airdrop</mainClass>
+                        </manifest>
+                    </archive>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -66,11 +81,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.2</version>
-            </plugin>
+            <!-- Removed duplicate maven-surefire-plugin declaration -->
         </plugins>
     </build>
     <repositories>
@@ -128,7 +139,7 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>RELEASE</version>
+            <version>24.1.0</version>
             <scope>compile</scope>
         </dependency>
         <!-- https://mvnrepository.com/artifact/junit/junit -->
@@ -143,7 +154,7 @@
     <profiles>
         <!-- Profile to create a renamed copy of the jar for distribution -->
         <profile>
-            <id>dist-1.20.1</id>
+            <id>spigot-1.20.1</id>
             <build>
                 <plugins>
                     <plugin>
@@ -159,7 +170,7 @@
                                 <configuration>
                                     <target>
                                         <copy
-                                            file="${project.build.directory}/${project.build.finalName}.jar"
+                                            file="${project.build.directory}/${project.build.finalName}-jar-with-dependencies.jar"
                                             tofile="${project.build.directory}/${project.artifactId}-${project.version}-spigot-1.20.1.jar" />
                                     </target>
                                 </configuration>
@@ -172,7 +183,7 @@
 
         <!-- Profile to create a renamed copy of the jar for distribution -->
         <profile>
-            <id>dist-1.21.4</id>
+            <id>spigot-1.21.4</id>
             <build>
                 <plugins>
                     <plugin>
@@ -188,7 +199,7 @@
                                 <configuration>
                                     <target>
                                         <copy
-                                            file="${project.build.directory}/${project.build.finalName}.jar"
+                                            file="${project.build.directory}/${project.build.finalName}-jar-with-dependencies.jar"
                                             tofile="${project.build.directory}/${project.artifactId}-${project.version}-spigot-1.21.4.jar" />
                                     </target>
                                 </configuration>
@@ -217,7 +228,7 @@
                                 <configuration>
                                     <target>
                                         <copy
-                                            file="${project.build.directory}/${project.build.finalName}.jar"
+                                            file="${project.build.directory}/${project.build.finalName}-jar-with-dependencies.jar"
                                             tofile="${project.build.directory}/${project.artifactId}-${project.version}-paper-1.21.4.jar" />
                                     </target>
                                 </configuration>
