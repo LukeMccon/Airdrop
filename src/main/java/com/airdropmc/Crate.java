@@ -42,14 +42,13 @@ public class Crate {
 
     // Landed state fields
     private Location landedLocation;
-
-    // Landed state fields
     private Block blockChest;
     private BukkitTask glowTask;
     private BukkitTask smokeTask;
     private RenderFlareTask flareEffect;
     private RenderPackageGlowTask glowEffect;
     private RenderPackageSmokeTask smokeEffect;
+    private Boolean opened = false;
 
     /**
      * Construct a new Crate object with a location, world, and ArrayList of
@@ -195,6 +194,17 @@ public class Crate {
      */
     public Location getLandedLocation() {
         return state == State.LANDED ? landedLocation : null;
+    }
+
+    public Boolean getOpened() {
+        return opened;
+    }
+
+    public void setOpened(Boolean opened) {
+        this.opened = opened;
+        if (opened) {
+            this.stopEffects();
+        }
     }
 
 }
