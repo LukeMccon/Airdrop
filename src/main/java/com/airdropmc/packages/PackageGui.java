@@ -48,7 +48,7 @@ public class PackageGui extends Gui implements Listener {
 
         inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, "Back", 1));
         inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save", 1));
-        inv.setItem(inventorySize - 1 ,createGuiItem(Material.RED_WOOL, "Cancel", 1));
+        inv.setItem(inventorySize - 1, createGuiItem(Material.RED_WOOL, "Cancel", 1));
 
     }
 
@@ -60,11 +60,13 @@ public class PackageGui extends Gui implements Listener {
     public void onInventoryClick(final InventoryClickEvent e) {
         final Player p = (Player) e.getWhoClicked();
 
-        if (!e.getInventory().equals(inv)) return;
+        if (!e.getInventory().equals(inv))
+            return;
 
         final ItemStack clickedItem = e.getCurrentItem();
 
-        if (clickedItem == null || clickedItem.getType().isAir()) return;
+        if (clickedItem == null || clickedItem.getType().isAir())
+            return;
 
         String itemStackName = "";
 
@@ -74,7 +76,7 @@ public class PackageGui extends Gui implements Listener {
             ChatHandler.logMessage(err.getMessage());
         }
 
-        switch(itemStackName){
+        switch (itemStackName) {
 
             case "Back":
                 this.back(e);
@@ -84,7 +86,7 @@ public class PackageGui extends Gui implements Listener {
                 if (Boolean.TRUE.equals(PermissionsHelper.isAdmin(p))) {
                     this.save(e);
                 } else {
-                    ChatHandler.sendErrorMessage(p,"Must be admin to save edits to a package a package ");
+                    ChatHandler.sendErrorMessage(p, "Must be admin to save edits to a package a package ");
                     e.setCancelled(true);
                 }
                 break;
@@ -102,6 +104,7 @@ public class PackageGui extends Gui implements Listener {
 
     /**
      * Cancel actions that are not done by an admin
+     * 
      * @param e inventory interaction
      */
     @EventHandler
@@ -112,7 +115,9 @@ public class PackageGui extends Gui implements Listener {
         }
     }
 
-    public String getName() { return this.name; }
+    public String getName() {
+        return this.name;
+    }
 
     public void save(final InventoryClickEvent e) {
 
@@ -126,17 +131,19 @@ public class PackageGui extends Gui implements Listener {
         }
 
         p.closeInventory();
-        ChatHandler.sendMessage(p, "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was saved successfully");
+        ChatHandler.sendMessage(p,
+                "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was saved successfully");
     }
 
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();
-        ChatHandler.sendMessage(p,"Package edit was canceled");
+        ChatHandler.sendMessage(p, "Package edit was canceled");
     }
 
     /**
      * Go back to the packages inventory (showing all packages)
+     * 
      * @param e click event
      */
     public void back(final InventoryClickEvent e) {
@@ -146,7 +153,9 @@ public class PackageGui extends Gui implements Listener {
     }
 
     /**
-     * Determines if the given ItemStack is a control stack (is not an item in the package)
+     * Determines if the given ItemStack is a control stack (is not an item in the
+     * package)
+     * 
      * @param itemstack to check
      * @return is the ItemStack used to control the plugin
      */

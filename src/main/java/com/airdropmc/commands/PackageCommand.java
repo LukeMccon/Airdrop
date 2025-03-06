@@ -36,11 +36,11 @@ public class PackageCommand {
         String packageName = args[1];
 
         try {
-            ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nPackage info for: " + ChatColor.AQUA + packageName + "\n================\n" +  ChatColor.WHITE + PackageManager.getInfo(packageName));
+            ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nPackage info for: " + ChatColor.AQUA + packageName
+                    + "\n================\n" + ChatColor.WHITE + PackageManager.getInfo(packageName));
         } catch (PackageNotFoundException e) {
             ChatHandler.sendErrorMessage(sender, e.getMessage());
         }
     }
-
 
 }
