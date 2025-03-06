@@ -29,7 +29,8 @@ public class PackagesGui extends Gui implements Listener {
 
         int inventorySize = 27;
 
-        // Create a new inventory, with no owner (as this isn't a real inventory), a size of nine, called example
+        // Create a new inventory, with no owner (as this isn't a real inventory), a
+        // size of nine, called example
         inv = Bukkit.createInventory(null, inventorySize, "Packages");
 
         // Put the items into the inventory
@@ -45,6 +46,7 @@ public class PackagesGui extends Gui implements Listener {
 
     /**
      * Creates a ItemStack that represents one of the configured packages
+     * 
      * @param packageName name of package the ItemStack references
      * @return created ItemStack
      */
@@ -53,12 +55,12 @@ public class PackagesGui extends Gui implements Listener {
         double price;
 
         try {
-           pkg = PackageManager.get(packageName);
-           price = pkg.getPrice();
+            pkg = PackageManager.get(packageName);
+            price = pkg.getPrice();
         } catch (PackageNotFoundException e) {
-           price = 0.0;
+            price = 0.0;
         }
-        return createGuiItem(Material.CHEST, packageName,1 , "$" + price);
+        return createGuiItem(Material.CHEST, packageName, 1, "$" + price);
     }
 
     public void openInventory(final HumanEntity ent) {
@@ -68,20 +70,24 @@ public class PackagesGui extends Gui implements Listener {
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
 
-        if (!e.getInventory().equals(inv)) return;
+        if (!e.getInventory().equals(inv))
+            return;
 
         e.setCancelled(true);
 
         final ItemStack clickedItem = e.getCurrentItem();
 
         // verify current item is not null
-        if (clickedItem == null || clickedItem.getType().isAir()) return;
+        if (clickedItem == null || clickedItem.getType().isAir())
+            return;
 
-        if (!(e.getWhoClicked() instanceof Player p)) return;
+        if (!(e.getWhoClicked() instanceof Player p))
+            return;
 
         String packageName = null;
 
-        if (e.getCurrentItem().hasItemMeta() && Objects.requireNonNull(e.getCurrentItem().getItemMeta()).hasDisplayName()) {
+        if (e.getCurrentItem().hasItemMeta()
+                && Objects.requireNonNull(e.getCurrentItem().getItemMeta()).hasDisplayName()) {
             packageName = e.getCurrentItem().getItemMeta().getDisplayName().toLowerCase();
         } else {
             return;

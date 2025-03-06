@@ -8,6 +8,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
+import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.PackagesConfig;
 
@@ -147,7 +148,7 @@ public class PackageManager {
 	 * 
 	 * @param pkg to create
 	 */
-	public static void createPackage(Package pkg) {
+	public static void createPackage(Package pkg) throws DuplicatePackageException {
 		config.set(pkg.getName() + ".price", pkg.getPrice());
 		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull)
 				.filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
