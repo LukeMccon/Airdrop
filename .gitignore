@@ -7,3 +7,4 @@ copy.sh
 .project
 .idea/
 build.sh
+build-all.sh
