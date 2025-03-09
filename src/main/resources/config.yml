@@ -15,7 +15,7 @@ drop:
     flare-effects: true
     smoke:
       # Whether to show the smoke trail effect
-      enabled: true
+      enabled: false
       # Height of the smoke trail effect in blocks
       height: 20
   # How fast the crate falls when dropped
