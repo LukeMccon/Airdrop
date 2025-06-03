@@ -6,12 +6,14 @@ import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.group.GroupManager;
 import net.luckperms.api.node.Node;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 public class PermissionsHelper {
 
-    PermissionsHelper(){
+    PermissionsHelper() {
 
     }
 
@@ -21,9 +23,9 @@ public class PermissionsHelper {
     private static final String AIRDROP_PACKAGES_ALL = "airdrop.package.all";
     private static final String AIRDROP_PACKAGE = "airdrop.package";
 
-
     /**
      * Determines if the player is a superuser in the context of airdrop
+     * 
      * @param player to check for superuser perms
      * @return is player a superuser
      */
@@ -32,20 +34,38 @@ public class PermissionsHelper {
     }
 
     /**
+     * Determines if the sender is an admin
+     * 
+     * @param sender either a player or the server console
+     * @return is the sender a superuser
+     */
+    public static boolean isAdmin(CommandSender sender) {
+
+        if (sender instanceof Player player) {
+            return isAdmin(player);
+        }
+
+        if (sender instanceof ConsoleCommandSender) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Checks if player has permission to drop a package
-     * @param player to check permission
+     * 
+     * @param player      to check permission
      * @param packageName to check permissions for
      * @return player has permissions
      */
-    public static boolean hasPermission(Player player , String packageName) {
+    public static boolean hasPermission(Player player, String packageName) {
 
         if (isAdmin(player)) {
             return true;
         }
-        return player.hasPermission(AIRDROP_PACKAGE + "."+ packageName.toLowerCase()) ||
+        return player.hasPermission(AIRDROP_PACKAGE + "." + packageName.toLowerCase()) ||
                 player.hasPermission(PermissionsHelper.AIRDROP_PACKAGES_ALL);
     }
-
 
     public static void initialize() {
         RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);

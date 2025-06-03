@@ -3,145 +3,208 @@ package com.airdropmc;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.airdropmc.helpers.CrateList;
-import org.bukkit.Bukkit;
-import org.bukkit.Effect;
+import com.airdropmc.config.DropOptions;
+import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.tasks.RenderFlareTask;
+import com.airdropmc.tasks.RenderPackageGlowTask;
+import com.airdropmc.tasks.RenderPackageLandedTask;
+import com.airdropmc.tasks.RenderPackageSmokeTask;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Chicken;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.FallingBlock;
-import org.bukkit.entity.Slime;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Vector;
+import org.bukkit.scheduler.BukkitTask;
 
+/**
+ * Represents a crate that can be dropped from the sky
+ * A.K.A an Airdrop
+ */
 public class Crate {
+    public enum State {
+        FALLING,
+        LANDED
+    }
 
-	private final Location location;
-	private final World world;
+    private final World world;
+    private final ArrayList<ItemStack> contents;
+    private State state;
+    private final DropOptions options;
 
-	private final ArrayList<ItemStack> contents;
+    // Falling state fields
+    private Location dropLocation;
+    private FallingBlock fallingCrate;
+    private ParachuteSystem parachuteSystem;
 
-	private FallingBlock fallingCrate;
-	private Block blockChest;
+    // Landed state fields
+    private Location landedLocation;
+    private Block blockChest;
+    private BukkitTask glowTask;
+    private BukkitTask smokeTask;
+    private RenderFlareTask flareEffect;
+    private RenderPackageGlowTask glowEffect;
+    private RenderPackageSmokeTask smokeEffect;
+    private Boolean opened = false;
 
-	/**
-	 * Construct a new Crate object with a location, world, and ArrayList of
-	 * contents
-	 * 
-	 * @param location where crate will drop
-	 * @param world where it will drop in
-	 * @param contents of the crate
-	 */
-	public Crate(Location location, World world, List<ItemStack> contents) {
+    /**
+     * Construct a new Crate object with a location, world, and ArrayList of
+     * contents
+     * 
+     * @param location where crate will drop
+     * @param world    where it will drop in
+     * @param contents of the crate
+     */
+    public Crate(Location location, World world, List<ItemStack> contents, DropOptions options) {
+        this.dropLocation = location.clone();
+        this.world = world;
+        this.contents = new ArrayList<>(contents);
+        this.state = State.FALLING;
+        this.options = options;
+        this.parachuteSystem = new ParachuteSystem(world, options);
+    }
 
-		this.location = location;
-		this.world = world;
-		this.contents = (ArrayList<ItemStack>) contents;
+    /**
+     * Drop the crate
+     */
+    @SuppressWarnings("deprecation")
+    public void dropCrate() {
+        if (state != State.FALLING) {
+            throw new IllegalStateException("Cannot drop a crate that is not in FALLING state");
+        }
 
-	}
+        // Create flare effect at ground level (drop height blocks below drop location)
+        Location groundLocation = dropLocation.clone();
+        groundLocation.setY(dropLocation.getY() - options.getDropHeight() + 1);
+        if (options.shouldShowFlareEffects()) {
+            flareEffect = new RenderFlareTask(groundLocation, world);
+            flareEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 1L);
+        }
+        fallingCrate = world.spawnFallingBlock(dropLocation, Material.BARREL, (byte) 0);
+        parachuteSystem.initialize(dropLocation, fallingCrate);
 
-	/**
-	 * Drop the crate
-	 */
-	@SuppressWarnings("deprecation")
-	public void dropCrate() {
+        CrateManager.addCrate(fallingCrate, this);
+    }
 
-		// Create a tiny invisible slime to hold leashes for the crate
-		Slime parachuteLeash = (Slime) world.spawnEntity(location.add(new Vector(0, 1, 0)), EntityType.SLIME);
-		parachuteLeash.setAI(false);
-		parachuteLeash.setSize(1);
-		parachuteLeash.setInvisible(true);
-		parachuteLeash.setInvulnerable(true);
+    /**
+     * Transitions the crate from FALLING to LANDED state
+     * 
+     * @param block The block where the crate landed
+     */
+    public void land(Block block) {
+        if (state != State.FALLING) {
+            throw new IllegalStateException("Cannot land a crate that is not in FALLING state");
+        }
 
-		fallingCrate = world.spawnFallingBlock(location, Material.BARREL, (byte) 0);
-		
-		// Create a bunch of chicken parachuters and attach them to the slime
-		ArrayList<Chicken> chickenParachutes = new ArrayList<Chicken>();
-		for(int i = 0; i < 5; i++) {
-			Chicken chicken = (Chicken) world.spawnEntity(location.add(new Vector(Math.random()*0.25, 1, Math.random()*0.25)), EntityType.CHICKEN);
-			chicken.setInvulnerable(true);
-			chicken.setLeashHolder(parachuteLeash);
-			chickenParachutes.add(chicken);
-		}
-					
-		// Add the tiny slime as a passenger on the fallingCrate, this will make it looks like the crate is holding the chicken leashes
-		fallingCrate.addPassenger(parachuteLeash);
-		
-		fallingCrate.setGravity(false);
-		
-		Bukkit.getServer().getScheduler().runTaskTimer(Airdrop.getPluginInstance(), new Runnable() {
-			
-			@Override
-			public void run() {
-				// When the fallingCrate dies, have the chickens fly away for 3 seconds then despawn
-				if(fallingCrate.isDead()) {
-					for(Chicken c : chickenParachutes) {
-						c.setLeashHolder(null);
-						double xVel = Math.random() < 0.5 ? Math.random()*0.5*-1 : Math.random()*0.5;
-						double zVel = Math.random() < 0.5 ? Math.random()*0.5*-1 : Math.random()*0.5;
-						c.setVelocity(new Vector(xVel, 0.5, zVel));
-						Bukkit.getServer().getScheduler().runTaskLater(Airdrop.getPluginInstance(), new Runnable() {
-							@Override
-							public void run() {
-								c.remove();
-                            }
-						}, 60);
-					}
-					parachuteLeash.remove();
-					return;
-				}
-				
-				// Play some smoke effects
-				fallingCrate.getWorld().playEffect(fallingCrate.getLocation().add(new Vector(0, 1, 0)), Effect.SMOKE, 0);
-				fallingCrate.getWorld().playEffect(fallingCrate.getLocation().add(new Vector(0, 1, 0)), Effect.SMOKE, 0);
-				fallingCrate.getWorld().playEffect(fallingCrate.getLocation().add(new Vector(0, 1, 0)), Effect.SMOKE, 0);
-				
-				// Set the falling vector repeatedly to ensure the crate doesn't slow down due to no gravity
-				fallingCrate.setVelocity(new Vector(0, -0.3, 0));
+        this.blockChest = block;
+        this.landedLocation = block.getLocation().clone();
+        this.state = State.LANDED;
 
-			}
-			
-		}, 0, 2);
-		
-		CrateList.getCrateMap().put(fallingCrate, this);
+        // Initialize landed state
+        blockChest.setType(Material.BARREL);
+        Barrel barrel = (Barrel) blockChest.getState();
 
-	}
+        for (ItemStack is : contents) {
+            barrel.getInventory().addItem(is);
+        }
 
-	/**
-	 * Spawn chest where the falling block was
-	 */
-	public void spawnChest() {
+        CrateManager.addCrate(barrel.getLocation(), this);
 
-		blockChest.setType(Material.BARREL);
-		
-		Barrel barrel = (Barrel) blockChest.getState();
+        if (options.shouldShowLandingEffects()) {
+            RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
+                    this.landedLocation, world);
+            landedEffect.runTaskAsynchronously(Airdrop.getPluginInstance());
+        }
 
-		for (ItemStack is : contents) {
-			barrel.getInventory().addItem(is);
-		}
-		
-		CrateList.getBarrelList().add(barrel.getLocation());
+        if (options.shouldShowContinuousEffects()) {
+            glowEffect = new RenderPackageGlowTask(landedLocation, world);
+            this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 10L);
+        }
 
-	}
-	
-	/**
-	 * Returns the Crate's fallingCrate owned by this object
-	 * @return
-	 */
-	public FallingBlock getFallingCrate() {
-		return fallingCrate;
-	}
-	
-	/**
-	 * Sets the Crate's blockChest
-	 * @param block
-	 */
-	public void setChestBlock(Block block) {
-		blockChest = block;
-	}
+        if (options.isSmokeEnabled()) {
+            smokeEffect = new RenderPackageSmokeTask(landedLocation, world, options.getSmokeHeight());
+            this.smokeTask = smokeEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+        }
+
+        // Play landing sound effect
+        world.playSound(landedLocation, Sound.ENTITY_PLAYER_LEVELUP, .05f, .05f);
+
+        if (this.flareEffect != null) {
+            this.flareEffect.cancel();
+        }
+    }
+
+    /**
+     * Stop particle effects
+     */
+    public void stopEffects() {
+        if (glowTask != null) {
+            glowTask.cancel();
+        }
+        if (smokeTask != null) {
+            smokeTask.cancel();
+        }
+    }
+
+    /**
+     * Cleans up resources used by this crate
+     */
+    public void destroy() {
+        if (state == State.LANDED) {
+            stopEffects();
+        }
+    }
+
+    /**
+     * Returns the Crate's current state
+     */
+    public State getState() {
+        return state;
+    }
+
+    /**
+     * Returns the Crate's fallingCrate owned by this object
+     */
+    public FallingBlock getFallingCrate() {
+        return fallingCrate;
+    }
+
+    /**
+     * Gets the current location of the crate
+     */
+    /**
+     * Gets the current location of the crate based on its state
+     */
+    public Location getLocation() {
+        return state == State.FALLING ? dropLocation : landedLocation;
+    }
+
+    /**
+     * Gets the original drop location of the crate
+     */
+    public Location getDropLocation() {
+        return dropLocation;
+    }
+
+    /**
+     * Gets the landed location of the crate if it has landed, null otherwise
+     */
+    public Location getLandedLocation() {
+        return state == State.LANDED ? landedLocation : null;
+    }
+
+    public Boolean getOpened() {
+        return opened;
+    }
+
+    public void setOpened(Boolean opened) {
+        this.opened = opened;
+        if (opened) {
+            this.stopEffects();
+        }
+    }
 
 }
