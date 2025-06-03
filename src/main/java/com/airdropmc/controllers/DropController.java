@@ -15,71 +15,129 @@ import org.bukkit.util.Vector;
 
 import net.md_5.bungee.api.ChatColor;
 import com.airdropmc.Crate;
+import com.airdropmc.config.DropOptions;
 
 public class DropController {
 
-	private static final int TWENTY_BLOCKS = 20;
 	private static final int ZERO_BLOCKS = 0;
 	private static final double HALF_BLOCK = 0.5;
 
-	private DropController() {
-
+	/**
+	 * Drops an airdrop at a given location
+	 * 
+	 * @param pkg   package to drop
+	 * @param world to drop package in
+	 * @param loc   to drop the package on
+	 * @throws SkyNotClearException cannot drop a package due to the location not in
+	 *                              the open sky
+	 */
+	public static void dropPackage(Package pkg, World world, Location loc) throws SkyNotClearException {
+		dropPackage(pkg, world, loc, DropOptions.createDefault());
 	}
 
 	/**
-	 * Drops an airdrop at a given location
-	 * @param pkg package to drop
-	 * @param world to drop package in
-	 * @param loc to drop the package on
-	 * @throws SkyNotClearException cannot drop a package due to the location not in the open sky
+	 * Drops an airdrop at a given location with custom options
+	 * 
+	 * @param pkg     package to drop
+	 * @param world   to drop package in
+	 * @param loc     to drop the package on
+	 * @param options custom configuration options for this drop
+	 * @throws SkyNotClearException cannot drop a package due to the location not in
+	 *                              the open sky
 	 */
-	public static void dropPackage(Package pkg, World world, Location loc) throws SkyNotClearException {
-
+	public static void dropPackage(Package pkg, World world, Location loc, DropOptions options)
+			throws SkyNotClearException {
+		// Handle null options by using defaults
+		options = options != null ? options : DropOptions.createDefault();
 		List<ItemStack> items = pkg.getItems();
-		Location highestLocation = world.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getLocation().add(new Vector(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK));
-
+		Location highestLocation = world.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getLocation()
+				.add(new Vector(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK));
 
 		if (loc.getBlockY() <= highestLocation.getBlockY()) {
 			throw new SkyNotClearException(loc);
 		}
 
-		Crate crate = new Crate(highestLocation.add(new Vector(ZERO_BLOCKS, TWENTY_BLOCKS, ZERO_BLOCKS)), world, items);
+		Crate crate = new Crate(highestLocation.add(new Vector(ZERO_BLOCKS, options.getDropHeight(), ZERO_BLOCKS)),
+				world, items, options);
 		crate.dropCrate();
 	}
 
 	/**
 	 * Drops package on a given player
-	 * @param pkg to drop on player
+	 * 
+	 * @param pkg    to drop on player
 	 * @param player to drop the package on
 	 */
 	public static void dropPackageOnPlayer(Package pkg, Player player) throws SkyNotClearException {
-		World world = player.getWorld();
-		Location playerLoc = player.getLocation();
-
-		dropPackage(pkg, world, playerLoc);
+		dropPackageOnPlayer(pkg, player, DropOptions.createDefault());
 	}
 
 	/**
-	 * Drops a package on a player, initiated by player (takes into account permissions and econ)
-	 * @param pkg to be dropped
-	 * @param player getting the package
-	 * @throws CannotAffordException if player cannot afford the package
-	 * @throws InsufficientPermissionsException player does not have permissions to drop the package
-	 * @throws SkyNotClearException sky above player's location is not available
+	 * Drops package on a given player with custom options
+	 * 
+	 * @param pkg     to drop on player
+	 * @param player  to drop the package on
+	 * @param options custom configuration options for this drop
 	 */
-	public static void playerInitiatedDropPackage(Package pkg, Player player) throws CannotAffordException, InsufficientPermissionsException, SkyNotClearException {
+	public static void dropPackageOnPlayer(Package pkg, Player player, DropOptions options)
+			throws SkyNotClearException {
+		// Handle null options by using defaults
+		options = options != null ? options : DropOptions.createDefault();
+		World world = player.getWorld();
+		Location playerLoc = player.getLocation();
+
+		dropPackage(pkg, world, playerLoc, options);
+	}
+
+	/**
+	 * Drops a package on a player, initiated by player (takes into account
+	 * permissions and econ)
+	 * 
+	 * @param pkg    to be dropped
+	 * @param player getting the package
+	 * @throws CannotAffordException            if player cannot afford the package
+	 * @throws InsufficientPermissionsException player does not have permissions to
+	 *                                          drop the package
+	 * @throws SkyNotClearException             sky above player's location is not
+	 *                                          available
+	 */
+	public static void playerInitiatedDropPackage(Package pkg, Player player)
+			throws CannotAffordException, InsufficientPermissionsException, SkyNotClearException {
+		playerInitiatedDropPackage(pkg, player, DropOptions.createDefault());
+	}
+
+	/**
+	 * Drops a package on a player with custom options, initiated by player (takes
+	 * into account permissions and econ)
+	 * 
+	 * @param pkg     to be dropped
+	 * @param player  getting the package
+	 * @param options custom configuration options for this drop
+	 * @throws CannotAffordException            if player cannot afford the package
+	 * @throws InsufficientPermissionsException player does not have permissions to
+	 *                                          drop the package
+	 * @throws SkyNotClearException             sky above player's location is not
+	 *                                          available
+	 */
+	public static void playerInitiatedDropPackage(Package pkg, Player player, DropOptions options)
+			throws CannotAffordException, InsufficientPermissionsException, SkyNotClearException {
+		// Handle null options by using defaults
+		options = options != null ? options : DropOptions.createDefault();
 
 		boolean canDropPackage = PermissionsHelper.hasPermission(player, pkg.getName());
 
 		if (!canDropPackage) {
-			throw new InsufficientPermissionsException("You have insufficient permissions to drop that package, you must have" + ChatColor.AQUA + "airdrop.package." + pkg.getName());
+			throw new InsufficientPermissionsException(
+					"You have insufficient permissions to drop that package, you must have" + ChatColor.AQUA
+							+ "airdrop.package." + pkg.getName());
 		}
 
 		if (Boolean.FALSE.equals(pkg.canAfford(player))) {
-			throw new CannotAffordException(player.getName() + " cannot afford package price of " + ChatColor.AQUA + pkg.getPrice() );
+			throw new CannotAffordException(
+					player.getName() + " cannot afford package price of " + ChatColor.AQUA + pkg.getPrice());
 		}
 
-		dropPackageOnPlayer(pkg, player);
+		dropPackageOnPlayer(pkg, player, options);
 		// User is charged only if drop package has no exception
 		pkg.chargeUser(player);
 

@@ -5,8 +5,10 @@ import java.util.Objects;
 
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
-import com.airdropmc.listeners.BarrelInventoryCloseListener;
-import com.airdropmc.listeners.FallingBlockListener;
+import com.airdropmc.listeners.CrateDestroyListener;
+import com.airdropmc.listeners.CrateCloseListener;
+import com.airdropmc.listeners.CrateOpenListener;
+import com.airdropmc.listeners.FallingCrateListener;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
 import net.luckperms.api.LuckPerms;
@@ -19,7 +21,9 @@ import org.bukkit.plugin.java.JavaPluginLoader;
 
 import com.airdropmc.commands.CmdAirdrop;
 
-
+/**
+ * Main plugin class
+ */
 public class Airdrop extends JavaPlugin {
 
 	public static final String PLUGIN_NAME = "Airdrop";
@@ -30,18 +34,17 @@ public class Airdrop extends JavaPlugin {
 	private static LuckPerms luckPerms;
 	private static PackagesGui packagesGui;
 	private static Economy airdropEconomy = null;
+	private static Config configuration;
 
-	
 	// Define constructors per BukkitMock setup instructions
 	public Airdrop() {
 		super();
 	}
-	
-	protected Airdrop(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file)
-    {
-        super(loader, description, dataFolder, file);
-    }
-	
+
+	protected Airdrop(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file) {
+		super(loader, description, dataFolder, file);
+	}
+
 	@Override
 	public void onEnable() {
 		PluginDescriptionFile pdf = this.getDescription();
@@ -50,8 +53,12 @@ public class Airdrop extends JavaPlugin {
 		pluginVersion = pdf.getVersion();
 		pluginApiVersion = pdf.getAPIVersion();
 
+		// Load configuration
+		configuration = new Config(this);
+		configuration.saveDefaultConfig();
+
 		// Economy
-		if (!setupEconomy() ) {
+		if (!setupEconomy()) {
 			ChatHandler.logMessage("Disabling due to no Vault dependency");
 			getServer().getPluginManager().disablePlugin(Airdrop.pluginInstance);
 			return;
@@ -60,21 +67,23 @@ public class Airdrop extends JavaPlugin {
 		// Register Command and tab completer
 		Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setExecutor(new CmdAirdrop());
 		Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setTabCompleter(new AirdropTabCompleter());
-		
+
 		// Register Listeners
-		Bukkit.getPluginManager().registerEvents(new FallingBlockListener(), this);
-		Bukkit.getPluginManager().registerEvents(new BarrelInventoryCloseListener(), this);
-		
+		Bukkit.getPluginManager().registerEvents(new FallingCrateListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateCloseListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(), this);
+
 		// Load configuration files
 		PackagesConfig.loadConfig();
-		
+
 		// Start the package manager
 		PackageManager.reload();
 
 		PermissionsHelper.initialize();
-		
+
 	}
-	
+
 	@Override
 	public void onDisable() {
 
@@ -92,7 +101,7 @@ public class Airdrop extends JavaPlugin {
 		return airdropEconomy != null;
 	}
 
-	public void setupPackageGuis () {
+	public void setupPackageGuis() {
 		packagesGui = new PackagesGui();
 		Bukkit.getPluginManager().registerEvents(packagesGui, this);
 	}
@@ -127,6 +136,10 @@ public class Airdrop extends JavaPlugin {
 
 	public static String getVersion() {
 		return pluginVersion;
+	}
+
+	public static Config getConfiguration() {
+		return configuration;
 	}
 
 }
