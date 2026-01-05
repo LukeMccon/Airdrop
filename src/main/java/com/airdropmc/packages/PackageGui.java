@@ -3,8 +3,8 @@ package com.airdropmc.packages;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.PackageNotFoundException;
-import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.lang.MessageKey;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
@@ -46,9 +46,9 @@ public class PackageGui extends Gui implements Listener {
 
         int inventorySize = inv.getSize();
 
-        inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, "Back", 1));
-        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save", 1));
-        inv.setItem(inventorySize - 1, createGuiItem(Material.RED_WOOL, "Cancel", 1));
+        inv.setItem(inventorySize - 3, createGuiItem(Material.BLUE_WOOL, ChatHandler.get(MessageKey.GUI_BACK), 1));
+        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, ChatHandler.get(MessageKey.GUI_SAVE), 1));
+        inv.setItem(inventorySize - 1, createGuiItem(Material.RED_WOOL, ChatHandler.get(MessageKey.GUI_CANCEL), 1));
 
     }
 
@@ -76,29 +76,32 @@ public class PackageGui extends Gui implements Listener {
             ChatHandler.logMessage(err.getMessage());
         }
 
-        switch (itemStackName) {
+        String backLabel = ChatHandler.get(MessageKey.GUI_BACK);
+        String saveLabel = ChatHandler.get(MessageKey.GUI_SAVE);
+        String cancelLabel = ChatHandler.get(MessageKey.GUI_CANCEL);
 
-            case "Back":
-                this.back(e);
-                break;
+        if (itemStackName.equals(backLabel)) {
+            this.back(e);
+            return;
+        }
 
-            case "Save":
-                if (Boolean.TRUE.equals(PermissionsHelper.isAdmin(p))) {
-                    this.save(e);
-                } else {
-                    ChatHandler.sendErrorMessage(p, "Must be admin to save edits to a package a package ");
-                    e.setCancelled(true);
-                }
-                break;
+        if (itemStackName.equals(saveLabel)) {
+            if (Boolean.TRUE.equals(PermissionsHelper.isAdmin(p))) {
+                this.save(e);
+            } else {
+                ChatHandler.sendError(p, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
+                e.setCancelled(true);
+            }
+            return;
+        }
 
-            case "Cancel":
-                this.cancel(e);
-                break;
+        if (itemStackName.equals(cancelLabel)) {
+            this.cancel(e);
+            return;
+        }
 
-            default:
-                if (Boolean.FALSE.equals(PermissionsHelper.isAdmin(p))) {
-                    e.setCancelled(true);
-                }
+        if (Boolean.FALSE.equals(PermissionsHelper.isAdmin(p))) {
+            e.setCancelled(true);
         }
     }
 
@@ -127,19 +130,19 @@ public class PackageGui extends Gui implements Listener {
         try {
             PackageManager.updatePackageInventory(this.getName(), new ArrayList<>(Arrays.asList(newPackageItems)));
         } catch (PackageNotFoundException error) {
-            ChatHandler.sendErrorMessage(p, error.getMessage());
+            ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_NOT_FOUND,
+                    Map.of("name", error.getPackageName()));
+            return;
         }
 
         p.closeInventory();
-        ChatHandler.sendMessage(p,
-                "Package " + ChatTheme.accent() + this.getName() + ChatTheme.primary()
-                        + " was saved successfully");
+        ChatHandler.send(p, MessageKey.PACKAGES_SAVED, Map.of("name", this.getName()));
     }
 
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();
-        ChatHandler.sendMessage(p, "Package edit was canceled");
+        ChatHandler.send(p, MessageKey.PACKAGES_EDIT_CANCELED);
     }
 
     /**
@@ -167,7 +170,7 @@ public class PackageGui extends Gui implements Listener {
         } catch (NullPointerException err) {
             ChatHandler.logMessage(err.getMessage());
         }
-        return Arrays.asList(controlItemNames).contains(itemName);
+        return getControlItemNames().contains(itemName);
     }
 
 }

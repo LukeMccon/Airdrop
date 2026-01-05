@@ -1,8 +1,8 @@
 package com.airdropmc.packages;
 
 import com.airdropmc.helpers.ChatHandler;
-import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.DuplicatePackageException;
 
@@ -19,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
 
 public class CreatePackageGui extends Gui implements Listener {
     private final Inventory inv;
@@ -46,8 +47,8 @@ public class CreatePackageGui extends Gui implements Listener {
         int inventorySize = inv.getSize();
 
         // Add a save an cancel ItemStack to the package
-        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, "Save", 1));
-        inv.setItem(inventorySize - 1, createGuiItem(Material.RED_WOOL, "Cancel", 1));
+        inv.setItem(inventorySize - 2, createGuiItem(Material.GREEN_WOOL, ChatHandler.get(MessageKey.GUI_SAVE), 1));
+        inv.setItem(inventorySize - 1, createGuiItem(Material.RED_WOOL, ChatHandler.get(MessageKey.GUI_CANCEL), 1));
     }
 
     public void openInventory(final HumanEntity ent) {
@@ -74,24 +75,26 @@ public class CreatePackageGui extends Gui implements Listener {
             ChatHandler.logMessage(err.getMessage());
         }
 
-        switch (itemStackName) {
-            case "Save":
-                if (PermissionsHelper.isAdmin(p)) {
-                    this.save(e);
-                } else {
-                    ChatHandler.sendErrorMessage(p, "Must be admin to save edits to a package a package ");
-                    e.setCancelled(true);
-                }
-                break;
+        String saveLabel = ChatHandler.get(MessageKey.GUI_SAVE);
+        String cancelLabel = ChatHandler.get(MessageKey.GUI_CANCEL);
 
-            case "Cancel":
-                this.cancel(e);
-                break;
+        if (itemStackName.equals(saveLabel)) {
+            if (PermissionsHelper.isAdmin(p)) {
+                this.save(e);
+            } else {
+                ChatHandler.sendError(p, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
+                e.setCancelled(true);
+            }
+            return;
+        }
 
-            default:
-                if (!PermissionsHelper.isAdmin(p)) {
-                    e.setCancelled(true);
-                }
+        if (itemStackName.equals(cancelLabel)) {
+            this.cancel(e);
+            return;
+        }
+
+        if (!PermissionsHelper.isAdmin(p)) {
+            e.setCancelled(true);
         }
     }
 
@@ -128,13 +131,12 @@ public class CreatePackageGui extends Gui implements Listener {
         try {
             PackageManager.createPackage(pkg);
         } catch (DuplicatePackageException error) {
-            ChatHandler.sendErrorMessage(p, error.getMessage());
+            ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_EXISTS,
+                    Map.of("name", error.getPackageName()));
             return;
         }
 
-        ChatHandler.sendMessage(p,
-                "Package " + ChatTheme.accent() + this.getName() + ChatTheme.primary()
-                        + " was created successfully");
+        ChatHandler.send(p, MessageKey.PACKAGES_CREATED, Map.of("name", this.getName()));
     }
 
     /**
@@ -145,7 +147,7 @@ public class CreatePackageGui extends Gui implements Listener {
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
         p.closeInventory();
-        ChatHandler.sendMessage(p, "Package creation was canceled");
+        ChatHandler.send(p, MessageKey.PACKAGES_CREATE_CANCELED);
     }
 
 }

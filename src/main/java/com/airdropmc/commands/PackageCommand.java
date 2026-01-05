@@ -3,10 +3,11 @@ package com.airdropmc.commands;
 import com.airdropmc.controllers.PackageController;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.ChatHandler;
-import com.airdropmc.helpers.ChatTheme;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.PackageManager;
 import org.bukkit.command.CommandSender;
 
+import java.util.Map;
 import java.util.Objects;
 
 public class PackageCommand {
@@ -18,8 +19,8 @@ public class PackageCommand {
     public static void onCommand(CommandSender sender, String[] args) {
 
         if (args.length < 2) {
-            ChatHandler.sendErrorMessage(sender, "Must specify a package name");
-            ChatHandler.sendErrorMessage(sender, "Example: /airdrop starter");
+            ChatHandler.sendError(sender, MessageKey.COMMANDS_PACKAGE_SPECIFY);
+            ChatHandler.sendError(sender, MessageKey.COMMANDS_PACKAGE_EXAMPLE);
             return;
         }
 
@@ -36,10 +37,12 @@ public class PackageCommand {
         String packageName = args[1];
 
         try {
-            ChatHandler.sendMessage(sender, ChatTheme.text() + "\nPackage info for: " + ChatTheme.accent() + packageName
-                    + "\n================\n" + ChatTheme.text() + PackageManager.getInfo(packageName));
+            ChatHandler.send(sender, MessageKey.PACKAGES_INFO, Map.of(
+                    "name", packageName,
+                    "info", PackageManager.getInfo(packageName)));
         } catch (PackageNotFoundException e) {
-            ChatHandler.sendErrorMessage(sender, e.getMessage());
+            ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_NOT_FOUND,
+                    Map.of("name", e.getPackageName()));
         }
     }
 

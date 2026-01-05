@@ -2,11 +2,12 @@ package com.airdropmc.packages;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.helpers.ChatHandler;
-import com.airdropmc.helpers.ChatTheme;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.entity.Player;
@@ -44,15 +45,16 @@ public class Package {
 	public void chargeUser(Player player) throws CannotAffordException {
 		if (!econ.withdrawPlayer(player, this.price).transactionSuccess()) {
 			// Handle transaction failure
-			throw new CannotAffordException(player.getName() + " cannot afford " + this.price);
+			throw new CannotAffordException(player.getName(), this.price);
 		}
-		ChatHandler.sendMessage(player,
-				ChatTheme.accent() + "$" + this.price + ChatTheme.primary() + " has been taken from your account");
+		ChatHandler.send(player, MessageKey.DROP_CHARGED, Map.of("amount", String.valueOf(this.price)));
 	}
 
 	public String toString() {
-		return this.items.stream().map(ItemStack::toString).collect(Collectors.joining("\n")) + "\nprice: " + this.price
-				+ "\n";
+		String itemsInfo = this.items.stream().map(ItemStack::toString).collect(Collectors.joining("\n"));
+		String priceInfo = ChatHandler.get(MessageKey.PACKAGES_INFO_PRICE,
+				Map.of("price", String.valueOf(this.price)));
+		return itemsInfo + "\n" + priceInfo + "\n";
 	}
 
 	public List<ItemStack> getItems() {

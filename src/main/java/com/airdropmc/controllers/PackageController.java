@@ -1,14 +1,15 @@
 package com.airdropmc.controllers;
 
 import com.airdropmc.helpers.ChatHandler;
-import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.Package;
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,25 +31,22 @@ public class PackageController {
 	 */
 	public static void deletePackageCommand(CommandSender sender, String[] args) {
 		if (args.length != 3) {
-			ChatHandler.sendErrorMessage(sender, "Need to specify a package name to delete");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_DELETE_SPECIFY);
+			return;
 		}
 
 		// Create a new package
 		if (!PermissionsHelper.isAdmin(sender)) {
-			ChatHandler.sendErrorMessage(sender,
-					"Must be an admin with airdrop.admin permissions or a server operator to delete a package");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_DELETE_PERMISSION);
 			return;
 		}
 
 		String packageName = args[2];
 		try {
 			PackageManager.deletePackage(packageName);
-			ChatHandler.sendMessage(sender,
-					ChatTheme.accent() + packageName + ChatTheme.primary() + " was successfully deleted");
+			ChatHandler.send(sender, MessageKey.PACKAGES_DELETED, Map.of("name", packageName));
 		} catch (PackageNotFoundException e) {
-			ChatHandler.sendErrorMessage(sender,
-					"Unable to delete package: " + ChatTheme.errorDetail() + packageName + ChatTheme.error()
-							+ " not found");
+			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_DELETE_NOT_FOUND, Map.of("name", packageName));
 		}
 	}
 
@@ -71,13 +69,14 @@ public class PackageController {
 	public static void createPackageCommand(CommandSender sender, String[] args) {
 
 		if (args.length != 4) {
-			ChatHandler.sendErrorMessage(sender, "Package create command requires 4 total arguments");
-			ChatHandler.sendErrorMessage(sender, "Example: /airdrop package create myPackage 12.0");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_ARGS);
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_EXAMPLE);
+			return;
 		}
 
 		// Create a new package
 		if (!(sender instanceof Player player)) {
-			ChatHandler.sendErrorMessage(sender, "Must be a player to use this command");
+			ChatHandler.sendError(sender, MessageKey.COMMANDS_PLAYER_ONLY);
 			return;
 		}
 
@@ -86,7 +85,7 @@ public class PackageController {
 		double price = 0;
 
 		if (packageName == null || packageName.isBlank()) {
-			ChatHandler.sendErrorMessage(sender, "You must provide a name for the package");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_NAME_REQUIRED);
 			return;
 		}
 
@@ -94,8 +93,8 @@ public class PackageController {
 			try {
 				price = Double.parseDouble(priceString);
 			} catch (NumberFormatException e) {
-				ChatHandler.sendErrorMessage(sender, "You must provide the package price as a double");
-				ChatHandler.sendErrorMessage(sender, "Example: /airdrop package create myPackage 12.0");
+				ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_REQUIRED);
+				ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_EXAMPLE);
 				return;
 			}
 		}

@@ -1,9 +1,13 @@
 package com.airdropmc.helpers;
 
+import com.airdropmc.lang.LanguageManager;
+import com.airdropmc.lang.MessageKey;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.Map;
 import java.util.logging.Logger;
 
 public class ChatHandler {
@@ -12,8 +16,54 @@ public class ChatHandler {
 
 	}
 
+	private static LanguageManager lang;
+
+	public static void init(LanguageManager langManager) {
+		lang = langManager;
+	}
+
 	private static String getChatPrefix() {
+		if (lang != null) {
+			return lang.get(MessageKey.PREFIX);
+		}
 		return ChatTheme.primary() + "[" + ChatTheme.text() + "Airdrop" + ChatTheme.primary() + "]";
+	}
+
+	private static String formatMessage(String message) {
+		if (message == null) {
+			return "";
+		}
+		return ChatColor.translateAlternateColorCodes('&', message);
+	}
+
+	public static String get(MessageKey key) {
+		if (lang == null) {
+			return key.getDefault();
+		}
+		return lang.get(key);
+	}
+
+	public static String get(MessageKey key, Map<String, String> placeholders) {
+		if (lang == null) {
+			return key.getDefault();
+		}
+		return lang.get(key, placeholders);
+	}
+
+	public static void send(CommandSender sender, MessageKey key) {
+		sendMessage(sender, get(key));
+	}
+
+	public static void send(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
+		sendMessage(sender, get(key, placeholders));
+	}
+
+	public static void sendError(CommandSender sender, MessageKey key) {
+		sendErrorMessage(sender, get(key));
+	}
+
+	public static void sendError(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
+		sendErrorMessage(sender, get(key, placeholders));
 	}
 
 	/**
@@ -23,7 +73,7 @@ public class ChatHandler {
 	 */
 	public static void sendErrorMessage(CommandSender sender, String message) {
 
-		String formattedMessage = getChatPrefix() + ChatTheme.error() + " " + message;
+		String formattedMessage = formatMessage(getChatPrefix() + ChatTheme.error() + " " + message);
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);
@@ -40,7 +90,7 @@ public class ChatHandler {
 	 * @param message the message to send
 	 */
 	public static void sendMessage(CommandSender sender, String message) {
-		String formattedMessage = getChatPrefix() + ChatTheme.primary() + " " + message;
+		String formattedMessage = formatMessage(getChatPrefix() + ChatTheme.primary() + " " + message);
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);

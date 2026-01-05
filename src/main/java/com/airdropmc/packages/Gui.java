@@ -1,14 +1,22 @@
 package com.airdropmc.packages;
 
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.lang.MessageKey;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Arrays;
+import java.util.List;
 
 public abstract class Gui {
 
-    protected static final String[] controlItemNames = { "Save", "Cancel", "Back" };
+    protected static List<String> getControlItemNames() {
+        return Arrays.asList(
+                ChatHandler.get(MessageKey.GUI_SAVE),
+                ChatHandler.get(MessageKey.GUI_CANCEL),
+                ChatHandler.get(MessageKey.GUI_BACK));
+    }
 
     /**
      * Creates a ItemStack that will be placed within the GUI

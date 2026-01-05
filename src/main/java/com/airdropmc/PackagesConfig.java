@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.lang.MessageKey;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -33,7 +34,7 @@ public class PackagesConfig {
 				yaml.save(f);
 				writeDefaults();
 				loaded = true;
-				ChatHandler.logMessage("Config loaded successfully");
+				ChatHandler.logMessage(ChatHandler.get(MessageKey.SYSTEM_CONFIG_LOADED));
 			} catch (IOException e) {
 				e.printStackTrace();
 			}

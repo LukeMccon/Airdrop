@@ -1,5 +1,8 @@
 # Airdrop Configuration
 
+# Language setting - corresponds to file in lang/ folder
+language: en
+
 # Drop Settings
 drop:
   parachute:

@@ -5,6 +5,8 @@ import java.util.Objects;
 
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.lang.LanguageManager;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.listeners.CrateDestroyListener;
 import com.airdropmc.listeners.CrateCloseListener;
 import com.airdropmc.listeners.CrateOpenListener;
@@ -35,6 +37,7 @@ public class Airdrop extends JavaPlugin {
 	private static PackagesGui packagesGui;
 	private static Economy airdropEconomy = null;
 	private static Config configuration;
+	private LanguageManager languageManager;
 
 	// Define constructors per BukkitMock setup instructions
 	public Airdrop() {
@@ -56,10 +59,17 @@ public class Airdrop extends JavaPlugin {
 		// Load configuration
 		configuration = new Config(this);
 		configuration.saveDefaultConfig();
+		configuration.getConfig();
+
+		// Initialize language system
+		this.languageManager = new LanguageManager(this);
+		String lang = configuration.getConfig().getString("language", "en");
+		languageManager.loadLanguage(lang);
+		ChatHandler.init(languageManager);
 
 		// Economy
 		if (!setupEconomy()) {
-			ChatHandler.logMessage("Disabling due to no Vault dependency");
+			ChatHandler.logMessage(ChatHandler.get(MessageKey.SYSTEM_VAULT_MISSING));
 			getServer().getPluginManager().disablePlugin(Airdrop.pluginInstance);
 			return;
 		}
@@ -140,6 +150,10 @@ public class Airdrop extends JavaPlugin {
 
 	public static Config getConfiguration() {
 		return configuration;
+	}
+
+	public LanguageManager getLanguageManager() {
+		return languageManager;
 	}
 
 }

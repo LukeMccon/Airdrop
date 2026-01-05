@@ -1,0 +1,51 @@
+prefix: "{primary}[{text}Airdrop{primary}]"
+
+commands:
+  player-only: "Must be a player to use this command"
+  packages-console-only: "Uses inventory GUI, not available to the console"
+  package-specify: "Must specify a package name"
+  package-example: "Example: /airdrop starter"
+
+packages:
+  info: "{text}\nPackage info for: {accent}{name}{text}\n================\n{text}{info}"
+  info-price: "price: {price}"
+  deleted: "{accent}{name}{primary} was successfully deleted"
+  saved: "Package {accent}{name}{primary} was saved successfully"
+  created: "Package {accent}{name}{primary} was created successfully"
+  edit-canceled: "Package edit was canceled"
+  create-canceled: "Package creation was canceled"
+  delete-specify: "Need to specify a package name to delete"
+  delete-permission: "Must be an admin with airdrop.admin permissions or a server operator to delete a package"
+  create-args: "Package create command requires 4 total arguments"
+  create-example: "Example: /airdrop package create myPackage 12.0"
+  name-required: "You must provide a name for the package"
+  price-required: "You must provide the package price as a double"
+
+errors:
+  cannot-afford: "{player} cannot afford package price of {accent}{price}{error}"
+  insufficient-permissions: "You lack permission to drop that package (requires {accent}airdrop.package.{package}{error})"
+  sky-not-clear: "Sky must be clear above your location to call an airdrop"
+  package-not-found: "Package '{name}' not found. Use {warning}/airdrop packages{error} to see available packages"
+  package-exists: "A package named '{name}' already exists"
+  package-delete-not-found: "Unable to delete package: {error-detail}{name}{error} not found"
+
+drop:
+  charged: "{accent}${amount}{primary} has been taken from your account"
+
+gui:
+  save: "Save"
+  cancel: "Cancel"
+  back: "Back"
+  packages-title: "Packages"
+  package-price: "${price}"
+
+admin:
+  permission-required: "You must have airdrop.admin permission to do this"
+  package-save-required: "Must be admin to save package changes"
+
+system:
+  config-loaded: "Config loaded successfully"
+  vault-missing: "Disabling due to missing Vault dependency"
+  reload-success: "Configuration and language reloaded"
+  package-price-missing: "Could not find price for package: {name}"
+  version-info: "{text}\nAirdrop Version: {accent}{version}{text}\nSpigot API Version: {accent}{api_version}"

@@ -2,6 +2,7 @@ package com.airdropmc.packages;
 
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.Airdrop;
+import com.airdropmc.lang.MessageKey;
 
 import com.airdropmc.exceptions.PackageNotFoundException;
 import org.bukkit.Bukkit;
@@ -15,6 +16,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -31,7 +33,7 @@ public class PackagesGui extends Gui implements Listener {
 
         // Create a new inventory, with no owner (as this isn't a real inventory), a
         // size of nine, called example
-        inv = Bukkit.createInventory(null, inventorySize, "Packages");
+        inv = Bukkit.createInventory(null, inventorySize, ChatHandler.get(MessageKey.GUI_PACKAGES_TITLE));
 
         // Put the items into the inventory
         initializeItems();
@@ -60,7 +62,8 @@ public class PackagesGui extends Gui implements Listener {
         } catch (PackageNotFoundException e) {
             price = 0.0;
         }
-        return createGuiItem(Material.CHEST, packageName, 1, "$" + price);
+        return createGuiItem(Material.CHEST, packageName, 1,
+                ChatHandler.get(MessageKey.GUI_PACKAGE_PRICE, Map.of("price", String.valueOf(price))));
     }
 
     public void openInventory(final HumanEntity ent) {
@@ -97,7 +100,8 @@ public class PackagesGui extends Gui implements Listener {
         try {
             pkg = PackageManager.get(packageName);
         } catch (PackageNotFoundException error) {
-            ChatHandler.sendErrorMessage(p, error.getMessage());
+            ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_NOT_FOUND,
+                    Map.of("name", error.getPackageName()));
             return;
         }
         PackageGui packageGui = new PackageGui(pkg);

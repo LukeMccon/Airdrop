@@ -3,6 +3,7 @@ package com.airdropmc.packages;
 import java.util.*;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -11,6 +12,7 @@ import org.bukkit.inventory.ItemStack;
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.PackagesConfig;
+
 
 /**
  * Manages packages, keeps list of available packages and their contents
@@ -93,7 +95,8 @@ public class PackageManager {
 				try {
 					price = config.getDouble(pkg + ".price");
 				} catch (Exception e) {
-					ChatHandler.getLogger().warning("Could not find price for package: " + name);
+					ChatHandler.getLogger().warning(
+							ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_MISSING, Map.of("name", name)));
 				}
 				PackageManager.packages.put(name, new Package(name, price, items));
 			}
