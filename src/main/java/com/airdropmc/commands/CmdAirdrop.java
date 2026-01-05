@@ -2,7 +2,7 @@ package com.airdropmc.commands;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
-import org.bukkit.ChatColor;
+import com.airdropmc.helpers.ChatTheme;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -22,7 +22,9 @@ public class CmdAirdrop implements CommandExecutor {
         switch (args[0]) {
             case "package" -> PackageCommand.onCommand(sender, args);
             case "packages" -> PackagesCommand.onCommand(sender);
-            case "version" -> ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nAirdrop Version: " + ChatColor.AQUA + Airdrop.getVersion() + ChatColor.WHITE + "\nSpigot API Version: " + ChatColor.AQUA + Airdrop.getPluginApiVersion());
+            case "version" -> ChatHandler.sendMessage(sender, ChatTheme.text() + "\nAirdrop Version: " + ChatTheme.accent()
+                    + Airdrop.getVersion() + ChatTheme.text() + "\nSpigot API Version: " + ChatTheme.accent()
+                    + Airdrop.getPluginApiVersion());
             default -> DropCommand.onCommand(sender, args);
         }
         return true;

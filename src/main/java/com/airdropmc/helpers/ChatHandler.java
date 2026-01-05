@@ -1,7 +1,6 @@
 package com.airdropmc.helpers;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -13,7 +12,9 @@ public class ChatHandler {
 
 	}
 
-	private static final String CHAT_PREFIX = ChatColor.BLUE + "[" + ChatColor.WHITE + "Airdrop" + ChatColor.BLUE + "]";
+	private static String getChatPrefix() {
+		return ChatTheme.primary() + "[" + ChatTheme.text() + "Airdrop" + ChatTheme.primary() + "]";
+	}
 
 	/**
 	 * Sends error message to a CommandSender
@@ -22,7 +23,7 @@ public class ChatHandler {
 	 */
 	public static void sendErrorMessage(CommandSender sender, String message) {
 
-		String formattedMessage = CHAT_PREFIX + ChatColor.RED + " "+ message;
+		String formattedMessage = getChatPrefix() + ChatTheme.error() + " " + message;
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);
@@ -39,7 +40,7 @@ public class ChatHandler {
 	 * @param message the message to send
 	 */
 	public static void sendMessage(CommandSender sender, String message) {
-		String formattedMessage = CHAT_PREFIX + ChatColor.BLUE + " " + message;
+		String formattedMessage = getChatPrefix() + ChatTheme.primary() + " " + message;
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);

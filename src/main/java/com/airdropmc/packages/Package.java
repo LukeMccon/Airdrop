@@ -6,9 +6,9 @@ import java.util.stream.Collectors;
 
 import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.Airdrop;
 import net.milkbowl.vault.economy.Economy;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -47,7 +47,7 @@ public class Package {
 			throw new CannotAffordException(player.getName() + " cannot afford " + this.price);
 		}
 		ChatHandler.sendMessage(player,
-				ChatColor.AQUA + "$" + this.price + ChatColor.BLUE + " has been taken from your account");
+				ChatTheme.accent() + "$" + this.price + ChatTheme.primary() + " has been taken from your account");
 	}
 
 	public String toString() {

@@ -1,12 +1,12 @@
 package com.airdropmc.packages;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.DuplicatePackageException;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -133,7 +133,8 @@ public class CreatePackageGui extends Gui implements Listener {
         }
 
         ChatHandler.sendMessage(p,
-                "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was created successfully");
+                "Package " + ChatTheme.accent() + this.getName() + ChatTheme.primary()
+                        + " was created successfully");
     }
 
     /**

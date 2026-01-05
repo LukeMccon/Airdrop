@@ -1,6 +1,6 @@
 package com.airdropmc.exceptions;
 
-import org.bukkit.ChatColor;
+import com.airdropmc.helpers.ChatTheme;
 
 public class DuplicatePackageException extends Exception {
 
@@ -10,7 +10,7 @@ public class DuplicatePackageException extends Exception {
 	 * @param message package's name
 	 */
 	public DuplicatePackageException(String message) {
-		super("A package already exists with name: " + ChatColor.GREEN + message + "\nUse " + ChatColor.YELLOW
-				+ "/airdrop packages" + ChatColor.GREEN + " to see all packages");
+		super("A package already exists with name: " + ChatTheme.success() + message + "\nUse " + ChatTheme.warning()
+				+ "/airdrop packages" + ChatTheme.success() + " to see all packages");
 	}
 }

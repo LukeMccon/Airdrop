@@ -3,8 +3,8 @@ package com.airdropmc.commands;
 import com.airdropmc.controllers.PackageController;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.packages.PackageManager;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 
 import java.util.Objects;
@@ -36,8 +36,8 @@ public class PackageCommand {
         String packageName = args[1];
 
         try {
-            ChatHandler.sendMessage(sender, ChatColor.WHITE + "\nPackage info for: " + ChatColor.AQUA + packageName
-                    + "\n================\n" + ChatColor.WHITE + PackageManager.getInfo(packageName));
+            ChatHandler.sendMessage(sender, ChatTheme.text() + "\nPackage info for: " + ChatTheme.accent() + packageName
+                    + "\n================\n" + ChatTheme.text() + PackageManager.getInfo(packageName));
         } catch (PackageNotFoundException e) {
             ChatHandler.sendErrorMessage(sender, e.getMessage());
         }

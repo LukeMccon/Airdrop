@@ -27,3 +27,16 @@ drop:
 economy:
   # Whether to enable economy features
   enabled: true
+
+# UI theme settings
+ui:
+  chat:
+    # ChatColor names, e.g. BLUE, AQUA, RED (case-insensitive)
+    colors:
+      primary: BLUE
+      text: WHITE
+      accent: AQUA
+      success: GREEN
+      warning: YELLOW
+      error: RED
+      error-detail: DARK_RED

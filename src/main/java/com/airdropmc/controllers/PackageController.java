@@ -1,6 +1,7 @@
 package com.airdropmc.controllers;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.PackageManager;
@@ -11,7 +12,6 @@ import com.airdropmc.exceptions.PackageNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -44,10 +44,11 @@ public class PackageController {
 		try {
 			PackageManager.deletePackage(packageName);
 			ChatHandler.sendMessage(sender,
-					ChatColor.AQUA + packageName + ChatColor.BLUE + " was successfully deleted");
+					ChatTheme.accent() + packageName + ChatTheme.primary() + " was successfully deleted");
 		} catch (PackageNotFoundException e) {
 			ChatHandler.sendErrorMessage(sender,
-					"Unable to delete package: " + ChatColor.DARK_RED + packageName + ChatColor.RED + " not found");
+					"Unable to delete package: " + ChatTheme.errorDetail() + packageName + ChatTheme.error()
+							+ " not found");
 		}
 	}
 

@@ -3,9 +3,9 @@ package com.airdropmc.packages;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.PackageNotFoundException;
+import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.helpers.PermissionsHelper;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -132,7 +132,8 @@ public class PackageGui extends Gui implements Listener {
 
         p.closeInventory();
         ChatHandler.sendMessage(p,
-                "Package " + ChatColor.AQUA + this.getName() + ChatColor.BLUE + " was saved successfully");
+                "Package " + ChatTheme.accent() + this.getName() + ChatTheme.primary()
+                        + " was saved successfully");
     }
 
     public void cancel(final InventoryClickEvent e) {

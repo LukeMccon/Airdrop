@@ -5,6 +5,7 @@ import java.util.List;
 import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.exceptions.InsufficientPermissionsException;
 import com.airdropmc.exceptions.SkyNotClearException;
+import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.packages.Package;
 import org.bukkit.Location;
@@ -13,7 +14,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import net.md_5.bungee.api.ChatColor;
 import com.airdropmc.Crate;
 import com.airdropmc.config.DropOptions;
 
@@ -128,13 +128,13 @@ public class DropController {
 
 		if (!canDropPackage) {
 			throw new InsufficientPermissionsException(
-					"You have insufficient permissions to drop that package, you must have" + ChatColor.AQUA
-							+ "airdrop.package." + pkg.getName());
+					"You have insufficient permissions to drop that package, you must have " + ChatTheme.accent()
+							+ "airdrop.package." + pkg.getName() + ChatTheme.error());
 		}
 
 		if (Boolean.FALSE.equals(pkg.canAfford(player))) {
 			throw new CannotAffordException(
-					player.getName() + " cannot afford package price of " + ChatColor.AQUA + pkg.getPrice());
+					player.getName() + " cannot afford package price of " + ChatTheme.accent() + pkg.getPrice());
 		}
 
 		dropPackageOnPlayer(pkg, player, options);
