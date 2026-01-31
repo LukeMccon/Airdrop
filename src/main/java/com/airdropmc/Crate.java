@@ -71,7 +71,6 @@ public class Crate {
     /**
      * Drop the crate
      */
-    @SuppressWarnings("deprecation")
     public void dropCrate() {
         if (state != State.FALLING) {
             throw new IllegalStateException("Cannot drop a crate that is not in FALLING state");
@@ -84,7 +83,9 @@ public class Crate {
             flareEffect = new RenderFlareTask(groundLocation, world);
             flareEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 1L);
         }
-        fallingCrate = world.spawnFallingBlock(dropLocation, Material.BARREL, (byte) 0);
+        fallingCrate = world.spawn(dropLocation, FallingBlock.class, fb -> {
+            fb.setBlockData(Material.BARREL.createBlockData());
+        });
         parachuteSystem.initialize(dropLocation, fallingCrate);
 
         CrateManager.addCrate(fallingCrate, this);

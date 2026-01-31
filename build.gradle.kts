@@ -1,11 +1,12 @@
 plugins {
     `java-library`
     id("xyz.jpenilla.run-paper") version "2.3.1" // Adds runServer and runMojangMappedServer tasks for testing
-    id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
+    id("net.minecrell.plugin-yml.paper") version "0.6.0" // Generates paper-plugin.yml
+    id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml for commands
 }
 
 group = "com.airdropmc"
-version = "3.3.0-SNAPSHOT"
+version = "4.0.0-SNAPSHOT"
 description = "Airdrop - Minecraft care package plugin"
 
 java {
@@ -21,9 +22,6 @@ repositories {
     maven("https://oss.sonatype.org/content/groups/public/") {
         name = "sonatype"
     }
-    maven("https://repo.essentialsx.net/releases/") {
-        name = "essentialsx-releases"
-    }
     maven("https://jitpack.io") {
         name = "jitpack"
     }
@@ -35,10 +33,6 @@ dependencies {
     
     // Plugin dependencies
     compileOnly("net.luckperms:api:5.4")
-    compileOnly("net.essentialsx:EssentialsX:2.20.1") {
-        exclude(group = "org.spigotmc", module = "spigot-api")
-        exclude(group = "org.bukkit", module = "bukkit")
-    }
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
@@ -73,15 +67,31 @@ tasks {
 
 }
 
-// Configure plugin.yml generation
+// Configure paper-plugin.yml generation
+paper {
+    main = "com.airdropmc.Airdrop"
+    apiVersion = "1.21"
+    authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
+    description = "Call in customizable care packages that fall from the sky"
+
+    serverDependencies {
+        register("LuckPerms") {
+            load = net.minecrell.pluginyml.paper.PaperPluginDescription.RelativeLoadOrder.BEFORE
+        }
+        register("Vault") {
+            load = net.minecrell.pluginyml.paper.PaperPluginDescription.RelativeLoadOrder.BEFORE
+        }
+    }
+}
+
+// Configure plugin.yml generation (for commands - paper-plugin.yml doesn't support commands)
 bukkit {
     load = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.STARTUP
     main = "com.airdropmc.Airdrop"
     apiVersion = "1.21"
-    depend = listOf("LuckPerms", "Essentials", "Vault")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
     description = "Call in customizable care packages that fall from the sky"
-    
+
     commands {
         register("airdrop") {
             description = "Call in an airdrop!"

@@ -1,6 +1,5 @@
 package com.airdropmc;
 
-import java.io.File;
 import java.util.Objects;
 
 import com.airdropmc.helpers.ChatHandler;
@@ -19,7 +18,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.java.JavaPluginLoader;
 
 import com.airdropmc.commands.CmdAirdrop;
 
@@ -40,14 +38,6 @@ public class Airdrop extends JavaPlugin {
 	private static PackagesConfig packagesConfiguration;
 	private LanguageManager languageManager;
 
-	// Define constructors per BukkitMock setup instructions
-	public Airdrop() {
-		super();
-	}
-
-	protected Airdrop(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file) {
-		super(loader, description, dataFolder, file);
-	}
 
 	@Override
 	public void onEnable() {
