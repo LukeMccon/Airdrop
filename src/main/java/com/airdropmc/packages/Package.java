@@ -9,7 +9,6 @@ import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
-import net.milkbowl.vault.economy.Economy;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -19,7 +18,6 @@ import org.bukkit.inventory.ItemStack;
  */
 public class Package {
 
-	private static final Economy econ = Airdrop.getAirdropEconomy();
 	private List<ItemStack> items;
 	private double price;
 	private String name;
@@ -39,11 +37,11 @@ public class Package {
 	}
 
 	public boolean canAfford(Player player) {
-		return Double.compare(econ.getBalance(player), this.price) >= 0;
+		return Double.compare(Airdrop.getAirdropEconomy().getBalance(player), this.price) >= 0;
 	}
 
 	public void chargeUser(Player player) throws CannotAffordException {
-		if (!econ.withdrawPlayer(player, this.price).transactionSuccess()) {
+		if (!Airdrop.getAirdropEconomy().withdrawPlayer(player, this.price).transactionSuccess()) {
 			// Handle transaction failure
 			throw new CannotAffordException(player.getName(), this.price);
 		}

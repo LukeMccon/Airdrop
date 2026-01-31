@@ -37,6 +37,7 @@ public class Airdrop extends JavaPlugin {
 	private static PackagesGui packagesGui;
 	private static Economy airdropEconomy = null;
 	private static Config configuration;
+	private static PackagesConfig packagesConfiguration;
 	private LanguageManager languageManager;
 
 	// Define constructors per BukkitMock setup instructions
@@ -84,8 +85,9 @@ public class Airdrop extends JavaPlugin {
 		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(), this);
 
-		// Load configuration files
-		PackagesConfig.loadConfig();
+		// Load packages configuration
+		packagesConfiguration = new PackagesConfig(this);
+		packagesConfiguration.getConfig();
 
 		// Start the package manager
 		PackageManager.reload();
@@ -150,6 +152,10 @@ public class Airdrop extends JavaPlugin {
 
 	public static Config getConfiguration() {
 		return configuration;
+	}
+
+	public static PackagesConfig getPackagesConfiguration() {
+		return packagesConfiguration;
 	}
 
 	public LanguageManager getLanguageManager() {

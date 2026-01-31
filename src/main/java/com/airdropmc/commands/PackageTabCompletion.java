@@ -7,6 +7,7 @@ import org.bukkit.command.TabCompleter;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.Objects;
 
 public class PackageTabCompletion implements TabCompleter {
 
@@ -28,12 +29,12 @@ public class PackageTabCompletion implements TabCompleter {
                 commands.add("delete");
                 return commands;
             case 3:
-                if (commandArg.equals(createCommand) || commandArg.equals("delete")) {
+                if (Objects.equals(commandArg, createCommand) || Objects.equals(commandArg, "delete")) {
                     return List.of("[packageName]");
                 }
                 return Collections.emptyList();
             case 4:
-                if (commandArg.equals(createCommand)) {
+                if (Objects.equals(commandArg, createCommand)) {
                     return List.of("[price]");
                 }
                 return Collections.emptyList();

@@ -129,7 +129,7 @@ public class DropController {
 			throw new InsufficientPermissionsException(pkg.getName());
 		}
 
-		if (Boolean.FALSE.equals(pkg.canAfford(player))) {
+		if (!pkg.canAfford(player)) {
 			throw new CannotAffordException(player.getName(), pkg.getPrice());
 		}
 

@@ -48,6 +48,9 @@ dependencies {
     
     // Test dependencies
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation("com.github.seeseemelk:MockBukkit-v1.21:3.133.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

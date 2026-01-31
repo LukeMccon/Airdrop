@@ -87,14 +87,11 @@ public class PackagesGui extends Gui implements Listener {
         if (!(e.getWhoClicked() instanceof Player p))
             return;
 
-        String packageName = null;
-
-        if (e.getCurrentItem().hasItemMeta()
-                && Objects.requireNonNull(e.getCurrentItem().getItemMeta()).hasDisplayName()) {
-            packageName = e.getCurrentItem().getItemMeta().getDisplayName().toLowerCase();
-        } else {
+        String displayName = getDisplayName(clickedItem);
+        if (displayName.isEmpty()) {
             return;
         }
+        String packageName = displayName.toLowerCase();
 
         Package pkg = null;
         try {

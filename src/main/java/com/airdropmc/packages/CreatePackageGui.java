@@ -20,6 +20,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 
 public class CreatePackageGui extends Gui implements Listener {
     private final Inventory inv;
@@ -67,18 +68,12 @@ public class CreatePackageGui extends Gui implements Listener {
         if (clickedItem == null || clickedItem.getType().isAir())
             return;
 
-        String itemStackName = "";
-
-        try {
-            itemStackName = clickedItem.getItemMeta().getDisplayName();
-        } catch (NullPointerException err) {
-            ChatHandler.logMessage(err.getMessage());
-        }
+        String itemStackName = getDisplayName(clickedItem);
 
         String saveLabel = ChatHandler.get(MessageKey.GUI_SAVE);
         String cancelLabel = ChatHandler.get(MessageKey.GUI_CANCEL);
 
-        if (itemStackName.equals(saveLabel)) {
+        if (Objects.equals(itemStackName, saveLabel)) {
             if (PermissionsHelper.isAdmin(p)) {
                 this.save(e);
             } else {
@@ -88,7 +83,7 @@ public class CreatePackageGui extends Gui implements Listener {
             return;
         }
 
-        if (itemStackName.equals(cancelLabel)) {
+        if (Objects.equals(itemStackName, cancelLabel)) {
             this.cancel(e);
             return;
         }

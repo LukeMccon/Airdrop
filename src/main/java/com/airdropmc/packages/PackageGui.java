@@ -17,6 +17,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
+import java.util.Objects;
 
 public class PackageGui extends Gui implements Listener {
     private final Inventory inv;
@@ -68,25 +69,19 @@ public class PackageGui extends Gui implements Listener {
         if (clickedItem == null || clickedItem.getType().isAir())
             return;
 
-        String itemStackName = "";
-
-        try {
-            itemStackName = Objects.requireNonNull(clickedItem.getItemMeta()).getDisplayName();
-        } catch (NullPointerException err) {
-            ChatHandler.logMessage(err.getMessage());
-        }
+        String itemStackName = getDisplayName(clickedItem);
 
         String backLabel = ChatHandler.get(MessageKey.GUI_BACK);
         String saveLabel = ChatHandler.get(MessageKey.GUI_SAVE);
         String cancelLabel = ChatHandler.get(MessageKey.GUI_CANCEL);
 
-        if (itemStackName.equals(backLabel)) {
+        if (Objects.equals(itemStackName, backLabel)) {
             this.back(e);
             return;
         }
 
-        if (itemStackName.equals(saveLabel)) {
-            if (Boolean.TRUE.equals(PermissionsHelper.isAdmin(p))) {
+        if (Objects.equals(itemStackName, saveLabel)) {
+            if (PermissionsHelper.isAdmin(p)) {
                 this.save(e);
             } else {
                 ChatHandler.sendError(p, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
@@ -95,12 +90,12 @@ public class PackageGui extends Gui implements Listener {
             return;
         }
 
-        if (itemStackName.equals(cancelLabel)) {
+        if (Objects.equals(itemStackName, cancelLabel)) {
             this.cancel(e);
             return;
         }
 
-        if (Boolean.FALSE.equals(PermissionsHelper.isAdmin(p))) {
+        if (!PermissionsHelper.isAdmin(p)) {
             e.setCancelled(true);
         }
     }
@@ -164,13 +159,7 @@ public class PackageGui extends Gui implements Listener {
      * @return is the ItemStack used to control the plugin
      */
     public static boolean isControlItemStack(ItemStack itemstack) {
-        String itemName = "";
-        try {
-            itemName = Objects.requireNonNull(itemstack.getItemMeta()).getDisplayName();
-        } catch (NullPointerException err) {
-            ChatHandler.logMessage(err.getMessage());
-        }
-        return getControlItemNames().contains(itemName);
+        return isControlItem(itemstack);
     }
 
 }

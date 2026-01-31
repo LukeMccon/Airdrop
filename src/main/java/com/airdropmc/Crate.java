@@ -16,6 +16,7 @@ import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
@@ -105,11 +106,15 @@ public class Crate {
 
         // Initialize landed state
         blockChest.setType(Material.BARREL);
-        Barrel barrel = (Barrel) blockChest.getState();
+        BlockState state = blockChest.getState();
+        if (!(state instanceof Barrel barrel)) {
+            throw new IllegalStateException("Failed to create barrel at landed location");
+        }
 
         for (ItemStack is : contents) {
             barrel.getInventory().addItem(is);
         }
+        barrel.update();
 
         CrateManager.addCrate(barrel.getLocation(), this);
 
@@ -153,8 +158,19 @@ public class Crate {
      * Cleans up resources used by this crate
      */
     public void destroy() {
+        // Cancel parachute system tasks and cleanup entities
+        if (parachuteSystem != null) {
+            parachuteSystem.cancel();
+        }
+
+        // Stop particle effects if landed
         if (state == State.LANDED) {
             stopEffects();
+        }
+
+        // Cancel flare effect if still running
+        if (flareEffect != null && !flareEffect.isCancelled()) {
+            flareEffect.cancel();
         }
     }
 

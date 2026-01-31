@@ -8,6 +8,7 @@ import org.bukkit.command.TabCompleter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class AirdropTabCompleter implements TabCompleter {
 
@@ -19,7 +20,7 @@ public class AirdropTabCompleter implements TabCompleter {
             return subCommands;
         }
 
-        if (args[0].equals("package")) {
+        if (Objects.equals(args[0], "package")) {
             return (new PackageTabCompletion()).onTabComplete(commandSender, command, alias, args);
         }
         return new ArrayList<>();
