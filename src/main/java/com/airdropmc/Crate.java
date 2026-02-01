@@ -115,7 +115,6 @@ public class Crate {
         for (ItemStack is : contents) {
             barrel.getInventory().addItem(is);
         }
-        barrel.update();
 
         CrateManager.addCrate(barrel.getLocation(), this);
 

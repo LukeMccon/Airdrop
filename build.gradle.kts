@@ -1,8 +1,7 @@
 plugins {
     `java-library`
     id("xyz.jpenilla.run-paper") version "2.3.1" // Adds runServer and runMojangMappedServer tasks for testing
-    id("net.minecrell.plugin-yml.paper") version "0.6.0" // Generates paper-plugin.yml
-    id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml for commands
+    id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
 
 group = "com.airdropmc"
@@ -67,28 +66,12 @@ tasks {
 
 }
 
-// Configure paper-plugin.yml generation
-paper {
-    main = "com.airdropmc.Airdrop"
-    apiVersion = "1.21"
-    authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
-    description = "Call in customizable care packages that fall from the sky"
-
-    serverDependencies {
-        register("LuckPerms") {
-            load = net.minecrell.pluginyml.paper.PaperPluginDescription.RelativeLoadOrder.BEFORE
-        }
-        register("Vault") {
-            load = net.minecrell.pluginyml.paper.PaperPluginDescription.RelativeLoadOrder.BEFORE
-        }
-    }
-}
-
-// Configure plugin.yml generation (for commands - paper-plugin.yml doesn't support commands)
+// Configure plugin.yml generation
 bukkit {
     load = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.STARTUP
     main = "com.airdropmc.Airdrop"
     apiVersion = "1.21"
+    depend = listOf("LuckPerms", "Vault")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
     description = "Call in customizable care packages that fall from the sky"
 
