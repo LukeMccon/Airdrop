@@ -169,12 +169,12 @@ public class Package {
 	}
 
 	public List<ItemStack> getItems() {
-		return this.items;
+		return new ArrayList<>(this.items);
 	}
 
 	public void setItems(List<ItemStack> items) {
 		if (items != null && !items.isEmpty()) {
-			this.items = items;
+			this.items = new ArrayList<>(items);
 		} else {
 			this.items = new ArrayList<>();
 		}

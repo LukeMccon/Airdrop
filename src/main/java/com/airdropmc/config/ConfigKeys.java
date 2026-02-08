@@ -1,12 +1,16 @@
 package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.Config;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
  * Stores all configuration keys and provides methods to access config values
  */
 public final class ConfigKeys {
+    private static final FileConfiguration FALLBACK_CONFIG = new YamlConfiguration();
+
     private ConfigKeys() {
         // Prevent instantiation
     }
@@ -69,6 +73,11 @@ public final class ConfigKeys {
 
     // Helper method to get config
     private static FileConfiguration getConfig() {
-        return Airdrop.getConfiguration().getConfig();
+        Config config = Airdrop.getConfiguration();
+        if (config == null) {
+            return FALLBACK_CONFIG;
+        }
+        FileConfiguration fileConfig = config.getConfig();
+        return fileConfig == null ? FALLBACK_CONFIG : fileConfig;
     }
 }
