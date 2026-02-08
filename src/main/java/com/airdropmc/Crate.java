@@ -120,18 +120,18 @@ public class Crate {
 
         if (options.shouldShowLandingEffects()) {
             RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
-                    this.landedLocation, world);
-            landedEffect.runTaskAsynchronously(Airdrop.getPluginInstance());
+                    this.landedLocation.clone(), world);
+            landedEffect.runTask(Airdrop.getPluginInstance());
         }
 
         if (options.shouldShowContinuousEffects()) {
-            glowEffect = new RenderPackageGlowTask(landedLocation, world);
-            this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 10L);
+            glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
+            this.glowTask = glowEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 10L);
         }
 
         if (options.isSmokeEnabled()) {
-            smokeEffect = new RenderPackageSmokeTask(landedLocation, world, options.getSmokeHeight());
-            this.smokeTask = smokeEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+            smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, options.getSmokeHeight());
+            this.smokeTask = smokeEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
         }
 
         // Play landing sound effect
