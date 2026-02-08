@@ -6,6 +6,7 @@ import be.seeseemelk.mockbukkit.WorldMock;
 import com.airdropmc.Crate;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.FallingBlock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -297,5 +299,36 @@ class CrateManagerTest {
         CrateManager.addCrate(location1, mockCrate);
 
         assertNull(CrateManager.getCrate(location2));
+    }
+
+    @Test
+    void getCrate_withDifferentWorldInstanceSameUuid_returnsStoredCrate() {
+        UUID worldId = UUID.randomUUID();
+        World storedWorld = mock(World.class);
+        World lookupWorld = mock(World.class);
+        when(storedWorld.getUID()).thenReturn(worldId);
+        when(lookupWorld.getUID()).thenReturn(worldId);
+
+        Location storedLocation = new Location(storedWorld, 100.4, 64.2, 200.8);
+        Location lookupLocation = new Location(lookupWorld, 100.9, 64.9, 200.1);
+
+        CrateManager.addCrate(storedLocation, mockCrate);
+
+        assertSame(mockCrate, CrateManager.getCrate(lookupLocation));
+    }
+
+    @Test
+    void getCrate_withDifferentWorldUuid_returnsNull() {
+        World storedWorld = mock(World.class);
+        World lookupWorld = mock(World.class);
+        when(storedWorld.getUID()).thenReturn(UUID.randomUUID());
+        when(lookupWorld.getUID()).thenReturn(UUID.randomUUID());
+
+        Location storedLocation = new Location(storedWorld, 100, 64, 200);
+        Location lookupLocation = new Location(lookupWorld, 100, 64, 200);
+
+        CrateManager.addCrate(storedLocation, mockCrate);
+
+        assertNull(CrateManager.getCrate(lookupLocation));
     }
 }

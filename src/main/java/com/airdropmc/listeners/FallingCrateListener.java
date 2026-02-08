@@ -26,14 +26,15 @@ public class FallingCrateListener implements Listener {
 		}
 
 		FallingBlock fallingBlock = (FallingBlock) entity;
-		if (CrateManager.hasCrate(fallingBlock)) {
-			e.setCancelled(true);
-			Location loc = entity.getLocation();
-			World world = loc.getWorld();
-			Crate landedCrate = CrateManager.getCrate(fallingBlock);
-			landedCrate.land(loc.getBlock());
-			PackageLandEvent landEvent = new PackageLandEvent(landedCrate, world, loc, loc.getBlock());
-			Bukkit.getPluginManager().callEvent(landEvent);
+		Crate landedCrate = CrateManager.removeCrate(fallingBlock);
+		if (landedCrate == null) {
+			return;
 		}
+		e.setCancelled(true);
+		Location loc = entity.getLocation();
+		World world = loc.getWorld();
+		landedCrate.land(loc.getBlock());
+		PackageLandEvent landEvent = new PackageLandEvent(landedCrate, world, loc, loc.getBlock());
+		Bukkit.getPluginManager().callEvent(landEvent);
 	}
 }

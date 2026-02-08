@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Chunk;
@@ -24,8 +25,8 @@ public class CrateManager {
 	// Thread-safe map correlating falling blocks to crates
 	private static final Map<FallingBlock, Crate> crateMap = new ConcurrentHashMap<>();
 
-	// Thread-safe map for landed crates by location
-	private static final Map<Location, Crate> landedCrateMap = new ConcurrentHashMap<>();
+	// Thread-safe map for landed crates by block key (world UUID + x/y/z)
+	private static final Map<BlockKey, Crate> landedCrateMap = new ConcurrentHashMap<>();
 
 	// Thread-safe access methods for crateMap
 	public static synchronized void addCrate(FallingBlock block, Crate crate) {
@@ -46,11 +47,19 @@ public class CrateManager {
 
 	// Thread-safe access methods for CrateMap
 	public static synchronized void addCrate(Location location, Crate crate) {
-		landedCrateMap.put(location, crate);
+		BlockKey key = toBlockKey(location);
+		if (key == null) {
+			return;
+		}
+		landedCrateMap.put(key, crate);
 	}
 
 	public static synchronized Crate removeCrate(Location location) {
-		Crate crate = landedCrateMap.remove(location);
+		BlockKey key = toBlockKey(location);
+		if (key == null) {
+			return null;
+		}
+		Crate crate = landedCrateMap.remove(key);
 		if (crate != null) {
 			crate.destroy();
 		}
@@ -58,7 +67,11 @@ public class CrateManager {
 	}
 
 	public static synchronized Crate getCrate(Location location) {
-		return landedCrateMap.get(location);
+		BlockKey key = toBlockKey(location);
+		if (key == null) {
+			return null;
+		}
+		return landedCrateMap.get(key);
 	}
 
 	public static synchronized void removeFallingCratesInChunk(Chunk chunk) {
@@ -99,18 +112,20 @@ public class CrateManager {
 
 		int chunkX = chunk.getX();
 		int chunkZ = chunk.getZ();
-		Iterator<Map.Entry<Location, Crate>> iterator = landedCrateMap.entrySet().iterator();
+		UUID chunkWorldId = chunk.getWorld().getUID();
+		Iterator<Map.Entry<BlockKey, Crate>> iterator = landedCrateMap.entrySet().iterator();
 		while (iterator.hasNext()) {
-			Map.Entry<Location, Crate> entry = iterator.next();
-			Location location = entry.getKey();
-			if (location == null || location.getWorld() == null) {
+			Map.Entry<BlockKey, Crate> entry = iterator.next();
+			BlockKey key = entry.getKey();
+			if (key == null) {
+				iterator.remove();
 				continue;
 			}
-			if (!location.getWorld().equals(chunk.getWorld())) {
+			if (!chunkWorldId.equals(key.worldId())) {
 				continue;
 			}
-			int locationChunkX = location.getBlockX() >> 4;
-			int locationChunkZ = location.getBlockZ() >> 4;
+			int locationChunkX = key.x() >> 4;
+			int locationChunkZ = key.z() >> 4;
 			if (locationChunkX == chunkX && locationChunkZ == chunkZ) {
 				Crate crate = entry.getValue();
 				if (crate != null) {
@@ -138,5 +153,19 @@ public class CrateManager {
 	@Deprecated
 	public static Map<FallingBlock, Crate> getCrateMap() {
 		return crateMap;
+	}
+
+	private static BlockKey toBlockKey(Location location) {
+		if (location == null || location.getWorld() == null) {
+			return null;
+		}
+		return new BlockKey(
+				location.getWorld().getUID(),
+				location.getBlockX(),
+				location.getBlockY(),
+				location.getBlockZ());
+	}
+
+	private record BlockKey(UUID worldId, int x, int y, int z) {
 	}
 }
