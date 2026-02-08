@@ -4,6 +4,7 @@ import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.WorldMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import com.airdropmc.Airdrop;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.helpers.CrateManager;
@@ -34,11 +35,13 @@ class DropControllerEconomyFlowTest {
 		server = MockBukkit.mock();
 		world = server.addSimpleWorld("test_world");
 		clearCrateManager();
+		setAirdropEconomy(null);
 	}
 
 	@AfterEach
 	void tearDown() throws Exception {
 		clearCrateManager();
+		setAirdropEconomy(null);
 		MockBukkit.unmock();
 	}
 
@@ -61,6 +64,30 @@ class DropControllerEconomyFlowTest {
 		assertEquals(0, getMapSize("landedCrateMap"));
 	}
 
+	@Test
+	void playerInitiatedDropPackage_attemptsRefund_whenDropFailsAfterCharge() throws Exception {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		player.teleport(new Location(world, 0, 120, 0));
+
+		Package pkg = mock(Package.class);
+
+		when(pkg.getName()).thenReturn("starter");
+		when(pkg.canAfford(player)).thenReturn(true);
+		when(pkg.getPrice()).thenReturn(25.0);
+		when(pkg.getItems()).thenThrow(new IllegalStateException("spawn failed"));
+
+		IllegalStateException ex = assertThrows(IllegalStateException.class, () -> DropController.playerInitiatedDropPackage(
+				pkg, player, DropOptions.createDefault().withDropHeight(20)));
+		verify(pkg).chargeUser(player);
+		assertEquals(1, ex.getSuppressed().length);
+		assertEquals(
+				"Drop failed after charging " + player.getName() + " but no economy provider was available for refund",
+				ex.getSuppressed()[0].getMessage());
+		assertEquals(0, getMapSize("crateMap"));
+		assertEquals(0, getMapSize("landedCrateMap"));
+	}
+
 	private void clearCrateManager() throws Exception {
 		Field crateMapField = CrateManager.class.getDeclaredField("crateMap");
 		crateMapField.setAccessible(true);
@@ -75,5 +102,11 @@ class DropControllerEconomyFlowTest {
 		Field mapField = CrateManager.class.getDeclaredField(fieldName);
 		mapField.setAccessible(true);
 		return ((Map<?, ?>) mapField.get(null)).size();
+	}
+
+	private void setAirdropEconomy(Object economy) throws Exception {
+		Field economyField = Airdrop.class.getDeclaredField("airdropEconomy");
+		economyField.setAccessible(true);
+		economyField.set(null, economy);
 	}
 }

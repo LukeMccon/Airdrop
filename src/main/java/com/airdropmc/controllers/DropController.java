@@ -8,13 +8,17 @@ import com.airdropmc.exceptions.SkyNotClearException;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.packages.Package;
 import com.airdropmc.events.PackageDropEvent;
+import com.airdropmc.Airdrop;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.economy.EconomyResponse;
 
 import com.airdropmc.Crate;
+import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 
 public class DropController {
@@ -131,7 +135,35 @@ public class DropController {
 
 		// Charge before crate spawn to prevent unpaid drops on transaction failure.
 		pkg.chargeUser(player);
-		dropPackageAtLocation(pkg, world, spawnLocation, options);
+		try {
+			dropPackageAtLocation(pkg, world, spawnLocation, options);
+		} catch (RuntimeException dropFailure) {
+			attemptRefundOnDropFailure(pkg, player, dropFailure);
+			throw dropFailure;
+		}
+	}
+
+	private static void attemptRefundOnDropFailure(Package pkg, Player player, RuntimeException dropFailure) {
+		if (!ConfigKeys.isEconomyEnabled()) {
+			return;
+		}
+
+		Economy economy = Airdrop.getAirdropEconomy();
+		if (economy == null) {
+			dropFailure.addSuppressed(new IllegalStateException(
+					"Drop failed after charging " + player.getName() + " but no economy provider was available for refund"));
+			return;
+		}
+
+		try {
+			EconomyResponse response = economy.depositPlayer(player, pkg.getPrice());
+			if (!response.transactionSuccess()) {
+				dropFailure.addSuppressed(new IllegalStateException(
+						"Drop failed after charging " + player.getName() + " and refund transaction failed"));
+			}
+		} catch (RuntimeException refundFailure) {
+			dropFailure.addSuppressed(refundFailure);
+		}
 	}
 
 	private static Location getSpawnLocation(World world, Location loc, DropOptions options) throws SkyNotClearException {

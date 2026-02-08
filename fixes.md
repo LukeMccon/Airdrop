@@ -24,13 +24,12 @@
 - [x] 39. Fix `Package` item list aliasing by returning/storing defensive copies in `getItems()` and `setItems()`.
 - [x] 40. Fix null-check for crate lookup in `FallingCrateListener`. `removeCrate(fallingBlock)` result is null-checked at line 30.
 - [x] 57. Make `ConfigKeys.getConfig()` null-safe by falling back to an empty `YamlConfiguration` when plugin config is unavailable.
+- [x] 58. Add refund rollback for charged drops when spawn fails. `DropController.playerInitiatedDropPackage()` now wraps `dropPackageAtLocation()` in a `try/catch` and attempts an economy refund; any refund failure is attached as a suppressed exception on the original drop failure.
 - [x] 71. Fix stale null-world entries in `landedCrateMap`. `CrateManager` now uses `BlockKey` record which stores world UUID, so null world references in `Location` objects are handled at key creation time.
 - [x] 116. (Duplicate of #39) `Package.setItems()` now stores a defensive copy, preventing external list mutation.
+- [x] 103. Add landing failure rollback after `removeCrate(FallingBlock)`. `FallingCrateListener` now catches `land()` failures and performs cleanup (`removeCrate(landedLocation)` when present, otherwise `crate.destroy()`) before rethrowing.
 
 ## Open - Critical
-
-- [ ] 58. **CRITICAL**: No refund on crate spawn failure after player is charged. `DropController.playerInitiatedDropPackage():132-134` calls `pkg.chargeUser(player)` then `dropPackageAtLocation()`. If `dropPackageAtLocation()` throws any RuntimeException (entity spawn failure, world unloaded, etc.), the player has been charged but receives no package and no refund. There is no try/catch around the drop to refund on failure. **Audit 2026-02-08: confirmed real in current code.**
-- [ ] 103. **CRITICAL**: `CrateManager.removeCrate(FallingBlock):36-37` returns the crate but does NOT call `crate.destroy()`, and `FallingCrateListener:29` uses this overload before calling `landedCrate.land(...)`. Not calling `destroy()` is intentional for successful landing, but there is no failure rollback: if `land()` throws, the crate has already been removed from `crateMap` and cleanup is skipped, leaving parachute/task resources orphaned. (Currently this overload is only called from landing flow.) **Audit 2026-02-08: confirmed real failure-path bug in current code.**
 
 ## Open - High
 

@@ -33,8 +33,24 @@ public class FallingCrateListener implements Listener {
 		e.setCancelled(true);
 		Location loc = entity.getLocation();
 		World world = loc.getWorld();
-		landedCrate.land(loc.getBlock());
+		try {
+			landedCrate.land(loc.getBlock());
+		} catch (RuntimeException landFailure) {
+			rollbackFailedLanding(landedCrate);
+			throw landFailure;
+		}
 		PackageLandEvent landEvent = new PackageLandEvent(landedCrate, world, loc, loc.getBlock());
 		Bukkit.getPluginManager().callEvent(landEvent);
+	}
+
+	private void rollbackFailedLanding(Crate crate) {
+		Location landedLocation = crate.getLandedLocation();
+		if (landedLocation != null) {
+			Crate removedCrate = CrateManager.removeCrate(landedLocation);
+			if (removedCrate != null) {
+				return;
+			}
+		}
+		crate.destroy();
 	}
 }

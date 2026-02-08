@@ -17,8 +17,10 @@ import java.lang.reflect.Field;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -72,6 +74,23 @@ class FallingCrateListenerTest {
 
 		assertTrue(CrateManager.getCrateMap().isEmpty());
 		verify(event, never()).setCancelled(true);
+	}
+
+	@Test
+	void onEntityChangeBlockEvent_destroysCrate_whenLandingFails() {
+		FallingBlock fallingBlock = mock(FallingBlock.class);
+		Crate crate = mock(Crate.class);
+		Location location = new Location(world, 12, 64, 12);
+		EntityChangeBlockEvent event = mock(EntityChangeBlockEvent.class);
+
+		when(event.getEntity()).thenReturn(fallingBlock);
+		when(fallingBlock.getLocation()).thenReturn(location);
+		doThrow(new IllegalStateException("failed to land")).when(crate).land(any());
+		CrateManager.addCrate(fallingBlock, crate);
+
+		assertThrows(IllegalStateException.class, () -> listener.onEntityChangeBlockEvent(event));
+		assertFalse(CrateManager.hasCrate(fallingBlock));
+		verify(crate).destroy();
 	}
 
 	@Test
