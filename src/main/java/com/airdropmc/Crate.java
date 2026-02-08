@@ -158,6 +158,11 @@ public class Crate {
      * Cleans up resources used by this crate
      */
     public void destroy() {
+        if (state == State.FALLING && fallingCrate != null && !fallingCrate.isDead()) {
+            fallingCrate.setGravity(true);
+            fallingCrate.remove();
+        }
+
         // Cancel parachute system tasks and cleanup entities
         if (parachuteSystem != null) {
             parachuteSystem.cancel();

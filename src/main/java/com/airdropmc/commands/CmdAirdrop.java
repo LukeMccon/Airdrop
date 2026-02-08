@@ -4,6 +4,7 @@ import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
+import com.airdropmc.packages.PackageManager;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -23,7 +24,7 @@ public class CmdAirdrop implements CommandExecutor {
         switch (args[0]) {
             case "package" -> PackageCommand.onCommand(sender, args);
             case "packages" -> PackagesCommand.onCommand(sender);
-            case "version" -> ChatHandler.send(sender, MessageKey.SYSTEM_VERSION_INFO, java.util.Map.of(
+            case "version" -> ChatHandler.sendWithoutPrefix(sender, MessageKey.SYSTEM_VERSION_INFO, java.util.Map.of(
                     "version", Airdrop.getVersion(),
                     "api_version", Airdrop.getPluginApiVersion()));
             case "reload" -> {
@@ -34,6 +35,7 @@ public class CmdAirdrop implements CommandExecutor {
                 Airdrop.getConfiguration().reloadConfig();
                 String lang = Airdrop.getConfiguration().getConfig().getString("language", "en");
                 Airdrop.getPluginInstance().getLanguageManager().loadLanguage(lang);
+                PackageManager.reload();
                 ChatHandler.send(sender, MessageKey.SYSTEM_RELOAD_SUCCESS);
             }
             default -> DropCommand.onCommand(sender, args);

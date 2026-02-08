@@ -3,18 +3,22 @@ package com.airdropmc;
 import java.util.Objects;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.listeners.CrateDestroyListener;
 import com.airdropmc.listeners.CrateCloseListener;
+import com.airdropmc.listeners.CrateCleanupListener;
 import com.airdropmc.listeners.CrateOpenListener;
 import com.airdropmc.listeners.FallingCrateListener;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
+import com.airdropmc.config.ConfigKeys;
 import net.luckperms.api.LuckPerms;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -59,10 +63,12 @@ public class Airdrop extends JavaPlugin {
 		ChatHandler.init(languageManager);
 
 		// Economy
-		if (!setupEconomy()) {
-			ChatHandler.logMessage(ChatHandler.get(MessageKey.SYSTEM_VAULT_MISSING));
-			getServer().getPluginManager().disablePlugin(Airdrop.pluginInstance);
-			return;
+		if (ConfigKeys.isEconomyEnabled()) {
+			if (!setupEconomy()) {
+				ChatHandler.logMessage(ChatHandler.get(MessageKey.SYSTEM_VAULT_MISSING));
+				getServer().getPluginManager().disablePlugin(Airdrop.pluginInstance);
+				return;
+			}
 		}
 
 		// Register Command and tab completer
@@ -74,6 +80,7 @@ public class Airdrop extends JavaPlugin {
 		Bukkit.getPluginManager().registerEvents(new CrateCloseListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateCleanupListener(), this);
 
 		// Load packages configuration
 		packagesConfiguration = new PackagesConfig(this);
@@ -88,7 +95,20 @@ public class Airdrop extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
-
+		CrateManager.clearAll();
+		PackageManager.clear();
+		if (packagesGui != null) {
+			HandlerList.unregisterAll(packagesGui);
+			packagesGui = null;
+		}
+		HandlerList.unregisterAll(this);
+		pluginInstance = null;
+		pluginVersion = null;
+		pluginApiVersion = null;
+		luckPerms = null;
+		airdropEconomy = null;
+		configuration = null;
+		packagesConfiguration = null;
 	}
 
 	private boolean setupEconomy() {
@@ -104,6 +124,9 @@ public class Airdrop extends JavaPlugin {
 	}
 
 	public void setupPackageGuis() {
+		if (packagesGui != null) {
+			HandlerList.unregisterAll(packagesGui);
+		}
 		packagesGui = new PackagesGui();
 		Bukkit.getPluginManager().registerEvents(packagesGui, this);
 	}

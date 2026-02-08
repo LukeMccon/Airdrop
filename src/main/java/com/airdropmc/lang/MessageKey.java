@@ -10,8 +10,7 @@ public enum MessageKey {
 	COMMANDS_PACKAGE_EXAMPLE("commands.package-example", "Example: /airdrop starter"),
 
 	PACKAGES_INFO("packages.info",
-			"{text}\nPackage info for: {accent}{name}{text}\n================\n{text}{info}"),
-	PACKAGES_INFO_PRICE("packages.info-price", "price: {price}"),
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Package: {accent}{name}\n{text}  Price: {accent}${price}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{info}"),
 	PACKAGES_DELETED("packages.deleted", "{accent}{name}{primary} was successfully deleted"),
 	PACKAGES_SAVED("packages.saved", "Package {accent}{name}{primary} was saved successfully"),
 	PACKAGES_CREATED("packages.created", "Package {accent}{name}{primary} was created successfully"),
@@ -20,10 +19,14 @@ public enum MessageKey {
 	PACKAGES_DELETE_SPECIFY("packages.delete-specify", "Need to specify a package name to delete"),
 	PACKAGES_DELETE_PERMISSION("packages.delete-permission",
 			"Must be an admin with airdrop.admin permissions or a server operator to delete a package"),
-	PACKAGES_CREATE_ARGS("packages.create-args", "Package create command requires 4 total arguments"),
-	PACKAGES_CREATE_EXAMPLE("packages.create-example", "Example: /airdrop package create myPackage 12.0"),
+	PACKAGES_CREATE_ARGS("packages.create-args", "Package create command requires a name and price"),
+	PACKAGES_CREATE_USAGE("packages.create-usage", "Usage: /airdrop package create <name> <price>"),
+	PACKAGES_CREATE_EXAMPLE("packages.create-example", "Example: /airdrop package create starter 12.0"),
 	PACKAGES_NAME_REQUIRED("packages.name-required", "You must provide a name for the package"),
 	PACKAGES_PRICE_REQUIRED("packages.price-required", "You must provide the package price as a double"),
+	PACKAGES_PRICE_INVALID("packages.price-invalid", "Package price must be a finite non-negative number"),
+	PACKAGES_ITEM_LIMIT("packages.item-limit",
+			"Package can only hold {max} item stacks (barrel capacity). Remove extra items before saving."),
 
 	ERROR_CANNOT_AFFORD("errors.cannot-afford",
 			"{player} cannot afford package price of {accent}{price}{error}"),
@@ -51,8 +54,10 @@ public enum MessageKey {
 	SYSTEM_VAULT_MISSING("system.vault-missing", "Disabling due to missing Vault dependency"),
 	SYSTEM_RELOAD_SUCCESS("system.reload-success", "Configuration and language reloaded"),
 	SYSTEM_PACKAGE_PRICE_MISSING("system.package-price-missing", "Could not find price for package: {name}"),
+	SYSTEM_PACKAGE_PRICE_INVALID("system.package-price-invalid",
+			"Invalid package price for {name}: {price}. Falling back to 0.0"),
 	SYSTEM_VERSION_INFO("system.version-info",
-			"{text}\nAirdrop Version: {accent}{version}{text}\nSpigot API Version: {accent}{api_version}");
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Airdrop {accent}v{version}\n{text}  Paper API {accent}{api_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Found a bug? Report it here:\n{text}  {accent}airdropmc.com/report-bug\n{text}  Have an idea? Request a feature:\n{text}  {accent}airdropmc.com/request-feature");
 
 	private final String key;
 	private final String defaultValue;

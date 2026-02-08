@@ -9,7 +9,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.permissions.ServerOperator;
 import org.bukkit.plugin.RegisteredServiceProvider;
+
+import java.util.Locale;
 
 public class PermissionsHelper {
 
@@ -40,13 +43,17 @@ public class PermissionsHelper {
      * @return is the sender a superuser
      */
     public static boolean isAdmin(CommandSender sender) {
-
+        if (sender instanceof ConsoleCommandSender) {
+            return true;
+        }
         if (sender instanceof Player player) {
             return isAdmin(player);
         }
-
-        if (sender instanceof ConsoleCommandSender) {
+        if (sender.hasPermission(AIRDROP_ADMIN)) {
             return true;
+        }
+        if (sender instanceof ServerOperator operator) {
+            return operator.isOp();
         }
         return false;
     }
@@ -63,8 +70,16 @@ public class PermissionsHelper {
         if (isAdmin(player)) {
             return true;
         }
-        return player.hasPermission(AIRDROP_PACKAGE + "." + packageName.toLowerCase()) ||
-                player.hasPermission(PermissionsHelper.AIRDROP_PACKAGES_ALL);
+        if (packageName == null || packageName.isBlank()) {
+            return false;
+        }
+
+        String normalizedNode = AIRDROP_PACKAGE + "." + packageName.toLowerCase(Locale.ROOT);
+        String exactNode = AIRDROP_PACKAGE + "." + packageName;
+
+        return player.hasPermission(normalizedNode)
+                || (!exactNode.equals(normalizedNode) && player.hasPermission(exactNode))
+                || player.hasPermission(PermissionsHelper.AIRDROP_PACKAGES_ALL);
     }
 
     public static void initialize() {
@@ -81,12 +96,18 @@ public class PermissionsHelper {
             if (adminGroup == null) {
                 // group doesn't exist.
                 adminGroup = manager.createAndLoadGroup(AIRDROP_GROUP_ADMIN).join();
-                adminGroup.data().add(adminNode);
             }
 
             if (userGroup == null) {
                 userGroup = manager.createAndLoadGroup(AIRDROP_GROUP_USER).join();
-                userGroup.data().add(allPackagesNode);
+            }
+
+            if (adminGroup != null && adminGroup.data().add(adminNode).wasSuccessful()) {
+                manager.saveGroup(adminGroup).join();
+            }
+
+            if (userGroup != null && userGroup.data().add(allPackagesNode).wasSuccessful()) {
+                manager.saveGroup(userGroup).join();
             }
 
         }

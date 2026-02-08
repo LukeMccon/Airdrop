@@ -58,6 +58,15 @@ public class ChatHandler {
 		sendMessage(sender, get(key, placeholders));
 	}
 
+	public static void sendWithoutPrefix(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
+		String formattedMessage = formatMessage(get(key, placeholders));
+		if (sender instanceof Player) {
+			sender.sendMessage(formattedMessage);
+		} else {
+			Bukkit.getServer().getConsoleSender().sendMessage(formattedMessage);
+		}
+	}
+
 	public static void sendError(CommandSender sender, MessageKey key) {
 		sendErrorMessage(sender, get(key));
 	}

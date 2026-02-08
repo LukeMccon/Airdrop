@@ -228,15 +228,51 @@ class CrateManagerTest {
         assertSame(mockCrate2, CrateManager.getCrate(mockFallingBlock));
     }
 
-    @Test
-    void addCrate_replacesExistingCrate_forSameLocation() {
-        Location location = new Location(world, 100, 64, 200);
+	    @Test
+	    void addCrate_replacesExistingCrate_forSameLocation() {
+	        Location location = new Location(world, 100, 64, 200);
 
-        CrateManager.addCrate(location, mockCrate);
-        CrateManager.addCrate(location, mockCrate2);
+	        CrateManager.addCrate(location, mockCrate);
+	        CrateManager.addCrate(location, mockCrate2);
 
-        assertSame(mockCrate2, CrateManager.getCrate(location));
-    }
+	        assertSame(mockCrate2, CrateManager.getCrate(location));
+	    }
+
+	    @Test
+	    void removeFallingCratesInChunk_removesMatchingFallingCrates_only() {
+	        Location inChunkLocation = new Location(world, 8, 64, 8);
+	        Location outChunkLocation = new Location(world, 40, 64, 40);
+	        Location landedLocation = new Location(world, 9, 64, 9);
+	        Crate landedCrate = mock(Crate.class);
+
+	        when(mockFallingBlock.getWorld()).thenReturn(world);
+	        when(mockFallingBlock.getLocation()).thenReturn(inChunkLocation);
+	        when(mockFallingBlock2.getWorld()).thenReturn(world);
+	        when(mockFallingBlock2.getLocation()).thenReturn(outChunkLocation);
+
+	        CrateManager.addCrate(mockFallingBlock, mockCrate);
+	        CrateManager.addCrate(mockFallingBlock2, mockCrate2);
+	        CrateManager.addCrate(landedLocation, landedCrate);
+
+	        CrateManager.removeFallingCratesInChunk(world.getChunkAt(0, 0));
+
+	        assertFalse(CrateManager.hasCrate(mockFallingBlock));
+	        assertTrue(CrateManager.hasCrate(mockFallingBlock2));
+	        assertSame(landedCrate, CrateManager.getCrate(landedLocation));
+	        verify(mockCrate).destroy();
+	        verify(mockCrate2, never()).destroy();
+	        verify(landedCrate, never()).destroy();
+	    }
+
+	    @Test
+	    void removeFallingCratesInChunk_whenChunkIsNull_doesNothing() {
+	        CrateManager.addCrate(mockFallingBlock, mockCrate);
+
+	        CrateManager.removeFallingCratesInChunk(null);
+
+	        assertTrue(CrateManager.hasCrate(mockFallingBlock));
+	        verifyNoInteractions(mockCrate);
+	    }
 
     // Legacy method test
 

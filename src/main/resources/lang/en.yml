@@ -16,8 +16,9 @@ packages:
   create-canceled: "Package creation was canceled"
   delete-specify: "Need to specify a package name to delete"
   delete-permission: "Must be an admin with airdrop.admin permissions or a server operator to delete a package"
-  create-args: "Package create command requires 4 total arguments"
-  create-example: "Example: /airdrop package create myPackage 12.0"
+  create-args: "Package create command requires a name and price"
+  create-usage: "Usage: /airdrop package create <name> <price>"
+  create-example: "Example: /airdrop package create starter 12.0"
   name-required: "You must provide a name for the package"
   price-required: "You must provide the package price as a double"
 

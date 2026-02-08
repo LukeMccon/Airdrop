@@ -26,6 +26,10 @@ public class CrateCloseListener implements Listener {
 		}
 
 		Location barrelLocation = barrel.getBlock().getLocation();
+		if (CrateManager.getCrate(barrelLocation) == null) {
+			return;
+		}
+
 		boolean barrelInventoryIsEmpty = barrel.getInventory().isEmpty();
 
 		if (barrelInventoryIsEmpty) {

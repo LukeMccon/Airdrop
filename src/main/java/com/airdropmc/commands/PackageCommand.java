@@ -4,6 +4,7 @@ import com.airdropmc.controllers.PackageController;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.MessageKey;
+import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
 import org.bukkit.command.CommandSender;
 
@@ -37,9 +38,11 @@ public class PackageCommand {
         String packageName = args[1];
 
         try {
-            ChatHandler.send(sender, MessageKey.PACKAGES_INFO, Map.of(
+            Package pkg = PackageManager.get(packageName);
+            ChatHandler.sendWithoutPrefix(sender, MessageKey.PACKAGES_INFO, Map.of(
                     "name", packageName,
-                    "info", PackageManager.getInfo(packageName)));
+                    "price", String.valueOf(pkg.getPrice()),
+                    "info", pkg.toString()));
         } catch (PackageNotFoundException e) {
             ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_NOT_FOUND,
                     Map.of("name", e.getPackageName()));

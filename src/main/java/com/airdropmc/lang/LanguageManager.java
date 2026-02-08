@@ -49,6 +49,22 @@ public class LanguageManager {
 			YamlConfiguration defaultConfig = YamlConfiguration
 					.loadConfiguration(new InputStreamReader(defaultStream));
 			langConfig.setDefaults(defaultConfig);
+
+			// Sync missing keys from defaults to user's config
+			boolean updated = false;
+			for (String key : defaultConfig.getKeys(true)) {
+				if (!langConfig.isSet(key)) {
+					langConfig.set(key, defaultConfig.get(key));
+					updated = true;
+				}
+			}
+			if (updated) {
+				try {
+					langConfig.save(langFile);
+				} catch (java.io.IOException e) {
+					plugin.getLogger().warning("Failed to save updated language file: " + e.getMessage());
+				}
+			}
 		}
 	}
 

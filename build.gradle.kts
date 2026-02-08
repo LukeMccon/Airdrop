@@ -35,6 +35,10 @@ dependencies {
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
+    testRuntimeOnly("net.luckperms:api:5.4")
+    testRuntimeOnly("com.github.MilkBowl:VaultAPI:1.7") {
+        exclude(group = "org.bukkit", module = "bukkit")
+    }
     
     // Annotations
     compileOnly("org.jetbrains:annotations:24.1.0")
@@ -80,6 +84,23 @@ bukkit {
             description = "Call in an airdrop!"
             aliases = listOf("drop", "ad")
             usage = "/airdrop <package name>"
+        }
+    }
+
+    permissions {
+        register("airdrop.package.all") {
+            description = "Allows players to use all configured airdrop packages"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.FALSE
+        }
+        register("airdrop.package.*") {
+            description = "Wildcard alias for package usage permissions"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.FALSE
+            children = listOf("airdrop.package.all")
+        }
+        register("airdrop.admin") {
+            description = "Allows full administrative access to Airdrop commands and GUIs"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+            children = listOf("airdrop.package.all", "airdrop.package.*")
         }
     }
 }

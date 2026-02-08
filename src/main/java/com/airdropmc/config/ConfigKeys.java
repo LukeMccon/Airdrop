@@ -18,7 +18,8 @@ public final class ConfigKeys {
     public static final String DROP_SMOKE_ENABLED = "drop.particles.smoke.enabled";
     public static final String DROP_SMOKE_HEIGHT = "drop.particles.smoke.height";
     public static final String DROP_PARACHUTE_CHICKEN_COUNT = "drop.parachute.chicken-count";
-    public static final String DROP_FALLING_SPEED = "drop.parachute.falling-speed";
+    public static final String DROP_FALLING_SPEED = "drop.falling-speed";
+    private static final String DROP_FALLING_SPEED_LEGACY = "drop.parachute.falling-speed";
     public static final String DROP_HEIGHT = "drop.height";
 
     // Economy paths
@@ -30,7 +31,11 @@ public final class ConfigKeys {
     }
 
     public static double getDropFallingSpeed() {
-        return getConfig().getDouble(DROP_FALLING_SPEED, .3);
+        FileConfiguration config = getConfig();
+        if (config.isSet(DROP_FALLING_SPEED)) {
+            return config.getDouble(DROP_FALLING_SPEED, .3);
+        }
+        return config.getDouble(DROP_FALLING_SPEED_LEGACY, .3);
     }
 
     public static int getDropHeight() {

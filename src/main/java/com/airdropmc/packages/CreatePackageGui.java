@@ -11,14 +11,17 @@ import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -106,6 +109,13 @@ public class CreatePackageGui extends Gui implements Listener {
         }
     }
 
+    @EventHandler
+    public void onInventoryClose(final InventoryCloseEvent e) {
+        if (e.getInventory().equals(inv)) {
+            HandlerList.unregisterAll(this);
+        }
+    }
+
     public String getName() {
         return this.name;
     }
@@ -120,9 +130,17 @@ public class CreatePackageGui extends Gui implements Listener {
         Player p = (Player) e.getWhoClicked();
 
         ItemStack[] newPackageItems = e.getInventory().getContents();
+        List<ItemStack> packageItems = PackageManager.sanitizePackageItems(new ArrayList<>(Arrays.asList(newPackageItems)));
+        if (packageItems.size() > PackageManager.MAX_PACKAGE_ITEM_STACKS) {
+            ChatHandler.sendError(p, MessageKey.PACKAGES_ITEM_LIMIT,
+                    Map.of("max", String.valueOf(PackageManager.MAX_PACKAGE_ITEM_STACKS)));
+            e.setCancelled(true);
+            return;
+        }
+
         p.closeInventory();
 
-        Package pkg = new Package(this.name, this.price, new ArrayList<>(Arrays.asList(newPackageItems)));
+        Package pkg = new Package(this.name, this.price, packageItems);
         try {
             PackageManager.createPackage(pkg);
         } catch (DuplicatePackageException error) {

@@ -70,7 +70,13 @@ public class PackageController {
 
 		if (args.length != 4) {
 			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_ARGS);
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_USAGE);
 			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_EXAMPLE);
+			return;
+		}
+
+		if (!PermissionsHelper.isAdmin(sender)) {
+			ChatHandler.sendError(sender, MessageKey.ADMIN_PERMISSION_REQUIRED);
 			return;
 		}
 
@@ -94,9 +100,15 @@ public class PackageController {
 				price = Double.parseDouble(priceString);
 			} catch (NumberFormatException e) {
 				ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_REQUIRED);
+				ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_USAGE);
 				ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_EXAMPLE);
 				return;
 			}
+		}
+
+		if (!Package.isValidPrice(price)) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_INVALID);
+			return;
 		}
 
 		CreatePackageGui createGui = new CreatePackageGui(packageName, price);

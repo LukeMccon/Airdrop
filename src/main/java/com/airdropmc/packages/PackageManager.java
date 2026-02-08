@@ -22,6 +22,7 @@ import com.airdropmc.exceptions.PackageNotFoundException;
 public class PackageManager {
 
 	public static final String PACKAGES = "packages";
+	public static final int MAX_PACKAGE_ITEM_STACKS = 27;
 
 	PackageManager() {
 
@@ -40,7 +41,19 @@ public class PackageManager {
 	 * Gets the packages section from config
 	 */
 	private static ConfigurationSection getPackagesSection() {
-		return (ConfigurationSection) getFileConfig().get(PACKAGES);
+		return getFileConfig().getConfigurationSection(PACKAGES);
+	}
+
+	/**
+	 * Ensures the packages section exists before mutating config.
+	 */
+	private static ConfigurationSection getOrCreatePackagesSection() {
+		FileConfiguration fileConfig = getFileConfig();
+		ConfigurationSection section = fileConfig.getConfigurationSection(PACKAGES);
+		if (section == null) {
+			section = fileConfig.createSection(PACKAGES);
+		}
+		return section;
 	}
 
 	/**
@@ -84,6 +97,7 @@ public class PackageManager {
 	 * file
 	 */
 	private static void populatePackages() {
+		packages.clear();
 		ConfigurationSection config = getPackagesSection();
 		if (config == null) {
 			return;
@@ -111,9 +125,43 @@ public class PackageManager {
 					ChatHandler.getLogger().warning(
 							ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_MISSING, Map.of("name", name)));
 				}
-				PackageManager.packages.put(name, new Package(name, price, items));
+				if (!Package.isValidPrice(price)) {
+					ChatHandler.getLogger().warning(ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_INVALID,
+							Map.of("name", name, "price", String.valueOf(price))));
+					price = 0.0;
+				}
+				List<ItemStack> limitedItems = limitToBarrelCapacity(items, name);
+				PackageManager.packages.put(name, new Package(name, price, limitedItems));
 			}
 		}
+	}
+
+	public static int getFilteredItemCount(List<ItemStack> items) {
+		return sanitizePackageItems(items).size();
+	}
+
+	public static List<ItemStack> sanitizePackageItems(List<ItemStack> items) {
+		if (items == null || items.isEmpty()) {
+			return new ArrayList<>();
+		}
+
+		return items.stream()
+				.filter(Objects::nonNull)
+				.filter(itemStack -> !itemStack.getType().isAir())
+				.filter(itemStack -> !PackageGui.isControlItemStack(itemStack))
+				.collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+	}
+
+	private static List<ItemStack> limitToBarrelCapacity(List<ItemStack> items, String packageName) {
+		List<ItemStack> sanitizedItems = sanitizePackageItems(items);
+		if (sanitizedItems.size() <= MAX_PACKAGE_ITEM_STACKS) {
+			return sanitizedItems;
+		}
+
+		ChatHandler.getLogger().warning("Package '" + packageName + "' has " + sanitizedItems.size()
+				+ " item stacks, but only " + MAX_PACKAGE_ITEM_STACKS
+				+ " fit in a barrel. Extra stacks will be ignored.");
+		return new ArrayList<>(sanitizedItems.subList(0, MAX_PACKAGE_ITEM_STACKS));
 	}
 
 	/**
@@ -150,13 +198,13 @@ public class PackageManager {
 
 		Package pkg;
 		pkg = PackageManager.get(packageName);
-		pkg.setItems(items);
+		List<ItemStack> limitedItems = limitToBarrelCapacity(items, packageName);
+		pkg.setItems(limitedItems);
 
-		ConfigurationSection config = getPackagesSection();
+		ConfigurationSection config = getOrCreatePackagesSection();
 		FileConfiguration fileConfig = getFileConfig();
 
-		config.set(packageName + ".items", items.stream().filter(Objects::nonNull)
-				.filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		config.set(packageName + ".items", limitedItems.toArray());
 
 		fileConfig.set(PACKAGES, config);
 		Airdrop.getPackagesConfiguration().saveConfig();
@@ -169,12 +217,21 @@ public class PackageManager {
 	 * @param pkg to create
 	 */
 	public static void createPackage(Package pkg) throws DuplicatePackageException {
-		ConfigurationSection config = getPackagesSection();
+		if (PackageManager.has(pkg.getName())) {
+			throw new DuplicatePackageException(pkg.getName());
+		}
+		if (!Package.isValidPrice(pkg.getPrice())) {
+			throw new IllegalArgumentException("Package price must be finite and non-negative");
+		}
+
+		List<ItemStack> limitedItems = limitToBarrelCapacity(pkg.getItems(), pkg.getName());
+		pkg.setItems(limitedItems);
+
+		ConfigurationSection config = getOrCreatePackagesSection();
 		FileConfiguration fileConfig = getFileConfig();
 
 		config.set(pkg.getName() + ".price", pkg.getPrice());
-		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull)
-				.filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		config.set(pkg.getName() + ".items", limitedItems.toArray());
 		fileConfig.set(PACKAGES, config);
 		Airdrop.getPackagesConfiguration().saveConfig();
 		PackageManager.reload();
@@ -187,7 +244,7 @@ public class PackageManager {
 	 * @throws PackageNotFoundException package couldn't be found
 	 */
 	public static void deletePackage(String packageName) throws PackageNotFoundException {
-		ConfigurationSection config = getPackagesSection();
+		ConfigurationSection config = getOrCreatePackagesSection();
 		FileConfiguration fileConfig = getFileConfig();
 
 		// Make sure the package exists
@@ -196,6 +253,10 @@ public class PackageManager {
 		fileConfig.set(PACKAGES, config);
 		Airdrop.getPackagesConfiguration().saveConfig();
 		PackageManager.reload();
+	}
+
+	public static void clear() {
+		packages.clear();
 	}
 
 }

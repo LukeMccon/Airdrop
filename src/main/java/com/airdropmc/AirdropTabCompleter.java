@@ -1,6 +1,7 @@
 package com.airdropmc;
 
 import com.airdropmc.commands.PackageTabCompletion;
+import com.airdropmc.helpers.PermissionsHelper;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -17,7 +18,10 @@ public class AirdropTabCompleter implements TabCompleter {
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
         // If no arguments, return false
         if (args.length == 1) {
-            return subCommands;
+            if (PermissionsHelper.isAdmin(commandSender)) {
+                return subCommands;
+            }
+            return Arrays.asList("[packageName]", "package", "packages", "version");
         }
 
         if (Objects.equals(args[0], "package")) {

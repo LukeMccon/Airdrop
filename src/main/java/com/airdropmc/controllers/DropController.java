@@ -7,11 +7,12 @@ import com.airdropmc.exceptions.InsufficientPermissionsException;
 import com.airdropmc.exceptions.SkyNotClearException;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.packages.Package;
+import com.airdropmc.events.PackageDropEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Vector;
 
 import com.airdropmc.Crate;
 import com.airdropmc.config.DropOptions;
@@ -48,17 +49,8 @@ public class DropController {
 			throws SkyNotClearException {
 		// Handle null options by using defaults
 		options = options != null ? options : DropOptions.createDefault();
-		List<ItemStack> items = pkg.getItems();
-		Location highestLocation = world.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getLocation()
-				.add(new Vector(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK));
-
-		if (loc.getBlockY() <= highestLocation.getBlockY()) {
-			throw new SkyNotClearException(loc);
-		}
-
-		Crate crate = new Crate(highestLocation.add(new Vector(ZERO_BLOCKS, options.getDropHeight(), ZERO_BLOCKS)),
-				world, items, options);
-		crate.dropCrate();
+		Location spawnLocation = getSpawnLocation(world, loc, options);
+		dropPackageAtLocation(pkg, world, spawnLocation, options);
 	}
 
 	/**
@@ -133,10 +125,31 @@ public class DropController {
 			throw new CannotAffordException(player.getName(), pkg.getPrice());
 		}
 
-		dropPackageOnPlayer(pkg, player, options);
-		// User is charged only if drop package has no exception
-		pkg.chargeUser(player);
+		World world = player.getWorld();
+		Location playerLoc = player.getLocation();
+		Location spawnLocation = getSpawnLocation(world, playerLoc, options);
 
+		// Charge before crate spawn to prevent unpaid drops on transaction failure.
+		pkg.chargeUser(player);
+		dropPackageAtLocation(pkg, world, spawnLocation, options);
+	}
+
+	private static Location getSpawnLocation(World world, Location loc, DropOptions options) throws SkyNotClearException {
+		Location highestLocation = world.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getLocation()
+				.add(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK);
+
+		if (loc.getBlockY() <= highestLocation.getBlockY()) {
+			throw new SkyNotClearException(loc);
+		}
+
+		return highestLocation.add(ZERO_BLOCKS, options.getDropHeight(), ZERO_BLOCKS);
+	}
+
+	private static void dropPackageAtLocation(Package pkg, World world, Location spawnLocation, DropOptions options) {
+		List<ItemStack> items = pkg.getItems();
+		Crate crate = new Crate(spawnLocation.clone(), world, items, options);
+		crate.dropCrate();
+		Bukkit.getPluginManager().callEvent(new PackageDropEvent(crate, world, crate.getDropLocation()));
 	}
 
 }
