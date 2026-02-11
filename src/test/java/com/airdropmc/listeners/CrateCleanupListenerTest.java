@@ -18,9 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,28 +39,10 @@ class CrateCleanupListenerTest {
 	}
 
 	@Test
-	void onBlockBurn_doesNotRemoveCrate_whenEventCancelled() {
-		Location location = new Location(world, 10, 64, 10);
-		Block block = blockAt(location);
-		BlockBurnEvent event = mock(BlockBurnEvent.class);
-		when(event.isCancelled()).thenReturn(true);
-		when(event.getBlock()).thenReturn(block);
-
-		Crate crate = mock(Crate.class);
-		CrateManager.addCrate(location, crate);
-
-		listener.onBlockBurn(event);
-
-		assertSame(crate, CrateManager.getCrate(location));
-		verify(crate, never()).destroy();
-	}
-
-	@Test
-	void onBlockExplode_doesNotRemoveCrate_whenEventCancelled() {
-		Location location = new Location(world, 12, 64, 12);
+	void onBlockExplode_removesCrate_whenEventNotCancelled() {
+		Location location = new Location(world, 16, 64, 16);
 		Block block = blockAt(location);
 		BlockExplodeEvent event = mock(BlockExplodeEvent.class);
-		when(event.isCancelled()).thenReturn(true);
 		when(event.blockList()).thenReturn(List.of(block));
 
 		Crate crate = mock(Crate.class);
@@ -70,16 +50,15 @@ class CrateCleanupListenerTest {
 
 		listener.onBlockExplode(event);
 
-		assertSame(crate, CrateManager.getCrate(location));
-		verify(crate, never()).destroy();
+		assertNull(CrateManager.getCrate(location));
+		verify(crate).destroy();
 	}
 
 	@Test
-	void onEntityExplode_doesNotRemoveCrate_whenEventCancelled() {
-		Location location = new Location(world, 14, 64, 14);
+	void onEntityExplode_removesCrateInAffectedBlocks() {
+		Location location = new Location(world, 18, 64, 18);
 		Block block = blockAt(location);
 		EntityExplodeEvent event = mock(EntityExplodeEvent.class);
-		when(event.isCancelled()).thenReturn(true);
 		when(event.blockList()).thenReturn(List.of(block));
 
 		Crate crate = mock(Crate.class);
@@ -87,22 +66,21 @@ class CrateCleanupListenerTest {
 
 		listener.onEntityExplode(event);
 
-		assertSame(crate, CrateManager.getCrate(location));
-		verify(crate, never()).destroy();
+		assertNull(CrateManager.getCrate(location));
+		verify(crate).destroy();
 	}
 
 	@Test
-	void onBlockExplode_removesCrate_whenEventNotCancelled() {
-		Location location = new Location(world, 16, 64, 16);
+	void onBlockBurn_removesTrackedBarrelCrate() {
+		Location location = new Location(world, 20, 64, 20);
 		Block block = blockAt(location);
-		BlockExplodeEvent event = mock(BlockExplodeEvent.class);
-		when(event.isCancelled()).thenReturn(false);
-		when(event.blockList()).thenReturn(List.of(block));
+		BlockBurnEvent event = mock(BlockBurnEvent.class);
+		when(event.getBlock()).thenReturn(block);
 
 		Crate crate = mock(Crate.class);
 		CrateManager.addCrate(location, crate);
 
-		listener.onBlockExplode(event);
+		listener.onBlockBurn(event);
 
 		assertNull(CrateManager.getCrate(location));
 		verify(crate).destroy();

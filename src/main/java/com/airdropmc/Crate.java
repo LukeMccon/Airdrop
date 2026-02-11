@@ -49,7 +49,7 @@ public class Crate {
     private RenderFlareTask flareEffect;
     private RenderPackageGlowTask glowEffect;
     private RenderPackageSmokeTask smokeEffect;
-    private Boolean opened = false;
+    private volatile boolean opened = false;
 
     /**
      * Construct a new Crate object with a location, world, and ArrayList of
@@ -62,10 +62,25 @@ public class Crate {
     public Crate(Location location, World world, List<ItemStack> contents, DropOptions options) {
         this.dropLocation = location.clone();
         this.world = world;
-        this.contents = new ArrayList<>(contents);
+        this.contents = cloneContents(contents);
         this.state = State.FALLING;
         this.options = options;
         this.parachuteSystem = new ParachuteSystem(world, options);
+    }
+
+    private static ArrayList<ItemStack> cloneContents(List<ItemStack> contents) {
+        ArrayList<ItemStack> clonedContents = new ArrayList<>();
+        if (contents == null) {
+            return clonedContents;
+        }
+
+        for (ItemStack content : contents) {
+            if (content == null) {
+                continue;
+            }
+            clonedContents.add(content.clone());
+        }
+        return clonedContents;
     }
 
     /**
@@ -75,18 +90,22 @@ public class Crate {
         if (state != State.FALLING) {
             throw new IllegalStateException("Cannot drop a crate that is not in FALLING state");
         }
+        Airdrop plugin = getEnabledPlugin();
+        if (plugin == null) {
+            throw new IllegalStateException("Cannot drop crate while plugin is unavailable");
+        }
 
         // Create flare effect at ground level (drop height blocks below drop location)
         Location groundLocation = dropLocation.clone();
         groundLocation.setY(dropLocation.getY() - options.getDropHeight() + 1);
         if (options.shouldShowFlareEffects()) {
             flareEffect = new RenderFlareTask(groundLocation, world);
-            flareEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 1L);
+            flareEffect.runTaskTimer(plugin, 0L, 1L);
         }
         fallingCrate = world.spawn(dropLocation, FallingBlock.class, fb -> {
             fb.setBlockData(Material.BARREL.createBlockData());
         });
-        parachuteSystem.initialize(dropLocation, fallingCrate);
+        parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
 
         CrateManager.addCrate(fallingCrate, this);
     }
@@ -117,21 +136,22 @@ public class Crate {
         }
 
         CrateManager.addCrate(barrel.getLocation(), this);
+        Airdrop plugin = getEnabledPlugin();
 
-        if (options.shouldShowLandingEffects()) {
+        if (plugin != null && options.shouldShowLandingEffects()) {
             RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
                     this.landedLocation.clone(), world);
-            landedEffect.runTask(Airdrop.getPluginInstance());
+            landedEffect.runTask(plugin);
         }
 
-        if (options.shouldShowContinuousEffects()) {
+        if (plugin != null && options.shouldShowContinuousEffects()) {
             glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
-            this.glowTask = glowEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 10L);
+            this.glowTask = glowEffect.runTaskTimer(plugin, 0L, 10L);
         }
 
-        if (options.isSmokeEnabled()) {
+        if (plugin != null && options.isSmokeEnabled()) {
             smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, options.getSmokeHeight());
-            this.smokeTask = smokeEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 100L);
+            this.smokeTask = smokeEffect.runTaskTimer(plugin, 0L, 100L);
         }
 
         // Play landing sound effect
@@ -217,11 +237,19 @@ public class Crate {
         return state == State.LANDED ? landedLocation : null;
     }
 
-    public Boolean getOpened() {
+    private Airdrop getEnabledPlugin() {
+        Airdrop plugin = Airdrop.getPluginInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            return null;
+        }
+        return plugin;
+    }
+
+    public boolean getOpened() {
         return opened;
     }
 
-    public void setOpened(Boolean opened) {
+    public void setOpened(boolean opened) {
         this.opened = opened;
         if (opened) {
             this.stopEffects();

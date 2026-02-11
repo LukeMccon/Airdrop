@@ -166,6 +166,34 @@ class DropOptionsTest {
         assertEquals(100, options.getSmokeHeight());
     }
 
+    @Test
+    void getChickenCount_rejectsUnsafeLargeExplicitValue() {
+        DropOptions options = DropOptions.createDefault().withChickenCount(10000);
+
+        assertEquals(5, options.getChickenCount());
+    }
+
+    @Test
+    void getFallingSpeed_rejectsZeroExplicitValue() {
+        DropOptions options = DropOptions.createDefault().withFallingSpeed(0.0);
+
+        assertEquals(0.3, options.getFallingSpeed());
+    }
+
+    @Test
+    void getDropHeight_rejectsNegativeExplicitValue() {
+        DropOptions options = DropOptions.createDefault().withDropHeight(-5);
+
+        assertEquals(20, options.getDropHeight());
+    }
+
+    @Test
+    void getSmokeHeight_rejectsNegativeExplicitValue() {
+        DropOptions options = DropOptions.createDefault().withSmokeHeight(-2);
+
+        assertEquals(20, options.getSmokeHeight());
+    }
+
     // Fluent chaining test
 
     @Test

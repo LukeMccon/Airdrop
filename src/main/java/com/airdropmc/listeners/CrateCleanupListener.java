@@ -19,25 +19,16 @@ public class CrateCleanupListener implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onBlockExplode(BlockExplodeEvent e) {
-		if (e.isCancelled()) {
-			return;
-		}
 		removeCrates(e.blockList());
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onEntityExplode(EntityExplodeEvent e) {
-		if (e.isCancelled()) {
-			return;
-		}
 		removeCrates(e.blockList());
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onBlockBurn(BlockBurnEvent e) {
-		if (e.isCancelled()) {
-			return;
-		}
 		if (e.getBlock().getType() == Material.BARREL) {
 			CrateManager.removeCrate(e.getBlock().getLocation());
 		}

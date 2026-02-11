@@ -91,7 +91,7 @@ public class PackagesGui extends Gui implements Listener {
         if (displayName.isEmpty()) {
             return;
         }
-        String packageName = displayName.toLowerCase();
+        String packageName = displayName;
 
         Package pkg = null;
         try {

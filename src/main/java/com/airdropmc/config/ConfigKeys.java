@@ -10,6 +10,18 @@ import org.bukkit.configuration.file.YamlConfiguration;
  */
 public final class ConfigKeys {
     private static final FileConfiguration FALLBACK_CONFIG = new YamlConfiguration();
+    private static final int DEFAULT_PARACHUTE_CHICKEN_COUNT = 5;
+    private static final int MIN_PARACHUTE_CHICKEN_COUNT = 1;
+    private static final int MAX_PARACHUTE_CHICKEN_COUNT = 64;
+    private static final double DEFAULT_DROP_FALLING_SPEED = 0.3;
+    private static final double MIN_DROP_FALLING_SPEED = 0.01;
+    private static final double MAX_DROP_FALLING_SPEED = 4.0;
+    private static final int DEFAULT_DROP_HEIGHT = 20;
+    private static final int MIN_DROP_HEIGHT = 1;
+    private static final int MAX_DROP_HEIGHT = 320;
+    private static final int DEFAULT_SMOKE_HEIGHT = 20;
+    private static final int MIN_SMOKE_HEIGHT = 0;
+    private static final int MAX_SMOKE_HEIGHT = 128;
 
     private ConfigKeys() {
         // Prevent instantiation
@@ -28,22 +40,27 @@ public final class ConfigKeys {
 
     // Economy paths
     public static final String ECONOMY_ENABLED = "economy.enabled";
+    public static final String LOGGING_DEBUG = "logging.debug";
 
     // Drop settings getters
     public static int getParachuteChickenCount() {
-        return getConfig().getInt(DROP_PARACHUTE_CHICKEN_COUNT, 5);
+        return sanitizeParachuteChickenCount(
+                getConfig().getInt(DROP_PARACHUTE_CHICKEN_COUNT, DEFAULT_PARACHUTE_CHICKEN_COUNT));
     }
 
     public static double getDropFallingSpeed() {
         FileConfiguration config = getConfig();
+        double configuredSpeed;
         if (config.isSet(DROP_FALLING_SPEED)) {
-            return config.getDouble(DROP_FALLING_SPEED, .3);
+            configuredSpeed = config.getDouble(DROP_FALLING_SPEED, DEFAULT_DROP_FALLING_SPEED);
+        } else {
+            configuredSpeed = config.getDouble(DROP_FALLING_SPEED_LEGACY, DEFAULT_DROP_FALLING_SPEED);
         }
-        return config.getDouble(DROP_FALLING_SPEED_LEGACY, .3);
+        return sanitizeDropFallingSpeed(configuredSpeed);
     }
 
     public static int getDropHeight() {
-        return getConfig().getInt(DROP_HEIGHT, 20);
+        return sanitizeDropHeight(getConfig().getInt(DROP_HEIGHT, DEFAULT_DROP_HEIGHT));
     }
 
     public static boolean shouldShowLandingParticleEffects() {
@@ -63,12 +80,47 @@ public final class ConfigKeys {
     }
 
     public static int getSmokeHeight() {
-        return getConfig().getInt(DROP_SMOKE_HEIGHT, 20);
+        return sanitizeSmokeHeight(getConfig().getInt(DROP_SMOKE_HEIGHT, DEFAULT_SMOKE_HEIGHT));
     }
 
     // Economy getters
     public static boolean isEconomyEnabled() {
         return getConfig().getBoolean(ECONOMY_ENABLED, true);
+    }
+
+    public static boolean isDebugLoggingEnabled() {
+        return getConfig().getBoolean(LOGGING_DEBUG, false);
+    }
+
+    static int sanitizeParachuteChickenCount(int chickenCount) {
+        if (chickenCount < MIN_PARACHUTE_CHICKEN_COUNT || chickenCount > MAX_PARACHUTE_CHICKEN_COUNT) {
+            return DEFAULT_PARACHUTE_CHICKEN_COUNT;
+        }
+        return chickenCount;
+    }
+
+    static double sanitizeDropFallingSpeed(double fallingSpeed) {
+        if (!Double.isFinite(fallingSpeed)) {
+            return DEFAULT_DROP_FALLING_SPEED;
+        }
+        if (fallingSpeed < MIN_DROP_FALLING_SPEED || fallingSpeed > MAX_DROP_FALLING_SPEED) {
+            return DEFAULT_DROP_FALLING_SPEED;
+        }
+        return fallingSpeed;
+    }
+
+    static int sanitizeDropHeight(int dropHeight) {
+        if (dropHeight < MIN_DROP_HEIGHT || dropHeight > MAX_DROP_HEIGHT) {
+            return DEFAULT_DROP_HEIGHT;
+        }
+        return dropHeight;
+    }
+
+    static int sanitizeSmokeHeight(int smokeHeight) {
+        if (smokeHeight < MIN_SMOKE_HEIGHT || smokeHeight > MAX_SMOKE_HEIGHT) {
+            return DEFAULT_SMOKE_HEIGHT;
+        }
+        return smokeHeight;
     }
 
     // Helper method to get config

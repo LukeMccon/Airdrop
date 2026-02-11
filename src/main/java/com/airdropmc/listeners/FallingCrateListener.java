@@ -33,6 +33,10 @@ public class FallingCrateListener implements Listener {
 		e.setCancelled(true);
 		Location loc = entity.getLocation();
 		World world = loc.getWorld();
+		if (world == null) {
+			landedCrate.destroy();
+			return;
+		}
 		try {
 			landedCrate.land(loc.getBlock());
 		} catch (RuntimeException landFailure) {

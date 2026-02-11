@@ -25,6 +25,7 @@ public class ParachuteSystem {
     private Slime parachuteLeash;
     private FallingBlock fallingCrate;
     private BukkitTask parachuteTask;
+    private Airdrop plugin;
 
     public ParachuteSystem(World world, DropOptions options) {
         this.world = world;
@@ -38,8 +39,9 @@ public class ParachuteSystem {
      * @param dropLocation The location where the crate is being dropped
      * @param fallingCrate The falling block representing the crate
      */
-    public void initialize(Location dropLocation, FallingBlock fallingCrate) {
+    public void initialize(Location dropLocation, FallingBlock fallingCrate, Airdrop plugin) {
         this.fallingCrate = fallingCrate;
+        this.plugin = plugin;
 
         // Create a tiny invisible slime to hold leashes for the crate
         Location leashLocation = dropLocation.clone().add(new Vector(0, 1, 0));
@@ -68,10 +70,13 @@ public class ParachuteSystem {
     }
 
     private void startParachuteTask() {
-        parachuteTask = Bukkit.getServer().getScheduler().runTaskTimer(Airdrop.getPluginInstance(), new Runnable() {
+        if (plugin == null || !plugin.isEnabled()) {
+            return;
+        }
+        parachuteTask = Bukkit.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
             @Override
             public void run() {
-                if (fallingCrate.isDead()) {
+                if (fallingCrate == null || fallingCrate.isDead()) {
                     releaseParachutes();
                     return;
                 }
@@ -95,12 +100,13 @@ public class ParachuteSystem {
      * Releases the parachutes and cleans up the system
      */
     private void releaseParachutes() {
-        // Note: Do NOT cancel parachuteTask here - cancelling from within run() breaks chicken release.
-        // The task will keep running but return early since isDead() is true. It gets cleaned up
-        // when the cleanup task runs or when cancel() is called externally.
+        cancelParachuteTask();
 
         // Release chickens and set their velocities
         for (Chicken chicken : chickenParachutes) {
+            if (chicken == null || chicken.isDead()) {
+                continue;
+            }
             chicken.setLeashHolder(null);
             double xVel = Math.random() < 0.5 ? Math.random() * 0.5 * -1 : Math.random() * 0.5;
             double zVel = Math.random() < 0.5 ? Math.random() * 0.5 * -1 : Math.random() * 0.5;
@@ -108,13 +114,11 @@ public class ParachuteSystem {
         }
 
         // Schedule cleanup after the chickens have had time to float up
-        Bukkit.getServer().getScheduler().runTaskLater(Airdrop.getPluginInstance(), () -> {
-            for (Chicken chicken : chickenParachutes) {
-                chicken.remove();
-            }
-            chickenParachutes.clear();
-            parachuteLeash.remove();
-        }, 60);
+        if (plugin == null || !plugin.isEnabled()) {
+            cleanupParachuteEntities();
+            return;
+        }
+        Bukkit.getServer().getScheduler().runTaskLater(plugin, this::cleanupParachuteEntities, 60);
     }
 
     /**
@@ -122,7 +126,12 @@ public class ParachuteSystem {
      * Call this when the crate is destroyed or the plugin is disabled.
      */
     public void cancel() {
+        cancelParachuteTask();
         // Immediately remove all entities
+        cleanupParachuteEntities();
+    }
+
+    private void cleanupParachuteEntities() {
         for (Chicken chicken : chickenParachutes) {
             if (chicken != null && !chicken.isDead()) {
                 chicken.remove();
@@ -132,6 +141,12 @@ public class ParachuteSystem {
 
         if (parachuteLeash != null && !parachuteLeash.isDead()) {
             parachuteLeash.remove();
+        }
+    }
+
+    private void cancelParachuteTask() {
+        if (parachuteTask != null && !parachuteTask.isCancelled()) {
+            parachuteTask.cancel();
         }
     }
 }

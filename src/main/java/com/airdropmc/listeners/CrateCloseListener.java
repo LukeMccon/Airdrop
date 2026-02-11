@@ -19,9 +19,7 @@ public class CrateCloseListener implements Listener {
 		if (e.getInventory().getType() != InventoryType.BARREL)
 			return;
 
-		Barrel barrel = (Barrel) e.getInventory().getHolder();
-
-		if (barrel == null) {
+		if (!(e.getInventory().getHolder() instanceof Barrel barrel)) {
 			return;
 		}
 
