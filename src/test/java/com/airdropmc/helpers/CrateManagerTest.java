@@ -199,6 +199,29 @@ class CrateManagerTest {
         verifyNoInteractions(mockCrate);
     }
 
+	@Test
+	void removeCrateAndDestroy_withLocation_removesAndDestroysCrate() {
+		Location location = new Location(world, 100, 64, 200);
+		CrateManager.addCrate(location, mockCrate);
+
+		boolean removed = CrateManager.removeCrateAndDestroy(location);
+
+		assertTrue(removed);
+		assertNull(CrateManager.getCrate(location));
+		verify(mockCrate).destroy();
+	}
+
+	@Test
+	void removeCrateAndDestroy_withFallingBlock_removesAndDestroysCrate() {
+		CrateManager.addCrate(mockFallingBlock, mockCrate);
+
+		boolean removed = CrateManager.removeCrateAndDestroy(mockFallingBlock);
+
+		assertTrue(removed);
+		assertFalse(CrateManager.hasCrate(mockFallingBlock));
+		verify(mockCrate).destroy();
+	}
+
     // Multiple crates tests
 
     @Test

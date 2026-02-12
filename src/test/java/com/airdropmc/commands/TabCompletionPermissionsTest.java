@@ -72,6 +72,17 @@ class TabCompletionPermissionsTest {
 	}
 
 	@Test
+	void airdropTabCompleter_suggestsConfiguredPackageNames_andNotPlaceholder() {
+		PlayerMock player = server.addPlayer();
+		AirdropTabCompleter completer = new AirdropTabCompleter();
+
+		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop", new String[]{""});
+
+		assertTrue(results.contains("starter"));
+		assertFalse(results.contains("[packageName]"));
+	}
+
+	@Test
 	void airdropTabCompleter_showsReloadForAdmin() {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);

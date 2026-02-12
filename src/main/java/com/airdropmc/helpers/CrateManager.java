@@ -1,8 +1,10 @@
 package com.airdropmc.helpers;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -63,6 +65,24 @@ public class CrateManager {
 		return landedCrateMap.remove(key);
 	}
 
+	public static synchronized boolean removeCrateAndDestroy(Location location) {
+		Crate removedCrate = removeCrate(location);
+		if (removedCrate == null) {
+			return false;
+		}
+		removedCrate.destroy();
+		return true;
+	}
+
+	public static synchronized boolean removeCrateAndDestroy(FallingBlock block) {
+		Crate removedCrate = removeCrate(block);
+		if (removedCrate == null) {
+			return false;
+		}
+		removedCrate.destroy();
+		return true;
+	}
+
 	public static synchronized Crate getCrate(Location location) {
 		BlockKey key = toBlockKey(location);
 		if (key == null) {
@@ -77,12 +97,13 @@ public class CrateManager {
 		}
 		int chunkX = chunk.getX();
 		int chunkZ = chunk.getZ();
+		List<FallingBlock> blocksToRemove = new ArrayList<>();
 		Iterator<Map.Entry<FallingBlock, Crate>> fallingIterator = crateMap.entrySet().iterator();
 		while (fallingIterator.hasNext()) {
 			Map.Entry<FallingBlock, Crate> entry = fallingIterator.next();
 			FallingBlock fallingBlock = entry.getKey();
 			if (fallingBlock == null || fallingBlock.getWorld() == null) {
-				fallingIterator.remove();
+				blocksToRemove.add(fallingBlock);
 				continue;
 			}
 			if (!fallingBlock.getWorld().equals(chunk.getWorld())) {
@@ -91,12 +112,11 @@ public class CrateManager {
 			int locationChunkX = fallingBlock.getLocation().getBlockX() >> 4;
 			int locationChunkZ = fallingBlock.getLocation().getBlockZ() >> 4;
 			if (locationChunkX == chunkX && locationChunkZ == chunkZ) {
-				Crate crate = entry.getValue();
-				if (crate != null) {
-					crate.destroy();
-				}
-				fallingIterator.remove();
+				blocksToRemove.add(fallingBlock);
 			}
+		}
+		for (FallingBlock fallingBlock : blocksToRemove) {
+			removeCrateAndDestroy(fallingBlock);
 		}
 	}
 
@@ -110,11 +130,16 @@ public class CrateManager {
 		int chunkX = chunk.getX();
 		int chunkZ = chunk.getZ();
 		UUID chunkWorldId = chunk.getWorld().getUID();
+		List<Location> landedLocationsToRemove = new ArrayList<>();
 		Iterator<Map.Entry<BlockKey, Crate>> iterator = landedCrateMap.entrySet().iterator();
 		while (iterator.hasNext()) {
 			Map.Entry<BlockKey, Crate> entry = iterator.next();
 			BlockKey key = entry.getKey();
 			if (key == null) {
+				Crate crate = entry.getValue();
+				if (crate != null) {
+					crate.destroy();
+				}
 				iterator.remove();
 				continue;
 			}
@@ -124,12 +149,11 @@ public class CrateManager {
 			int locationChunkX = key.x() >> 4;
 			int locationChunkZ = key.z() >> 4;
 			if (locationChunkX == chunkX && locationChunkZ == chunkZ) {
-				Crate crate = entry.getValue();
-				if (crate != null) {
-					crate.destroy();
-				}
-				iterator.remove();
+				landedLocationsToRemove.add(new Location(chunk.getWorld(), key.x(), key.y(), key.z()));
 			}
+		}
+		for (Location location : landedLocationsToRemove) {
+			removeCrateAndDestroy(location);
 		}
 	}
 
@@ -139,40 +163,44 @@ public class CrateManager {
 		}
 
 		UUID worldId = world.getUID();
+		List<FallingBlock> fallingBlocksToRemove = new ArrayList<>();
 		Iterator<Map.Entry<FallingBlock, Crate>> fallingIterator = crateMap.entrySet().iterator();
 		while (fallingIterator.hasNext()) {
 			Map.Entry<FallingBlock, Crate> entry = fallingIterator.next();
 			FallingBlock fallingBlock = entry.getKey();
 			if (fallingBlock == null || fallingBlock.getWorld() == null) {
-				fallingIterator.remove();
+				fallingBlocksToRemove.add(fallingBlock);
 				continue;
 			}
 			if (!worldId.equals(fallingBlock.getWorld().getUID())) {
 				continue;
 			}
-			Crate crate = entry.getValue();
-			if (crate != null) {
-				crate.destroy();
-			}
-			fallingIterator.remove();
+			fallingBlocksToRemove.add(fallingBlock);
+		}
+		for (FallingBlock fallingBlock : fallingBlocksToRemove) {
+			removeCrateAndDestroy(fallingBlock);
 		}
 
+		List<Location> landedLocationsToRemove = new ArrayList<>();
 		Iterator<Map.Entry<BlockKey, Crate>> landedIterator = landedCrateMap.entrySet().iterator();
 		while (landedIterator.hasNext()) {
 			Map.Entry<BlockKey, Crate> entry = landedIterator.next();
 			BlockKey key = entry.getKey();
 			if (key == null) {
+				Crate crate = entry.getValue();
+				if (crate != null) {
+					crate.destroy();
+				}
 				landedIterator.remove();
 				continue;
 			}
 			if (!worldId.equals(key.worldId())) {
 				continue;
 			}
-			Crate crate = entry.getValue();
-			if (crate != null) {
-				crate.destroy();
-			}
-			landedIterator.remove();
+			landedLocationsToRemove.add(new Location(world, key.x(), key.y(), key.z()));
+		}
+		for (Location location : landedLocationsToRemove) {
+			removeCrateAndDestroy(location);
 		}
 	}
 

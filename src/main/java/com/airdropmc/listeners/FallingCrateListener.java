@@ -50,9 +50,7 @@ public class FallingCrateListener implements Listener {
 	private void rollbackFailedLanding(Crate crate) {
 		Location landedLocation = crate.getLandedLocation();
 		if (landedLocation != null) {
-			Crate removedCrate = CrateManager.removeCrate(landedLocation);
-			if (removedCrate != null) {
-				removedCrate.destroy();
+			if (CrateManager.removeCrateAndDestroy(landedLocation)) {
 				return;
 			}
 		}

@@ -127,9 +127,9 @@ public class PackageManager {
 			return;
 		}
 
-		for (String pkg : getPackages()) {
+		for (String pkg : config.getKeys(false)) {
 			ArrayList<ItemStack> items = new ArrayList<>();
-			ConfigurationSection section = (ConfigurationSection) config.get(pkg);
+			ConfigurationSection section = config.getConfigurationSection(pkg);
 
 			if (section != null) {
 
@@ -194,7 +194,7 @@ public class PackageManager {
 	 * @param packageName package name
 	 * @return package exists
 	 */
-	public static Boolean has(String packageName) {
+	public static boolean has(String packageName) {
 		return getPackages().contains(packageName);
 	}
 
