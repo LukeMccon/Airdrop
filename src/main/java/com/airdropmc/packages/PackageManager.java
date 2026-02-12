@@ -13,6 +13,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -30,7 +31,7 @@ public class PackageManager {
 
 	}
 
-	private static Map<String, Package> packages = new HashMap<>();
+	private static final Map<String, Package> packages = new ConcurrentHashMap<>();
 
 	/**
 	 * Gets the packages configuration file

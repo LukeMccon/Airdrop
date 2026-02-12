@@ -3,7 +3,6 @@ package com.airdropmc.packages;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
-import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.DuplicatePackageException;
 
 import org.bukkit.Bukkit;
@@ -40,8 +39,6 @@ public class CreatePackageGui extends Gui implements Listener {
         inv = Bukkit.createInventory(null, inventorySize, name);
 
         initializeItems();
-
-        Bukkit.getPluginManager().registerEvents(this, Airdrop.getPluginInstance());
     }
 
     /**

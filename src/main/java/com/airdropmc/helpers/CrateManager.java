@@ -1,11 +1,11 @@
 package com.airdropmc.helpers;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -23,11 +23,11 @@ public class CrateManager {
 		// Private constructor to prevent instantiation
 	}
 
-	// Thread-safe map correlating falling blocks to crates
-	private static final Map<FallingBlock, Crate> crateMap = new ConcurrentHashMap<>();
+	// Guarded by synchronized access methods in this class
+	private static final Map<FallingBlock, Crate> crateMap = new HashMap<>();
 
-	// Thread-safe map for landed crates by block key (world UUID + x/y/z)
-	private static final Map<BlockKey, Crate> landedCrateMap = new ConcurrentHashMap<>();
+	// Guarded by synchronized access methods in this class
+	private static final Map<BlockKey, Crate> landedCrateMap = new HashMap<>();
 
 	// Thread-safe access methods for crateMap
 	public static synchronized void addCrate(FallingBlock block, Crate crate) {

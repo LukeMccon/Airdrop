@@ -9,6 +9,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,27 +45,33 @@ public class LanguageManager {
 
 		langConfig = YamlConfiguration.loadConfiguration(langFile);
 
-		InputStream defaultStream = plugin.getResource("lang/" + fileName);
-		if (defaultStream != null) {
-			YamlConfiguration defaultConfig = YamlConfiguration
-					.loadConfiguration(new InputStreamReader(defaultStream));
-			langConfig.setDefaults(defaultConfig);
+		try (InputStream defaultStream = plugin.getResource("lang/" + fileName)) {
+			if (defaultStream != null) {
+				YamlConfiguration defaultConfig;
+				try (InputStreamReader reader = new InputStreamReader(defaultStream, StandardCharsets.UTF_8)) {
+					defaultConfig = YamlConfiguration.loadConfiguration(reader);
+				}
 
-			// Sync missing keys from defaults to user's config
-			boolean updated = false;
-			for (String key : defaultConfig.getKeys(true)) {
-				if (!langConfig.isSet(key)) {
-					langConfig.set(key, defaultConfig.get(key));
-					updated = true;
+				langConfig.setDefaults(defaultConfig);
+
+				// Sync missing keys from defaults to user's config
+				boolean updated = false;
+				for (String key : defaultConfig.getKeys(true)) {
+					if (!langConfig.isSet(key)) {
+						langConfig.set(key, defaultConfig.get(key));
+						updated = true;
+					}
+				}
+				if (updated) {
+					try {
+						langConfig.save(langFile);
+					} catch (java.io.IOException e) {
+						plugin.getLogger().warning("Failed to save updated language file: " + e.getMessage());
+					}
 				}
 			}
-			if (updated) {
-				try {
-					langConfig.save(langFile);
-				} catch (java.io.IOException e) {
-					plugin.getLogger().warning("Failed to save updated language file: " + e.getMessage());
-				}
-			}
+		} catch (java.io.IOException e) {
+			plugin.getLogger().warning("Failed to close language default stream: " + e.getMessage());
 		}
 	}
 
