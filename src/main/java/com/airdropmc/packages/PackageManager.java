@@ -232,7 +232,7 @@ public class PackageManager {
 			throw new IllegalStateException("Packages configuration is unavailable");
 		}
 
-		config.set(packageName + ".items", limitedItems.toArray());
+		config.set(packageName + ".items", new ArrayList<>(limitedItems));
 
 		fileConfig.set(PACKAGES, config);
 		packagesConfig.saveConfig();
@@ -263,7 +263,7 @@ public class PackageManager {
 		}
 
 		config.set(pkg.getName() + ".price", pkg.getPrice());
-		config.set(pkg.getName() + ".items", limitedItems.toArray());
+		config.set(pkg.getName() + ".items", new ArrayList<>(limitedItems));
 		fileConfig.set(PACKAGES, config);
 		packagesConfig.saveConfig();
 		PackageManager.reload();

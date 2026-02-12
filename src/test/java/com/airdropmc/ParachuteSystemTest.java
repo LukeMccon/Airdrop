@@ -112,4 +112,35 @@ class ParachuteSystemTest {
 		verify(task).cancel();
 		verify(scheduler).runTaskLater(eq(plugin), any(Runnable.class), eq(60L));
 	}
+
+	@Test
+	void cancel_cancelsRepeatingTask() {
+		World world = mock(World.class);
+		Slime slime = mock(Slime.class);
+		Chicken chicken = mock(Chicken.class);
+		FallingBlock fallingCrate = mock(FallingBlock.class);
+		Server server = mock(Server.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask task = mock(BukkitTask.class);
+		Airdrop plugin = mock(Airdrop.class);
+
+		when(world.spawnEntity(any(Location.class), eq(EntityType.SLIME))).thenReturn(slime);
+		when(world.spawnEntity(any(Location.class), eq(EntityType.CHICKEN))).thenReturn(chicken);
+		when(server.getScheduler()).thenReturn(scheduler);
+		when(scheduler.runTaskTimer(any(), any(Runnable.class), anyLong(), anyLong())).thenReturn(task);
+		when(plugin.isEnabled()).thenReturn(true);
+		when(task.isCancelled()).thenReturn(false);
+
+		DropOptions options = DropOptions.createDefault().withChickenCount(1);
+		ParachuteSystem parachuteSystem = new ParachuteSystem(world, options);
+		Location dropLocation = new Location(world, 10, 100, 10);
+
+		try (MockedStatic<Bukkit> bukkitMock = org.mockito.Mockito.mockStatic(Bukkit.class)) {
+			bukkitMock.when(Bukkit::getServer).thenReturn(server);
+			parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
+			parachuteSystem.cancel();
+		}
+
+		verify(task).cancel();
+	}
 }

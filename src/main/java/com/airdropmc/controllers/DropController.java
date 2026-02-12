@@ -178,7 +178,7 @@ public class DropController {
 		Location highestLocation = world.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getLocation()
 				.add(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK);
 
-		if (loc.getBlockY() <= highestLocation.getBlockY()) {
+		if (loc.getBlockY() < highestLocation.getBlockY()) {
 			throw new SkyNotClearException(loc);
 		}
 

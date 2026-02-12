@@ -138,7 +138,10 @@ public class ParachuteSystem {
      */
     public void cancel() {
         parachutesReleased = true;
-        cancelParachuteTask();
+        if (parachuteTask != null && !parachuteTask.isCancelled()) {
+            parachuteTask.cancel();
+        }
+        parachuteTask = null;
         cancelDelayedCleanupTask();
         // Immediately remove all entities
         cleanupParachuteEntities();

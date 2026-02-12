@@ -8,6 +8,7 @@ import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
 import org.bukkit.command.CommandSender;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -39,10 +40,11 @@ public class PackageCommand {
 
         try {
             Package pkg = PackageManager.get(packageName);
-            ChatHandler.sendWithoutPrefix(sender, MessageKey.PACKAGES_INFO, Map.of(
-                    "name", packageName,
-                    "price", String.valueOf(pkg.getPrice()),
-                    "info", pkg.toString()));
+			Map<String, String> placeholders = new HashMap<>();
+			placeholders.put("name", packageName);
+			placeholders.put("price", String.valueOf(pkg.getPrice()));
+			placeholders.put("info", pkg.toString());
+            ChatHandler.sendWithoutPrefix(sender, MessageKey.PACKAGES_INFO, placeholders);
         } catch (PackageNotFoundException e) {
             ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_NOT_FOUND,
                     Map.of("name", e.getPackageName()));
