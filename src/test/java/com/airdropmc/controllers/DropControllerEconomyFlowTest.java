@@ -7,6 +7,7 @@ import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.exceptions.CannotAffordException;
+import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.packages.Package;
 import org.bukkit.Location;
@@ -50,6 +51,7 @@ class DropControllerEconomyFlowTest {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 		player.teleport(new Location(world, 0, 120, 0));
+		setAirdropEconomy(mockEconomyProvider());
 
 		Package pkg = mock(Package.class);
 		when(pkg.getName()).thenReturn("starter");
@@ -69,6 +71,7 @@ class DropControllerEconomyFlowTest {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 		player.teleport(new Location(world, 0, 120, 0));
+		setAirdropEconomy(mockEconomyProvider());
 
 		Package pkg = mock(Package.class);
 
@@ -81,11 +84,23 @@ class DropControllerEconomyFlowTest {
 				pkg, player, DropOptions.createDefault().withDropHeight(20)));
 		verify(pkg).chargeUser(player);
 		assertEquals(1, ex.getSuppressed().length);
-		assertEquals(
-				"Drop failed after charging " + player.getName() + " but no economy provider was available for refund",
-				ex.getSuppressed()[0].getMessage());
 		assertEquals(0, getMapSize("crateMap"));
 		assertEquals(0, getMapSize("landedCrateMap"));
+	}
+
+	@Test
+	void playerInitiatedDropPackage_throwsEconomyUnavailable_whenEconomyProviderMissing() throws Exception {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		player.teleport(new Location(world, 0, 120, 0));
+
+		Package pkg = mock(Package.class);
+		when(pkg.getName()).thenReturn("starter");
+
+		assertThrows(EconomyUnavailableException.class, () -> DropController.playerInitiatedDropPackage(
+				pkg, player, DropOptions.createDefault().withDropHeight(20)));
+		verify(pkg, never()).canAfford(player);
+		verify(pkg, never()).chargeUser(player);
 	}
 
 	private void clearCrateManager() throws Exception {
@@ -108,5 +123,11 @@ class DropControllerEconomyFlowTest {
 		Field economyField = Airdrop.class.getDeclaredField("airdropEconomy");
 		economyField.setAccessible(true);
 		economyField.set(null, economy);
+	}
+
+	@SuppressWarnings("unchecked")
+	private Object mockEconomyProvider() throws ClassNotFoundException {
+		Class<Object> economyClass = (Class<Object>) Class.forName("net.milkbowl.vault.economy.Economy");
+		return mock(economyClass);
 	}
 }

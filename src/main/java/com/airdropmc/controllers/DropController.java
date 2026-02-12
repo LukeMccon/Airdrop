@@ -3,6 +3,7 @@ package com.airdropmc.controllers;
 import java.util.List;
 
 import com.airdropmc.exceptions.CannotAffordException;
+import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.exceptions.InsufficientPermissionsException;
 import com.airdropmc.exceptions.SkyNotClearException;
 import com.airdropmc.helpers.PermissionsHelper;
@@ -91,13 +92,15 @@ public class DropController {
 	 * @param pkg    to be dropped
 	 * @param player getting the package
 	 * @throws CannotAffordException            if player cannot afford the package
+	 * @throws EconomyUnavailableException      if economy is enabled but no provider
+	 *                                          is available
 	 * @throws InsufficientPermissionsException player does not have permissions to
 	 *                                          drop the package
 	 * @throws SkyNotClearException             sky above player's location is not
 	 *                                          available
 	 */
 	public static void playerInitiatedDropPackage(Package pkg, Player player)
-			throws CannotAffordException, InsufficientPermissionsException, SkyNotClearException {
+			throws CannotAffordException, EconomyUnavailableException, InsufficientPermissionsException, SkyNotClearException {
 		playerInitiatedDropPackage(pkg, player, DropOptions.createDefault());
 	}
 
@@ -109,13 +112,15 @@ public class DropController {
 	 * @param player  getting the package
 	 * @param options custom configuration options for this drop
 	 * @throws CannotAffordException            if player cannot afford the package
+	 * @throws EconomyUnavailableException      if economy is enabled but no provider
+	 *                                          is available
 	 * @throws InsufficientPermissionsException player does not have permissions to
 	 *                                          drop the package
 	 * @throws SkyNotClearException             sky above player's location is not
 	 *                                          available
 	 */
 	public static void playerInitiatedDropPackage(Package pkg, Player player, DropOptions options)
-			throws CannotAffordException, InsufficientPermissionsException, SkyNotClearException {
+			throws CannotAffordException, EconomyUnavailableException, InsufficientPermissionsException, SkyNotClearException {
 		// Handle null options by using defaults
 		options = options != null ? options : DropOptions.createDefault();
 
@@ -123,6 +128,9 @@ public class DropController {
 
 		if (!canDropPackage) {
 			throw new InsufficientPermissionsException(pkg.getName());
+		}
+		if (ConfigKeys.isEconomyEnabled() && Airdrop.getAirdropEconomy() == null) {
+			throw new EconomyUnavailableException();
 		}
 
 		if (!pkg.canAfford(player)) {

@@ -141,7 +141,7 @@ public class Crate {
         if (plugin != null && options.shouldShowLandingEffects()) {
             RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
                     this.landedLocation.clone(), world);
-            landedEffect.runTask(plugin);
+            landedEffect.runTaskTimer(plugin, 0L, 1L);
         }
 
         if (plugin != null && options.shouldShowContinuousEffects()) {

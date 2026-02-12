@@ -69,4 +69,18 @@ class PackageControllerPermissionsTest {
 		assertTrue(plain.toLowerCase().contains("finite non-negative"));
 		assertNotEquals(InventoryType.CHEST, player.getOpenInventory().getType());
 	}
+
+	@Test
+	void createPackageCommand_rejectsInvalidPackageNameCharacters() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+
+		PackageController.createPackageCommand(player, new String[]{"package", "create", "test.items", "10.0"});
+
+		Component message = player.nextComponentMessage();
+		assertNotNull(message);
+		String plain = PlainTextComponentSerializer.plainText().serialize(message);
+		assertTrue(plain.toLowerCase().contains("letters, numbers"));
+		assertNotEquals(InventoryType.CHEST, player.getOpenInventory().getType());
+	}
 }

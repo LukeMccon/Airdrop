@@ -1,6 +1,7 @@
 package com.airdropmc.commands;
 
 import com.airdropmc.exceptions.CannotAffordException;
+import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.exceptions.InsufficientPermissionsException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.exceptions.SkyNotClearException;
@@ -45,6 +46,8 @@ public class DropCommand {
                 ChatHandler.sendError(player, MessageKey.ERROR_CANNOT_AFFORD, Map.of(
                         "player", e.getPlayerName(),
                         "price", String.valueOf(e.getPrice())));
+            } catch (EconomyUnavailableException e) {
+                ChatHandler.sendErrorMessage(player, "Economy provider is unavailable. Contact a server administrator.");
             } catch (SkyNotClearException e) {
                 ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
             } catch (InsufficientPermissionsException e) {

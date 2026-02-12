@@ -128,7 +128,6 @@ public class Airdrop extends JavaPlugin {
 			HandlerList.unregisterAll(packagesGui);
 		}
 		packagesGui = new PackagesGui();
-		Bukkit.getPluginManager().registerEvents(packagesGui, this);
 	}
 
 	public static Airdrop getPluginInstance() {

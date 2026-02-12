@@ -15,6 +15,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerKickEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -25,6 +27,7 @@ public class PackageGui extends Gui implements Listener {
     private final Inventory inv;
     private final Package pkg;
     private final String name;
+    private UUID viewerId;
 
     public PackageGui(Package pkg) {
 
@@ -56,6 +59,9 @@ public class PackageGui extends Gui implements Listener {
     }
 
     public void openInventory(final HumanEntity ent) {
+        if (ent instanceof Player p) {
+            this.viewerId = p.getUniqueId();
+        }
         ent.openInventory(inv);
     }
 
@@ -125,6 +131,20 @@ public class PackageGui extends Gui implements Listener {
     @EventHandler
     public void onInventoryClose(final InventoryCloseEvent e) {
         if (e.getInventory().equals(inv)) {
+            HandlerList.unregisterAll(this);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent e) {
+        if (viewerId != null && viewerId.equals(e.getPlayer().getUniqueId())) {
+            HandlerList.unregisterAll(this);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerKick(PlayerKickEvent e) {
+        if (viewerId != null && viewerId.equals(e.getPlayer().getUniqueId())) {
             HandlerList.unregisterAll(this);
         }
     }

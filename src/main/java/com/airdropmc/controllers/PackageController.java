@@ -12,12 +12,14 @@ import com.airdropmc.exceptions.PackageNotFoundException;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class PackageController {
+	private static final Pattern VALID_PACKAGE_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_-]+$");
 
 	private PackageController() {
 
@@ -86,12 +88,16 @@ public class PackageController {
 			return;
 		}
 
-		String packageName = args[2];
+		String packageName = args[2] == null ? "" : args[2].trim();
 		String priceString = args[3];
 		double price = 0;
 
 		if (packageName == null || packageName.isBlank()) {
 			ChatHandler.sendError(sender, MessageKey.PACKAGES_NAME_REQUIRED);
+			return;
+		}
+		if (!VALID_PACKAGE_NAME_PATTERN.matcher(packageName).matches()) {
+			ChatHandler.sendErrorMessage(sender, "Package names may only contain letters, numbers, underscores, and dashes");
 			return;
 		}
 

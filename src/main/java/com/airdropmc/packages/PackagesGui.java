@@ -10,8 +10,10 @@ import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -26,6 +28,7 @@ import java.util.Set;
  */
 public class PackagesGui extends Gui implements Listener {
     private final Inventory inv;
+    private boolean listenerRegistered = false;
 
     public PackagesGui() {
 
@@ -67,6 +70,7 @@ public class PackagesGui extends Gui implements Listener {
     }
 
     public void openInventory(final HumanEntity ent) {
+        ensureListenerRegistered();
         ent.openInventory(inv);
     }
 
@@ -110,6 +114,41 @@ public class PackagesGui extends Gui implements Listener {
     public void onInventoryClick(final InventoryDragEvent e) {
         if (e.getInventory().equals(inv)) {
             e.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(final InventoryCloseEvent e) {
+        if (!e.getInventory().equals(inv)) {
+            return;
+        }
+        Airdrop plugin = Airdrop.getPluginInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            unregisterListenerIfIdle();
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, this::unregisterListenerIfIdle);
+    }
+
+    private void ensureListenerRegistered() {
+        if (listenerRegistered) {
+            return;
+        }
+        Airdrop plugin = Airdrop.getPluginInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            return;
+        }
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+        listenerRegistered = true;
+    }
+
+    private void unregisterListenerIfIdle() {
+        if (!inv.getViewers().isEmpty()) {
+            return;
+        }
+        if (listenerRegistered) {
+            HandlerList.unregisterAll(this);
+            listenerRegistered = false;
         }
     }
 }

@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import com.airdropmc.exceptions.CannotAffordException;
+import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.lang.MessageKey;
@@ -63,12 +64,15 @@ public class Package {
 		return Double.compare(economy.getBalance(player), this.price) >= 0;
 	}
 
-	public void chargeUser(Player player) throws CannotAffordException {
+	public void chargeUser(Player player) throws CannotAffordException, EconomyUnavailableException {
 		if (!ConfigKeys.isEconomyEnabled()) {
 			return;
 		}
 		Economy economy = Airdrop.getAirdropEconomy();
-		if (economy == null || !economy.withdrawPlayer(player, this.price).transactionSuccess()) {
+		if (economy == null) {
+			throw new EconomyUnavailableException();
+		}
+		if (!economy.withdrawPlayer(player, this.price).transactionSuccess()) {
 			// Handle transaction failure
 			throw new CannotAffordException(player.getName(), this.price);
 		}
