@@ -95,6 +95,7 @@ public class Airdrop extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		Bukkit.getScheduler().cancelTasks(this);
 		CrateManager.clearAll();
 		PackageManager.clear();
 		if (packagesGui != null) {
