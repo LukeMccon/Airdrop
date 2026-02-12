@@ -124,12 +124,12 @@ public class Crate {
         this.landedLocation = block.getLocation().clone();
         this.state = State.LANDED;
 
-        // Initialize landed state
-        blockChest.setType(Material.BARREL);
-        BlockState state = blockChest.getState();
-        if (!(state instanceof Barrel barrel)) {
-            throw new IllegalStateException("Failed to create barrel at landed location");
-        }
+		// Initialize landed state
+		blockChest.setType(Material.BARREL);
+		BlockState barrelState = blockChest.getState();
+		if (!(barrelState instanceof Barrel barrel)) {
+			throw new IllegalStateException("Failed to create barrel at landed location");
+		}
 
         for (ItemStack is : contents) {
             barrel.getInventory().addItem(is);

@@ -2,9 +2,11 @@ package com.airdropmc.packages;
 
 import java.util.*;
 
+import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
+import com.airdropmc.PackagesConfig;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.ItemStack;
@@ -34,7 +36,11 @@ public class PackageManager {
 	 * Gets the packages configuration file
 	 */
 	private static FileConfiguration getFileConfig() {
-		return Airdrop.getPackagesConfiguration().getConfig();
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (packagesConfig == null) {
+			return null;
+		}
+		return packagesConfig.getConfig();
 	}
 
 	/**
@@ -49,6 +55,9 @@ public class PackageManager {
 	 */
 	private static ConfigurationSection getOrCreatePackagesSection() {
 		FileConfiguration fileConfig = getFileConfig();
+		if (fileConfig == null) {
+			return null;
+		}
 		ConfigurationSection section = fileConfig.getConfigurationSection(PACKAGES);
 		if (section == null) {
 			section = fileConfig.createSection(PACKAGES);
@@ -59,11 +68,25 @@ public class PackageManager {
 	/**
 	 * Syncs the package manager with the packages.yml file
 	 */
-	public static void reload() {
+	public static boolean reload() {
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (packagesConfig == null) {
+			AirdropLogger.warning("Skipping package reload: packages configuration is unavailable");
+			packages.clear();
+			return false;
+		}
 		// Force a reload from config
-		Airdrop.getPackagesConfiguration().reloadConfig();
+		AirdropLogger.debug("Reloading packages from packages.yml");
+		packagesConfig.reloadConfig();
 		PackageManager.populatePackages();
-		Airdrop.getPluginInstance().setupPackageGuis();
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin != null && plugin.isEnabled()) {
+			plugin.setupPackageGuis();
+		} else {
+			AirdropLogger.warning("Skipping packages GUI setup: plugin instance is unavailable");
+		}
+		AirdropLogger.debug("Loaded " + packages.size() + " package(s)");
+		return true;
 	}
 
 	/**
@@ -122,11 +145,11 @@ public class PackageManager {
 				double price = config.getDouble(pkg + ".price", 0.0);
 
 				if (price == 0.0 && !config.isSet(pkg + ".price")) {
-					ChatHandler.getLogger().warning(
+					AirdropLogger.warning(
 							ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_MISSING, Map.of("name", name)));
 				}
 				if (!Package.isValidPrice(price)) {
-					ChatHandler.getLogger().warning(ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_INVALID,
+					AirdropLogger.warning(ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_INVALID,
 							Map.of("name", name, "price", String.valueOf(price))));
 					price = 0.0;
 				}
@@ -158,7 +181,7 @@ public class PackageManager {
 			return sanitizedItems;
 		}
 
-		ChatHandler.getLogger().warning("Package '" + packageName + "' has " + sanitizedItems.size()
+		AirdropLogger.warning("Package '" + packageName + "' has " + sanitizedItems.size()
 				+ " item stacks, but only " + MAX_PACKAGE_ITEM_STACKS
 				+ " fit in a barrel. Extra stacks will be ignored.");
 		return new ArrayList<>(sanitizedItems.subList(0, MAX_PACKAGE_ITEM_STACKS));
@@ -203,11 +226,15 @@ public class PackageManager {
 
 		ConfigurationSection config = getOrCreatePackagesSection();
 		FileConfiguration fileConfig = getFileConfig();
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (config == null || fileConfig == null || packagesConfig == null) {
+			throw new IllegalStateException("Packages configuration is unavailable");
+		}
 
 		config.set(packageName + ".items", limitedItems.toArray());
 
 		fileConfig.set(PACKAGES, config);
-		Airdrop.getPackagesConfiguration().saveConfig();
+		packagesConfig.saveConfig();
 		PackageManager.reload();
 	}
 
@@ -229,11 +256,15 @@ public class PackageManager {
 
 		ConfigurationSection config = getOrCreatePackagesSection();
 		FileConfiguration fileConfig = getFileConfig();
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (config == null || fileConfig == null || packagesConfig == null) {
+			throw new IllegalStateException("Packages configuration is unavailable");
+		}
 
 		config.set(pkg.getName() + ".price", pkg.getPrice());
 		config.set(pkg.getName() + ".items", limitedItems.toArray());
 		fileConfig.set(PACKAGES, config);
-		Airdrop.getPackagesConfiguration().saveConfig();
+		packagesConfig.saveConfig();
 		PackageManager.reload();
 	}
 
@@ -246,12 +277,16 @@ public class PackageManager {
 	public static void deletePackage(String packageName) throws PackageNotFoundException {
 		ConfigurationSection config = getOrCreatePackagesSection();
 		FileConfiguration fileConfig = getFileConfig();
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (config == null || fileConfig == null || packagesConfig == null) {
+			throw new IllegalStateException("Packages configuration is unavailable");
+		}
 
 		// Make sure the package exists
 		get(packageName);
 		config.set(packageName, null);
 		fileConfig.set(PACKAGES, config);
-		Airdrop.getPackagesConfiguration().saveConfig();
+		packagesConfig.saveConfig();
 		PackageManager.reload();
 	}
 

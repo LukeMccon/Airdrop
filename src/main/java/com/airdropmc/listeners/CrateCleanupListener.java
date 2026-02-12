@@ -12,6 +12,7 @@ import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.world.WorldUnloadEvent;
 
 import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
@@ -43,6 +44,11 @@ public class CrateCleanupListener implements Listener {
 		Chunk chunk = e.getChunk();
 		// Landed crates are persistent barrels and should remain tracked after unload.
 		CrateManager.removeFallingCratesInChunk(chunk);
+	}
+
+	@EventHandler(priority = EventPriority.LOW)
+	public void onWorldUnload(WorldUnloadEvent e) {
+		CrateManager.removeCratesInWorld(e.getWorld());
 	}
 
 	private void removeCrates(List<Block> blocks) {

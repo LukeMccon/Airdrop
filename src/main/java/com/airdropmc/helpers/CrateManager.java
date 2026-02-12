@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.FallingBlock;
 
 import com.airdropmc.Crate;
@@ -129,6 +130,49 @@ public class CrateManager {
 				}
 				iterator.remove();
 			}
+		}
+	}
+
+	public static synchronized void removeCratesInWorld(World world) {
+		if (world == null) {
+			return;
+		}
+
+		UUID worldId = world.getUID();
+		Iterator<Map.Entry<FallingBlock, Crate>> fallingIterator = crateMap.entrySet().iterator();
+		while (fallingIterator.hasNext()) {
+			Map.Entry<FallingBlock, Crate> entry = fallingIterator.next();
+			FallingBlock fallingBlock = entry.getKey();
+			if (fallingBlock == null || fallingBlock.getWorld() == null) {
+				fallingIterator.remove();
+				continue;
+			}
+			if (!worldId.equals(fallingBlock.getWorld().getUID())) {
+				continue;
+			}
+			Crate crate = entry.getValue();
+			if (crate != null) {
+				crate.destroy();
+			}
+			fallingIterator.remove();
+		}
+
+		Iterator<Map.Entry<BlockKey, Crate>> landedIterator = landedCrateMap.entrySet().iterator();
+		while (landedIterator.hasNext()) {
+			Map.Entry<BlockKey, Crate> entry = landedIterator.next();
+			BlockKey key = entry.getKey();
+			if (key == null) {
+				landedIterator.remove();
+				continue;
+			}
+			if (!worldId.equals(key.worldId())) {
+				continue;
+			}
+			Crate crate = entry.getValue();
+			if (crate != null) {
+				crate.destroy();
+			}
+			landedIterator.remove();
 		}
 	}
 

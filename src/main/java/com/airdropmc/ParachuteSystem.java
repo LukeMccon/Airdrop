@@ -25,6 +25,7 @@ public class ParachuteSystem {
     private Slime parachuteLeash;
     private FallingBlock fallingCrate;
     private BukkitTask parachuteTask;
+    private BukkitTask delayedCleanupTask;
     private Airdrop plugin;
     private boolean parachutesReleased;
 
@@ -44,6 +45,7 @@ public class ParachuteSystem {
         this.fallingCrate = fallingCrate;
         this.plugin = plugin;
         this.parachutesReleased = false;
+        cancelDelayedCleanupTask();
 
         // Create a tiny invisible slime to hold leashes for the crate
         Location leashLocation = dropLocation.clone().add(new Vector(0, 1, 0));
@@ -124,7 +126,10 @@ public class ParachuteSystem {
             cleanupParachuteEntities();
             return;
         }
-        Bukkit.getServer().getScheduler().runTaskLater(plugin, this::cleanupParachuteEntities, 60);
+        delayedCleanupTask = Bukkit.getServer().getScheduler().runTaskLater(plugin, () -> {
+            delayedCleanupTask = null;
+            cleanupParachuteEntities();
+        }, 60);
     }
 
     /**
@@ -134,6 +139,7 @@ public class ParachuteSystem {
     public void cancel() {
         parachutesReleased = true;
         cancelParachuteTask();
+        cancelDelayedCleanupTask();
         // Immediately remove all entities
         cleanupParachuteEntities();
     }
@@ -155,5 +161,13 @@ public class ParachuteSystem {
         if (parachuteTask != null && !parachuteTask.isCancelled()) {
             parachuteTask.cancel();
         }
+        parachuteTask = null;
+    }
+
+    private void cancelDelayedCleanupTask() {
+        if (delayedCleanupTask != null && !delayedCleanupTask.isCancelled()) {
+            delayedCleanupTask.cancel();
+        }
+        delayedCleanupTask = null;
     }
 }

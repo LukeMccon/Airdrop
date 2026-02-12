@@ -47,12 +47,14 @@ class CmdAirdropReloadTest {
 
 		when(config.getConfig()).thenReturn(fileConfig);
 		when(fileConfig.getString("language", "en")).thenReturn("en");
+		when(plugin.isEnabled()).thenReturn(true);
 		when(plugin.getLanguageManager()).thenReturn(languageManager);
 
 		try (MockedStatic<Airdrop> airdropMock = Mockito.mockStatic(Airdrop.class);
 				MockedStatic<PackageManager> packageManagerMock = Mockito.mockStatic(PackageManager.class)) {
 			airdropMock.when(Airdrop::getConfiguration).thenReturn(config);
 			airdropMock.when(Airdrop::getPluginInstance).thenReturn(plugin);
+			packageManagerMock.when(PackageManager::reload).thenReturn(true);
 
 			boolean handled = new CmdAirdrop().onCommand(player, command, "airdrop", new String[]{"reload"});
 
