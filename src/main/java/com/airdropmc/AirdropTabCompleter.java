@@ -13,7 +13,7 @@ import java.util.Objects;
 
 public class AirdropTabCompleter implements TabCompleter {
 
-    private static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version", "reload");
+    private static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version", "reload", "debug");
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
         // If no arguments, return false
@@ -22,6 +22,13 @@ public class AirdropTabCompleter implements TabCompleter {
                 return subCommands;
             }
             return Arrays.asList("[packageName]", "package", "packages", "version");
+        }
+
+        if (args.length == 2 && Objects.equals(args[0], "debug")) {
+            if (!PermissionsHelper.isAdmin(commandSender)) {
+                return List.of();
+            }
+            return Arrays.asList("on", "off", "toggle");
         }
 
         if (Objects.equals(args[0], "package")) {

@@ -8,7 +8,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.Map;
-import java.util.logging.Logger;
 
 public class ChatHandler {
 
@@ -114,11 +113,7 @@ public class ChatHandler {
 	 * @param message to log
 	 */
 	public static void logMessage(String message) {
-		Bukkit.getLogger().info(message);
-	}
-
-	public static Logger getLogger() {
-		return Bukkit.getLogger();
+		AirdropLogger.info(message);
 	}
 
 }
