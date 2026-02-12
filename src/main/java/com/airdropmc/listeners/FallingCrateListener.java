@@ -52,6 +52,7 @@ public class FallingCrateListener implements Listener {
 		if (landedLocation != null) {
 			Crate removedCrate = CrateManager.removeCrate(landedLocation);
 			if (removedCrate != null) {
+				removedCrate.destroy();
 				return;
 			}
 		}

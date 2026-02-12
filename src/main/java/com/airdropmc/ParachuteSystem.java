@@ -26,6 +26,7 @@ public class ParachuteSystem {
     private FallingBlock fallingCrate;
     private BukkitTask parachuteTask;
     private Airdrop plugin;
+    private boolean parachutesReleased;
 
     public ParachuteSystem(World world, DropOptions options) {
         this.world = world;
@@ -42,6 +43,7 @@ public class ParachuteSystem {
     public void initialize(Location dropLocation, FallingBlock fallingCrate, Airdrop plugin) {
         this.fallingCrate = fallingCrate;
         this.plugin = plugin;
+        this.parachutesReleased = false;
 
         // Create a tiny invisible slime to hold leashes for the crate
         Location leashLocation = dropLocation.clone().add(new Vector(0, 1, 0));
@@ -100,6 +102,10 @@ public class ParachuteSystem {
      * Releases the parachutes and cleans up the system
      */
     private void releaseParachutes() {
+        if (parachutesReleased) {
+            return;
+        }
+        parachutesReleased = true;
         cancelParachuteTask();
 
         // Release chickens and set their velocities
@@ -126,6 +132,7 @@ public class ParachuteSystem {
      * Call this when the crate is destroyed or the plugin is disabled.
      */
     public void cancel() {
+        parachutesReleased = true;
         cancelParachuteTask();
         // Immediately remove all entities
         cleanupParachuteEntities();

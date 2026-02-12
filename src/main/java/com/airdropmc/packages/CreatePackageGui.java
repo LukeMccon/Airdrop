@@ -59,14 +59,16 @@ public class CreatePackageGui extends Gui implements Listener {
         ent.openInventory(inv);
     }
 
-    @EventHandler
-    public void onInventoryClick(final InventoryClickEvent e) {
-        final Player p = (Player) e.getWhoClicked();
+	@EventHandler
+	public void onInventoryClick(final InventoryClickEvent e) {
+		if (!e.getInventory().equals(inv)) {
+			return;
+		}
+		if (!(e.getWhoClicked() instanceof Player p)) {
+			return;
+		}
 
-        if (!e.getInventory().equals(inv))
-            return;
-
-        final ItemStack clickedItem = e.getCurrentItem();
+		final ItemStack clickedItem = e.getCurrentItem();
 
         if (clickedItem == null || clickedItem.getType().isAir())
             return;
@@ -101,13 +103,18 @@ public class CreatePackageGui extends Gui implements Listener {
      * 
      * @param e drag event
      */
-    @EventHandler
-    public void onInventoryClick(final InventoryDragEvent e) {
-        Player p = (Player) e.getWhoClicked();
-        if (e.getInventory().equals(inv) && !PermissionsHelper.isAdmin(p)) {
-            e.setCancelled(true);
-        }
-    }
+	@EventHandler
+	public void onInventoryClick(final InventoryDragEvent e) {
+		if (!e.getInventory().equals(inv)) {
+			return;
+		}
+		if (!(e.getWhoClicked() instanceof Player p)) {
+			return;
+		}
+		if (!PermissionsHelper.isAdmin(p)) {
+			e.setCancelled(true);
+		}
+	}
 
     @EventHandler
     public void onInventoryClose(final InventoryCloseEvent e) {

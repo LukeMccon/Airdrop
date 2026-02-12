@@ -13,6 +13,7 @@ import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
+import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
 
 public class CrateCleanupListener implements Listener {
@@ -30,7 +31,10 @@ public class CrateCleanupListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onBlockBurn(BlockBurnEvent e) {
 		if (e.getBlock().getType() == Material.BARREL) {
-			CrateManager.removeCrate(e.getBlock().getLocation());
+			Crate removedCrate = CrateManager.removeCrate(e.getBlock().getLocation());
+			if (removedCrate != null) {
+				removedCrate.destroy();
+			}
 		}
 	}
 
@@ -44,7 +48,10 @@ public class CrateCleanupListener implements Listener {
 	private void removeCrates(List<Block> blocks) {
 		for (Block block : blocks) {
 			if (block.getType() == Material.BARREL) {
-				CrateManager.removeCrate(block.getLocation());
+				Crate removedCrate = CrateManager.removeCrate(block.getLocation());
+				if (removedCrate != null) {
+					removedCrate.destroy();
+				}
 			}
 		}
 	}

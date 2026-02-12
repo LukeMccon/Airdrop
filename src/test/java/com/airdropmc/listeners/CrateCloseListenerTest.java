@@ -81,7 +81,7 @@ class CrateCloseListenerTest {
 		listener.onInventoryClose(event);
 
 		verify(world).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
-		verify(block).setType(Material.AIR);
+		verify(block, never()).setType(Material.AIR);
 		assertNull(CrateManager.getCrate(barrelLocation));
 		verify(crate).destroy();
 	}

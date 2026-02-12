@@ -191,6 +191,11 @@ public class Crate {
         // Stop particle effects if landed
         if (state == State.LANDED) {
             stopEffects();
+            if (blockChest != null && blockChest.getType() == Material.BARREL) {
+                blockChest.setType(Material.AIR);
+            } else if (landedLocation != null && landedLocation.getBlock().getType() == Material.BARREL) {
+                landedLocation.getBlock().setType(Material.AIR);
+            }
         }
 
         // Cancel flare effect if still running

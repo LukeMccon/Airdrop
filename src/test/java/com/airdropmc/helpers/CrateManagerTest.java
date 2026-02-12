@@ -161,14 +161,14 @@ class CrateManagerTest {
     }
 
     @Test
-    void removeCrate_withLocation_removesCrateAndCallsDestroy() {
+    void removeCrate_withLocation_removesCrateWithoutDestroySideEffect() {
         Location location = new Location(world, 100, 64, 200);
         CrateManager.addCrate(location, mockCrate);
 
         CrateManager.removeCrate(location);
 
         assertNull(CrateManager.getCrate(location));
-        verify(mockCrate).destroy();
+        verifyNoInteractions(mockCrate);
     }
 
     @Test

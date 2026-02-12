@@ -59,11 +59,7 @@ public class CrateManager {
 		if (key == null) {
 			return null;
 		}
-		Crate crate = landedCrateMap.remove(key);
-		if (crate != null) {
-			crate.destroy();
-		}
-		return crate;
+		return landedCrateMap.remove(key);
 	}
 
 	public static synchronized Crate getCrate(Location location) {
