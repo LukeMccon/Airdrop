@@ -66,6 +66,13 @@ public class PackageManager {
 		return section;
 	}
 
+	private static void refreshPackagesGui() {
+		PackagesGui gui = Airdrop.getPackagesGui();
+		if (gui != null) {
+			gui.initializeItems();
+		}
+	}
+
 	/**
 	 * Syncs the package manager with the packages.yml file
 	 */
@@ -236,7 +243,6 @@ public class PackageManager {
 
 		fileConfig.set(PACKAGES, config);
 		packagesConfig.saveConfig();
-		PackageManager.reload();
 	}
 
 	/**
@@ -266,7 +272,8 @@ public class PackageManager {
 		config.set(pkg.getName() + ".items", new ArrayList<>(limitedItems));
 		fileConfig.set(PACKAGES, config);
 		packagesConfig.saveConfig();
-		PackageManager.reload();
+		packages.put(pkg.getName(), pkg);
+		refreshPackagesGui();
 	}
 
 	/**
@@ -288,7 +295,8 @@ public class PackageManager {
 		config.set(packageName, null);
 		fileConfig.set(PACKAGES, config);
 		packagesConfig.saveConfig();
-		PackageManager.reload();
+		packages.remove(packageName);
+		refreshPackagesGui();
 	}
 
 	public static void clear() {

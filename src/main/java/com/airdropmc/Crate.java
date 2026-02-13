@@ -2,9 +2,11 @@ package com.airdropmc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.tasks.RenderFlareTask;
 import com.airdropmc.tasks.RenderPackageGlowTask;
 import com.airdropmc.tasks.RenderPackageLandedTask;
@@ -131,9 +133,24 @@ public class Crate {
 			throw new IllegalStateException("Failed to create barrel at landed location");
 		}
 
-        for (ItemStack is : contents) {
-            barrel.getInventory().addItem(is);
-        }
+		int overflowStackCount = 0;
+		for (ItemStack is : contents) {
+			Map<Integer, ItemStack> overflow = barrel.getInventory().addItem(is);
+			if (overflow.isEmpty()) {
+				continue;
+			}
+			for (ItemStack remaining : overflow.values()) {
+				if (remaining == null || remaining.getType().isAir()) {
+					continue;
+				}
+				overflowStackCount++;
+				world.dropItemNaturally(this.landedLocation.clone().add(0.5, 0.5, 0.5), remaining);
+			}
+		}
+		if (overflowStackCount > 0) {
+			AirdropLogger.warning("Dropped " + overflowStackCount
+					+ " overflow item stack(s) at a landed crate because barrel inventory was full");
+		}
 		barrel.update();
 
         CrateManager.addCrate(barrel.getLocation(), this);

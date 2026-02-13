@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -142,5 +143,52 @@ class ParachuteSystemTest {
 		}
 
 		verify(task).cancel();
+	}
+
+	@Test
+	void delayedCleanup_skipsInvalidEntities() {
+		World world = mock(World.class);
+		Slime slime = mock(Slime.class);
+		Chicken chicken = mock(Chicken.class);
+		FallingBlock fallingCrate = mock(FallingBlock.class);
+		Server server = mock(Server.class);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask task = mock(BukkitTask.class);
+		Airdrop plugin = mock(Airdrop.class);
+		Runnable[] tickRunnable = new Runnable[1];
+		Runnable[] delayedCleanupRunnable = new Runnable[1];
+
+		when(world.spawnEntity(any(Location.class), eq(EntityType.SLIME))).thenReturn(slime);
+		when(world.spawnEntity(any(Location.class), eq(EntityType.CHICKEN))).thenReturn(chicken);
+		when(server.getScheduler()).thenReturn(scheduler);
+		when(scheduler.runTaskTimer(any(), any(Runnable.class), anyLong(), anyLong())).thenAnswer(invocation -> {
+			tickRunnable[0] = invocation.getArgument(1);
+			return task;
+		});
+		when(scheduler.runTaskLater(any(), any(Runnable.class), anyLong())).thenAnswer(invocation -> {
+			delayedCleanupRunnable[0] = invocation.getArgument(1);
+			return task;
+		});
+		when(plugin.isEnabled()).thenReturn(true);
+		when(fallingCrate.isDead()).thenReturn(true);
+		when(task.isCancelled()).thenReturn(false);
+		when(chicken.isDead()).thenReturn(false);
+		when(chicken.isValid()).thenReturn(false);
+		when(slime.isDead()).thenReturn(false);
+		when(slime.isValid()).thenReturn(false);
+
+		DropOptions options = DropOptions.createDefault().withChickenCount(1);
+		ParachuteSystem parachuteSystem = new ParachuteSystem(world, options);
+		Location dropLocation = new Location(world, 10, 80, 10);
+
+		try (MockedStatic<Bukkit> bukkitMock = org.mockito.Mockito.mockStatic(Bukkit.class)) {
+			bukkitMock.when(Bukkit::getServer).thenReturn(server);
+			parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
+			tickRunnable[0].run();
+			delayedCleanupRunnable[0].run();
+		}
+
+		verify(chicken, never()).remove();
+		verify(slime, never()).remove();
 	}
 }

@@ -1,6 +1,7 @@
 package com.airdropmc.packages;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.Airdrop;
 import com.airdropmc.lang.MessageKey;
 
@@ -42,12 +43,16 @@ public class PackagesGui extends Gui implements Listener {
         initializeItems();
     }
 
-    public void initializeItems() {
-        Set<String> packages = PackageManager.getPackages();
+	public void initializeItems() {
+		Set<String> packages = PackageManager.getPackages();
+		inv.clear();
 
-        List<ItemStack> pkglist = packages.stream().map(this::packageGuiItem).toList();
-        pkglist.forEach(inv::addItem);
-    }
+		List<ItemStack> pkglist = packages.stream()
+				.map(this::packageGuiItem)
+				.filter(Objects::nonNull)
+				.toList();
+		pkglist.forEach(inv::addItem);
+	}
 
     /**
      * Creates a ItemStack that represents one of the configured packages
@@ -55,19 +60,18 @@ public class PackagesGui extends Gui implements Listener {
      * @param packageName name of package the ItemStack references
      * @return created ItemStack
      */
-    private ItemStack packageGuiItem(String packageName) {
-        Package pkg;
-        double price;
-
-        try {
-            pkg = PackageManager.get(packageName);
-            price = pkg.getPrice();
-        } catch (PackageNotFoundException e) {
-            price = 0.0;
-        }
-        return createGuiItem(Material.CHEST, packageName, 1,
-                ChatHandler.get(MessageKey.GUI_PACKAGE_PRICE, Map.of("price", String.valueOf(price))));
-    }
+	private ItemStack packageGuiItem(String packageName) {
+		try {
+			Package pkg = PackageManager.get(packageName);
+			double price = pkg.getPrice();
+			return createGuiItem(Material.CHEST, packageName, 1,
+					ChatHandler.get(MessageKey.GUI_PACKAGE_PRICE, Map.of("price", String.valueOf(price))));
+		} catch (PackageNotFoundException e) {
+			AirdropLogger.warning("Skipping package entry '" + packageName
+					+ "' in packages GUI because it is missing from memory");
+			return null;
+		}
+	}
 
     public void openInventory(final HumanEntity ent) {
         ensureListenerRegistered();

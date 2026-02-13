@@ -29,10 +29,10 @@ public class CreatePackageGui extends Gui implements Listener {
     private final String name;
     private final double price;
 
-    public CreatePackageGui(String name, double price) {
+	public CreatePackageGui(String name, double price) {
 
-        this.name = name.toLowerCase();
-        this.price = price;
+		this.name = name;
+		this.price = price;
 
         int inventorySize = 36;
 

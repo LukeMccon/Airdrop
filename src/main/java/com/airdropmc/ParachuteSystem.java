@@ -147,18 +147,18 @@ public class ParachuteSystem {
         cleanupParachuteEntities();
     }
 
-    private void cleanupParachuteEntities() {
-        for (Chicken chicken : chickenParachutes) {
-            if (chicken != null && !chicken.isDead()) {
-                chicken.remove();
-            }
-        }
-        chickenParachutes.clear();
+	private void cleanupParachuteEntities() {
+		for (Chicken chicken : chickenParachutes) {
+			if (chicken != null && chicken.isValid() && !chicken.isDead()) {
+				chicken.remove();
+			}
+		}
+		chickenParachutes.clear();
 
-        if (parachuteLeash != null && !parachuteLeash.isDead()) {
-            parachuteLeash.remove();
-        }
-    }
+		if (parachuteLeash != null && parachuteLeash.isValid() && !parachuteLeash.isDead()) {
+			parachuteLeash.remove();
+		}
+	}
 
     private void cancelParachuteTask() {
         if (parachuteTask != null && !parachuteTask.isCancelled()) {
