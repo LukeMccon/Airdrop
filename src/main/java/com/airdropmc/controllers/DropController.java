@@ -10,13 +10,13 @@ import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.packages.Package;
 import com.airdropmc.events.PackageDropEvent;
 import com.airdropmc.Airdrop;
+import com.airdropmc.economy.EconomyProvider;
+import com.airdropmc.economy.EconomyResult;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import net.milkbowl.vault.economy.Economy;
-import net.milkbowl.vault.economy.EconomyResponse;
 
 import com.airdropmc.Crate;
 import com.airdropmc.config.ConfigKeys;
@@ -129,7 +129,7 @@ public class DropController {
 		if (!canDropPackage) {
 			throw new InsufficientPermissionsException(pkg.getName());
 		}
-		if (ConfigKeys.isEconomyEnabled() && Airdrop.getAirdropEconomy() == null) {
+		if (ConfigKeys.isEconomyEnabled() && Airdrop.getEconomyProvider() == null) {
 			throw new EconomyUnavailableException();
 		}
 
@@ -156,7 +156,7 @@ public class DropController {
 			return;
 		}
 
-		Economy economy = Airdrop.getAirdropEconomy();
+		EconomyProvider economy = Airdrop.getEconomyProvider();
 		if (economy == null) {
 			dropFailure.addSuppressed(new IllegalStateException(
 					"Drop failed after charging " + player.getName() + " but no economy provider was available for refund"));
@@ -164,8 +164,8 @@ public class DropController {
 		}
 
 		try {
-			EconomyResponse response = economy.depositPlayer(player, pkg.getPrice());
-			if (!response.transactionSuccess()) {
+			EconomyResult result = economy.deposit(player, pkg.getPrice());
+			if (!result.success()) {
 				dropFailure.addSuppressed(new IllegalStateException(
 						"Drop failed after charging " + player.getName() + " and refund transaction failed"));
 			}

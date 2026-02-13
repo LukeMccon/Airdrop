@@ -51,7 +51,8 @@ public enum MessageKey {
 	ADMIN_PACKAGE_SAVE_REQUIRED("admin.package-save-required", "Must be admin to save package changes"),
 
 	SYSTEM_CONFIG_LOADED("system.config-loaded", "Config loaded successfully"),
-	SYSTEM_VAULT_MISSING("system.vault-missing", "Disabling due to missing Vault dependency"),
+	SYSTEM_ECONOMY_MISSING("system.economy-missing",
+			"Disabling due to missing economy provider (Treasury or Vault)"),
 	SYSTEM_RELOAD_SUCCESS("system.reload-success", "Configuration and language reloaded"),
 	SYSTEM_DEBUG_STATUS("system.debug-status", "Debug logging is currently {accent}{status}{primary}"),
 	SYSTEM_DEBUG_UPDATED("system.debug-updated", "Debug logging {accent}{status}{primary}"),

@@ -12,7 +12,7 @@ import com.airdropmc.helpers.ChatTheme;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
 import com.airdropmc.config.ConfigKeys;
-import net.milkbowl.vault.economy.Economy;
+import com.airdropmc.economy.EconomyProvider;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -57,7 +57,7 @@ public class Package {
 		if (!ConfigKeys.isEconomyEnabled()) {
 			return true;
 		}
-		Economy economy = Airdrop.getAirdropEconomy();
+		EconomyProvider economy = Airdrop.getEconomyProvider();
 		if (economy == null) {
 			return false;
 		}
@@ -68,12 +68,11 @@ public class Package {
 		if (!ConfigKeys.isEconomyEnabled()) {
 			return;
 		}
-		Economy economy = Airdrop.getAirdropEconomy();
+		EconomyProvider economy = Airdrop.getEconomyProvider();
 		if (economy == null) {
 			throw new EconomyUnavailableException();
 		}
-		if (!economy.withdrawPlayer(player, this.price).transactionSuccess()) {
-			// Handle transaction failure
+		if (!economy.withdraw(player, this.price).success()) {
 			throw new CannotAffordException(player.getName(), this.price);
 		}
 		ChatHandler.send(player, MessageKey.DROP_CHARGED, Map.of("amount", String.valueOf(this.price)));

@@ -6,6 +6,7 @@ import be.seeseemelk.mockbukkit.WorldMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.config.DropOptions;
+import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.CrateManager;
@@ -120,14 +121,12 @@ class DropControllerEconomyFlowTest {
 	}
 
 	private void setAirdropEconomy(Object economy) throws Exception {
-		Field economyField = Airdrop.class.getDeclaredField("airdropEconomy");
+		Field economyField = Airdrop.class.getDeclaredField("economyProvider");
 		economyField.setAccessible(true);
 		economyField.set(null, economy);
 	}
 
-	@SuppressWarnings("unchecked")
-	private Object mockEconomyProvider() throws ClassNotFoundException {
-		Class<Object> economyClass = (Class<Object>) Class.forName("net.milkbowl.vault.economy.Economy");
-		return mock(economyClass);
+	private EconomyProvider mockEconomyProvider() {
+		return mock(EconomyProvider.class);
 	}
 }

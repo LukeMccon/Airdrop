@@ -18,6 +18,9 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/") {
         name = "papermc-repo"
     }
+    maven("https://repo.codemc.io/repository/maven-public/") {
+        name = "codemc"
+    }
     maven("https://oss.sonatype.org/content/groups/public/") {
         name = "sonatype"
     }
@@ -35,15 +38,18 @@ dependencies {
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
+    compileOnly("me.lokka30:treasury-api:2.0.1")
     testRuntimeOnly("net.luckperms:api:5.4")
     testRuntimeOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
+    testRuntimeOnly("me.lokka30:treasury-api:2.0.1")
     
     // Annotations
     compileOnly("org.jetbrains:annotations:24.1.0")
     
     // Test dependencies
+    testImplementation("me.lokka30:treasury-api:2.0.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("org.mockito:mockito-core:5.14.2")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
@@ -75,7 +81,8 @@ bukkit {
     load = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.STARTUP
     main = "com.airdropmc.Airdrop"
     apiVersion = "1.21"
-    depend = listOf("LuckPerms", "Vault")
+    depend = listOf("LuckPerms")
+    softDepend = listOf("Vault", "Treasury")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
     description = "Call in customizable care packages that fall from the sky"
 
