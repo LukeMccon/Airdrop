@@ -17,9 +17,13 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,7 +35,7 @@ class PackageManagerMutationTest {
 
 	@BeforeEach
 	void setUp() throws Exception {
-		config = new YamlConfiguration();
+		config = spy(new YamlConfiguration());
 		config.createSection("packages");
 		config.set("packages.starter.price", 10.0);
 		config.set("packages.starter.items", List.of());
@@ -60,6 +64,7 @@ class PackageManagerMutationTest {
 	void updatePackageInventory_doesNotTriggerFullReloadOrGuiRebuild() throws Exception {
 		assertTrue(PackageManager.reload());
 		reset(plugin, packagesConfig);
+		clearInvocations(config);
 		when(packagesConfig.getConfig()).thenReturn(config);
 		when(plugin.isEnabled()).thenReturn(true);
 
@@ -69,6 +74,7 @@ class PackageManagerMutationTest {
 		verify(packagesConfig).saveConfig();
 		verify(packagesConfig, never()).reloadConfig();
 		verify(plugin, never()).setupPackageGuis();
+		verify(config, never()).set(eq("packages"), any());
 	}
 
 	@Test
@@ -90,6 +96,7 @@ class PackageManagerMutationTest {
 	void deletePackage_doesNotTriggerFullReloadOrGuiRebuild() throws Exception {
 		assertTrue(PackageManager.reload());
 		reset(plugin, packagesConfig);
+		clearInvocations(config);
 		when(packagesConfig.getConfig()).thenReturn(config);
 		when(plugin.isEnabled()).thenReturn(true);
 
@@ -99,6 +106,7 @@ class PackageManagerMutationTest {
 		verify(packagesConfig).saveConfig();
 		verify(packagesConfig, never()).reloadConfig();
 		verify(plugin, never()).setupPackageGuis();
+		verify(config, never()).set(eq("packages"), any());
 	}
 
 	private static void setStaticField(String fieldName, Object value) throws Exception {

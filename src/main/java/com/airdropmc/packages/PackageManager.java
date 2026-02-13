@@ -233,15 +233,12 @@ public class PackageManager {
 		pkg.setItems(limitedItems);
 
 		ConfigurationSection config = getOrCreatePackagesSection();
-		FileConfiguration fileConfig = getFileConfig();
 		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
-		if (config == null || fileConfig == null || packagesConfig == null) {
+		if (config == null || packagesConfig == null) {
 			throw new IllegalStateException("Packages configuration is unavailable");
 		}
 
 		config.set(packageName + ".items", new ArrayList<>(limitedItems));
-
-		fileConfig.set(PACKAGES, config);
 		packagesConfig.saveConfig();
 	}
 
@@ -284,16 +281,14 @@ public class PackageManager {
 	 */
 	public static void deletePackage(String packageName) throws PackageNotFoundException {
 		ConfigurationSection config = getOrCreatePackagesSection();
-		FileConfiguration fileConfig = getFileConfig();
 		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
-		if (config == null || fileConfig == null || packagesConfig == null) {
+		if (config == null || packagesConfig == null) {
 			throw new IllegalStateException("Packages configuration is unavailable");
 		}
 
 		// Make sure the package exists
 		get(packageName);
 		config.set(packageName, null);
-		fileConfig.set(PACKAGES, config);
 		packagesConfig.saveConfig();
 		packages.remove(packageName);
 		refreshPackagesGui();
