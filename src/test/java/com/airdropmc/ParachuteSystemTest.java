@@ -77,7 +77,7 @@ class ParachuteSystemTest {
 	}
 
 	@Test
-	void fallingCrateDeath_releasesParachutesAndCancelsRepeatingTask() {
+	void fallingCrateDeath_releasesParachutesWithoutCancellingTaskFromWithinRun() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
 		Chicken chicken = mock(Chicken.class);
@@ -110,7 +110,9 @@ class ParachuteSystemTest {
 			tickRunnable[0].run();
 		}
 
-		verify(task).cancel();
+		// Task must NOT be cancelled from within its own run() - this breaks chicken release
+		verify(task, never()).cancel();
+		// Delayed cleanup should be scheduled to clean up entities and cancel the task later
 		verify(scheduler).runTaskLater(eq(plugin), any(Runnable.class), eq(60L));
 	}
 

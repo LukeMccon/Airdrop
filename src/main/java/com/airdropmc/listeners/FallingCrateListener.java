@@ -31,6 +31,9 @@ public class FallingCrateListener implements Listener {
 			return;
 		}
 		e.setCancelled(true);
+		// Paper keeps FallingBlock entities alive after event cancellation.
+		// Explicitly remove it so it doesn't fire again and place an empty barrel.
+		fallingBlock.remove();
 		Location loc = entity.getLocation();
 		World world = loc.getWorld();
 		if (world == null) {

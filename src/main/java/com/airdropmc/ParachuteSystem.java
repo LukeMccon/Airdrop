@@ -101,16 +101,15 @@ public class ParachuteSystem {
     }
 
     /**
-     * Releases the parachutes and cleans up the system
+     * Releases the parachutes and cleans up the system.
+     * Called repeatedly by the parachute task every 2 ticks after the crate lands.
+     * Do NOT cancel the parachute task here — cancelling from within run() breaks
+     * chicken release. The task keeps running to continuously boost chickens upward
+     * and is cleaned up by the delayed cleanup task or cancel().
      */
     private void releaseParachutes() {
-        if (parachutesReleased) {
-            return;
-        }
-        parachutesReleased = true;
-        cancelParachuteTask();
-
-        // Release chickens and set their velocities
+        // Apply velocity to chickens on every call — continuous boosting makes
+        // them visibly fly up and away (single application is too weak)
         for (Chicken chicken : chickenParachutes) {
             if (chicken == null || chicken.isDead()) {
                 continue;
@@ -121,13 +120,19 @@ public class ParachuteSystem {
             chicken.setVelocity(new Vector(xVel, .5, zVel));
         }
 
-        // Schedule cleanup after the chickens have had time to float up
+        // Schedule cleanup only once
+        if (parachutesReleased) {
+            return;
+        }
+        parachutesReleased = true;
+
         if (plugin == null || !plugin.isEnabled()) {
             cleanupParachuteEntities();
             return;
         }
         delayedCleanupTask = Bukkit.getServer().getScheduler().runTaskLater(plugin, () -> {
             delayedCleanupTask = null;
+            cancelParachuteTask();
             cleanupParachuteEntities();
         }, 60);
     }

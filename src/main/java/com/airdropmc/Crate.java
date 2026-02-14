@@ -151,15 +151,13 @@ public class Crate {
 			AirdropLogger.warning("Dropped " + overflowStackCount
 					+ " overflow item stack(s) at a landed crate because barrel inventory was full");
 		}
-		barrel.update();
-
         CrateManager.addCrate(barrel.getLocation(), this);
         Airdrop plugin = getEnabledPlugin();
 
         if (plugin != null && options.shouldShowLandingEffects()) {
             RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
                     this.landedLocation.clone(), world);
-            landedEffect.runTaskTimer(plugin, 0L, 1L);
+            landedEffect.runTask(plugin);
         }
 
         if (plugin != null && options.shouldShowContinuousEffects()) {
