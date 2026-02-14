@@ -15,7 +15,7 @@ import java.util.Set;
 
 public class AirdropTabCompleter implements TabCompleter {
 
-    private static final List<String> ADMIN_SUB_COMMANDS = List.of("package", "packages", "version", "reload", "debug");
+    private static final List<String> ADMIN_SUB_COMMANDS = List.of("package", "packages", "version", "reload");
     private static final List<String> NON_ADMIN_SUB_COMMANDS = List.of("package", "packages", "version");
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
@@ -28,13 +28,6 @@ public class AirdropTabCompleter implements TabCompleter {
             }
             suggestions.addAll(NON_ADMIN_SUB_COMMANDS);
             return new ArrayList<>(suggestions);
-        }
-
-        if (args.length == 2 && Objects.equals(args[0], "debug")) {
-            if (!PermissionsHelper.isAdmin(commandSender)) {
-                return List.of();
-            }
-            return List.of("on", "off", "toggle");
         }
 
         if (Objects.equals(args[0], "package")) {

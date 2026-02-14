@@ -68,7 +68,6 @@ class TabCompletionPermissionsTest {
 		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop", new String[]{""});
 
 		assertFalse(results.contains("reload"));
-		assertFalse(results.contains("debug"));
 	}
 
 	@Test
@@ -91,30 +90,6 @@ class TabCompletionPermissionsTest {
 		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop", new String[]{""});
 
 		assertTrue(results.contains("reload"));
-		assertTrue(results.contains("debug"));
-	}
-
-	@Test
-	void airdropTabCompleter_hidesDebugArgumentsForNonAdmin() {
-		PlayerMock player = server.addPlayer();
-		AirdropTabCompleter completer = new AirdropTabCompleter();
-
-		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop",
-				new String[]{"debug", ""});
-
-		assertEquals(List.of(), results);
-	}
-
-	@Test
-	void airdropTabCompleter_showsDebugArgumentsForAdmin() {
-		PlayerMock player = server.addPlayer();
-		player.setOp(true);
-		AirdropTabCompleter completer = new AirdropTabCompleter();
-
-		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop",
-				new String[]{"debug", ""});
-
-		assertEquals(List.of("on", "off", "toggle"), results);
 	}
 
 	@Test

@@ -15,7 +15,8 @@ public abstract class Gui {
         return Arrays.asList(
                 ChatHandler.get(MessageKey.GUI_SAVE),
                 ChatHandler.get(MessageKey.GUI_CANCEL),
-                ChatHandler.get(MessageKey.GUI_BACK));
+                ChatHandler.get(MessageKey.GUI_BACK),
+                ChatHandler.get(MessageKey.GUI_HELP));
     }
 
     /**
