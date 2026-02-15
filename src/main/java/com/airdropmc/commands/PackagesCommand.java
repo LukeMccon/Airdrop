@@ -2,6 +2,7 @@ package com.airdropmc.commands;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
 
 import org.bukkit.command.CommandSender;
@@ -21,6 +22,11 @@ public class PackagesCommand {
         if (!(sender instanceof Player)) {
             ChatHandler.sendError(sender, MessageKey.COMMANDS_PLAYER_ONLY);
             ChatHandler.sendError(sender, MessageKey.COMMANDS_PACKAGES_CONSOLE_ONLY);
+            return;
+        }
+
+        if (!PermissionsHelper.isAdmin(sender)) {
+            ChatHandler.sendError(sender, MessageKey.ADMIN_PERMISSION_REQUIRED);
             return;
         }
 

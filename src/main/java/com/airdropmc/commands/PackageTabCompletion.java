@@ -26,11 +26,12 @@ public class PackageTabCompletion implements TabCompleter {
         switch (args.length) {
 
             case 2:
-                List<String> commands = new ArrayList<>(PackageManager.getPackages().stream().toList());
+                List<String> commands = new ArrayList<>();
                 if (isAdmin) {
                     commands.add(createCommand);
                     commands.add("delete");
                 }
+                commands.addAll(PackageManager.getPackages());
                 return commands;
             case 3:
                 if (Objects.equals(commandArg, createCommand) || Objects.equals(commandArg, "delete")) {
