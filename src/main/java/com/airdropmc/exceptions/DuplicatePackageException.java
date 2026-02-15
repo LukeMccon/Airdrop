@@ -8,6 +8,7 @@ public class DuplicatePackageException extends Exception {
 	 * @param packageName package's name
 	 */
 	public DuplicatePackageException(String packageName) {
+		super("Package already exists: " + packageName);
 		this.packageName = packageName;
 	}
 

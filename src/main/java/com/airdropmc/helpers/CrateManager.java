@@ -1,6 +1,7 @@
 package com.airdropmc.helpers;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -220,7 +221,9 @@ public class CrateManager {
 	// Legacy methods for backward compatibility
 	@Deprecated
 	public static Map<FallingBlock, Crate> getCrateMap() {
-		return crateMap;
+		synchronized (CrateManager.class) {
+			return Collections.unmodifiableMap(new HashMap<>(crateMap));
+		}
 	}
 
 	private static BlockKey toBlockKey(Location location) {

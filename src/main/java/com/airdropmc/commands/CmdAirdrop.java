@@ -40,12 +40,12 @@ public class CmdAirdrop implements CommandExecutor {
                     ChatHandler.sendError(sender, MessageKey.ADMIN_PERMISSION_REQUIRED);
                     return true;
                 }
-                Config configuration = Airdrop.getConfiguration();
-                Airdrop plugin = Airdrop.getPluginInstance();
-                if (configuration == null || plugin == null || !plugin.isEnabled()) {
-                    ChatHandler.sendErrorMessage(sender, "Reload unavailable while plugin is shutting down");
-                    return true;
-                }
+				Config configuration = Airdrop.getConfiguration();
+				Airdrop plugin = Airdrop.getPluginInstance();
+				if (configuration == null || plugin == null || !plugin.isEnabled()) {
+					ChatHandler.sendError(sender, MessageKey.ERROR_RELOAD_UNAVAILABLE);
+					return true;
+				}
 
                 configuration.reloadConfig();
                 FileConfiguration configValues = configuration.getConfig();
@@ -54,10 +54,10 @@ public class CmdAirdrop implements CommandExecutor {
                     plugin.getLanguageManager().loadLanguage(lang);
                 }
 
-                if (!PackageManager.reload()) {
-                    ChatHandler.sendErrorMessage(sender, "Reload failed because packages configuration is unavailable");
-                    return true;
-                }
+				if (!PackageManager.reload()) {
+					ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGES_RELOAD_FAILED);
+					return true;
+				}
                 ChatHandler.send(sender, MessageKey.SYSTEM_RELOAD_SUCCESS);
             }
             default -> DropCommand.onCommand(sender, args);

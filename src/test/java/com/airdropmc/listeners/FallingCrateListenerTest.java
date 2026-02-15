@@ -13,9 +13,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,14 +30,14 @@ class FallingCrateListenerTest {
 	private final FallingCrateListener listener = new FallingCrateListener();
 
 	@BeforeEach
-	void setUp() throws Exception {
+	void setUp() {
 		server = MockBukkit.mock();
 		world = server.addSimpleWorld("test_world");
 		clearCrateManager();
 	}
 
 	@AfterEach
-	void tearDown() throws Exception {
+	void tearDown() {
 		clearCrateManager();
 		MockBukkit.unmock();
 	}
@@ -105,13 +102,7 @@ class FallingCrateListenerTest {
 		verify(event, never()).setCancelled(true);
 	}
 
-	private void clearCrateManager() throws Exception {
-		Field crateMapField = CrateManager.class.getDeclaredField("crateMap");
-		crateMapField.setAccessible(true);
-		((Map<?, ?>) crateMapField.get(null)).clear();
-
-		Field landedCrateMapField = CrateManager.class.getDeclaredField("landedCrateMap");
-		landedCrateMapField.setAccessible(true);
-		((Map<?, ?>) landedCrateMapField.get(null)).clear();
+	private void clearCrateManager() {
+		CrateManager.clearAll();
 	}
 }

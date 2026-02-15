@@ -18,9 +18,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
@@ -34,7 +31,7 @@ class CrateDestroyListenerTest {
 	private Plugin plugin;
 
 	@BeforeEach
-	void setUp() throws Exception {
+	void setUp() {
 		server = MockBukkit.mock();
 		world = server.addSimpleWorld("test_world");
 		plugin = MockBukkit.createMockPlugin();
@@ -42,7 +39,7 @@ class CrateDestroyListenerTest {
 	}
 
 	@AfterEach
-	void tearDown() throws Exception {
+	void tearDown() {
 		clearCrateManager();
 		MockBukkit.unmock();
 	}
@@ -91,13 +88,7 @@ class CrateDestroyListenerTest {
 		}
 	}
 
-	private void clearCrateManager() throws Exception {
-		Field crateMapField = CrateManager.class.getDeclaredField("crateMap");
-		crateMapField.setAccessible(true);
-		((Map<?, ?>) crateMapField.get(null)).clear();
-
-		Field landedCrateMapField = CrateManager.class.getDeclaredField("landedCrateMap");
-		landedCrateMapField.setAccessible(true);
-		((Map<?, ?>) landedCrateMapField.get(null)).clear();
+	private void clearCrateManager() {
+		CrateManager.clearAll();
 	}
 }

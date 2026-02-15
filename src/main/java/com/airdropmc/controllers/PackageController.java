@@ -99,7 +99,7 @@ public class PackageController {
 			return;
 		}
 		if (!VALID_PACKAGE_NAME_PATTERN.matcher(packageName).matches()) {
-			ChatHandler.sendErrorMessage(sender, "Package names may only contain letters, numbers, underscores, and dashes");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_NAME_INVALID);
 			return;
 		}
 
@@ -122,7 +122,7 @@ public class PackageController {
 		CreatePackageGui createGui = new CreatePackageGui(packageName, price);
 		Airdrop plugin = Airdrop.getPluginInstance();
 		if (plugin == null || !plugin.isEnabled()) {
-			ChatHandler.sendErrorMessage(sender, "Unable to open package editor right now");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
 			return;
 		}
 		Bukkit.getPluginManager().registerEvents(createGui, plugin);

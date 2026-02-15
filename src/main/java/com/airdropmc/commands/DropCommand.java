@@ -40,19 +40,19 @@ public class DropCommand {
 
         if (args.length == 1) {
 
-            try {
-                DropController.playerInitiatedDropPackage(pkg, player);
-            } catch (CannotAffordException e) {
-                ChatHandler.sendError(player, MessageKey.ERROR_CANNOT_AFFORD, Map.of(
-                        "player", e.getPlayerName(),
-                        "price", String.valueOf(e.getPrice())));
-            } catch (EconomyUnavailableException e) {
-                ChatHandler.sendErrorMessage(player, "Economy provider is unavailable. Contact a server administrator.");
-            } catch (SkyNotClearException e) {
-                ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
-            } catch (InsufficientPermissionsException e) {
-                ChatHandler.sendError(player, MessageKey.ERROR_INSUFFICIENT_PERMISSIONS,
-                        Map.of("package", e.getPackageName()));
+			try {
+				DropController.playerInitiatedDropPackage(pkg, player);
+			} catch (CannotAffordException e) {
+				ChatHandler.sendError(player, MessageKey.ERROR_CANNOT_AFFORD, Map.of(
+						"player", e.getPlayerName(),
+						"price", String.valueOf(e.getPrice())));
+			} catch (EconomyUnavailableException e) {
+				ChatHandler.sendError(player, MessageKey.ERROR_ECONOMY_UNAVAILABLE);
+			} catch (SkyNotClearException e) {
+				ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
+			} catch (InsufficientPermissionsException e) {
+				ChatHandler.sendError(player, MessageKey.ERROR_INSUFFICIENT_PERMISSIONS,
+						Map.of("package", e.getPackageName()));
             }
 
         }

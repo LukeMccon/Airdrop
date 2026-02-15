@@ -40,33 +40,33 @@ class CrateManagerTest {
     @Mock
     private Crate mockCrate2;
 
-    @BeforeEach
-    void setUp() throws Exception {
-        server = MockBukkit.mock();
-        world = server.addSimpleWorld("test_world");
-        clearCrateManager();
-    }
+	    @BeforeEach
+	    void setUp() throws Exception {
+	        server = MockBukkit.mock();
+	        world = server.addSimpleWorld("test_world");
+	        clearCrateManager();
+	    }
 
-    @AfterEach
-    void tearDown() throws Exception {
-        clearCrateManager();
-        MockBukkit.unmock();
-    }
+	    @AfterEach
+	    void tearDown() throws Exception {
+	        clearCrateManager();
+	        MockBukkit.unmock();
+	    }
 
-    /**
-     * Clears the static maps in CrateManager between tests
-     */
-    private void clearCrateManager() throws Exception {
-        // Clear crateMap
-        Field crateMapField = CrateManager.class.getDeclaredField("crateMap");
-        crateMapField.setAccessible(true);
-        ((Map<?, ?>) crateMapField.get(null)).clear();
+	    /**
+	     * Clears the static maps in CrateManager between tests
+	     */
+	    private void clearCrateManager() throws Exception {
+	        // Clear crateMap
+	        Field crateMapField = CrateManager.class.getDeclaredField("crateMap");
+	        crateMapField.setAccessible(true);
+	        ((Map<?, ?>) crateMapField.get(null)).clear();
 
-        // Clear landedCrateMap
-        Field landedCrateMapField = CrateManager.class.getDeclaredField("landedCrateMap");
-        landedCrateMapField.setAccessible(true);
-        ((Map<?, ?>) landedCrateMapField.get(null)).clear();
-    }
+	        // Clear landedCrateMap
+	        Field landedCrateMapField = CrateManager.class.getDeclaredField("landedCrateMap");
+	        landedCrateMapField.setAccessible(true);
+	        ((Map<?, ?>) landedCrateMapField.get(null)).clear();
+	    }
 
     // FallingBlock-based crate operations
 

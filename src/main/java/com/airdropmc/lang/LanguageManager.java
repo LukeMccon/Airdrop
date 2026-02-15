@@ -12,8 +12,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class LanguageManager {
+	private static final String DEFAULT_LANGUAGE = "en";
+	private static final Pattern SAFE_LANGUAGE_CODE_PATTERN = Pattern.compile("^[a-z]{2}(?:-[A-Z]{2})?$");
+
 	private final Airdrop plugin;
 	private FileConfiguration langConfig;
 	private String currentLanguage;
@@ -23,17 +27,15 @@ public class LanguageManager {
 	}
 
 	public void loadLanguage(String langCode) {
-		if (langCode == null || langCode.isBlank()) {
-			langCode = "en";
-		}
-		currentLanguage = langCode;
+		String safeLangCode = normalizeLanguageCode(langCode);
+		currentLanguage = safeLangCode;
 
 		File langFolder = new File(plugin.getDataFolder(), "lang");
 		if (!langFolder.exists()) {
 			langFolder.mkdirs();
 		}
 
-		String fileName = langCode + ".yml";
+		String fileName = safeLangCode + ".yml";
 		File langFile = new File(langFolder, fileName);
 		if (!langFile.exists()) {
 			try {
@@ -77,10 +79,23 @@ public class LanguageManager {
 
 	public void reload() {
 		if (currentLanguage == null || currentLanguage.isBlank()) {
-			loadLanguage("en");
+			loadLanguage(DEFAULT_LANGUAGE);
 			return;
 		}
 		loadLanguage(currentLanguage);
+	}
+
+	private String normalizeLanguageCode(String langCode) {
+		if (langCode == null || langCode.isBlank()) {
+			return DEFAULT_LANGUAGE;
+		}
+		String candidate = langCode.trim();
+		if (!SAFE_LANGUAGE_CODE_PATTERN.matcher(candidate).matches()) {
+			plugin.getLogger().warning(
+					"Invalid language code '" + candidate + "'. Falling back to '" + DEFAULT_LANGUAGE + "'.");
+			return DEFAULT_LANGUAGE;
+		}
+		return candidate;
 	}
 
 	public String get(MessageKey key) {

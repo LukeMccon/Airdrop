@@ -48,7 +48,11 @@ public class PackageManager {
 	 * Gets the packages section from config
 	 */
 	private static ConfigurationSection getPackagesSection() {
-		return getFileConfig().getConfigurationSection(PACKAGES);
+		FileConfiguration fileConfig = getFileConfig();
+		if (fileConfig == null) {
+			return null;
+		}
+		return fileConfig.getConfigurationSection(PACKAGES);
 	}
 
 	/**
