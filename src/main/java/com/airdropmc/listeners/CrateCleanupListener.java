@@ -42,7 +42,7 @@ public class CrateCleanupListener implements Listener {
 		CrateManager.removeFallingCratesInChunk(chunk);
 	}
 
-	@EventHandler(priority = EventPriority.LOW)
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onWorldUnload(WorldUnloadEvent e) {
 		CrateManager.removeCratesInWorld(e.getWorld());
 	}
