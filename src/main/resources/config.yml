@@ -1,5 +1,8 @@
 # Airdrop Configuration
 
+# Language setting - corresponds to file in lang/ folder
+language: en
+
 # Drop Settings
 drop:
   parachute:
@@ -27,3 +30,21 @@ drop:
 economy:
   # Whether to enable economy features
   enabled: true
+
+# Logging settings
+logging:
+  # Enables additional debug logs for troubleshooting
+  debug: false
+
+# UI theme settings
+ui:
+  chat:
+    # ChatColor names, e.g. BLUE, AQUA, RED (case-insensitive)
+    colors:
+      primary: BLUE
+      text: WHITE
+      accent: AQUA
+      success: GREEN
+      warning: YELLOW
+      error: RED
+      error-detail: DARK_RED

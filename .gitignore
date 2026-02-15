@@ -1,3 +1,40 @@
+# Gradle
+.gradle/
+build/
+.gradle-tmp/
+
+# Gradle Run/Server working dirs (if using run-task or local test server)
+run/
+server/
+
+# Maven (legacy artifacts during migration)
+target/
+
+# IDE
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Env/Secrets (if any local dev files exist)
+.env
+.env.*
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+
 bin/
 .DS_Store
 .classpath
@@ -8,3 +45,12 @@ copy.sh
 .idea/
 build.sh
 build-all.sh
+
+.gradle/
+.gradle-tmp/
+
+# Claude / AI
+CLAUDE.md
+AGENTS.md
+.claude/
+docs/

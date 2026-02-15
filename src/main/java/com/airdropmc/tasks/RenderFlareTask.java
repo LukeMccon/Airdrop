@@ -47,7 +47,7 @@ public class RenderFlareTask extends BukkitRunnable {
 
             // Intense red particles
             Location flareLoc = location.clone().add(xOffset, 0.1, zOffset);
-            world.spawnParticle(Particle.REDSTONE, flareLoc, 0, 0, 0, 0, 0,
+            world.spawnParticle(Particle.DUST, flareLoc, 0, 0, 0, 0, 0,
                     new Particle.DustOptions(org.bukkit.Color.RED, 2.0f));
 
             // Add some flame particles for extra effect
@@ -58,10 +58,10 @@ public class RenderFlareTask extends BukkitRunnable {
         if (ticksElapsed % 2 == 0) {
             // Ground level smoke
             Location smokeLoc = location.clone().add(0, 0.2, 0);
-            world.spawnParticle(Particle.SMOKE_NORMAL, smokeLoc, SMOKE_PARTICLES, 0.1, 0, 0.1, 0.02);
+            world.spawnParticle(Particle.SMOKE, smokeLoc, SMOKE_PARTICLES, 0.1, 0, 0.1, 0.02);
 
             // Rising smoke column
-            world.spawnParticle(Particle.SMOKE_LARGE, smokeLoc, 2, 0.05, 0.1, 0.05, 0.05);
+            world.spawnParticle(Particle.LARGE_SMOKE, smokeLoc, 2, 0.05, 0.1, 0.05, 0.05);
 
             // Play sizzling sound (alternating between different sounds for variety)
             if (ticksElapsed % 4 == 0) {

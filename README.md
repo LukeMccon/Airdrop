@@ -6,129 +6,154 @@
 
 <br />
 
-![Spigot SVG](readme/spigot-1.20.1.svg) ![Java SVG](readme/java-19.svg)
+![Paper SVG](https://img.shields.io/badge/Paper-1.21+-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.16+-brightgreen.svg)](https://www.minecraft.net) ![build and release](https://github.com/LukeMccon/Airdrop/actions/workflows/main.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21+-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
 
-A Spigot plugin that allows players to call in customizable care packages that fall from the sky
+A Paper plugin for customizable care packages with parachutes, effects, economy support, and in-game package editing.
 
 </div>
 
-## Index
+## Features
 
-- [Usage](#usage)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Commands](#commands)
+- Configurable parachute drops with custom chicken count, fall speed, and drop height
+- Landing, flare, glow, and optional smoke particle effects
+- In-game GUI package creation and editing
+- Economy support through Treasury (preferred) with Vault fallback
+- Refund protection when a charged drop fails before spawning
+- Language file support (`lang/<language>.yml`) and configurable chat theme colors
+- Runtime reload command for config, language, and packages
 
-## Usage
+## Requirements
 
-As a server operator you can call in packages using:
+- Paper `1.21+`
+- Java `21`
+- [LuckPerms](https://luckperms.net/) (required)
+- Economy provider when `economy.enabled: true` (default):
+  - Treasury-compatible provider, or
+  - [Vault](https://github.com/milkbowl/Vault) with a Vault-compatible economy plugin
 
-```
-/airdrop starter # drops the starter package
-```
-
-Otherwise, using LuckPerms you can allow everyone to use packages through _either_ of these methods:
-
-```
-/lp group default permission set airdrop.package.all
-```
-
-OR
-
-Add the `airdrop-user` group to the desired players
+If no economy provider is installed, set `economy.enabled: false` in `config.yml` before starting.
 
 ## Installation
 
-Install the following plugins:
+1. Install plugin dependencies into your server `plugins/` directory:
+   - LuckPerms
+   - Optional: Vault and your economy plugin (if you keep economy enabled)
+2. Download the latest Airdrop release from [Releases](https://github.com/LukeMccon/Airdrop/releases/latest).
+3. Place the Airdrop `.jar` in `plugins/`.
+4. Start or restart the server.
 
-Download and copy the `.jar` files for these plugins into your `plugins` folder:
+## Quick Start
 
-- [LuckPerms](https://luckperms.net/)
-- [EssentialsX](https://essentialsx.net/)
-- [Vault](https://github.com/milkbowl/Vault)
+1. Create a package:
 
-Download the latest stable release of `Airdrop` [here](https://github.com/LukeMccon/Airdrop/releases/latest)
-Place the `.jar` into your plugins folder
+```bash
+/airdrop package create starter 10
+```
 
-## Configuration
+2. Add items in the package editor GUI and click `Save`.
+3. Grant players package permissions, for example:
 
-#### Setting up packages
+```bash
+/lp group default permission set airdrop.package.starter true
+```
 
-In your `plugins` folder look for the `Airdrop` folder.
-Open the `packages.yml` in your favorite text editor (reccommended to use one that supports YAML)
+4. Call in the package:
 
-Use the existing `starter` package as an example.
-
-An example of adding another package to the config in addition to the `starter` package:
-
-```yaml
-packages:
-  starter:
-    items:
-    - ==: org.bukkit.inventory.ItemStack
-      v: 3465
-      type: IRON_HELMET
-    - ==: org.bukkit.inventory.ItemStack
-      v: 3465
-      type: IRON_CHESTPLATE
-    - ==: org.bukkit.inventory.ItemStack
-      v: 3465
-      type: IRON_LEGGINGS
-    - ==: org.bukkit.inventory.ItemStack
-      v: 3465
-      type: IRON_BOOTS
-    - ==: org.bukkit.inventory.ItemStack
-      v: 3465
-      type: BREAD
-      amount: 2
-    price: 10.0
+```bash
+/airdrop starter
 ```
 
 ## Commands
 
-All commands start with `/airdrop`. The following commands are available:
+All commands start with `/airdrop` (aliases: `/drop`, `/ad`).
 
-### Dropping a package
+- `/airdrop <packageName>`
+  - Player-only
+  - Drops a package at your location
+  - Requires package permission
+- `/airdrop package <name>`
+  - Shows package details and item list
+- `/airdrop package create <name> <price>`
+  - Admin-only
+  - Player-only (opens GUI)
+- `/airdrop package delete <name>`
+  - Admin-only
+- `/airdrop packages`
+  - Admin-only
+  - Player-only (opens package management GUI)
+- `/airdrop reload`
+  - Admin-only
+  - Reloads main config, language, and packages
+- `/airdrop version`
+  - Shows plugin and API versions
 
-##### `/airdrop <packageName>`
-- Drops the specified package at your location
-- Requires one of:
-  - `airdrop.package.all` permission
-  - `airdrop.package.<packageName>` permission for specific package
-  - Membership in the `airdrop-user` luckperms group
-- Costs in-game currency if package has a price set
+## Permissions
 
-### Package Management
+- `airdrop.admin`
+  - Full administrative access
+- `airdrop.package.all`
+  - Use all packages
+- `airdrop.package.<packageName>`
+  - Use one specific package
+- `airdrop.package.*`
+  - Wildcard alias for package usage
 
-##### `/airdrop package create <name> <price>`
-- Creates a new package with the specified name and price
-- Opens a GUI to configure the items in the package
-- Requires `airdrop.admin` permission or server op
+LuckPerms integration also ensures these groups exist:
+- `airdrop-admin` with `airdrop.admin`
+- `airdrop-user` with `airdrop.package.all`
 
-##### `/airdrop package delete <name>`
-- Deletes an existing package
-- Requires `airdrop.admin` permission or server op
+## Configuration
 
-##### `/airdrop package <name>`
-- Shows detailed information about a specific package
-- Available to all players
+Main settings are in `plugins/Airdrop/config.yml`.
 
-##### `/airdrop packages`
-- Opens a GUI showing all available packages
-- Available to all players
+```yaml
+language: en
 
-### Other Commands
+drop:
+  parachute:
+    chicken-count: 5
+  particles:
+    landing-effects: true
+    continuous-effects: true
+    flare-effects: true
+    smoke:
+      enabled: false
+      height: 20
+  falling-speed: 0.3
+  height: 20
 
-##### `/airdrop version`
-- Displays the current version of the plugin and API version
+economy:
+  enabled: true
 
-### Permissions
+logging:
+  debug: false
 
-- `airdrop.admin`: Full access to all plugin features (recommended for admins)
-- `airdrop.package.all`: Access to use all packages
-- `airdrop.package.<packageName>`: Access to use a specific package
-- `airdrop-user` group: Access to use all packages (alternative to individual permissions)
-- `airdrop-admin` group: Full administrative access (alternative to individual permissions)
+ui:
+  chat:
+    colors:
+      primary: BLUE
+      text: WHITE
+      accent: AQUA
+      success: GREEN
+      warning: YELLOW
+      error: RED
+      error-detail: DARK_RED
+```
+
+Validation ranges:
+- `drop.parachute.chicken-count`: `1` to `64`
+- `drop.falling-speed`: `0.01` to `4.0`
+- `drop.height`: `1` to `320`
+- `drop.particles.smoke.height`: `0` to `128`
+
+Packages are stored in `plugins/Airdrop/packages.yml` and can be managed in-game.
+A package can contain up to `27` item stacks (barrel capacity).
+
+## Build and Test
+
+- Build plugin jar: `./gradlew clean build`
+- Run tests: `./gradlew test`
+- Start local Paper test server: `./gradlew runServer`

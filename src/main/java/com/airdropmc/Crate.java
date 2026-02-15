@@ -2,9 +2,11 @@ package com.airdropmc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.tasks.RenderFlareTask;
 import com.airdropmc.tasks.RenderPackageGlowTask;
 import com.airdropmc.tasks.RenderPackageLandedTask;
@@ -16,6 +18,7 @@ import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
@@ -48,7 +51,7 @@ public class Crate {
     private RenderFlareTask flareEffect;
     private RenderPackageGlowTask glowEffect;
     private RenderPackageSmokeTask smokeEffect;
-    private Boolean opened = false;
+    private volatile boolean opened = false;
 
     /**
      * Construct a new Crate object with a location, world, and ArrayList of
@@ -61,19 +64,37 @@ public class Crate {
     public Crate(Location location, World world, List<ItemStack> contents, DropOptions options) {
         this.dropLocation = location.clone();
         this.world = world;
-        this.contents = new ArrayList<>(contents);
+        this.contents = cloneContents(contents);
         this.state = State.FALLING;
         this.options = options;
         this.parachuteSystem = new ParachuteSystem(world, options);
     }
 
+    private static ArrayList<ItemStack> cloneContents(List<ItemStack> contents) {
+        ArrayList<ItemStack> clonedContents = new ArrayList<>();
+        if (contents == null) {
+            return clonedContents;
+        }
+
+        for (ItemStack content : contents) {
+            if (content == null) {
+                continue;
+            }
+            clonedContents.add(content.clone());
+        }
+        return clonedContents;
+    }
+
     /**
      * Drop the crate
      */
-    @SuppressWarnings("deprecation")
     public void dropCrate() {
         if (state != State.FALLING) {
             throw new IllegalStateException("Cannot drop a crate that is not in FALLING state");
+        }
+        Airdrop plugin = getEnabledPlugin();
+        if (plugin == null) {
+            throw new IllegalStateException("Cannot drop crate while plugin is unavailable");
         }
 
         // Create flare effect at ground level (drop height blocks below drop location)
@@ -81,10 +102,12 @@ public class Crate {
         groundLocation.setY(dropLocation.getY() - options.getDropHeight() + 1);
         if (options.shouldShowFlareEffects()) {
             flareEffect = new RenderFlareTask(groundLocation, world);
-            flareEffect.runTaskTimer(Airdrop.getPluginInstance(), 0L, 1L);
+            flareEffect.runTaskTimer(plugin, 0L, 1L);
         }
-        fallingCrate = world.spawnFallingBlock(dropLocation, Material.BARREL, (byte) 0);
-        parachuteSystem.initialize(dropLocation, fallingCrate);
+        fallingCrate = world.spawn(dropLocation, FallingBlock.class, fb -> {
+            fb.setBlockData(Material.BARREL.createBlockData());
+        });
+        parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
 
         CrateManager.addCrate(fallingCrate, this);
     }
@@ -103,30 +126,48 @@ public class Crate {
         this.landedLocation = block.getLocation().clone();
         this.state = State.LANDED;
 
-        // Initialize landed state
-        blockChest.setType(Material.BARREL);
-        Barrel barrel = (Barrel) blockChest.getState();
+		// Initialize landed state
+		blockChest.setType(Material.BARREL);
+		BlockState barrelState = blockChest.getState();
+		if (!(barrelState instanceof Barrel barrel)) {
+			throw new IllegalStateException("Failed to create barrel at landed location");
+		}
 
-        for (ItemStack is : contents) {
-            barrel.getInventory().addItem(is);
-        }
-
+		int overflowStackCount = 0;
+		for (ItemStack is : contents) {
+			Map<Integer, ItemStack> overflow = barrel.getInventory().addItem(is);
+			if (overflow.isEmpty()) {
+				continue;
+			}
+			for (ItemStack remaining : overflow.values()) {
+				if (remaining == null || remaining.getType().isAir()) {
+					continue;
+				}
+				overflowStackCount++;
+				world.dropItemNaturally(this.landedLocation.clone().add(0.5, 0.5, 0.5), remaining);
+			}
+		}
+		if (overflowStackCount > 0) {
+			AirdropLogger.warning("Dropped " + overflowStackCount
+					+ " overflow item stack(s) at a landed crate because barrel inventory was full");
+		}
         CrateManager.addCrate(barrel.getLocation(), this);
+        Airdrop plugin = getEnabledPlugin();
 
-        if (options.shouldShowLandingEffects()) {
+        if (plugin != null && options.shouldShowLandingEffects()) {
             RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
-                    this.landedLocation, world);
-            landedEffect.runTaskAsynchronously(Airdrop.getPluginInstance());
+                    this.landedLocation.clone(), world);
+            landedEffect.runTask(plugin);
         }
 
-        if (options.shouldShowContinuousEffects()) {
-            glowEffect = new RenderPackageGlowTask(landedLocation, world);
-            this.glowTask = glowEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 10L);
+        if (plugin != null && options.shouldShowContinuousEffects()) {
+            glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
+            this.glowTask = glowEffect.runTaskTimer(plugin, 0L, 10L);
         }
 
-        if (options.isSmokeEnabled()) {
-            smokeEffect = new RenderPackageSmokeTask(landedLocation, world, options.getSmokeHeight());
-            this.smokeTask = smokeEffect.runTaskTimerAsynchronously(Airdrop.getPluginInstance(), 0L, 100L);
+        if (plugin != null && options.isSmokeEnabled()) {
+            smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, options.getSmokeHeight());
+            this.smokeTask = smokeEffect.runTaskTimer(plugin, 0L, 100L);
         }
 
         // Play landing sound effect
@@ -153,8 +194,29 @@ public class Crate {
      * Cleans up resources used by this crate
      */
     public void destroy() {
+        if (state == State.FALLING && fallingCrate != null && !fallingCrate.isDead()) {
+            fallingCrate.setGravity(true);
+            fallingCrate.remove();
+        }
+
+        // Cancel parachute system tasks and cleanup entities
+        if (parachuteSystem != null) {
+            parachuteSystem.cancel();
+        }
+
+        // Stop particle effects if landed
         if (state == State.LANDED) {
             stopEffects();
+            if (blockChest != null && blockChest.getType() == Material.BARREL) {
+                blockChest.setType(Material.AIR);
+            } else if (landedLocation != null && landedLocation.getBlock().getType() == Material.BARREL) {
+                landedLocation.getBlock().setType(Material.AIR);
+            }
+        }
+
+        // Cancel flare effect if still running
+        if (flareEffect != null && !flareEffect.isCancelled()) {
+            flareEffect.cancel();
         }
     }
 
@@ -196,11 +258,19 @@ public class Crate {
         return state == State.LANDED ? landedLocation : null;
     }
 
-    public Boolean getOpened() {
+    private Airdrop getEnabledPlugin() {
+        Airdrop plugin = Airdrop.getPluginInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            return null;
+        }
+        return plugin;
+    }
+
+    public boolean getOpened() {
         return opened;
     }
 
-    public void setOpened(Boolean opened) {
+    public void setOpened(boolean opened) {
         this.opened = opened;
         if (opened) {
             this.stopEffects();

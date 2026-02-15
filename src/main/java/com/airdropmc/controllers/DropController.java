@@ -3,18 +3,23 @@ package com.airdropmc.controllers;
 import java.util.List;
 
 import com.airdropmc.exceptions.CannotAffordException;
+import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.exceptions.InsufficientPermissionsException;
 import com.airdropmc.exceptions.SkyNotClearException;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.packages.Package;
+import com.airdropmc.events.PackageDropEvent;
+import com.airdropmc.Airdrop;
+import com.airdropmc.economy.EconomyProvider;
+import com.airdropmc.economy.EconomyResult;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Vector;
 
-import net.md_5.bungee.api.ChatColor;
 import com.airdropmc.Crate;
+import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 
 public class DropController {
@@ -49,17 +54,8 @@ public class DropController {
 			throws SkyNotClearException {
 		// Handle null options by using defaults
 		options = options != null ? options : DropOptions.createDefault();
-		List<ItemStack> items = pkg.getItems();
-		Location highestLocation = world.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getLocation()
-				.add(new Vector(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK));
-
-		if (loc.getBlockY() <= highestLocation.getBlockY()) {
-			throw new SkyNotClearException(loc);
-		}
-
-		Crate crate = new Crate(highestLocation.add(new Vector(ZERO_BLOCKS, options.getDropHeight(), ZERO_BLOCKS)),
-				world, items, options);
-		crate.dropCrate();
+		Location spawnLocation = getSpawnLocation(world, loc, options);
+		dropPackageAtLocation(pkg, world, spawnLocation, options);
 	}
 
 	/**
@@ -96,13 +92,15 @@ public class DropController {
 	 * @param pkg    to be dropped
 	 * @param player getting the package
 	 * @throws CannotAffordException            if player cannot afford the package
+	 * @throws EconomyUnavailableException      if economy is enabled but no provider
+	 *                                          is available
 	 * @throws InsufficientPermissionsException player does not have permissions to
 	 *                                          drop the package
 	 * @throws SkyNotClearException             sky above player's location is not
 	 *                                          available
 	 */
 	public static void playerInitiatedDropPackage(Package pkg, Player player)
-			throws CannotAffordException, InsufficientPermissionsException, SkyNotClearException {
+			throws CannotAffordException, EconomyUnavailableException, InsufficientPermissionsException, SkyNotClearException {
 		playerInitiatedDropPackage(pkg, player, DropOptions.createDefault());
 	}
 
@@ -114,33 +112,84 @@ public class DropController {
 	 * @param player  getting the package
 	 * @param options custom configuration options for this drop
 	 * @throws CannotAffordException            if player cannot afford the package
+	 * @throws EconomyUnavailableException      if economy is enabled but no provider
+	 *                                          is available
 	 * @throws InsufficientPermissionsException player does not have permissions to
 	 *                                          drop the package
 	 * @throws SkyNotClearException             sky above player's location is not
 	 *                                          available
 	 */
 	public static void playerInitiatedDropPackage(Package pkg, Player player, DropOptions options)
-			throws CannotAffordException, InsufficientPermissionsException, SkyNotClearException {
+			throws CannotAffordException, EconomyUnavailableException, InsufficientPermissionsException, SkyNotClearException {
 		// Handle null options by using defaults
 		options = options != null ? options : DropOptions.createDefault();
 
 		boolean canDropPackage = PermissionsHelper.hasPermission(player, pkg.getName());
 
 		if (!canDropPackage) {
-			throw new InsufficientPermissionsException(
-					"You have insufficient permissions to drop that package, you must have" + ChatColor.AQUA
-							+ "airdrop.package." + pkg.getName());
+			throw new InsufficientPermissionsException(pkg.getName());
+		}
+		if (ConfigKeys.isEconomyEnabled() && Airdrop.getEconomyProvider() == null) {
+			throw new EconomyUnavailableException();
 		}
 
-		if (Boolean.FALSE.equals(pkg.canAfford(player))) {
-			throw new CannotAffordException(
-					player.getName() + " cannot afford package price of " + ChatColor.AQUA + pkg.getPrice());
+		if (!pkg.canAfford(player)) {
+			throw new CannotAffordException(player.getName(), pkg.getPrice());
 		}
 
-		dropPackageOnPlayer(pkg, player, options);
-		// User is charged only if drop package has no exception
+		World world = player.getWorld();
+		Location playerLoc = player.getLocation();
+		Location spawnLocation = getSpawnLocation(world, playerLoc, options);
+
+		// Charge before crate spawn to prevent unpaid drops on transaction failure.
 		pkg.chargeUser(player);
+		try {
+			dropPackageAtLocation(pkg, world, spawnLocation, options);
+		} catch (RuntimeException dropFailure) {
+			attemptRefundOnDropFailure(pkg, player, dropFailure);
+			throw dropFailure;
+		}
+	}
 
+	private static void attemptRefundOnDropFailure(Package pkg, Player player, RuntimeException dropFailure) {
+		if (!ConfigKeys.isEconomyEnabled()) {
+			return;
+		}
+
+		EconomyProvider economy = Airdrop.getEconomyProvider();
+		if (economy == null) {
+			dropFailure.addSuppressed(new IllegalStateException(
+					"Drop failed after charging " + player.getName() + " but no economy provider was available for refund"));
+			return;
+		}
+
+		try {
+			EconomyResult result = economy.deposit(player, pkg.getPrice());
+			if (!result.success()) {
+				dropFailure.addSuppressed(new IllegalStateException(
+						"Drop failed after charging " + player.getName() + " and refund transaction failed"));
+			}
+		} catch (RuntimeException refundFailure) {
+			dropFailure.addSuppressed(refundFailure);
+		}
+	}
+
+	private static Location getSpawnLocation(World world, Location loc, DropOptions options) throws SkyNotClearException {
+		Location highestLocation = world.getHighestBlockAt(loc.getBlockX(), loc.getBlockZ()).getLocation()
+				.add(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK);
+
+		if (loc.getBlockY() < highestLocation.getBlockY()) {
+			throw new SkyNotClearException(loc);
+		}
+
+		return highestLocation.add(ZERO_BLOCKS, options.getDropHeight(), ZERO_BLOCKS);
+	}
+
+	private static void dropPackageAtLocation(Package pkg, World world, Location spawnLocation, DropOptions options) {
+		List<ItemStack> items = pkg.getItems();
+		Crate crate = new Crate(spawnLocation.clone(), world, items, options);
+		crate.dropCrate();
+		Bukkit.getPluginManager().callEvent(new PackageDropEvent(crate, world, crate.getDropLocation()));
 	}
 
 }

@@ -10,6 +10,7 @@ import org.bukkit.entity.Slime;
 import org.bukkit.Bukkit;
 import org.bukkit.Effect;
 import org.bukkit.util.Vector;
+import org.bukkit.scheduler.BukkitTask;
 
 import com.airdropmc.config.DropOptions;
 
@@ -23,6 +24,10 @@ public class ParachuteSystem {
     private final DropOptions options;
     private Slime parachuteLeash;
     private FallingBlock fallingCrate;
+    private BukkitTask parachuteTask;
+    private BukkitTask delayedCleanupTask;
+    private Airdrop plugin;
+    private boolean parachutesReleased;
 
     public ParachuteSystem(World world, DropOptions options) {
         this.world = world;
@@ -36,11 +41,15 @@ public class ParachuteSystem {
      * @param dropLocation The location where the crate is being dropped
      * @param fallingCrate The falling block representing the crate
      */
-    public void initialize(Location dropLocation, FallingBlock fallingCrate) {
+    public void initialize(Location dropLocation, FallingBlock fallingCrate, Airdrop plugin) {
         this.fallingCrate = fallingCrate;
+        this.plugin = plugin;
+        this.parachutesReleased = false;
+        cancelDelayedCleanupTask();
 
         // Create a tiny invisible slime to hold leashes for the crate
-        parachuteLeash = (Slime) world.spawnEntity(dropLocation.add(new Vector(0, 1, 0)), EntityType.SLIME);
+        Location leashLocation = dropLocation.clone().add(new Vector(0, 1, 0));
+        parachuteLeash = (Slime) world.spawnEntity(leashLocation, EntityType.SLIME);
         parachuteLeash.setAI(false);
         parachuteLeash.setSize(1);
         parachuteLeash.setInvisible(true);
@@ -48,8 +57,10 @@ public class ParachuteSystem {
 
         // Create chicken parachuters and attach them to the slime
         for (int i = 0; i < options.getChickenCount(); i++) {
+            Location chickenLocation = dropLocation.clone()
+                    .add(new Vector(Math.random() * 0.25, 2 + i, Math.random() * 0.25));
             Chicken chicken = (Chicken) world.spawnEntity(
-                    dropLocation.add(new Vector(Math.random() * 0.25, 1, Math.random() * 0.25)), EntityType.CHICKEN);
+                    chickenLocation, EntityType.CHICKEN);
             chicken.setInvulnerable(true);
             chicken.setLeashHolder(parachuteLeash);
             chickenParachutes.add(chicken);
@@ -63,10 +74,13 @@ public class ParachuteSystem {
     }
 
     private void startParachuteTask() {
-        Bukkit.getServer().getScheduler().runTaskTimer(Airdrop.getPluginInstance(), new Runnable() {
+        if (plugin == null || !plugin.isEnabled()) {
+            return;
+        }
+        parachuteTask = Bukkit.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
             @Override
             public void run() {
-                if (fallingCrate.isDead()) {
+                if (fallingCrate == null || fallingCrate.isDead()) {
                     releaseParachutes();
                     return;
                 }
@@ -87,24 +101,81 @@ public class ParachuteSystem {
     }
 
     /**
-     * Releases the parachutes and cleans up the system
+     * Releases the parachutes and cleans up the system.
+     * Called repeatedly by the parachute task every 2 ticks after the crate lands.
+     * Do NOT cancel the parachute task here — cancelling from within run() breaks
+     * chicken release. The task keeps running to continuously boost chickens upward
+     * and is cleaned up by the delayed cleanup task or cancel().
      */
     private void releaseParachutes() {
-        // Release chickens and set their velocities
+        // Apply velocity to chickens on every call — continuous boosting makes
+        // them visibly fly up and away (single application is too weak)
         for (Chicken chicken : chickenParachutes) {
+            if (chicken == null || chicken.isDead()) {
+                continue;
+            }
             chicken.setLeashHolder(null);
             double xVel = Math.random() < 0.5 ? Math.random() * 0.5 * -1 : Math.random() * 0.5;
             double zVel = Math.random() < 0.5 ? Math.random() * 0.5 * -1 : Math.random() * 0.5;
             chicken.setVelocity(new Vector(xVel, .5, zVel));
         }
 
-        // Schedule cleanup after the chickens have had time to float up
-        Bukkit.getServer().getScheduler().runTaskLater(Airdrop.getPluginInstance(), () -> {
-            for (Chicken chicken : chickenParachutes) {
-                chicken.remove();
-            }
-            chickenParachutes.clear();
-            parachuteLeash.remove();
+        // Schedule cleanup only once
+        if (parachutesReleased) {
+            return;
+        }
+        parachutesReleased = true;
+
+        if (plugin == null || !plugin.isEnabled()) {
+            cleanupParachuteEntities();
+            return;
+        }
+        delayedCleanupTask = Bukkit.getServer().getScheduler().runTaskLater(plugin, () -> {
+            delayedCleanupTask = null;
+            cancelParachuteTask();
+            cleanupParachuteEntities();
         }, 60);
+    }
+
+    /**
+     * Cancels all tasks and immediately cleans up entities.
+     * Call this when the crate is destroyed or the plugin is disabled.
+     */
+    public void cancel() {
+        parachutesReleased = true;
+        if (parachuteTask != null && !parachuteTask.isCancelled()) {
+            parachuteTask.cancel();
+        }
+        parachuteTask = null;
+        cancelDelayedCleanupTask();
+        // Immediately remove all entities
+        cleanupParachuteEntities();
+    }
+
+	private void cleanupParachuteEntities() {
+		for (Chicken chicken : chickenParachutes) {
+			if (chicken != null && chicken.isValid() && !chicken.isDead()) {
+				chicken.remove();
+			}
+		}
+		chickenParachutes.clear();
+
+		if (parachuteLeash != null && parachuteLeash.isValid() && !parachuteLeash.isDead()) {
+			parachuteLeash.remove();
+		}
+	}
+
+    private void cancelParachuteTask() {
+        if (parachuteTask != null && !parachuteTask.isCancelled()) {
+            parachuteTask.cancel();
+        }
+        parachuteTask = null;
+    }
+
+    private void cancelDelayedCleanupTask() {
+        if (delayedCleanupTask != null && !delayedCleanupTask.isCancelled()) {
+            delayedCleanupTask.cancel();
+        }
+        delayedCleanupTask = null;
     }
 }

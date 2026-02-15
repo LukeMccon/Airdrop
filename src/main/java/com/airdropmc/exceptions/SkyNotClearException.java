@@ -9,6 +9,12 @@ public class SkyNotClearException extends Exception {
      * @param loc attempted drop location
      */
     public SkyNotClearException(Location loc) {
-        super("Sky must be clear above the location: " + loc.toString() + " to drop an airdrop");
+        this.location = loc;
+    }
+
+    private final Location location;
+
+    public Location getLocation() {
+        return location;
     }
 }

@@ -26,14 +26,37 @@ public class FallingCrateListener implements Listener {
 		}
 
 		FallingBlock fallingBlock = (FallingBlock) entity;
-		if (CrateManager.hasCrate(fallingBlock)) {
-			e.setCancelled(true);
-			Location loc = entity.getLocation();
-			World world = loc.getWorld();
-			Crate landedCrate = CrateManager.getCrate(fallingBlock);
-			landedCrate.land(loc.getBlock());
-			PackageLandEvent landEvent = new PackageLandEvent(landedCrate, world, loc, loc.getBlock());
-			Bukkit.getPluginManager().callEvent(landEvent);
+		Crate landedCrate = CrateManager.removeCrate(fallingBlock);
+		if (landedCrate == null) {
+			return;
 		}
+		e.setCancelled(true);
+		// Paper keeps FallingBlock entities alive after event cancellation.
+		// Explicitly remove it so it doesn't fire again and place an empty barrel.
+		fallingBlock.remove();
+		Location loc = entity.getLocation();
+		World world = loc.getWorld();
+		if (world == null) {
+			landedCrate.destroy();
+			return;
+		}
+		try {
+			landedCrate.land(loc.getBlock());
+		} catch (RuntimeException landFailure) {
+			rollbackFailedLanding(landedCrate);
+			throw landFailure;
+		}
+		PackageLandEvent landEvent = new PackageLandEvent(landedCrate, world, loc, loc.getBlock());
+		Bukkit.getPluginManager().callEvent(landEvent);
+	}
+
+	private void rollbackFailedLanding(Crate crate) {
+		Location landedLocation = crate.getLandedLocation();
+		if (landedLocation != null) {
+			if (CrateManager.removeCrateAndDestroy(landedLocation)) {
+				return;
+			}
+		}
+		crate.destroy();
 	}
 }

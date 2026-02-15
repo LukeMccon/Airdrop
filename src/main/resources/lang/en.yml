@@ -1,0 +1,66 @@
+prefix: "{primary}[{text}Airdrop{primary}]"
+
+commands:
+  player-only: "Must be a player to use this command"
+  packages-console-only: "Uses inventory GUI, not available to the console"
+  package-specify: "Must specify a package name"
+  package-example: "Example: /airdrop starter"
+
+packages:
+  info: "{text}\nPackage info for: {accent}{name}{text}\n================\n{text}{info}"
+  info-price: "price: {price}"
+  deleted: "{accent}{name}{primary} was successfully deleted"
+  saved: "Package {accent}{name}{primary} was saved successfully"
+  created: "Package {accent}{name}{primary} was created successfully"
+  edit-canceled: "Package edit was canceled"
+  create-canceled: "Package creation was canceled"
+  delete-specify: "Need to specify a package name to delete"
+  delete-permission: "Must be an admin with {accent}airdrop.admin{error} permissions or a server operator to delete a package"
+  create-args: "Package create command requires a name and price"
+  create-usage: "Usage: /airdrop package create <name> <price>"
+  create-example: "Example: /airdrop package create starter 12.0"
+  name-required: "You must provide a name for the package"
+  name-invalid: "Package names may only contain letters, numbers, underscores, and dashes"
+  price-required: "You must provide the package price as a double"
+  price-invalid: "Package price must be a finite non-negative number"
+  create-open-error: "Unable to open package editor right now"
+  item-limit: "Package can only hold {accent}{max}{error} item stacks (barrel capacity). Remove extra items before saving."
+
+errors:
+  cannot-afford: "{accent}{player}{error} cannot afford package price of {accent}{price}{error}"
+  insufficient-permissions: "You lack permission to drop that package (requires {accent}airdrop.package.{package}{error})"
+  economy-unavailable: "Economy provider is unavailable. Contact a server administrator."
+  reload-unavailable: "Reload unavailable while plugin is shutting down"
+  packages-reload-failed: "Reload failed because packages configuration is unavailable"
+  sky-not-clear: "Sky must be clear above your location to call an airdrop"
+  package-not-found: "Package {accent}{name}{error} not found. Use {warning}/airdrop packages{error} to see available packages"
+  package-exists: "A package named {accent}{name}{error} already exists"
+  package-delete-not-found: "Unable to delete package: {error-detail}{name}{error} not found"
+
+drop:
+  charged: "{accent}${amount}{primary} has been taken from your account"
+
+gui:
+  save: "Save"
+  cancel: "Cancel"
+  back: "Back"
+  help: "Help"
+  editor-help-add-stack: "Left-click inventory: add stack"
+  editor-help-add-one: "Right-click inventory: add 1"
+  editor-help-remove-stack: "Left-click package: remove stack"
+  editor-help-remove-one: "Right-click package: remove 1"
+  packages-title: "Packages"
+  package-price: "${price}"
+
+admin:
+  permission-required: "You must have {accent}airdrop.admin{error} permission to do this"
+  package-save-required: "Must be admin to save package changes"
+
+system:
+  config-loaded: "Config loaded successfully"
+  economy-missing: "Disabling due to missing economy provider (Treasury or Vault)"
+  vault-missing: "Disabling due to missing Vault dependency"
+  reload-success: "Configuration and language reloaded"
+  package-price-missing: "Could not find price for package: {accent}{name}"
+  package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"
+  version-info: "{text}\nAirdrop Version: {accent}{version}{text}\nSpigot API Version: {accent}{api_version}"

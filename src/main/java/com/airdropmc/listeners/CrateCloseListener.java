@@ -19,21 +19,20 @@ public class CrateCloseListener implements Listener {
 		if (e.getInventory().getType() != InventoryType.BARREL)
 			return;
 
-		Barrel barrel = (Barrel) e.getInventory().getHolder();
-
-		if (barrel == null) {
+		if (!(e.getInventory().getHolder() instanceof Barrel barrel)) {
 			return;
 		}
 
 		Location barrelLocation = barrel.getBlock().getLocation();
+		if (CrateManager.getCrate(barrelLocation) == null) {
+			return;
+		}
+
 		boolean barrelInventoryIsEmpty = barrel.getInventory().isEmpty();
 
 		if (barrelInventoryIsEmpty) {
 			barrel.getWorld().playEffect(barrel.getLocation(), Effect.STEP_SOUND, Material.BARREL);
-
-			barrel.getBlock().setType(Material.AIR);
-			CrateManager.removeCrate(barrelLocation);
+			CrateManager.removeCrateAndDestroy(barrelLocation);
 		}
-
 	}
 }

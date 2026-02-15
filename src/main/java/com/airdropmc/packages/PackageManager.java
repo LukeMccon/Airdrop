@@ -2,57 +2,118 @@ package com.airdropmc.packages;
 
 import java.util.*;
 
+import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
+import com.airdropmc.PackagesConfig;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.ItemStack;
 
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
-import com.airdropmc.PackagesConfig;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 /**
  * Manages packages, keeps list of available packages and their contents
- * 
+ *
  * @author lukeMccon
  *
  */
 public class PackageManager {
 
 	public static final String PACKAGES = "packages";
+	public static final int MAX_PACKAGE_ITEM_STACKS = 27;
 
 	PackageManager() {
 
 	}
 
-	private static Map<String, Package> packages = new HashMap<>();
-	private static final YamlConfiguration fileConfig = PackagesConfig.getConfig();
-	private static ConfigurationSection config = (ConfigurationSection) fileConfig.get(PACKAGES);
+	private static final Map<String, Package> packages = new ConcurrentHashMap<>();
+
+	/**
+	 * Gets the packages configuration file
+	 */
+	private static FileConfiguration getFileConfig() {
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (packagesConfig == null) {
+			return null;
+		}
+		return packagesConfig.getConfig();
+	}
+
+	/**
+	 * Gets the packages section from config
+	 */
+	private static ConfigurationSection getPackagesSection() {
+		FileConfiguration fileConfig = getFileConfig();
+		if (fileConfig == null) {
+			return null;
+		}
+		return fileConfig.getConfigurationSection(PACKAGES);
+	}
+
+	/**
+	 * Ensures the packages section exists before mutating config.
+	 */
+	private static ConfigurationSection getOrCreatePackagesSection() {
+		FileConfiguration fileConfig = getFileConfig();
+		if (fileConfig == null) {
+			return null;
+		}
+		ConfigurationSection section = fileConfig.getConfigurationSection(PACKAGES);
+		if (section == null) {
+			section = fileConfig.createSection(PACKAGES);
+		}
+		return section;
+	}
+
+	private static void refreshPackagesGui() {
+		PackagesGui gui = Airdrop.getPackagesGui();
+		if (gui != null) {
+			gui.initializeItems();
+		}
+	}
 
 	/**
 	 * Syncs the package manager with the packages.yml file
 	 */
-	public static void reload() {
+	public static boolean reload() {
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (packagesConfig == null) {
+			AirdropLogger.warning("Skipping package reload: packages configuration is unavailable");
+			packages.clear();
+			return false;
+		}
 		// Force a reload from config
-		PackagesConfig.loadConfig();
-		config = (ConfigurationSection) PackagesConfig.getConfig().get(PACKAGES);
+		AirdropLogger.debug("Reloading packages from packages.yml");
+		packagesConfig.reloadConfig();
 		PackageManager.populatePackages();
-		Airdrop.getPluginInstance().setupPackageGuis();
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin != null && plugin.isEnabled()) {
+			plugin.setupPackageGuis();
+		} else {
+			AirdropLogger.warning("Skipping packages GUI setup: plugin instance is unavailable");
+		}
+		AirdropLogger.debug("Loaded " + packages.size() + " package(s)");
+		return true;
 	}
 
 	/**
 	 * Get all packages as a set from the config
-	 * 
+	 *
 	 * @return set of package names
 	 */
 	public static Set<String> getPackages() {
-		return config.getKeys(false);
+		ConfigurationSection section = getPackagesSection();
+		return section != null ? section.getKeys(false) : Collections.emptySet();
 	}
 
 	/**
 	 * Get a package given the package name
-	 * 
+	 *
 	 * @param packageName name of package
 	 * @return the package
 	 * @throws PackageNotFoundException if the package does not exist
@@ -71,10 +132,15 @@ public class PackageManager {
 	 * file
 	 */
 	private static void populatePackages() {
+		packages.clear();
+		ConfigurationSection config = getPackagesSection();
+		if (config == null) {
+			return;
+		}
 
-		for (String pkg : getPackages()) {
+		for (String pkg : config.getKeys(false)) {
 			ArrayList<ItemStack> items = new ArrayList<>();
-			ConfigurationSection section = (ConfigurationSection) config.get(pkg);
+			ConfigurationSection section = config.getConfigurationSection(pkg);
 
 			if (section != null) {
 
@@ -88,31 +154,64 @@ public class PackageManager {
 				}
 
 				String name = pkg;
-				double price = 0.0;
+				double price = config.getDouble(pkg + ".price", 0.0);
 
-				try {
-					price = config.getDouble(pkg + ".price");
-				} catch (Exception e) {
-					ChatHandler.getLogger().warning("Could not find price for package: " + name);
+				if (price == 0.0 && !config.isSet(pkg + ".price")) {
+					AirdropLogger.warning(
+							ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_MISSING, Map.of("name", name)));
 				}
-				PackageManager.packages.put(name, new Package(name, price, items));
+				if (!Package.isValidPrice(price)) {
+					AirdropLogger.warning(ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_INVALID,
+							Map.of("name", name, "price", String.valueOf(price))));
+					price = 0.0;
+				}
+				List<ItemStack> limitedItems = limitToBarrelCapacity(items, name);
+				PackageManager.packages.put(name, new Package(name, price, limitedItems));
 			}
 		}
 	}
 
+	public static int getFilteredItemCount(List<ItemStack> items) {
+		return sanitizePackageItems(items).size();
+	}
+
+	public static List<ItemStack> sanitizePackageItems(List<ItemStack> items) {
+		if (items == null || items.isEmpty()) {
+			return new ArrayList<>();
+		}
+
+		return items.stream()
+				.filter(Objects::nonNull)
+				.filter(itemStack -> !itemStack.getType().isAir())
+				.filter(itemStack -> !PackageGui.isControlItemStack(itemStack))
+				.collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+	}
+
+	private static List<ItemStack> limitToBarrelCapacity(List<ItemStack> items, String packageName) {
+		List<ItemStack> sanitizedItems = sanitizePackageItems(items);
+		if (sanitizedItems.size() <= MAX_PACKAGE_ITEM_STACKS) {
+			return sanitizedItems;
+		}
+
+		AirdropLogger.warning("Package '" + packageName + "' has " + sanitizedItems.size()
+				+ " item stacks, but only " + MAX_PACKAGE_ITEM_STACKS
+				+ " fit in a barrel. Extra stacks will be ignored.");
+		return new ArrayList<>(sanitizedItems.subList(0, MAX_PACKAGE_ITEM_STACKS));
+	}
+
 	/**
 	 * Lookup if a package exists
-	 * 
+	 *
 	 * @param packageName package name
 	 * @return package exists
 	 */
-	public static Boolean has(String packageName) {
+	public static boolean has(String packageName) {
 		return getPackages().contains(packageName);
 	}
 
 	/**
 	 * Gives information about a package as a string
-	 * 
+	 *
 	 * @param packageName of package to lookup
 	 * @return information as a string
 	 * @throws PackageNotFoundException if the package does not exist
@@ -124,7 +223,7 @@ public class PackageManager {
 
 	/**
 	 * Given a package and a list of items, update the packages items
-	 * 
+	 *
 	 * @param packageName name of package to lookup
 	 * @param items       to update
 	 * @throws PackageNotFoundException if the package doesn't exist
@@ -134,43 +233,73 @@ public class PackageManager {
 
 		Package pkg;
 		pkg = PackageManager.get(packageName);
-		pkg.setItems(items);
-		config.set(packageName + ".items", items.stream().filter(Objects::nonNull)
-				.filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		List<ItemStack> limitedItems = limitToBarrelCapacity(items, packageName);
+		pkg.setItems(limitedItems);
 
-		fileConfig.set(PACKAGES, config);
-		PackagesConfig.saveConfig(fileConfig);
-		PackageManager.reload();
+		ConfigurationSection config = getOrCreatePackagesSection();
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (config == null || packagesConfig == null) {
+			throw new IllegalStateException("Packages configuration is unavailable");
+		}
+
+		config.set(packageName + ".items", new ArrayList<>(limitedItems));
+		packagesConfig.saveConfig();
 	}
 
 	/**
 	 * Create a new package
-	 * 
+	 *
 	 * @param pkg to create
 	 */
 	public static void createPackage(Package pkg) throws DuplicatePackageException {
+		if (PackageManager.has(pkg.getName())) {
+			throw new DuplicatePackageException(pkg.getName());
+		}
+		if (!Package.isValidPrice(pkg.getPrice())) {
+			throw new IllegalArgumentException("Package price must be finite and non-negative");
+		}
+
+		List<ItemStack> limitedItems = limitToBarrelCapacity(pkg.getItems(), pkg.getName());
+		pkg.setItems(limitedItems);
+
+		ConfigurationSection config = getOrCreatePackagesSection();
+		FileConfiguration fileConfig = getFileConfig();
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (config == null || fileConfig == null || packagesConfig == null) {
+			throw new IllegalStateException("Packages configuration is unavailable");
+		}
+
 		config.set(pkg.getName() + ".price", pkg.getPrice());
-		config.set(pkg.getName() + ".items", pkg.getItems().stream().filter(Objects::nonNull)
-				.filter(itemstack -> !PackageGui.isControlItemStack(itemstack)).toArray());
+		config.set(pkg.getName() + ".items", new ArrayList<>(limitedItems));
 		fileConfig.set(PACKAGES, config);
-		PackagesConfig.saveConfig(fileConfig);
-		PackageManager.reload();
+		packagesConfig.saveConfig();
+		packages.put(pkg.getName(), pkg);
+		refreshPackagesGui();
 	}
 
 	/**
 	 * Delete a package given a name
-	 * 
+	 *
 	 * @param packageName name of the package to delete
 	 * @throws PackageNotFoundException package couldn't be found
 	 */
 	public static void deletePackage(String packageName) throws PackageNotFoundException {
+		ConfigurationSection config = getOrCreatePackagesSection();
+		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
+		if (config == null || packagesConfig == null) {
+			throw new IllegalStateException("Packages configuration is unavailable");
+		}
 
 		// Make sure the package exists
 		get(packageName);
 		config.set(packageName, null);
-		fileConfig.set(PACKAGES, config);
-		PackagesConfig.saveConfig(fileConfig);
-		PackageManager.reload();
+		packagesConfig.saveConfig();
+		packages.remove(packageName);
+		refreshPackagesGui();
+	}
+
+	public static void clear() {
+		packages.clear();
 	}
 
 }

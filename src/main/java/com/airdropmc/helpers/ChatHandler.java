@@ -1,11 +1,13 @@
 package com.airdropmc.helpers;
 
+import com.airdropmc.lang.LanguageManager;
+import com.airdropmc.lang.MessageKey;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.logging.Logger;
+import java.util.Map;
 
 public class ChatHandler {
 
@@ -13,7 +15,64 @@ public class ChatHandler {
 
 	}
 
-	private static final String CHAT_PREFIX = ChatColor.BLUE + "[" + ChatColor.WHITE + "Airdrop" + ChatColor.BLUE + "]";
+	private static LanguageManager lang;
+
+	public static void init(LanguageManager langManager) {
+		lang = langManager;
+	}
+
+	private static String getChatPrefix() {
+		if (lang != null) {
+			return lang.get(MessageKey.PREFIX);
+		}
+		return ChatTheme.primary() + "[" + ChatTheme.text() + "Airdrop" + ChatTheme.primary() + "]";
+	}
+
+	private static String formatMessage(String message) {
+		if (message == null) {
+			return "";
+		}
+		return ChatColor.translateAlternateColorCodes('&', message);
+	}
+
+	public static String get(MessageKey key) {
+		if (lang == null) {
+			return key.getDefault();
+		}
+		return lang.get(key);
+	}
+
+	public static String get(MessageKey key, Map<String, String> placeholders) {
+		if (lang == null) {
+			return key.getDefault();
+		}
+		return lang.get(key, placeholders);
+	}
+
+	public static void send(CommandSender sender, MessageKey key) {
+		sendMessage(sender, get(key));
+	}
+
+	public static void send(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
+		sendMessage(sender, get(key, placeholders));
+	}
+
+	public static void sendWithoutPrefix(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
+		String formattedMessage = formatMessage(get(key, placeholders));
+		if (sender instanceof Player) {
+			sender.sendMessage(formattedMessage);
+		} else {
+			Bukkit.getServer().getConsoleSender().sendMessage(formattedMessage);
+		}
+	}
+
+	public static void sendError(CommandSender sender, MessageKey key) {
+		sendErrorMessage(sender, get(key));
+	}
+
+	public static void sendError(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
+		sendErrorMessage(sender, get(key, placeholders));
+	}
 
 	/**
 	 * Sends error message to a CommandSender
@@ -22,7 +81,7 @@ public class ChatHandler {
 	 */
 	public static void sendErrorMessage(CommandSender sender, String message) {
 
-		String formattedMessage = CHAT_PREFIX + ChatColor.RED + " "+ message;
+		String formattedMessage = formatMessage(getChatPrefix() + ChatTheme.error() + " " + message);
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);
@@ -39,7 +98,7 @@ public class ChatHandler {
 	 * @param message the message to send
 	 */
 	public static void sendMessage(CommandSender sender, String message) {
-		String formattedMessage = CHAT_PREFIX + ChatColor.BLUE + " " + message;
+		String formattedMessage = formatMessage(getChatPrefix() + ChatTheme.primary() + " " + message);
 
 		if (sender instanceof Player) {
 			sender.sendMessage(formattedMessage);
@@ -54,11 +113,7 @@ public class ChatHandler {
 	 * @param message to log
 	 */
 	public static void logMessage(String message) {
-		Bukkit.getLogger().info(message);
-	}
-
-	public static Logger getLogger() {
-		return Bukkit.getLogger();
+		AirdropLogger.info(message);
 	}
 
 }

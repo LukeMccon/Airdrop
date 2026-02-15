@@ -11,13 +11,13 @@ import com.airdropmc.helpers.CrateManager;
 
 public class CrateDestroyListener implements Listener {
 
-    @EventHandler(priority = EventPriority.LOW)
-    public void onBlockBreak(BlockBreakEvent e) {
-        if (e.getBlock().getType() != Material.BARREL) {
-            return;
-        }
-        Location barrelLocation = e.getBlock().getLocation();
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onBlockBreak(BlockBreakEvent e) {
+		if (e.getBlock().getType() != Material.BARREL) {
+			return;
+		}
+		Location barrelLocation = e.getBlock().getLocation();
 
-        CrateManager.removeCrate(barrelLocation);
-    }
+		CrateManager.removeCrateAndDestroy(barrelLocation);
+	}
 }

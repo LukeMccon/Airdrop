@@ -1,23 +1,29 @@
 package com.airdropmc;
 
-import java.io.File;
 import java.util.Objects;
 
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.lang.LanguageManager;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.listeners.CrateDestroyListener;
 import com.airdropmc.listeners.CrateCloseListener;
+import com.airdropmc.listeners.CrateCleanupListener;
 import com.airdropmc.listeners.CrateOpenListener;
 import com.airdropmc.listeners.FallingCrateListener;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
+import com.airdropmc.config.ConfigKeys;
+import com.airdropmc.economy.EconomyProvider;
+import com.airdropmc.economy.TreasuryEconomyProvider;
+import com.airdropmc.economy.VaultEconomyProvider;
 import net.luckperms.api.LuckPerms;
-import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.java.JavaPluginLoader;
 
 import com.airdropmc.commands.CmdAirdrop;
 
@@ -33,17 +39,11 @@ public class Airdrop extends JavaPlugin {
 	private static String pluginApiVersion;
 	private static LuckPerms luckPerms;
 	private static PackagesGui packagesGui;
-	private static Economy airdropEconomy = null;
+	private static EconomyProvider economyProvider = null;
 	private static Config configuration;
+	private static PackagesConfig packagesConfiguration;
+	private LanguageManager languageManager;
 
-	// Define constructors per BukkitMock setup instructions
-	public Airdrop() {
-		super();
-	}
-
-	protected Airdrop(JavaPluginLoader loader, PluginDescriptionFile description, File dataFolder, File file) {
-		super(loader, description, dataFolder, file);
-	}
 
 	@Override
 	public void onEnable() {
@@ -56,12 +56,21 @@ public class Airdrop extends JavaPlugin {
 		// Load configuration
 		configuration = new Config(this);
 		configuration.saveDefaultConfig();
+		configuration.getConfig();
+
+		// Initialize language system
+		this.languageManager = new LanguageManager(this);
+		String lang = configuration.getConfig().getString("language", "en");
+		languageManager.loadLanguage(lang);
+		ChatHandler.init(languageManager);
 
 		// Economy
-		if (!setupEconomy()) {
-			ChatHandler.logMessage("Disabling due to no Vault dependency");
-			getServer().getPluginManager().disablePlugin(Airdrop.pluginInstance);
-			return;
+		if (ConfigKeys.isEconomyEnabled()) {
+			if (!setupEconomy()) {
+				ChatHandler.logMessage(ChatHandler.get(MessageKey.SYSTEM_ECONOMY_MISSING));
+				getServer().getPluginManager().disablePlugin(Airdrop.pluginInstance);
+				return;
+			}
 		}
 
 		// Register Command and tab completer
@@ -73,9 +82,11 @@ public class Airdrop extends JavaPlugin {
 		Bukkit.getPluginManager().registerEvents(new CrateCloseListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateCleanupListener(), this);
 
-		// Load configuration files
-		PackagesConfig.loadConfig();
+		// Load packages configuration
+		packagesConfiguration = new PackagesConfig(this);
+		packagesConfiguration.getConfig();
 
 		// Start the package manager
 		PackageManager.reload();
@@ -86,24 +97,70 @@ public class Airdrop extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
-
+		Bukkit.getScheduler().cancelTasks(this);
+		CrateManager.clearAll();
+		PackageManager.clear();
+		if (packagesGui != null) {
+			HandlerList.unregisterAll(packagesGui);
+			packagesGui = null;
+		}
+		HandlerList.unregisterAll(this);
+		pluginInstance = null;
+		pluginVersion = null;
+		pluginApiVersion = null;
+		luckPerms = null;
+		economyProvider = null;
+		configuration = null;
+		packagesConfiguration = null;
 	}
 
 	private boolean setupEconomy() {
+		EconomyProvider treasuryProvider = setupTreasuryEconomy();
+		if (treasuryProvider != null) {
+			economyProvider = treasuryProvider;
+			ChatHandler.logMessage("Using economy provider: " + treasuryProvider.getName());
+			return true;
+		}
+
+		EconomyProvider vaultProvider = setupVaultEconomy();
+		if (vaultProvider != null) {
+			economyProvider = vaultProvider;
+			ChatHandler.logMessage("Using economy provider: " + vaultProvider.getName());
+			return true;
+		}
+
+		return false;
+	}
+
+	private EconomyProvider setupTreasuryEconomy() {
+		try {
+			return TreasuryEconomyProvider.fromServiceRegistry().orElse(null);
+		} catch (NoClassDefFoundError ex) {
+			return null;
+		}
+	}
+
+	private EconomyProvider setupVaultEconomy() {
 		if (getServer().getPluginManager().getPlugin("Vault") == null) {
-			return false;
+			return null;
 		}
-		RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
+		RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> rsp =
+				getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
 		if (rsp == null) {
-			return false;
+			return null;
 		}
-		airdropEconomy = rsp.getProvider();
-		return airdropEconomy != null;
+		net.milkbowl.vault.economy.Economy vault = rsp.getProvider();
+		if (vault == null) {
+			return null;
+		}
+		return new VaultEconomyProvider(vault);
 	}
 
 	public void setupPackageGuis() {
+		if (packagesGui != null) {
+			HandlerList.unregisterAll(packagesGui);
+		}
 		packagesGui = new PackagesGui();
-		Bukkit.getPluginManager().registerEvents(packagesGui, this);
 	}
 
 	public static Airdrop getPluginInstance() {
@@ -130,8 +187,8 @@ public class Airdrop extends JavaPlugin {
 		return packagesGui;
 	}
 
-	public static Economy getAirdropEconomy() {
-		return airdropEconomy;
+	public static EconomyProvider getEconomyProvider() {
+		return economyProvider;
 	}
 
 	public static String getVersion() {
@@ -140,6 +197,14 @@ public class Airdrop extends JavaPlugin {
 
 	public static Config getConfiguration() {
 		return configuration;
+	}
+
+	public static PackagesConfig getPackagesConfiguration() {
+		return packagesConfiguration;
+	}
+
+	public LanguageManager getLanguageManager() {
+		return languageManager;
 	}
 
 }

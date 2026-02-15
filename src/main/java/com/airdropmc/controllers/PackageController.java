@@ -2,21 +2,26 @@ package com.airdropmc.controllers;
 
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.Package;
+import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.Bukkit;
 
 public class PackageController {
+	private static final Pattern VALID_PACKAGE_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_-]+$");
 
 	private PackageController() {
 
@@ -30,24 +35,22 @@ public class PackageController {
 	 */
 	public static void deletePackageCommand(CommandSender sender, String[] args) {
 		if (args.length != 3) {
-			ChatHandler.sendErrorMessage(sender, "Need to specify a package name to delete");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_DELETE_SPECIFY);
+			return;
 		}
 
 		// Create a new package
 		if (!PermissionsHelper.isAdmin(sender)) {
-			ChatHandler.sendErrorMessage(sender,
-					"Must be an admin with airdrop.admin permissions or a server operator to delete a package");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_DELETE_PERMISSION);
 			return;
 		}
 
 		String packageName = args[2];
 		try {
 			PackageManager.deletePackage(packageName);
-			ChatHandler.sendMessage(sender,
-					ChatColor.AQUA + packageName + ChatColor.BLUE + " was successfully deleted");
+			ChatHandler.send(sender, MessageKey.PACKAGES_DELETED, Map.of("name", packageName));
 		} catch (PackageNotFoundException e) {
-			ChatHandler.sendErrorMessage(sender,
-					"Unable to delete package: " + ChatColor.DARK_RED + packageName + ChatColor.RED + " not found");
+			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_DELETE_NOT_FOUND, Map.of("name", packageName));
 		}
 	}
 
@@ -70,22 +73,33 @@ public class PackageController {
 	public static void createPackageCommand(CommandSender sender, String[] args) {
 
 		if (args.length != 4) {
-			ChatHandler.sendErrorMessage(sender, "Package create command requires 4 total arguments");
-			ChatHandler.sendErrorMessage(sender, "Example: /airdrop package create myPackage 12.0");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_ARGS);
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_USAGE);
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_EXAMPLE);
+			return;
+		}
+
+		if (!PermissionsHelper.isAdmin(sender)) {
+			ChatHandler.sendError(sender, MessageKey.ADMIN_PERMISSION_REQUIRED);
+			return;
 		}
 
 		// Create a new package
 		if (!(sender instanceof Player player)) {
-			ChatHandler.sendErrorMessage(sender, "Must be a player to use this command");
+			ChatHandler.sendError(sender, MessageKey.COMMANDS_PLAYER_ONLY);
 			return;
 		}
 
-		String packageName = args[2];
+		String packageName = args[2] == null ? "" : args[2].trim();
 		String priceString = args[3];
 		double price = 0;
 
 		if (packageName == null || packageName.isBlank()) {
-			ChatHandler.sendErrorMessage(sender, "You must provide a name for the package");
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_NAME_REQUIRED);
+			return;
+		}
+		if (!VALID_PACKAGE_NAME_PATTERN.matcher(packageName).matches()) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_NAME_INVALID);
 			return;
 		}
 
@@ -93,14 +107,25 @@ public class PackageController {
 			try {
 				price = Double.parseDouble(priceString);
 			} catch (NumberFormatException e) {
-				ChatHandler.sendErrorMessage(sender, "You must provide the package price as a double");
-				ChatHandler.sendErrorMessage(sender, "Example: /airdrop package create myPackage 12.0");
+				ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_REQUIRED);
+				ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_USAGE);
+				ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_EXAMPLE);
 				return;
 			}
 		}
 
-		CreatePackageGui createGui = new CreatePackageGui(packageName, price);
+		if (!Package.isValidPrice(price)) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_INVALID);
+			return;
+		}
 
+		CreatePackageGui createGui = new CreatePackageGui(packageName, price);
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !plugin.isEnabled()) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
+			return;
+		}
+		Bukkit.getPluginManager().registerEvents(createGui, plugin);
 		createGui.openInventory(player);
 	}
 
