@@ -48,3 +48,9 @@ build-all.sh
 
 .gradle/
 .gradle-tmp/
+
+# Claude / AI
+CLAUDE.md
+AGENTS.md
+.claude/
+docs/
