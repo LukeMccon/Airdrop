@@ -35,7 +35,7 @@ public class CrateCleanupListener implements Listener {
 		}
 	}
 
-	@EventHandler(priority = EventPriority.LOW)
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onChunkUnload(ChunkUnloadEvent e) {
 		Chunk chunk = e.getChunk();
 		// Landed crates are persistent barrels and should remain tracked after unload.

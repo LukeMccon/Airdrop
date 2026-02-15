@@ -228,9 +228,9 @@ public class CreatePackageGui extends Gui implements Listener {
         ChatHandler.send(p, MessageKey.PACKAGES_CREATE_CANCELED);
     }
 
-    private int getFirstControlSlot() {
-        return inv.getSize() - 3;
-    }
+	private int getFirstControlSlot() {
+		return PackageManager.MAX_PACKAGE_ITEM_STACKS;
+	}
 
     private boolean isEditablePackageSlot(int slot) {
         return slot >= 0 && slot < getFirstControlSlot();
@@ -258,12 +258,12 @@ public class CreatePackageGui extends Gui implements Listener {
         }
 
         while (remaining > 0) {
-            int targetSlot = findFirstEmptyEditableSlot();
-            if (targetSlot == -1) {
-                ChatHandler.sendError(player, MessageKey.PACKAGES_ITEM_LIMIT,
-                        Map.of("max", String.valueOf(PackageManager.MAX_PACKAGE_ITEM_STACKS)));
-                return;
-            }
+			int targetSlot = findFirstEmptyEditableSlot();
+			if (targetSlot == -1) {
+				ChatHandler.sendError(player, MessageKey.PACKAGES_ITEM_LIMIT,
+						Map.of("max", String.valueOf(getFirstControlSlot())));
+				return;
+			}
 
             int stackAmount = Math.min(itemToCopy.getMaxStackSize(), remaining);
             ItemStack toInsert = itemToCopy.clone();
