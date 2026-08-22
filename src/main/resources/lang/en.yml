@@ -36,6 +36,7 @@ errors:
   package-not-found: "Package {accent}{name}{error} not found. Use {warning}/airdrop packages{error} to see available packages"
   package-exists: "A package named {accent}{name}{error} already exists"
   package-delete-not-found: "Unable to delete package: {error-detail}{name}{error} not found"
+  package-save-failed: "Could not save package changes. No changes were made. Check the server log."
 
 drop:
   charged: "{accent}${amount}{primary} has been taken from your account"

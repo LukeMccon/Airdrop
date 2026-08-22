@@ -209,7 +209,10 @@ public class PackageGui extends Gui implements Listener {
         }
 
         try {
-            PackageManager.updatePackageInventory(this.getName(), packageItems);
+            if (!PackageManager.updatePackageInventory(this.getName(), packageItems)) {
+                ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+                return;
+            }
         } catch (PackageNotFoundException error) {
             ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_NOT_FOUND,
                     Map.of("name", error.getPackageName()));

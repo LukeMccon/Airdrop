@@ -47,7 +47,10 @@ public class PackageController {
 
 		String packageName = args[2];
 		try {
-			PackageManager.deletePackage(packageName);
+			if (!PackageManager.deletePackage(packageName)) {
+				ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+				return;
+			}
 			ChatHandler.send(sender, MessageKey.PACKAGES_DELETED, Map.of("name", packageName));
 		} catch (PackageNotFoundException e) {
 			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_DELETE_NOT_FOUND, Map.of("name", packageName));
@@ -58,10 +61,11 @@ public class PackageController {
 	 * Deletes a package given the name
 	 * 
 	 * @param packageName name of the package to delete
+	 * @return true when the package was persisted and deleted, false when persistence failed
 	 * @throws PackageNotFoundException if the package doesn't exist
 	 */
-	public static void deletePackage(String packageName) throws PackageNotFoundException {
-		PackageManager.deletePackage(packageName);
+	public static boolean deletePackage(String packageName) throws PackageNotFoundException {
+		return PackageManager.deletePackage(packageName);
 	}
 
 	/**
@@ -134,12 +138,13 @@ public class PackageController {
 	 * 
 	 * @param packageName name of package to create
 	 * @param price       price of package to create
-	 * @throws PackageNotFoundException if package already exists
+	 * @return true when the package was persisted and created, false when persistence failed
+	 * @throws DuplicatePackageException if package already exists
 	 */
-	public static void createPackage(String packageName, double price) throws DuplicatePackageException {
+	public static boolean createPackage(String packageName, double price) throws DuplicatePackageException {
 		List<ItemStack> items = new ArrayList<>();
 		Package pkg = new Package(packageName, price, items);
-		PackageManager.createPackage(pkg);
+		return PackageManager.createPackage(pkg);
 	}
 
 	/**
@@ -148,12 +153,13 @@ public class PackageController {
 	 * @param packageName name of package
 	 * @param price       price of package
 	 * @param items       items in package
-	 * @throws PackageNotFoundException if package already exists
+	 * @return true when the package was persisted and created, false when persistence failed
+	 * @throws DuplicatePackageException if package already exists
 	 */
-	public static void createPackage(String packageName, double price, List<ItemStack> items)
+	public static boolean createPackage(String packageName, double price, List<ItemStack> items)
 			throws DuplicatePackageException {
 		Package pkg = new Package(packageName, price, items);
-		PackageManager.createPackage(pkg);
+		return PackageManager.createPackage(pkg);
 	}
 
 }

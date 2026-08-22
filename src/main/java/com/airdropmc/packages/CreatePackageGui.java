@@ -201,18 +201,20 @@ public class CreatePackageGui extends Gui implements Listener {
             return;
         }
 
-        inventorySnapshot.restore(p);
-        p.closeInventory();
-
         Package pkg = new Package(this.name, this.price, packageItems);
         try {
-            PackageManager.createPackage(pkg);
+            if (!PackageManager.createPackage(pkg)) {
+                ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+                return;
+            }
         } catch (DuplicatePackageException error) {
             ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_EXISTS,
                     Map.of("name", error.getPackageName()));
             return;
         }
 
+        inventorySnapshot.restore(p);
+        p.closeInventory();
         ChatHandler.send(p, MessageKey.PACKAGES_CREATED, Map.of("name", this.getName()));
     }
 

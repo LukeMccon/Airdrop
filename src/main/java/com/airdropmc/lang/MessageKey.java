@@ -46,6 +46,9 @@ public enum MessageKey {
 	ERROR_PACKAGE_EXISTS("errors.package-exists", "A package named {accent}{name}{error} already exists"),
 	ERROR_PACKAGE_DELETE_NOT_FOUND("errors.package-delete-not-found",
 			"Unable to delete package: {error-detail}{name}{error} not found"),
+	ERROR_PACKAGE_SAVE_FAILED(
+			"errors.package-save-failed",
+			"Could not save package changes. No changes were made. Check the server log."),
 
 	DROP_CHARGED("drop.charged", "{accent}${amount}{primary} has been taken from your account"),
 
