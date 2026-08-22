@@ -8,7 +8,9 @@ import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
 import com.airdropmc.PackagesConfig;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
 import com.airdropmc.exceptions.DuplicatePackageException;
@@ -55,19 +57,14 @@ public class PackageManager {
 		return fileConfig.getConfigurationSection(PACKAGES);
 	}
 
-	/**
-	 * Ensures the packages section exists before mutating config.
-	 */
-	private static ConfigurationSection getOrCreatePackagesSection() {
-		FileConfiguration fileConfig = getFileConfig();
-		if (fileConfig == null) {
-			return null;
+	private static YamlConfiguration copyConfiguration(FileConfiguration fileConfig) {
+		YamlConfiguration candidate = new YamlConfiguration();
+		try {
+			candidate.loadFromString(fileConfig.saveToString());
+		} catch (InvalidConfigurationException ex) {
+			throw new IllegalStateException("Could not copy packages configuration generated in memory", ex);
 		}
-		ConfigurationSection section = fileConfig.getConfigurationSection(PACKAGES);
-		if (section == null) {
-			section = fileConfig.createSection(PACKAGES);
-		}
-		return section;
+		return candidate;
 	}
 
 	private static void refreshPackagesGui() {
@@ -228,22 +225,26 @@ public class PackageManager {
 	 * @param items       to update
 	 * @throws PackageNotFoundException if the package doesn't exist
 	 */
-	public static void updatePackageInventory(String packageName, List<ItemStack> items)
+	public static boolean updatePackageInventory(String packageName, List<ItemStack> items)
 			throws PackageNotFoundException {
 
-		Package pkg;
-		pkg = PackageManager.get(packageName);
-		List<ItemStack> limitedItems = limitToBarrelCapacity(items, packageName);
-		pkg.setItems(limitedItems);
-
-		ConfigurationSection config = getOrCreatePackagesSection();
+		Package pkg = PackageManager.get(packageName);
 		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
-		if (config == null || packagesConfig == null) {
+		FileConfiguration fileConfig = packagesConfig != null ? packagesConfig.getConfig() : null;
+		if (fileConfig == null) {
 			throw new IllegalStateException("Packages configuration is unavailable");
 		}
 
-		config.set(packageName + ".items", new ArrayList<>(limitedItems));
-		packagesConfig.saveConfig();
+		List<ItemStack> limitedItems = limitToBarrelCapacity(items, packageName);
+		YamlConfiguration candidate = copyConfiguration(fileConfig);
+		candidate.set(PACKAGES + "." + packageName + ".items", new ArrayList<>(limitedItems));
+
+		if (!packagesConfig.saveConfig(candidate)) {
+			return false;
+		}
+
+		pkg.setItems(limitedItems);
+		return true;
 	}
 
 	/**
@@ -251,30 +252,32 @@ public class PackageManager {
 	 *
 	 * @param pkg to create
 	 */
-	public static void createPackage(Package pkg) throws DuplicatePackageException {
+	public static boolean createPackage(Package pkg) throws DuplicatePackageException {
 		if (PackageManager.has(pkg.getName())) {
 			throw new DuplicatePackageException(pkg.getName());
 		}
 		if (!Package.isValidPrice(pkg.getPrice())) {
 			throw new IllegalArgumentException("Package price must be finite and non-negative");
 		}
-
-		List<ItemStack> limitedItems = limitToBarrelCapacity(pkg.getItems(), pkg.getName());
-		pkg.setItems(limitedItems);
-
-		ConfigurationSection config = getOrCreatePackagesSection();
-		FileConfiguration fileConfig = getFileConfig();
 		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
-		if (config == null || fileConfig == null || packagesConfig == null) {
+		FileConfiguration fileConfig = packagesConfig != null ? packagesConfig.getConfig() : null;
+		if (fileConfig == null) {
 			throw new IllegalStateException("Packages configuration is unavailable");
 		}
 
-		config.set(pkg.getName() + ".price", pkg.getPrice());
-		config.set(pkg.getName() + ".items", new ArrayList<>(limitedItems));
-		fileConfig.set(PACKAGES, config);
-		packagesConfig.saveConfig();
+		List<ItemStack> limitedItems = limitToBarrelCapacity(pkg.getItems(), pkg.getName());
+		YamlConfiguration candidate = copyConfiguration(fileConfig);
+		candidate.set(PACKAGES + "." + pkg.getName() + ".price", pkg.getPrice());
+		candidate.set(PACKAGES + "." + pkg.getName() + ".items", new ArrayList<>(limitedItems));
+
+		if (!packagesConfig.saveConfig(candidate)) {
+			return false;
+		}
+
+		pkg.setItems(limitedItems);
 		packages.put(pkg.getName(), pkg);
 		refreshPackagesGui();
+		return true;
 	}
 
 	/**
@@ -283,19 +286,23 @@ public class PackageManager {
 	 * @param packageName name of the package to delete
 	 * @throws PackageNotFoundException package couldn't be found
 	 */
-	public static void deletePackage(String packageName) throws PackageNotFoundException {
-		ConfigurationSection config = getOrCreatePackagesSection();
+	public static boolean deletePackage(String packageName) throws PackageNotFoundException {
+		get(packageName);
 		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
-		if (config == null || packagesConfig == null) {
+		FileConfiguration fileConfig = packagesConfig != null ? packagesConfig.getConfig() : null;
+		if (fileConfig == null) {
 			throw new IllegalStateException("Packages configuration is unavailable");
 		}
 
-		// Make sure the package exists
-		get(packageName);
-		config.set(packageName, null);
-		packagesConfig.saveConfig();
+		YamlConfiguration candidate = copyConfiguration(fileConfig);
+		candidate.set(PACKAGES + "." + packageName, null);
+		if (!packagesConfig.saveConfig(candidate)) {
+			return false;
+		}
+
 		packages.remove(packageName);
 		refreshPackagesGui();
+		return true;
 	}
 
 	public static void clear() {
