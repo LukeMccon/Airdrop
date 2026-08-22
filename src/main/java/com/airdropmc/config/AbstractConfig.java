@@ -6,7 +6,13 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.logging.Level;
+
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
  * Base class for YAML configuration file handling.
@@ -56,14 +62,36 @@ public abstract class AbstractConfig {
 		return config;
 	}
 
-	public void saveConfig() {
-		if (config == null || configFile == null) {
-			return;
+	public boolean saveConfig() {
+		return saveConfig(config);
+	}
+
+	public boolean saveConfig(FileConfiguration candidate) {
+		if (candidate == null || configFile == null) {
+			return false;
 		}
+		Path temporaryFile = null;
 		try {
-			config.save(configFile);
+			Path targetFile = configFile.toPath().toAbsolutePath();
+			temporaryFile = Files.createTempFile(targetFile.getParent(), configFile.getName() + ".", ".tmp");
+			candidate.save(temporaryFile.toFile());
+			try {
+				Files.move(temporaryFile, targetFile, ATOMIC_MOVE, REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException ex) {
+				Files.move(temporaryFile, targetFile, REPLACE_EXISTING);
+			}
+			config = candidate;
+			return true;
 		} catch (IOException ex) {
-			plugin.getLogger().log(Level.SEVERE, "Could not save config to " + configFile, ex);
+			if (temporaryFile != null) {
+				try {
+					Files.deleteIfExists(temporaryFile);
+				} catch (IOException cleanupException) {
+					ex.addSuppressed(cleanupException);
+				}
+			}
+			plugin.getLogger().log(Level.SEVERE, "Could not save config to " + configFile.getName(), ex);
+			return false;
 		}
 	}
 
