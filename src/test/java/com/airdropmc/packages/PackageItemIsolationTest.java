@@ -4,6 +4,8 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,6 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PackageItemIsolationTest {
+
+	@Test
+	void setItemsRemainsPublic() throws NoSuchMethodException {
+		Method setItems = Package.class.getDeclaredMethod("setItems", List.class);
+
+		assertTrue(Modifier.isPublic(setItems.getModifiers()));
+	}
 
 	@Test
 	void constructorClonesItemStacks() {

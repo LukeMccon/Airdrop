@@ -175,7 +175,7 @@ public class Package {
 		return cloneItems(this.items);
 	}
 
-	void setItems(List<ItemStack> items) {
+	public void setItems(List<ItemStack> items) {
 		if (items != null && !items.isEmpty()) {
 			this.items = cloneItems(items);
 		} else {
