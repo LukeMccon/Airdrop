@@ -9,12 +9,14 @@ import com.airdropmc.controllers.PackageController;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +44,7 @@ class PackagePersistenceFailureFeedbackTest {
 
 		YamlConfiguration config = new YamlConfiguration();
 		config.set("packages.starter.price", 10.0);
-		config.set("packages.starter.items", List.of());
+		config.set("packages.starter.items", List.of(new ItemStack(Material.STONE, 2)));
 
 		PackagesConfig packagesConfig = mock(PackagesConfig.class);
 		when(packagesConfig.getConfig()).thenReturn(config);
@@ -65,12 +67,17 @@ class PackagePersistenceFailureFeedbackTest {
 		PlayerMock player = operator();
 		PackageGui gui = new PackageGui(PackageManager.get("starter"));
 		gui.openInventory(player);
+		player.getOpenInventory().getTopInventory().setItem(0, new ItemStack(Material.DIRT, 3));
 
 		gui.save(saveClick(player));
 
 		assertEquals(InventoryType.CHEST, player.getOpenInventory().getType());
 		assertFailureWithoutSuccess(player, "saved successfully");
-		assertDoesNotThrow(() -> PackageManager.get("starter"));
+		List<ItemStack> persistedItems = PackageManager.get("starter").getItems();
+		assertEquals(1, persistedItems.size());
+		assertEquals(Material.STONE, persistedItems.get(0).getType());
+		assertEquals(2, persistedItems.get(0).getAmount());
+		assertTrue(persistedItems.stream().noneMatch(item -> item.getType() == Material.DIRT));
 	}
 
 	@Test
