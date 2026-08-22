@@ -73,6 +73,7 @@ public abstract class AbstractConfig {
 		Path temporaryFile = null;
 		try {
 			Path targetFile = configFile.toPath().toAbsolutePath();
+			Files.createDirectories(targetFile.getParent());
 			temporaryFile = Files.createTempFile(targetFile.getParent(), configFile.getName() + ".", ".tmp");
 			candidate.save(temporaryFile.toFile());
 			try {
@@ -82,11 +83,11 @@ public abstract class AbstractConfig {
 			}
 			config = candidate;
 			return true;
-		} catch (IOException ex) {
+		} catch (IOException | RuntimeException ex) {
 			if (temporaryFile != null) {
 				try {
 					Files.deleteIfExists(temporaryFile);
-				} catch (IOException cleanupException) {
+				} catch (IOException | RuntimeException cleanupException) {
 					ex.addSuppressed(cleanupException);
 				}
 			}
