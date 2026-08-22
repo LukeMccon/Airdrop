@@ -1,5 +1,7 @@
 package com.airdropmc.packages;
 
+import be.seeseemelk.mockbukkit.MockBukkit;
+import be.seeseemelk.mockbukkit.ServerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.PackagesConfig;
 import com.airdropmc.exceptions.PackageNotFoundException;
@@ -14,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,9 +40,11 @@ class PackageManagerMutationTest {
 	private YamlConfiguration config;
 	private PackagesConfig packagesConfig;
 	private Airdrop plugin;
+	private ServerMock server;
 
 	@BeforeEach
 	void setUp() throws Exception {
+		server = MockBukkit.mock();
 		config = spy(new YamlConfiguration());
 		config.createSection("packages");
 		config.set("packages.starter.price", 10.0);
@@ -63,6 +68,7 @@ class PackageManagerMutationTest {
 		setStaticField("packagesGui", null);
 		setStaticField("packagesConfiguration", null);
 		setStaticField("pluginInstance", null);
+		MockBukkit.unmock();
 	}
 
 	@Test
@@ -87,6 +93,32 @@ class PackageManagerMutationTest {
 		verify(packagesConfig, never()).reloadConfig();
 		verify(plugin, never()).setupPackageGuis();
 		verify(config, never()).set(any(String.class), any());
+	}
+
+	@Test
+	void updatePackageInventory_successDetachesPersistedAndLiveItemsFromCallers() throws Exception {
+		assertTrue(PackageManager.reload());
+		reset(plugin, packagesConfig);
+		when(packagesConfig.getConfig()).thenReturn(config);
+		AtomicReference<FileConfiguration> savedCandidate = new AtomicReference<>();
+		AtomicReference<String> persistedYaml = new AtomicReference<>();
+		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenAnswer(invocation -> {
+			FileConfiguration candidate = invocation.getArgument(0);
+			savedCandidate.set(candidate);
+			persistedYaml.set(candidate.saveToString());
+			return true;
+		});
+		ItemStack source = new ItemStack(Material.DIRT, 2);
+
+		assertTrue(PackageManager.updatePackageInventory("starter", List.of(source)));
+
+		source.setAmount(7);
+		PackageManager.get("starter").getItems().getFirst().setAmount(9);
+
+		assertEquals(persistedYaml.get(), savedCandidate.get().saveToString());
+		assertEquals(2, ((ItemStack) savedCandidate.get()
+				.getList("packages.starter.items").getFirst()).getAmount());
+		assertEquals(2, PackageManager.get("starter").getItems().getFirst().getAmount());
 	}
 
 	@Test
@@ -116,6 +148,34 @@ class PackageManagerMutationTest {
 		verify(plugin, never()).setupPackageGuis();
 		verify(config, never()).set(any(String.class), any());
 		verify(packagesGui, times(1)).initializeItems();
+	}
+
+	@Test
+	void createPackage_successPublishesDetachedCommittedPackage() throws Exception {
+		assertTrue(PackageManager.reload());
+		reset(plugin, packagesConfig);
+		when(packagesConfig.getConfig()).thenReturn(config);
+		AtomicReference<FileConfiguration> savedCandidate = new AtomicReference<>();
+		AtomicReference<String> persistedYaml = new AtomicReference<>();
+		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenAnswer(invocation -> {
+			FileConfiguration candidate = invocation.getArgument(0);
+			savedCandidate.set(candidate);
+			persistedYaml.set(candidate.saveToString());
+			return true;
+		});
+		ItemStack source = new ItemStack(Material.STONE, 2);
+		Package callerPackage = new Package("newpkg", 3.0, List.of(source));
+
+		assertTrue(PackageManager.createPackage(callerPackage));
+
+		source.setAmount(7);
+		callerPackage.setItems(List.of(new ItemStack(Material.GOLD_BLOCK, 5)));
+
+		Package committedPackage = PackageManager.get("newpkg");
+		assertNotSame(callerPackage, committedPackage);
+		assertEquals(Material.STONE, committedPackage.getItems().getFirst().getType());
+		assertEquals(2, committedPackage.getItems().getFirst().getAmount());
+		assertEquals(persistedYaml.get(), savedCandidate.get().saveToString());
 	}
 
 	@Test

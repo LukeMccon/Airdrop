@@ -181,6 +181,7 @@ public class PackageManager {
 				.filter(Objects::nonNull)
 				.filter(itemStack -> !itemStack.getType().isAir())
 				.filter(itemStack -> !PackageGui.isControlItemStack(itemStack))
+				.map(ItemStack::clone)
 				.collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
 	}
 
@@ -274,8 +275,8 @@ public class PackageManager {
 			return false;
 		}
 
-		pkg.setItems(limitedItems);
-		packages.put(pkg.getName(), pkg);
+		Package committedPackage = new Package(pkg.getName(), pkg.getPrice(), limitedItems);
+		packages.put(pkg.getName(), committedPackage);
 		refreshPackagesGui();
 		return true;
 	}

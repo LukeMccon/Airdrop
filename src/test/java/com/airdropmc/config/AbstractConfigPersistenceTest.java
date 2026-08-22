@@ -92,10 +92,12 @@ class AbstractConfigPersistenceTest {
 		TestConfig config = createConfig();
 		FileConfiguration originalConfig = config.getConfig();
 		IOException failure = new IOException("simulated save failure");
-		FileConfiguration failedCandidate = new FailingFileConfiguration(failure);
+		FailingFileConfiguration failedCandidate = new FailingFileConfiguration(failure);
 
 		assertFalse(config.saveConfig(failedCandidate));
 
+		assertFalse(target.equals(failedCandidate.attemptedPath));
+		assertEquals(target.getParent(), failedCandidate.attemptedPath.getParent());
 		assertSame(originalConfig, config.getConfig());
 		assertEquals(originalContents, Files.readString(target));
 		assertOnlyTargetRemains(target);
@@ -160,6 +162,7 @@ class AbstractConfigPersistenceTest {
 	private static final class FailingFileConfiguration extends YamlConfiguration {
 
 		private final IOException failure;
+		private Path attemptedPath;
 
 		private FailingFileConfiguration(IOException failure) {
 			this.failure = failure;
@@ -167,6 +170,8 @@ class AbstractConfigPersistenceTest {
 
 		@Override
 		public void save(File file) throws IOException {
+			attemptedPath = file.toPath();
+			Files.writeString(attemptedPath, "partial");
 			throw failure;
 		}
 	}

@@ -172,15 +172,23 @@ public class Package {
 	}
 
 	public List<ItemStack> getItems() {
-		return new ArrayList<>(this.items);
+		return cloneItems(this.items);
 	}
 
-	public void setItems(List<ItemStack> items) {
+	void setItems(List<ItemStack> items) {
 		if (items != null && !items.isEmpty()) {
-			this.items = new ArrayList<>(items);
+			this.items = cloneItems(items);
 		} else {
 			this.items = new ArrayList<>();
 		}
+	}
+
+	private static List<ItemStack> cloneItems(List<ItemStack> items) {
+		List<ItemStack> clonedItems = new ArrayList<>(items.size());
+		for (ItemStack item : items) {
+			clonedItems.add(item != null ? item.clone() : null);
+		}
+		return clonedItems;
 	}
 
 }
