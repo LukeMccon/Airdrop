@@ -32,6 +32,7 @@ A failed write can consequently leave the live package state different from `pac
 - Surviving every possible power-loss or filesystem failure scenario.
 - Coordinating multiple server processes that write the same file.
 - Preserving concurrent manual edits made while the server is running.
+- Detecting stale package editors; if two operators edit the same package, the last successful save wins.
 - Moving package persistence off the Paper server thread.
 - Replacing YAML storage with a database.
 - Adding backup rotation, file locking, or a general transaction framework.
