@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,6 +97,8 @@ class PackageManagerMutationTest {
 		when(packagesConfig.getConfig()).thenReturn(config);
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
 		when(plugin.isEnabled()).thenReturn(true);
+		PackagesGui packagesGui = mock(PackagesGui.class);
+		setStaticField("packagesGui", packagesGui);
 
 		boolean created = PackageManager.createPackage(
 				new Package("newpkg", 3.0, List.of(new ItemStack(Material.STONE, 1))));
@@ -111,6 +115,7 @@ class PackageManagerMutationTest {
 		verify(packagesConfig, never()).reloadConfig();
 		verify(plugin, never()).setupPackageGuis();
 		verify(config, never()).set(any(String.class), any());
+		verify(packagesGui, times(1)).initializeItems();
 	}
 
 	@Test
@@ -121,6 +126,8 @@ class PackageManagerMutationTest {
 		when(packagesConfig.getConfig()).thenReturn(config);
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
 		when(plugin.isEnabled()).thenReturn(true);
+		PackagesGui packagesGui = mock(PackagesGui.class);
+		setStaticField("packagesGui", packagesGui);
 
 		boolean deleted = PackageManager.deletePackage("starter");
 
@@ -133,6 +140,7 @@ class PackageManagerMutationTest {
 		verify(packagesConfig, never()).reloadConfig();
 		verify(plugin, never()).setupPackageGuis();
 		verify(config, never()).set(any(String.class), any());
+		verify(packagesGui, times(1)).initializeItems();
 	}
 
 	@Test
@@ -142,6 +150,7 @@ class PackageManagerMutationTest {
 		clearInvocations(config);
 		when(packagesConfig.getConfig()).thenReturn(config);
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(false);
+		Package original = PackageManager.get("starter");
 		String originalYaml = config.saveToString();
 		clearInvocations(config);
 
@@ -149,6 +158,7 @@ class PackageManagerMutationTest {
 				List.of(new ItemStack(Material.DIRT, 1)));
 
 		assertFalse(updated);
+		assertSame(original, PackageManager.get("starter"));
 		assertTrue(PackageManager.get("starter").getItems().isEmpty());
 		assertEquals(originalYaml, config.saveToString());
 		verify(config, never()).set(any(String.class), any());
@@ -163,6 +173,7 @@ class PackageManagerMutationTest {
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(false);
 		PackagesGui packagesGui = mock(PackagesGui.class);
 		setStaticField("packagesGui", packagesGui);
+		Package original = PackageManager.get("starter");
 		String originalYaml = config.saveToString();
 		clearInvocations(config);
 
@@ -171,6 +182,7 @@ class PackageManagerMutationTest {
 
 		assertFalse(created);
 		assertThrows(PackageNotFoundException.class, () -> PackageManager.get("newpkg"));
+		assertSame(original, PackageManager.get("starter"));
 		assertEquals(originalYaml, config.saveToString());
 		verify(config, never()).set(any(String.class), any());
 		verify(packagesGui, never()).initializeItems();
@@ -185,13 +197,14 @@ class PackageManagerMutationTest {
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(false);
 		PackagesGui packagesGui = mock(PackagesGui.class);
 		setStaticField("packagesGui", packagesGui);
+		Package original = PackageManager.get("starter");
 		String originalYaml = config.saveToString();
 		clearInvocations(config);
 
 		boolean deleted = PackageManager.deletePackage("starter");
 
 		assertFalse(deleted);
-		assertDoesNotThrow(() -> PackageManager.get("starter"));
+		assertSame(original, PackageManager.get("starter"));
 		assertEquals(originalYaml, config.saveToString());
 		verify(config, never()).set(any(String.class), any());
 		verify(packagesGui, never()).initializeItems();
