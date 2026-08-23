@@ -109,13 +109,13 @@ RESERVED --------------------> CLOSED
 
 The landed count does not increase during conversion because the slot was already reserved. This prevents several paid falling crates from competing for the final landed slot.
 
-The lease is attached to the crate before spawning begins. Capacity release never depends on refund success. The crate owns the lease after successful construction; before that transfer, the controller closes it in a `finally`-safe failure path.
+The lease is attached to the crate before spawning begins. Capacity release never depends on refund success. From acquisition through payload retrieval, construction, and ownership transfer, one failure boundary is responsible for closing the lease or destroying the crate; no pre-construction exception can leave an orphaned reservation.
 
 ### Landing-position reservation
 
 Admission calculates a drop target containing both the falling spawn location and the intended landing block key. The target key is reserved atomically with capacity before payment. Another drop at that block is rejected while the first is falling or landed.
 
-`CrateManager` will also use collision-safe registration rather than unconditional replacement. This is a defensive invariant: a mismatch between the reserved target and actual landing fails closed and destroys the new crate instead of orphaning an older tracked crate.
+`CrateManager` will also use collision-safe registration rather than unconditional replacement. The landing listener uses `EntityChangeBlockEvent#getBlock()` as the authoritative target, and `Crate.land` compares that exact block key with the lease reservation before manager registration or world mutation. A mismatch fails closed and destroys the new crate instead of creating an unowned barrel or orphaning an older tracked crate.
 
 ### Crate terminal cleanup
 
@@ -123,7 +123,7 @@ Admission calculates a drop target containing both the falling spawn location an
 
 1. marks the crate destroyed;
 2. removes the falling entity when present;
-3. cancels parachute, flare, glow, smoke, and landed-expiry tasks;
+3. cancels parachute, flare, one-shot landing, glow, smoke, and landed-expiry tasks;
 4. removes the landed barrel when this crate still owns it; and
 5. closes the lifecycle lease.
 
@@ -136,15 +136,16 @@ Later calls have no effect. `CrateManager` remains responsible for removing look
 3. Calculate and validate the sky, spawn location, and intended landing block.
 4. Determine whether the player holds `airdrop.cooldown.bypass`.
 5. Atomically acquire the pending request gate, falling slot, future-landed slot, and target-block reservation.
-6. Withdraw the package price.
-7. Construct the crate with the lease and spawn/register it.
-8. Dispatch `PackageDropEvent` only after registration is complete.
-9. Commit the player's cooldown only after spawn, registration, and event dispatch succeed.
-10. Release the temporary pending request gate.
+6. Materialize the package contents while the lease is still locally owned.
+7. Withdraw the package price and record the confirmed transaction result before unrelated messaging.
+8. Construct the crate with the lease and spawn/register it.
+9. Dispatch `PackageDropEvent` only after registration is complete.
+10. Atomically transition the lease from `RESERVED` to `FALLING` and commit the player's cooldown only after spawn, registration, and event dispatch return.
+11. Release the temporary pending request gate and send charge confirmation as best-effort feedback.
 
 A cooldown-bypassed player skips the cooldown/pending-player checks but still claims both capacity slots and the target block. The bypass does not waive package authorization, economy charging, or cleanup.
 
-If withdrawal fails, the controller closes the lease and starts no cooldown. If crate construction, spawning, registration, or event dispatch fails, it destroys any partially created crate, closes the lease, attempts the existing refund, and starts no cooldown. A failed refund is reported independently and cannot retain capacity.
+If payload retrieval or withdrawal fails, the controller closes the lease and starts no cooldown. If crate construction, spawning, registration, or an exception directly thrown by the local dispatch call fails, it destroys any partially created crate, closes the lease, attempts the existing refund after a confirmed withdrawal, and starts no cooldown. Paper logs and swallows ordinary third-party listener exceptions, so the plugin cannot promise rollback for failures the event manager does not expose. A failed refund or charge-confirmation message is reported independently and cannot retain capacity or roll back a successful crate.
 
 ## Programmatic Drop Data Flow
 
@@ -156,12 +157,13 @@ All construction is routed through one admitted-drop helper. No public or intern
 
 When the tracked falling block attempts to land:
 
-1. verify the crate still owns the falling registration and target reservation;
-2. perform the barrel transition and contents insertion;
+1. use the event's target block and verify it exactly matches the lease reservation;
+2. require an enabled plugin capable of scheduling expiry;
 3. register the landed location collision-safely;
-4. convert the lease from `FALLING` to `LANDED`, releasing only falling capacity;
-5. start bounded landed effects; and
-6. schedule one delayed expiry task for the configured landed lifetime.
+4. perform the barrel transition and contents insertion;
+5. convert the lease from `FALLING` to `LANDED`, releasing only falling capacity;
+6. schedule one delayed expiry task for the configured landed lifetime; and
+7. start bounded landed effects.
 
 The expiry task removes the crate through `CrateManager.removeCrateAndDestroy`. Opening a crate may stop its continuous effects as it does today, but does not cancel expiry. Empty close, block break, explosion, burn, world unload, failed landing, and expiry all converge on the same idempotent destruction boundary.
 
@@ -217,7 +219,9 @@ Admission returns a typed reason rather than a generic boolean:
 
 - capacity and target collision are rejected before `chargeUser` and `getItems`/entity spawn;
 - charge failure releases both capacity claims and the target block;
-- spawn/event failure destroys partial resources, releases claims, and attempts one refund;
+- spawn or locally observable dispatch failure destroys partial resources, releases claims, and attempts one refund after confirmed withdrawal;
+- payload failure occurs before withdrawal and releases the lease without a refund;
+- charge-confirmation feedback failure does not roll back a successful drop;
 - refund failure does not retain capacity;
 - successful player spawn commits one cooldown;
 - programmatic drops cannot bypass hard capacity.
@@ -226,6 +230,8 @@ Admission returns a typed reason rather than a generic boolean:
 
 - landing converts falling to landed without changing total landed claims;
 - failed landing closes the lease and removes all partial resources;
+- actual event-block/reserved-block mismatch fails before world mutation;
+- inability to schedule expiry rejects landing rather than creating an immortal crate;
 - same-location registration never replaces an existing tracked crate;
 - expiry removes the barrel, cancels effects, and releases landed capacity;
 - empty close, break, explosion, burn, chunk/world unload, and duplicate signals close once;
