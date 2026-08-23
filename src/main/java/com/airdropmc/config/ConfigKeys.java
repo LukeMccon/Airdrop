@@ -97,15 +97,11 @@ public final class ConfigKeys {
 
 	public static DropLimitSettings getDropLimitSettings() {
 		FileConfiguration config = getConfig();
-		int cooldown = bounded(DROP_REQUEST_COOLDOWN_SECONDS,
-				config.getInt(DROP_REQUEST_COOLDOWN_SECONDS, DEFAULT_REQUEST_COOLDOWN_SECONDS),
+		int cooldown = boundedInteger(config, DROP_REQUEST_COOLDOWN_SECONDS,
 				1, 86_400, DEFAULT_REQUEST_COOLDOWN_SECONDS);
-		int maxFalling = bounded(DROP_MAX_FALLING,
-				config.getInt(DROP_MAX_FALLING, DEFAULT_MAX_FALLING), 1, 64, DEFAULT_MAX_FALLING);
-		int maxLanded = bounded(DROP_MAX_LANDED,
-				config.getInt(DROP_MAX_LANDED, DEFAULT_MAX_LANDED), 1, 256, DEFAULT_MAX_LANDED);
-		int lifetime = bounded(DROP_LANDED_LIFETIME_SECONDS,
-				config.getInt(DROP_LANDED_LIFETIME_SECONDS, DEFAULT_LANDED_LIFETIME_SECONDS),
+		int maxFalling = boundedInteger(config, DROP_MAX_FALLING, 1, 64, DEFAULT_MAX_FALLING);
+		int maxLanded = boundedInteger(config, DROP_MAX_LANDED, 1, 256, DEFAULT_MAX_LANDED);
+		int lifetime = boundedInteger(config, DROP_LANDED_LIFETIME_SECONDS,
 				30, 86_400, DEFAULT_LANDED_LIFETIME_SECONDS);
 		return new DropLimitSettings(
 				Duration.ofSeconds(cooldown), maxFalling, maxLanded, Duration.ofSeconds(lifetime));
@@ -149,7 +145,29 @@ public final class ConfigKeys {
             return DEFAULT_SMOKE_HEIGHT;
         }
         return smokeHeight;
-    }
+	}
+
+	private static int boundedInteger(FileConfiguration config, String key,
+			int minimum, int maximum, int fallback) {
+		Object configured = config.get(key);
+		if (configured == null) {
+			return fallback;
+		}
+		if (!(configured instanceof Number number)) {
+			return invalidInteger(key, configured, fallback);
+		}
+		double numericValue = number.doubleValue();
+		if (!Double.isFinite(numericValue) || numericValue != Math.rint(numericValue)
+				|| numericValue < Integer.MIN_VALUE || numericValue > Integer.MAX_VALUE) {
+			return invalidInteger(key, configured, fallback);
+		}
+		return bounded(key, (int) numericValue, minimum, maximum, fallback);
+	}
+
+	private static int invalidInteger(String key, Object value, int fallback) {
+		AirdropLogger.warning("Invalid " + key + " value " + value + "; using " + fallback);
+		return fallback;
+	}
 
 	private static int bounded(String key, int value, int minimum, int maximum, int fallback) {
 		if (value >= minimum && value <= maximum) {

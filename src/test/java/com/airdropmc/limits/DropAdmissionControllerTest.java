@@ -99,6 +99,51 @@ class DropAdmissionControllerTest {
 	}
 
 	@Test
+	void acquirePlayer_rejectsSecondPendingRequestForSamePlayer() throws Exception {
+		DropAdmissionController controller = new DropAdmissionController(clock::get);
+		Lease pending = controller.acquirePlayer(PLAYER, false, LOCATION, LIMITS);
+
+		DropLimitException rejection = assertThrows(DropLimitException.class,
+				() -> controller.acquirePlayer(PLAYER, false, OTHER_LOCATION, LIMITS));
+
+		assertEquals(Reason.REQUEST_PENDING, rejection.getReason());
+		pending.close();
+	}
+
+	@Test
+	void cooldownUsesPlayerUuidAcrossReconnects() throws Exception {
+		DropAdmissionController controller = new DropAdmissionController(clock::get);
+		Lease successful = controller.acquirePlayer(PLAYER, false, LOCATION, LIMITS);
+		successful.commitSpawn();
+		successful.close();
+
+		UUID reconnectedPlayerId = UUID.fromString(PLAYER.toString());
+		DropLimitException rejection = assertThrows(DropLimitException.class,
+				() -> controller.acquirePlayer(reconnectedPlayerId, false, OTHER_LOCATION, LIMITS));
+
+		assertEquals(Reason.COOLDOWN, rejection.getReason());
+	}
+
+	@Test
+	void loweredReloadCapsRejectNewDropsWithoutInvalidatingExistingLeases() throws Exception {
+		DropAdmissionController controller = new DropAdmissionController(clock::get);
+		DropLimitSettings initialLimits = new DropLimitSettings(
+				Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600));
+		Lease first = controller.acquireSystem(LOCATION, initialLimits);
+		Lease second = controller.acquireSystem(OTHER_LOCATION, initialLimits);
+		DropLimitSettings reloadedLimits = new DropLimitSettings(
+				Duration.ofSeconds(30), 1, 10, Duration.ofSeconds(600));
+
+		DropLimitException rejection = assertThrows(DropLimitException.class,
+				() -> controller.acquireSystem(THIRD_LOCATION, reloadedLimits));
+
+		assertEquals(Reason.FALLING_CAPACITY, rejection.getReason());
+		assertEquals(2, controller.snapshot().falling());
+		first.close();
+		second.close();
+	}
+
+	@Test
 	void closedOrClearedLease_cannotCommitOrRepopulateCooldowns() throws Exception {
 		DropAdmissionController controller = new DropAdmissionController(clock::get);
 		Lease closed = controller.acquirePlayer(PLAYER, false, LOCATION, LIMITS);

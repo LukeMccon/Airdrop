@@ -154,36 +154,45 @@ public class ParachuteSystem {
 	private void cleanupParachuteEntities() {
 		ArrayList<Chicken> retainedChickens = new ArrayList<>();
 		for (Chicken chicken : chickenParachutes) {
-			if (chicken != null && chicken.isValid() && !chicken.isDead()) {
-				if (!cleanupResource("chicken parachute", chicken::remove)) {
-					retainedChickens.add(chicken);
+			if (chicken != null && !cleanupResource("chicken parachute", () -> {
+				if (chicken.isValid() && !chicken.isDead()) {
+					chicken.remove();
 				}
+			})) {
+				retainedChickens.add(chicken);
 			}
 		}
 		chickenParachutes.clear();
 		chickenParachutes.addAll(retainedChickens);
 
-		if (parachuteLeash != null && parachuteLeash.isValid() && !parachuteLeash.isDead()) {
-			if (cleanupResource("parachute leash", parachuteLeash::remove)) {
-				parachuteLeash = null;
+		Slime leash = parachuteLeash;
+		if (leash == null || cleanupResource("parachute leash", () -> {
+			if (leash.isValid() && !leash.isDead()) {
+				leash.remove();
 			}
-		} else {
+		})) {
 			parachuteLeash = null;
 		}
 	}
 
     private void cancelParachuteTask() {
 		BukkitTask task = parachuteTask;
-		if (task == null || task.isCancelled()
-				|| cleanupResource("parachute task", task::cancel)) {
+		if (task == null || cleanupResource("parachute task", () -> {
+			if (!task.isCancelled()) {
+				task.cancel();
+			}
+		})) {
 			parachuteTask = null;
 		}
     }
 
     private void cancelDelayedCleanupTask() {
 		BukkitTask task = delayedCleanupTask;
-		if (task == null || task.isCancelled()
-				|| cleanupResource("delayed parachute cleanup task", task::cancel)) {
+		if (task == null || cleanupResource("delayed parachute cleanup task", () -> {
+			if (!task.isCancelled()) {
+				task.cancel();
+			}
+		})) {
 			delayedCleanupTask = null;
 		}
     }

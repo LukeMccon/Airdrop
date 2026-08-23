@@ -2,10 +2,12 @@ package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.Config;
+import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.limits.DropLimitSettings;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.time.Duration;
@@ -14,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 class ConfigKeysTest {
@@ -37,6 +40,19 @@ class ConfigKeysTest {
 
 		assertEquals(new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)),
 				ConfigKeys.getDropLimitSettings());
+	}
+
+	@Test
+	void getDropLimitSettings_rejectsAndWarnsForNonIntegerValues() {
+		YamlConfiguration values = new YamlConfiguration();
+		values.set(ConfigKeys.DROP_MAX_FALLING, "three");
+		setConfigValues(values);
+
+		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
+			assertEquals(3, ConfigKeys.getDropLimitSettings().maxFalling());
+			logger.verify(() -> AirdropLogger.warning(
+					"Invalid drop.limits.max-falling value three; using 3"));
+		}
 	}
 
 	@Test

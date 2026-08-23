@@ -168,6 +168,37 @@ class CrateLandingLifecycleTest {
 		verify(landingTask).cancel();
 	}
 
+	@Test
+	void destroy_cancelsContinuousGlowAndSmokeTasks() throws Exception {
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask expiryTask = mock(BukkitTask.class);
+		BukkitTask glowTask = mock(BukkitTask.class);
+		BukkitTask smokeTask = mock(BukkitTask.class);
+		when(scheduler.runTaskLater(org.mockito.ArgumentMatchers.eq(plugin),
+				org.mockito.ArgumentMatchers.any(Runnable.class), org.mockito.ArgumentMatchers.anyLong()))
+				.thenReturn(expiryTask);
+		when(scheduler.runTaskTimer(org.mockito.ArgumentMatchers.eq(plugin),
+				org.mockito.ArgumentMatchers.any(Runnable.class), org.mockito.ArgumentMatchers.anyLong(),
+				org.mockito.ArgumentMatchers.anyLong()))
+				.thenReturn(glowTask, smokeTask);
+		DropOptions options = DropOptions.createDefault()
+				.withLandingEffects(false)
+				.withContinuousEffects(true)
+				.withSmokeEnabled(true)
+				.withFlareEffects(false);
+		Crate crate = newCrate(reservedBlock, options);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class, CALLS_REAL_METHODS)) {
+			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+			crate.land(reservedBlock);
+			CrateManager.removeCrateAndDestroy(crate);
+		}
+
+		verify(expiryTask).cancel();
+		verify(glowTask).cancel();
+		verify(smokeTask).cancel();
+	}
+
 	private Crate newCrate(Block landingBlock) throws Exception {
 		DropOptions options = DropOptions.createDefault()
 				.withLandingEffects(false)
