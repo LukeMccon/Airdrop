@@ -10,6 +10,7 @@ import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.limits.DropAdmissionController;
+import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.tasks.RenderFlareTask;
 import com.airdropmc.tasks.RenderPackageGlowTask;
 import com.airdropmc.tasks.RenderPackageLandedTask;
@@ -52,6 +53,8 @@ public class Crate {
     private Block blockChest;
     private BukkitTask glowTask;
     private BukkitTask smokeTask;
+	private BukkitTask landingEffectTask;
+	private BukkitTask expiryTask;
     private RenderFlareTask flareEffect;
     private RenderPackageGlowTask glowEffect;
     private RenderPackageSmokeTask smokeEffect;
@@ -126,66 +129,92 @@ public class Crate {
      * 
      * @param block The block where the crate landed
      */
-    public void land(Block block) {
-        if (state != State.FALLING) {
-            throw new IllegalStateException("Cannot land a crate that is not in FALLING state");
-        }
-
-        this.blockChest = block;
-        this.landedLocation = block.getLocation().clone();
-        this.state = State.LANDED;
-
-		// Initialize landed state
-		blockChest.setType(Material.BARREL);
-		BlockState barrelState = blockChest.getState();
-		if (!(barrelState instanceof Barrel barrel)) {
-			throw new IllegalStateException("Failed to create barrel at landed location");
-		}
-
-		int overflowStackCount = 0;
-		for (ItemStack is : contents) {
-			Map<Integer, ItemStack> overflow = barrel.getInventory().addItem(is);
-			if (overflow.isEmpty()) {
-				continue;
+	public synchronized void land(Block block) {
+		try {
+			if (destroyed || state != State.FALLING) {
+				throw new IllegalStateException("Cannot land a crate that is not active and falling");
 			}
+			if (block == null) {
+				throw new IllegalArgumentException("Landing block is required");
+			}
+			Location candidate = block.getLocation().clone();
+			DropLocationKey actualKey = DropLocationKey.from(candidate);
+			if (!lease.owns(actualKey)) {
+				throw new IllegalStateException("Landed block does not match the reserved location");
+			}
+			Airdrop plugin = getEnabledPlugin();
+			if (plugin == null) {
+				throw new IllegalStateException("Cannot land crate while plugin is unavailable");
+			}
+			if (!CrateManager.addCrate(candidate, this)) {
+				throw new IllegalStateException("Another crate already owns the landed location");
+			}
+
+			this.blockChest = block;
+			this.landedLocation = candidate;
+			this.state = State.LANDED;
+			blockChest.setType(Material.BARREL);
+			BlockState barrelState = blockChest.getState();
+			if (!(barrelState instanceof Barrel barrel)) {
+				throw new IllegalStateException("Failed to create barrel at landed location");
+			}
+			insertContents(barrel);
+			lease.markLanded();
+			scheduleExpiry(plugin);
+			startLandedEffects(plugin);
+			world.playSound(landedLocation, Sound.ENTITY_PLAYER_LEVELUP, .05f, .05f);
+			if (flareEffect != null) {
+				flareEffect.cancel();
+				flareEffect = null;
+			}
+		} catch (RuntimeException failure) {
+			CrateManager.removeCrateAndDestroy(this);
+			throw failure;
+		}
+	}
+
+	private void insertContents(Barrel barrel) {
+		int overflowStackCount = 0;
+		for (ItemStack item : contents) {
+			Map<Integer, ItemStack> overflow = barrel.getInventory().addItem(item);
 			for (ItemStack remaining : overflow.values()) {
 				if (remaining == null || remaining.getType().isAir()) {
 					continue;
 				}
 				overflowStackCount++;
-				world.dropItemNaturally(this.landedLocation.clone().add(0.5, 0.5, 0.5), remaining);
+				world.dropItemNaturally(landedLocation.clone().add(0.5, 0.5, 0.5), remaining);
 			}
 		}
 		if (overflowStackCount > 0) {
 			AirdropLogger.warning("Dropped " + overflowStackCount
 					+ " overflow item stack(s) at a landed crate because barrel inventory was full");
 		}
-        CrateManager.addCrate(barrel.getLocation(), this);
-        Airdrop plugin = getEnabledPlugin();
+	}
 
-        if (plugin != null && options.shouldShowLandingEffects()) {
-            RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(
-                    this.landedLocation.clone(), world);
-            landedEffect.runTask(plugin);
-        }
+	private void scheduleExpiry(Airdrop plugin) {
+		long ticks = com.airdropmc.config.ConfigKeys.getDropLimitSettings().landedLifetimeTicks();
+		expiryTask = org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+			synchronized (Crate.this) {
+				expiryTask = null;
+			}
+			CrateManager.removeCrateAndDestroy(this);
+		}, ticks);
+	}
 
-        if (plugin != null && options.shouldShowContinuousEffects()) {
-            glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
-            this.glowTask = glowEffect.runTaskTimer(plugin, 0L, 10L);
-        }
-
-        if (plugin != null && options.isSmokeEnabled()) {
-            smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, options.getSmokeHeight());
-            this.smokeTask = smokeEffect.runTaskTimer(plugin, 0L, 100L);
-        }
-
-        // Play landing sound effect
-        world.playSound(landedLocation, Sound.ENTITY_PLAYER_LEVELUP, .05f, .05f);
-
-        if (this.flareEffect != null) {
-            this.flareEffect.cancel();
-        }
-    }
+	private void startLandedEffects(Airdrop plugin) {
+		if (options.shouldShowLandingEffects()) {
+			RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(landedLocation.clone(), world);
+			landingEffectTask = landedEffect.runTask(plugin);
+		}
+		if (options.shouldShowContinuousEffects()) {
+			glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
+			glowTask = glowEffect.runTaskTimer(plugin, 0L, 10L);
+		}
+		if (options.isSmokeEnabled()) {
+			smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, options.getSmokeHeight());
+			smokeTask = smokeEffect.runTaskTimer(plugin, 0L, 100L);
+		}
+	}
 
     /**
      * Stop particle effects
@@ -225,6 +254,18 @@ public class Crate {
 			}
 		});
 		stopEffects();
+		cleanupResource("landed expiry", () -> {
+			if (expiryTask != null && !expiryTask.isCancelled()) {
+				expiryTask.cancel();
+			}
+		});
+		expiryTask = null;
+		cleanupResource("landing effect", () -> {
+			if (landingEffectTask != null && !landingEffectTask.isCancelled()) {
+				landingEffectTask.cancel();
+			}
+		});
+		landingEffectTask = null;
 		cleanupResource("flare effect", () -> {
 			if (flareEffect != null && !flareEffect.isCancelled()) {
 				flareEffect.cancel();

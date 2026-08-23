@@ -8,6 +8,7 @@ import com.airdropmc.helpers.CrateManager;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
+import org.bukkit.block.Block;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,18 +47,20 @@ class FallingCrateListenerTest {
 	void onEntityChangeBlockEvent_removesFallingCrateAndLands() {
 		FallingBlock fallingBlock = mock(FallingBlock.class);
 		Crate crate = mock(Crate.class);
-		Location location = new Location(world, 12, 64, 12);
+		Location entityLocation = new Location(world, 40, 90, 40);
+		Block eventBlock = world.getBlockAt(12, 64, 12);
 		EntityChangeBlockEvent event = mock(EntityChangeBlockEvent.class);
 
 		when(event.getEntity()).thenReturn(fallingBlock);
-		when(fallingBlock.getLocation()).thenReturn(location);
+		when(event.getBlock()).thenReturn(eventBlock);
+		when(fallingBlock.getLocation()).thenReturn(entityLocation);
 		CrateManager.addCrate(fallingBlock, crate);
 
 		listener.onEntityChangeBlockEvent(event);
 
 		assertFalse(CrateManager.hasCrate(fallingBlock));
 		verify(event).setCancelled(true);
-		verify(crate).land(any());
+		verify(crate).land(eventBlock);
 	}
 
 	@Test
@@ -77,11 +80,11 @@ class FallingCrateListenerTest {
 	void onEntityChangeBlockEvent_destroysCrate_whenLandingFails() {
 		FallingBlock fallingBlock = mock(FallingBlock.class);
 		Crate crate = mock(Crate.class);
-		Location location = new Location(world, 12, 64, 12);
+		Block eventBlock = world.getBlockAt(12, 64, 12);
 		EntityChangeBlockEvent event = mock(EntityChangeBlockEvent.class);
 
 		when(event.getEntity()).thenReturn(fallingBlock);
-		when(fallingBlock.getLocation()).thenReturn(location);
+		when(event.getBlock()).thenReturn(eventBlock);
 		doThrow(new IllegalStateException("failed to land")).when(crate).land(any());
 		CrateManager.addCrate(fallingBlock, crate);
 

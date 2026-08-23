@@ -8,13 +8,17 @@ import com.airdropmc.limits.DropLocationKey;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.Bukkit;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.entity.FallingBlock;
+import org.bukkit.scheduler.BukkitScheduler;
+import org.bukkit.scheduler.BukkitTask;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -29,12 +33,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
 
 class CrateDestroyTest {
 
 	@AfterEach
 	void tearDown() throws Exception {
 		clearCrateManager();
+		Airdrop.setPluginInstance(null);
 	}
 
 	@Test
@@ -118,16 +125,30 @@ class CrateDestroyTest {
 		when(barrel.getInventory()).thenReturn(inventory);
 		when(barrel.getLocation()).thenReturn(landedLocation);
 		when(inventory.addItem(any(ItemStack[].class))).thenReturn(new HashMap<>(overflowMap));
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("CrateDestroyTest"));
+		Airdrop.setPluginInstance(plugin);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(scheduler.runTaskLater(any(), any(Runnable.class), org.mockito.ArgumentMatchers.anyLong()))
+				.thenReturn(mock(BukkitTask.class));
 
 		DropAdmissionController admission = new DropAdmissionController();
 		DropAdmissionController.Lease lease = admission.acquireSystem(
 				DropLocationKey.from(landedLocation),
 				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
 		lease.commitSpawn();
+		DropOptions options = DropOptions.createDefault()
+				.withLandingEffects(false)
+				.withContinuousEffects(false)
+				.withSmokeEnabled(false);
 		Crate crate = new Crate(new Location(world, 10, 100, 10), world,
-				List.of(new ItemStack(Material.STONE, 1)), DropOptions.createDefault(), lease);
+				List.of(new ItemStack(Material.STONE, 1)), options, lease);
 
-		crate.land(block);
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class, CALLS_REAL_METHODS)) {
+			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+			crate.land(block);
+		}
 
 		verify(world).dropItemNaturally(any(Location.class), any(ItemStack.class));
 	}
