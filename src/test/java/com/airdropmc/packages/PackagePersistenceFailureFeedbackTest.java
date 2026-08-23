@@ -27,6 +27,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -173,6 +174,24 @@ class PackagePersistenceFailureFeedbackTest {
 
 		assertFailureWithoutSuccess(player, "successfully deleted");
 		assertDoesNotThrow(() -> PackageManager.get("starter"));
+	}
+
+	@Test
+	void directlyConstructedInvalidCreateGuiCannotPersistPackage() {
+		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+		PlayerMock player = operator();
+		CreatePackageGui gui = new CreatePackageGui("reload", 3.0);
+		gui.openInventory(player);
+		Inventory editor = player.getOpenInventory().getTopInventory();
+
+		gui.save(saveClick(player));
+
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+		assertThrows(PackageNotFoundException.class, () -> PackageManager.get("reload"));
+		Component message = player.nextComponentMessage();
+		assertNotNull(message);
+		assertTrue(PlainTextComponentSerializer.plainText().serialize(message)
+				.toLowerCase(Locale.ROOT).contains("reserved"));
 	}
 
 	private PlayerMock operator() {

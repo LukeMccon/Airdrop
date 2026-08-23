@@ -6,21 +6,19 @@ import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.Package;
+import com.airdropmc.packages.PackageNamePolicy;
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class PackageController {
-	private static final Pattern VALID_PACKAGE_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_-]+$");
-
 	private PackageController() {
 
 	}
@@ -96,12 +94,12 @@ public class PackageController {
 		String priceString = args[3];
 		double price = 0;
 
-		if (packageName == null || packageName.isBlank()) {
-			ChatHandler.sendError(sender, MessageKey.PACKAGES_NAME_REQUIRED);
-			return;
-		}
-		if (!VALID_PACKAGE_NAME_PATTERN.matcher(packageName).matches()) {
-			ChatHandler.sendError(sender, MessageKey.PACKAGES_NAME_INVALID);
+		PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(packageName);
+		if (!nameValidation.accepted()) {
+			ChatHandler.sendError(sender,
+					nameValidation.rejection() == PackageNamePolicy.Rejection.MISSING
+							? MessageKey.PACKAGES_NAME_REQUIRED
+							: MessageKey.PACKAGES_NAME_INVALID);
 			return;
 		}
 

@@ -10,12 +10,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Locale;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PackageControllerPermissionsTest {
@@ -82,5 +85,30 @@ class PackageControllerPermissionsTest {
 		String plain = PlainTextComponentSerializer.plainText().serialize(message);
 		assertTrue(plain.toLowerCase().contains("letters, numbers"));
 		assertNotEquals(InventoryType.CHEST, player.getOpenInventory().getType());
+	}
+
+	@Test
+	void createPackageCommandRejectsReservedNamesBeforeOpeningGui() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+
+		for (String name : List.of("all", "*", "package", "packages", "version", "reload", "ReLoAd")) {
+			PackageController.createPackageCommand(player,
+					new String[]{"package", "create", name, "10.0"});
+
+			assertNotEquals(InventoryType.CHEST, player.getOpenInventory().getType(), name);
+			Component message = player.nextComponentMessage();
+			assertNotNull(message, name);
+			assertTrue(PlainTextComponentSerializer.plainText().serialize(message)
+					.toLowerCase(Locale.ROOT).contains("reserved"), name);
+		}
+	}
+
+	@Test
+	void bothPublicCreateOverloadsReuseManagerNamePolicy() {
+		assertThrows(IllegalArgumentException.class,
+				() -> PackageController.createPackage("all", 1.0));
+		assertThrows(IllegalArgumentException.class,
+				() -> PackageController.createPackage("reload", 1.0, List.of()));
 	}
 }

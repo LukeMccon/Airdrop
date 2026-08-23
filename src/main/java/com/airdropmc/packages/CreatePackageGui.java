@@ -282,6 +282,9 @@ public class CreatePackageGui extends Gui implements Listener {
             ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_EXISTS,
                     Map.of("name", error.getPackageName()));
             return;
+		} catch (IllegalArgumentException error) {
+			ChatHandler.sendError(p, MessageKey.PACKAGES_NAME_INVALID);
+			return;
         }
 
 		scheduleTransition(p, p::closeInventory);
