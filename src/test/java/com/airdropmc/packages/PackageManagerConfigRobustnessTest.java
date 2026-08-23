@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 class PackageManagerConfigRobustnessTest {
@@ -113,6 +114,63 @@ class PackageManagerConfigRobustnessTest {
 		assertTrue(PackageManager.getPackages().containsAll(Set.of("integer-zero", "double-zero")));
 		assertEquals(0.0, PackageManager.get("integer-zero").getPrice());
 		assertEquals(0.0, PackageManager.get("double-zero").getPrice());
+	}
+
+	@Test
+	void reload_skipsInvalidAndReservedNamesWithDiagnostics() throws Exception {
+		YamlConfiguration config = new YamlConfiguration();
+		for (String name : List.of("all", "*", "package", "packages", "version", "reload", "bad name")) {
+			addPackage(config, name, 1.0);
+		}
+		addPackage(config, "valid_name", 1.0);
+		setPackagesConfig(config);
+
+		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
+			PackageManager.reload();
+
+			assertEquals(Set.of("valid_name"), PackageManager.getPackages());
+			for (String rejected : List.of(
+					"all", "*", "package", "packages", "version", "reload", "bad name")) {
+				logger.verify(() -> AirdropLogger.warning(argThat(message ->
+						message.contains(rejected) && message.contains("Skipping package"))), atLeastOnce());
+			}
+		}
+	}
+
+	@Test
+	void reload_rejectsEveryCaseVariantAndWarnsAboutTheConflict() throws Exception {
+		YamlConfiguration config = new YamlConfiguration();
+		addPackage(config, "starter", 2.0);
+		addPackage(config, "Starter", 1.0);
+		addPackage(config, "other", 4.0);
+		setPackagesConfig(config);
+
+		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
+			PackageManager.reload();
+
+			assertEquals(Set.of("other"), PackageManager.getPackages());
+			assertThrows(PackageNotFoundException.class, () -> PackageManager.get("STARTER"));
+			logger.verify(() -> AirdropLogger.warning(argThat(message ->
+					message.contains("starter") && message.contains("Starter")
+							&& message.contains("conflict"))), atLeastOnce());
+		}
+	}
+
+	@Test
+	void reload_rejectsCaseCollisionBeforeReadingEitherPayload() throws Exception {
+		YamlConfiguration config = new YamlConfiguration();
+		addPackage(config, "Starter", "invalid");
+		addPackage(config, "starter", 2.0);
+		setPackagesConfig(config);
+
+		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
+			PackageManager.reload();
+
+			assertTrue(PackageManager.getPackages().isEmpty());
+			assertThrows(PackageNotFoundException.class, () -> PackageManager.get("STARTER"));
+			logger.verify(() -> AirdropLogger.warning(argThat(message ->
+					message.contains("price is invalid"))), never());
+		}
 	}
 
 	private static void addPackage(YamlConfiguration config, String packageName, Object price) {

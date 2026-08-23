@@ -4,6 +4,7 @@ import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.ServerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.PackagesConfig;
+import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -268,6 +269,55 @@ class PackageManagerMutationTest {
 		assertEquals(originalYaml, config.saveToString());
 		verify(config, never()).set(any(String.class), any());
 		verify(packagesGui, never()).initializeItems();
+	}
+
+	@Test
+	void registryLookupAndDuplicateDetectionIgnoreCase() throws Exception {
+		assertTrue(PackageManager.reload());
+
+		assertSame(PackageManager.get("starter"), PackageManager.get("STARTER"));
+		assertTrue(PackageManager.has("StArTeR"));
+		assertThrows(DuplicatePackageException.class, () -> PackageManager.createPackage(
+				new Package("STARTER", 3.0, List.of())));
+	}
+
+	@Test
+	void differentlyCasedUpdateUsesStoredYamlKey() throws Exception {
+		config.set("packages.Starter.price", 10.0);
+		config.set("packages.Starter.items", List.of());
+		config.set("packages.starter", null);
+		assertTrue(PackageManager.reload());
+		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+
+		assertTrue(PackageManager.updatePackageInventory(
+				"STARTER", List.of(new ItemStack(Material.DIRT))));
+
+		ArgumentCaptor<FileConfiguration> candidate = ArgumentCaptor.forClass(FileConfiguration.class);
+		verify(packagesConfig).saveConfig(candidate.capture());
+		assertTrue(candidate.getValue().isSet("packages.Starter.items"));
+		assertFalse(candidate.getValue().isSet("packages.STARTER.items"));
+	}
+
+	@Test
+	void differentlyCasedDeleteRemovesStoredYamlKey() throws Exception {
+		config.set("packages.Starter.price", 10.0);
+		config.set("packages.Starter.items", List.of());
+		config.set("packages.starter", null);
+		assertTrue(PackageManager.reload());
+		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+
+		assertTrue(PackageManager.deletePackage("STARTER"));
+
+		ArgumentCaptor<FileConfiguration> candidate = ArgumentCaptor.forClass(FileConfiguration.class);
+		verify(packagesConfig).saveConfig(candidate.capture());
+		assertFalse(candidate.getValue().isSet("packages.Starter"));
+	}
+
+	@Test
+	void createPackageRejectsInvalidNameBeforePersistence() {
+		assertThrows(IllegalArgumentException.class, () -> PackageManager.createPackage(
+				new Package("reload", 3.0, List.of())));
+		verify(packagesConfig, never()).saveConfig(any(FileConfiguration.class));
 	}
 
 	private static void setStaticField(String fieldName, Object value) throws Exception {

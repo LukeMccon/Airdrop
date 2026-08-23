@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 
 /**
@@ -102,7 +103,9 @@ public class PackageManager {
 	 * @return set of package names
 	 */
 	public static Set<String> getPackages() {
-		return Set.copyOf(packages.keySet());
+		return packages.values().stream()
+				.map(Package::getName)
+				.collect(Collectors.toUnmodifiableSet());
 	}
 
 	/**
@@ -113,7 +116,8 @@ public class PackageManager {
 	 * @throws PackageNotFoundException if the package does not exist
 	 */
 	public static Package get(String packageName) throws PackageNotFoundException {
-		Package pkg = packages.get(packageName);
+		PackageNamePolicy.Result validation = PackageNamePolicy.validate(packageName);
+		Package pkg = validation.accepted() ? packages.get(validation.canonicalName()) : null;
 
 		if (pkg == null) {
 			throw new PackageNotFoundException(packageName);
@@ -132,23 +136,43 @@ public class PackageManager {
 			return;
 		}
 
-		for (String pkg : config.getKeys(false)) {
+		List<String> configuredNames = new ArrayList<>(config.getKeys(false));
+		configuredNames.sort(Comparator.naturalOrder());
+		Map<String, List<String>> namesByCanonical = new TreeMap<>();
+
+		for (String name : configuredNames) {
+			PackageNamePolicy.Result validation = PackageNamePolicy.validate(name);
+			if (!validation.accepted()) {
+				AirdropLogger.warning("Skipping package '" + name + "': " + validation.diagnostic(name));
+				continue;
+			}
+			namesByCanonical.computeIfAbsent(validation.canonicalName(), ignored -> new ArrayList<>()).add(name);
+		}
+
+		for (Map.Entry<String, List<String>> entry : namesByCanonical.entrySet()) {
+			List<String> exactNames = entry.getValue();
+			if (exactNames.size() > 1) {
+				AirdropLogger.warning("Skipping packages " + exactNames
+						+ " because their names conflict without case differences as '" + entry.getKey() + "'");
+				continue;
+			}
+
+			String name = exactNames.getFirst();
 			ArrayList<ItemStack> items = new ArrayList<>();
-			ConfigurationSection section = config.getConfigurationSection(pkg);
+			ConfigurationSection section = config.getConfigurationSection(name);
 
 			if (section != null) {
 
-				List<?> rawList = config.getList(pkg + ".items");
+				List<?> rawList = config.getList(name + ".items");
 				if (rawList != null) {
 					for (Object obj : rawList) {
-						if (obj instanceof ItemStack) {
-							items.add((ItemStack) obj);
+						if (obj instanceof ItemStack itemStack) {
+							items.add(itemStack);
 						}
 					}
 				}
 
-				String name = pkg;
-				Object rawPrice = config.get(pkg + ".price");
+				Object rawPrice = config.get(name + ".price");
 				if (!(rawPrice instanceof Number number)) {
 					logInvalidPrice(name, rawPrice);
 					continue;
@@ -159,7 +183,7 @@ public class PackageManager {
 					continue;
 				}
 				List<ItemStack> limitedItems = limitToBarrelCapacity(items, name);
-				PackageManager.packages.put(name, new Package(name, price, limitedItems));
+				PackageManager.packages.put(entry.getKey(), new Package(name, price, limitedItems));
 			}
 		}
 	}
@@ -206,7 +230,8 @@ public class PackageManager {
 	 * @return package exists
 	 */
 	public static boolean has(String packageName) {
-		return getPackages().contains(packageName);
+		PackageNamePolicy.Result validation = PackageNamePolicy.validate(packageName);
+		return validation.accepted() && packages.containsKey(validation.canonicalName());
 	}
 
 	/**
@@ -232,15 +257,16 @@ public class PackageManager {
 			throws PackageNotFoundException {
 
 		Package pkg = PackageManager.get(packageName);
+		String storedName = pkg.getName();
 		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
 		FileConfiguration fileConfig = packagesConfig != null ? packagesConfig.getConfig() : null;
 		if (fileConfig == null) {
 			throw new IllegalStateException("Packages configuration is unavailable");
 		}
 
-		List<ItemStack> limitedItems = limitToBarrelCapacity(items, packageName);
+		List<ItemStack> limitedItems = limitToBarrelCapacity(items, storedName);
 		YamlConfiguration candidate = copyConfiguration(fileConfig);
-		candidate.set(PACKAGES + "." + packageName + ".items", new ArrayList<>(limitedItems));
+		candidate.set(PACKAGES + "." + storedName + ".items", new ArrayList<>(limitedItems));
 
 		if (!packagesConfig.saveConfig(candidate)) {
 			return false;
@@ -256,7 +282,8 @@ public class PackageManager {
 	 * @param pkg to create
 	 */
 	public static boolean createPackage(Package pkg) throws DuplicatePackageException {
-		if (PackageManager.has(pkg.getName())) {
+		String canonicalName = PackageNamePolicy.requireCanonical(pkg.getName());
+		if (packages.containsKey(canonicalName)) {
 			throw new DuplicatePackageException(pkg.getName());
 		}
 		if (!Package.isValidPrice(pkg.getPrice())) {
@@ -278,7 +305,7 @@ public class PackageManager {
 		}
 
 		Package committedPackage = new Package(pkg.getName(), pkg.getPrice(), limitedItems);
-		packages.put(pkg.getName(), committedPackage);
+		packages.put(canonicalName, committedPackage);
 		refreshPackagesGui();
 		return true;
 	}
@@ -290,7 +317,9 @@ public class PackageManager {
 	 * @throws PackageNotFoundException package couldn't be found
 	 */
 	public static boolean deletePackage(String packageName) throws PackageNotFoundException {
-		get(packageName);
+		Package pkg = get(packageName);
+		String storedName = pkg.getName();
+		String canonicalName = PackageNamePolicy.requireCanonical(storedName);
 		PackagesConfig packagesConfig = Airdrop.getPackagesConfiguration();
 		FileConfiguration fileConfig = packagesConfig != null ? packagesConfig.getConfig() : null;
 		if (fileConfig == null) {
@@ -298,12 +327,12 @@ public class PackageManager {
 		}
 
 		YamlConfiguration candidate = copyConfiguration(fileConfig);
-		candidate.set(PACKAGES + "." + packageName, null);
+		candidate.set(PACKAGES + "." + storedName, null);
 		if (!packagesConfig.saveConfig(candidate)) {
 			return false;
 		}
 
-		packages.remove(packageName);
+		packages.remove(canonicalName);
 		refreshPackagesGui();
 		return true;
 	}
