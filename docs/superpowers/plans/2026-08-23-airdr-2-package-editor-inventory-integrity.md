@@ -32,7 +32,7 @@
 - Create: `src/test/java/com/airdropmc/packages/PackageEditorSessionTest.java`
 - Create: `src/main/java/com/airdropmc/packages/PackageEditorSession.java`
 
-- [ ] **Step 1: Write failing lifecycle and identity tests**
+- [x] **Step 1: Write failing lifecycle and identity tests**
 
 Cover binding once, exact inventory identity, protection in `ACTIVE` and `TRANSITIONING`, processing only in `ACTIVE`, and idempotent retirement:
 
@@ -77,13 +77,13 @@ class PackageEditorSessionTest {
 }
 ```
 
-- [ ] **Step 2: Run the new test and verify RED**
+- [x] **Step 2: Run the new test and verify RED**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorSessionTest`
 
 Expected: compilation fails because `PackageEditorSession` does not exist.
 
-- [ ] **Step 3: Implement the minimal session helper**
+- [x] **Step 3: Implement the minimal session helper**
 
 Implement this package-private API:
 
@@ -139,13 +139,13 @@ final class PackageEditorSession {
 }
 ```
 
-- [ ] **Step 4: Run the session tests and verify GREEN**
+- [x] **Step 4: Run the session tests and verify GREEN**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorSessionTest`
 
 Expected: all session tests pass.
 
-- [ ] **Step 5: Commit the session boundary**
+- [x] **Step 5: Commit the session boundary**
 
 ```bash
 git add src/main/java/com/airdropmc/packages/PackageEditorSession.java src/test/java/com/airdropmc/packages/PackageEditorSessionTest.java
@@ -158,7 +158,7 @@ git commit -m "AIRDR-2: add package editor session state"
 - Create: `src/test/java/com/airdropmc/packages/PackageEditorInteractionTest.java`
 - Create: `src/main/java/com/airdropmc/packages/PackageEditorInteraction.java`
 
-- [ ] **Step 1: Write the failing gesture matrix**
+- [x] **Step 1: Write the failing gesture matrix**
 
 Define the intended virtual results and parameterize rejected click/action combinations:
 
@@ -193,13 +193,13 @@ class PackageEditorInteractionTest {
 }
 ```
 
-- [ ] **Step 2: Run the policy test and verify RED**
+- [x] **Step 2: Run the policy test and verify RED**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInteractionTest`
 
 Expected: compilation fails because the interaction classifier does not exist.
 
-- [ ] **Step 3: Implement the minimal classifier**
+- [x] **Step 3: Implement the minimal classifier**
 
 ```java
 final class PackageEditorInteraction {
@@ -220,13 +220,13 @@ final class PackageEditorInteraction {
 
 Do not broaden the right-click action until a Paper 1.21.8 runtime observation proves another exact pair is required.
 
-- [ ] **Step 4: Run the policy test and verify GREEN**
+- [x] **Step 4: Run the policy test and verify GREEN**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInteractionTest`
 
 Expected: the allowed and denied matrix passes.
 
-- [ ] **Step 5: Commit the gesture policy**
+- [x] **Step 5: Commit the gesture policy**
 
 ```bash
 git add src/main/java/com/airdropmc/packages/PackageEditorInteraction.java src/test/java/com/airdropmc/packages/PackageEditorInteractionTest.java
@@ -243,7 +243,7 @@ git commit -m "AIRDR-2: restrict package editor gestures"
 - Modify: `src/main/java/com/airdropmc/packages/PackageGui.java`
 - Modify: `src/main/java/com/airdropmc/controllers/PackageController.java`
 
-- [ ] **Step 1: Write failing preservation and one-shot opening tests**
+- [x] **Step 1: Write failing preservation and one-shot opening tests**
 
 Use MockBukkit to open each editor, mutate a player slot and cursor after opening, close it, and assert exact preservation. Also verify a second open is rejected:
 
@@ -278,13 +278,13 @@ void editorInstanceCannotBeOpenedTwice() {
 
 Add direct close/quit/cancelled-kick tests that verify no call to `PlayerInventory#setContents`, `Player#setItemOnCursor`, or `Player#updateInventory` is made by editor cleanup.
 
-- [ ] **Step 2: Run the integrity test and verify RED**
+- [x] **Step 2: Run the integrity test and verify RED**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest`
 
 Expected: tests fail because `openInventory` returns `void` and close still restores the snapshot.
 
-- [ ] **Step 3: Implement self-owned open and terminal cleanup in both editors**
+- [x] **Step 3: Implement self-owned open and terminal cleanup in both editors**
 
 For each editor:
 
@@ -325,13 +325,13 @@ Remove the snapshot field, capture, restore calls, and `viewerId`. Delete `Playe
 
 Update `PackageController.createPackageCommand` to remove manual listener registration and send `PACKAGES_CREATE_OPEN_ERROR` when `openInventory(player)` returns `false`.
 
-- [ ] **Step 4: Run focused preservation tests and verify GREEN**
+- [x] **Step 4: Run focused preservation tests and verify GREEN**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest --tests com.airdropmc.packages.PackageControllerPermissionsTest`
 
 Expected: player slot/cursor preservation and controller tests pass.
 
-- [ ] **Step 5: Commit removal of stale restoration**
+- [x] **Step 5: Commit removal of stale restoration**
 
 ```bash
 git add -A src/main/java/com/airdropmc/packages src/main/java/com/airdropmc/controllers/PackageController.java src/test/java/com/airdropmc/packages
@@ -345,7 +345,7 @@ git commit -m "AIRDR-2: remove package editor inventory restores"
 - Modify: `src/main/java/com/airdropmc/packages/CreatePackageGui.java`
 - Modify: `src/main/java/com/airdropmc/packages/PackageGui.java`
 
-- [ ] **Step 1: Add failing handler tests for allowed and denied actions**
+- [x] **Step 1: Add failing handler tests for allowed and denied actions**
 
 For both editor classes, construct top and bottom events and assert:
 
@@ -381,13 +381,13 @@ void deniedActionsAreCancelledNoOps(ClickType click, InventoryAction action, Ite
 
 Include transition-state cancellation and drag events covering top-only, bottom-only, and mixed raw slots.
 
-- [ ] **Step 2: Run the handler tests and verify RED**
+- [x] **Step 2: Run the handler tests and verify RED**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest`
 
 Expected: denied actions currently trigger manual add/remove behavior or use the old broad `isRightClick` branch.
 
-- [ ] **Step 3: Implement exact routing and copy-only mutations**
+- [x] **Step 3: Implement exact routing and copy-only mutations**
 
 At the start of each click handler:
 
@@ -411,13 +411,13 @@ Use exact slot checks for controls. Treat only slots `0` through `PackageManager
 
 For drag handlers, require the same session identity, cancel in both `ACTIVE` and `TRANSITIONING`, and apply no manual changes.
 
-- [ ] **Step 4: Run the interaction tests and verify GREEN**
+- [x] **Step 4: Run the interaction tests and verify GREEN**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInteractionTest --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest`
 
 Expected: allowed copies work without source changes and every denied action is a cancelled no-op.
 
-- [ ] **Step 5: Commit the safe interaction boundary**
+- [x] **Step 5: Commit the safe interaction boundary**
 
 ```bash
 git add src/main/java/com/airdropmc/packages/CreatePackageGui.java src/main/java/com/airdropmc/packages/PackageGui.java src/test/java/com/airdropmc/packages/PackageEditorInventoryIntegrityTest.java
@@ -432,7 +432,7 @@ git commit -m "AIRDR-2: make package editor interactions copy-only"
 - Modify: `src/main/java/com/airdropmc/packages/CreatePackageGui.java`
 - Modify: `src/main/java/com/airdropmc/packages/PackageGui.java`
 
-- [ ] **Step 1: Add failing lifecycle and scheduler tests**
+- [x] **Step 1: Add failing lifecycle and scheduler tests**
 
 Test that save/cancel/back remain open until the next scheduler tick, deny a second interaction during that tick, never close a newer view, and preserve unrelated inventory/cursor state. Update the AIRDR-1 retry assertion:
 
@@ -449,13 +449,13 @@ assertEquals(new ItemStack(Material.GOLD_INGOT, 4), player.getInventory().getIte
 
 Add close+quit, kick+quit, repeated control, and cancelled-kick tests. For a successful kick, run the scheduler and retire only after the mock player becomes offline or the view closes.
 
-- [ ] **Step 2: Run the lifecycle tests and verify RED**
+- [x] **Step 2: Run the lifecycle tests and verify RED**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest --tests com.airdropmc.packages.PackagePersistenceFailureFeedbackTest`
 
 Expected: current save/cancel/back change views synchronously and the retry test restores the old slot.
 
-- [ ] **Step 3: Implement next-tick transition helpers**
+- [x] **Step 3: Implement next-tick transition helpers**
 
 Use one helper in each editor:
 
@@ -482,13 +482,13 @@ Save calls `scheduleTransition(player, player::closeInventory)` only after persi
 
 Handle matching close and quit with `retire()`. Handle kick at `MONITOR, ignoreCancelled = true` by scheduling a next-tick observation and retiring only when the player is offline or no longer has the exact editor view. Matching events remain cancelled while `TRANSITIONING`.
 
-- [ ] **Step 4: Run lifecycle tests and verify GREEN**
+- [x] **Step 4: Run lifecycle tests and verify GREEN**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest --tests com.airdropmc.packages.PackagePersistenceFailureFeedbackTest`
 
 Expected: transitions occur one tick later, repeated paths are idempotent, and player changes survive.
 
-- [ ] **Step 5: Commit deferred lifecycle handling**
+- [x] **Step 5: Commit deferred lifecycle handling**
 
 ```bash
 git add src/main/java/com/airdropmc/packages/CreatePackageGui.java src/main/java/com/airdropmc/packages/PackageGui.java src/test/java/com/airdropmc/packages/PackageEditorInventoryIntegrityTest.java src/test/java/com/airdropmc/packages/PackagePersistenceFailureFeedbackTest.java
@@ -501,7 +501,7 @@ git commit -m "AIRDR-2: defer package editor view transitions"
 - Create: `src/test/java/com/airdropmc/packages/PackagesGuiNavigationTest.java`
 - Modify: `src/main/java/com/airdropmc/packages/PackagesGui.java`
 
-- [ ] **Step 1: Write failing next-tick browser navigation tests**
+- [x] **Step 1: Write failing next-tick browser navigation tests**
 
 Open the shared package browser, click a package, and verify the browser remains open during the event and the editor opens only on the next tick:
 
@@ -524,13 +524,13 @@ void packageEditorOpensOnNextTickOnly() {
 
 Add repeated-click, changed-view-before-tick, missing-package-before-tick, wrong viewer, nonempty cursor, and denied-action cases. Repeated tasks must result in one editor only.
 
-- [ ] **Step 2: Run the navigation test and verify RED**
+- [x] **Step 2: Run the navigation test and verify RED**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackagesGuiNavigationTest`
 
 Expected: the current handler opens and registers `PackageGui` synchronously.
 
-- [ ] **Step 3: Schedule and revalidate browser navigation**
+- [x] **Step 3: Schedule and revalidate browser navigation**
 
 In the browser click handler, require exact top inventory identity, administrator permission, empty cursor, exact `LEFT`, and `PICKUP_ALL`. Cancel before returning for every recognized browser interaction. Capture only UUID and package name, then schedule:
 
@@ -554,13 +554,13 @@ Bukkit.getScheduler().runTask(plugin, () -> {
 
 Remove manual editor listener registration. The first successful task replaces the browser view; later tasks fail the exact-view check.
 
-- [ ] **Step 4: Run navigation and editor tests and verify GREEN**
+- [x] **Step 4: Run navigation and editor tests and verify GREEN**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackagesGuiNavigationTest --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest`
 
 Expected: browser navigation is next-tick, single-open, and leak-free.
 
-- [ ] **Step 5: Commit deferred browser navigation**
+- [x] **Step 5: Commit deferred browser navigation**
 
 ```bash
 git add src/main/java/com/airdropmc/packages/PackagesGui.java src/test/java/com/airdropmc/packages/PackagesGuiNavigationTest.java
@@ -575,7 +575,7 @@ git commit -m "AIRDR-2: defer package editor navigation"
 - Modify: `src/main/java/com/airdropmc/packages/PackageGui.java`
 - Modify: `docs/superpowers/plans/2026-08-23-airdr-2-package-editor-inventory-integrity.md`
 
-- [ ] **Step 1: Add failing persistence-boundary tests**
+- [x] **Step 1: Add failing persistence-boundary tests**
 
 Place generated controls and package-like items in control slots, place valid items in every editable boundary slot, save, and capture the items passed to `PackageManager`. Assert only editable slot contents are included and each retained item is cloned.
 
@@ -586,13 +586,13 @@ assertTrue(saved.stream().noneMatch(PackageGui::isControlItemStack));
 assertNotSame(editor.getItem(0), saved.get(0));
 ```
 
-- [ ] **Step 2: Run the boundary test and verify RED**
+- [x] **Step 2: Run the boundary test and verify RED**
 
 Run: `./gradlew test --tests com.airdropmc.packages.PackageEditorInventoryIntegrityTest`
 
 Expected: save currently starts with `inv.getContents()` rather than an explicit editable-slot list.
 
-- [ ] **Step 3: Collect explicit editable slots**
+- [x] **Step 3: Collect explicit editable slots**
 
 Add a helper in each editor:
 
@@ -609,7 +609,7 @@ private List<ItemStack> editableItems() {
 
 Pass only this list through existing sanitization and persistence. Do not inspect control slots during save.
 
-- [ ] **Step 4: Run focused tests, full test suite, and build**
+- [x] **Step 4: Run focused tests, full test suite, and build**
 
 Run:
 
@@ -625,7 +625,7 @@ git diff --check
 
 Expected: all focused tests and the full build pass; no whitespace errors.
 
-- [ ] **Step 5: Start Paper 1.21.8 and record runtime validation**
+- [x] **Step 5: Start Paper 1.21.8 and record runtime validation**
 
 Run: `./gradlew runServer`
 
@@ -633,7 +633,7 @@ Verify startup first. With a Paper client/operator, execute the gesture matrix f
 
 If no player client is available, record those cases as manual validation requirements and do not claim that MockBukkit proved vanilla reconciliation. Add targeted repair only when a concrete failed runtime case identifies the exact mutated location.
 
-- [ ] **Step 6: Review the final diff and acceptance mapping**
+- [x] **Step 6: Review the final diff and acceptance mapping**
 
 Run:
 
@@ -645,7 +645,7 @@ rg -n "PlayerInventorySnapshot|setContents\(|setItemOnCursor\(|updateInventory\(
 
 Expected: `PlayerInventorySnapshot` is absent; package editor code contains no player inventory or cursor restoration; only AIRDR-2 files and documentation changed.
 
-- [ ] **Step 7: Mark the plan complete and commit**
+- [x] **Step 7: Mark the plan complete and commit**
 
 Check every completed step in this plan, then:
 
@@ -656,3 +656,11 @@ git commit -m "AIRDR-2: verify package editor inventory integrity" -m "Closes AI
 ```
 
 Expected: the branch is clean and contains an AIRDR-2 closing reference.
+
+## Execution Record
+
+- Focused AIRDR-2 tests passed on 2026-08-23.
+- `./gradlew clean build` passed, including the complete test suite.
+- `git diff --check` passed, and the package editor source contains no calls to `setContents`, `setItemOnCursor`, or `updateInventory`.
+- Paper startup was attempted. The repository's `runServer` task has no configured Minecraft version; a temporary explicit `1.21.8` invocation also could not resolve a Paper server build in this environment. The temporary override was removed.
+- Live-client validation of vanilla reconciliation and the complete gesture matrix remains manual. MockBukkit coverage verifies the plugin's cancellation, copy-only mutation, lifecycle, and persistence logic but is not claimed as proof of client/server inventory reconciliation.

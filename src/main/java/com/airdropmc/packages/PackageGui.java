@@ -22,7 +22,6 @@ import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -267,8 +266,7 @@ public class PackageGui extends Gui implements Listener {
 
         Player p = (Player) e.getWhoClicked();
 
-        ItemStack[] newPackageItems = inv.getContents();
-        List<ItemStack> packageItems = PackageManager.sanitizePackageItems(new ArrayList<>(Arrays.asList(newPackageItems)));
+		List<ItemStack> packageItems = PackageManager.sanitizePackageItems(editableItems());
         if (packageItems.size() > PackageManager.MAX_PACKAGE_ITEM_STACKS) {
             ChatHandler.sendError(p, MessageKey.PACKAGES_ITEM_LIMIT,
                     Map.of("max", String.valueOf(PackageManager.MAX_PACKAGE_ITEM_STACKS)));
@@ -328,6 +326,17 @@ public class PackageGui extends Gui implements Listener {
     private int getFirstControlSlot() {
 		return PackageManager.MAX_PACKAGE_ITEM_STACKS;
     }
+
+	private List<ItemStack> editableItems() {
+		List<ItemStack> items = new ArrayList<>(PackageManager.MAX_PACKAGE_ITEM_STACKS);
+		for (int slot = 0; slot < PackageManager.MAX_PACKAGE_ITEM_STACKS; slot++) {
+			ItemStack item = inv.getItem(slot);
+			if (item != null && !item.getType().isAir()) {
+				items.add(item.clone());
+			}
+		}
+		return items;
+	}
 
 	private boolean isEditablePackageSlot(int slot) {
         return slot >= 0 && slot < getFirstControlSlot();

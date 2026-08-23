@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -125,6 +126,46 @@ class PackagePersistenceFailureFeedbackTest {
 	}
 
 	@Test
+	void existingPackageSavePersistsOnlyEditableSlots() throws Exception {
+		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+		PlayerMock player = operator();
+		PackageGui gui = new PackageGui(PackageManager.get("starter"));
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+		fillEditableSlots(editor);
+		editor.setItem(PackageManager.MAX_PACKAGE_ITEM_STACKS, new ItemStack(Material.DIAMOND));
+		editor.setItem(editor.getSize() - 1, new ItemStack(Material.EMERALD));
+		ItemStack firstEditorItem = editor.getItem(0);
+
+		gui.save(saveClick(player));
+		server.getScheduler().performOneTick();
+
+		List<ItemStack> saved = PackageManager.get("starter").getItems();
+		assertEquals(PackageManager.MAX_PACKAGE_ITEM_STACKS, saved.size());
+		assertTrue(saved.stream().allMatch(item -> item.getType() == Material.DIRT));
+		assertNotSame(firstEditorItem, saved.get(0));
+	}
+
+	@Test
+	void createdPackageSavePersistsOnlyEditableSlots() throws Exception {
+		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+		PlayerMock player = operator();
+		CreatePackageGui gui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+		fillEditableSlots(editor);
+		editor.setItem(PackageManager.MAX_PACKAGE_ITEM_STACKS, new ItemStack(Material.DIAMOND));
+		editor.setItem(editor.getSize() - 1, new ItemStack(Material.EMERALD));
+
+		gui.save(saveClick(player));
+		server.getScheduler().performOneTick();
+
+		List<ItemStack> saved = PackageManager.get("newpkg").getItems();
+		assertEquals(PackageManager.MAX_PACKAGE_ITEM_STACKS, saved.size());
+		assertTrue(saved.stream().allMatch(item -> item.getType() == Material.DIRT));
+	}
+
+	@Test
 	void deletePackageFailureReportsNoChangesAndKeepsPackageAvailable() throws Exception {
 		PlayerMock player = operator();
 
@@ -138,6 +179,12 @@ class PackagePersistenceFailureFeedbackTest {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 		return player;
+	}
+
+	private void fillEditableSlots(Inventory editor) {
+		for (int slot = 0; slot < PackageManager.MAX_PACKAGE_ITEM_STACKS; slot++) {
+			editor.setItem(slot, new ItemStack(Material.DIRT, 1));
+		}
 	}
 
 	private InventoryClickEvent saveClick(PlayerMock player) {
