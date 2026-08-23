@@ -15,18 +15,12 @@ import java.util.Set;
 
 public class AirdropTabCompleter implements TabCompleter {
 
-    private static final List<String> ADMIN_SUB_COMMANDS = List.of("package", "packages", "version", "reload");
-    private static final List<String> NON_ADMIN_SUB_COMMANDS = List.of("package", "packages", "version");
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
         // If no arguments, return false
         if (args.length == 1) {
             Set<String> suggestions = new LinkedHashSet<>(PackageManager.getPackages());
-            if (PermissionsHelper.isAdmin(commandSender)) {
-                suggestions.addAll(ADMIN_SUB_COMMANDS);
-                return new ArrayList<>(suggestions);
-            }
-            suggestions.addAll(NON_ADMIN_SUB_COMMANDS);
+            suggestions.addAll(AirdropCommandNames.visibleTo(PermissionsHelper.isAdmin(commandSender)));
             return new ArrayList<>(suggestions);
         }
 

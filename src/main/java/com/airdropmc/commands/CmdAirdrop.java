@@ -1,6 +1,7 @@
 package com.airdropmc.commands;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.AirdropCommandNames;
 import com.airdropmc.Config;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
@@ -26,16 +27,16 @@ public class CmdAirdrop implements CommandExecutor {
 			}
 
         switch (args[0]) {
-            case "package" -> PackageCommand.onCommand(sender, args);
-            case "packages" -> PackagesCommand.onCommand(sender);
-            case "version" -> {
+            case AirdropCommandNames.PACKAGE -> PackageCommand.onCommand(sender, args);
+            case AirdropCommandNames.PACKAGES -> PackagesCommand.onCommand(sender);
+            case AirdropCommandNames.VERSION -> {
                 String version = Airdrop.getVersion() != null ? Airdrop.getVersion() : "unknown";
                 String apiVersion = Airdrop.getPluginApiVersion() != null ? Airdrop.getPluginApiVersion() : "unknown";
                 ChatHandler.sendWithoutPrefix(sender, MessageKey.SYSTEM_VERSION_INFO, Map.of(
                         "version", version,
                         "api_version", apiVersion));
             }
-            case "reload" -> {
+            case AirdropCommandNames.RELOAD -> {
                 if (!PermissionsHelper.isAdmin(sender)) {
                     ChatHandler.sendError(sender, MessageKey.ADMIN_PERMISSION_REQUIRED);
                     return true;
