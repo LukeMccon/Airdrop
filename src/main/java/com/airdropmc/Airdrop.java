@@ -100,8 +100,15 @@ public class Airdrop extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
-		Bukkit.getScheduler().cancelTasks(this);
+		DropAdmissionController admission = dropAdmissionController;
+		if (admission != null) {
+			admission.stopAccepting();
+		}
 		CrateManager.clearAll();
+		if (admission != null) {
+			admission.clear();
+		}
+		Bukkit.getScheduler().cancelTasks(this);
 		PackageManager.clear();
 		if (packagesGui != null) {
 			HandlerList.unregisterAll(packagesGui);
@@ -115,6 +122,7 @@ public class Airdrop extends JavaPlugin {
 		economyProvider = null;
 		configuration = null;
 		packagesConfiguration = null;
+		dropAdmissionController = null;
 	}
 
 	private boolean setupEconomy() {
