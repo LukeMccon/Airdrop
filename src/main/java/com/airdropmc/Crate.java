@@ -242,9 +242,13 @@ public class Crate {
 			return;
 		}
 		destroyed = true;
-		cleanupResource("falling crate entity", () -> {
+		cleanupResource("falling crate gravity", () -> {
 			if (state == State.FALLING && fallingCrate != null && !fallingCrate.isDead()) {
 				fallingCrate.setGravity(true);
+			}
+		});
+		cleanupResource("falling crate entity", () -> {
+			if (state == State.FALLING && fallingCrate != null && !fallingCrate.isDead()) {
 				fallingCrate.remove();
 			}
 		});

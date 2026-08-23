@@ -5,10 +5,13 @@ import com.airdropmc.helpers.CrateManager;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.Chunk;
 import org.bukkit.block.Block;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,6 +87,34 @@ class CrateCleanupListenerTest {
 
 		assertNull(CrateManager.getCrate(location));
 		verify(crate).destroy();
+	}
+
+	@Test
+	void onChunkUnload_removesFallingAndLandedCratesInChunk() {
+		Chunk chunk = mock(Chunk.class);
+		when(chunk.getWorld()).thenReturn(world);
+		when(chunk.getX()).thenReturn(1);
+		when(chunk.getZ()).thenReturn(1);
+		ChunkUnloadEvent event = mock(ChunkUnloadEvent.class);
+		when(event.getChunk()).thenReturn(chunk);
+
+		Location fallingLocation = new Location(world, 17, 80, 17);
+		FallingBlock fallingBlock = mock(FallingBlock.class);
+		when(fallingBlock.getWorld()).thenReturn(world);
+		when(fallingBlock.getLocation()).thenReturn(fallingLocation);
+		Crate fallingCrate = mock(Crate.class);
+		CrateManager.addCrate(fallingBlock, fallingCrate);
+
+		Location landedLocation = new Location(world, 18, 64, 18);
+		Crate landedCrate = mock(Crate.class);
+		CrateManager.addCrate(landedLocation, landedCrate);
+
+		listener.onChunkUnload(event);
+
+		assertNull(CrateManager.getCrate(fallingBlock));
+		assertNull(CrateManager.getCrate(landedLocation));
+		verify(fallingCrate).destroy();
+		verify(landedCrate).destroy();
 	}
 
 	private Block blockAt(Location location) {

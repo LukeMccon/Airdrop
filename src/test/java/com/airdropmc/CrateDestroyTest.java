@@ -103,6 +103,7 @@ class CrateDestroyTest {
 
 		crate.destroy();
 
+		verify(fallingBlock).remove();
 		verify(parachuteSystem).cancel();
 		assertSnapshotEmpty(admission);
 	}

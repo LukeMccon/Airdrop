@@ -1,6 +1,7 @@
 package com.airdropmc;
 
 import java.util.ArrayList;
+import java.util.logging.Level;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Chicken;
@@ -13,6 +14,7 @@ import org.bukkit.util.Vector;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.airdropmc.config.DropOptions;
+import com.airdropmc.helpers.AirdropLogger;
 
 /**
  * Manages the parachute system for airdrops, including chicken parachutes and
@@ -61,9 +63,9 @@ public class ParachuteSystem {
                     .add(new Vector(Math.random() * 0.25, 2 + i, Math.random() * 0.25));
             Chicken chicken = (Chicken) world.spawnEntity(
                     chickenLocation, EntityType.CHICKEN);
+			chickenParachutes.add(chicken);
             chicken.setInvulnerable(true);
             chicken.setLeashHolder(parachuteLeash);
-            chickenParachutes.add(chicken);
         }
 
         // Add the slime as a passenger on the fallingCrate
@@ -143,39 +145,60 @@ public class ParachuteSystem {
      */
     public void cancel() {
         parachutesReleased = true;
-        if (parachuteTask != null && !parachuteTask.isCancelled()) {
-            parachuteTask.cancel();
-        }
-        parachuteTask = null;
+		cancelParachuteTask();
         cancelDelayedCleanupTask();
         // Immediately remove all entities
         cleanupParachuteEntities();
     }
 
 	private void cleanupParachuteEntities() {
+		ArrayList<Chicken> retainedChickens = new ArrayList<>();
 		for (Chicken chicken : chickenParachutes) {
 			if (chicken != null && chicken.isValid() && !chicken.isDead()) {
-				chicken.remove();
+				if (!cleanupResource("chicken parachute", chicken::remove)) {
+					retainedChickens.add(chicken);
+				}
 			}
 		}
 		chickenParachutes.clear();
+		chickenParachutes.addAll(retainedChickens);
 
 		if (parachuteLeash != null && parachuteLeash.isValid() && !parachuteLeash.isDead()) {
-			parachuteLeash.remove();
+			if (cleanupResource("parachute leash", parachuteLeash::remove)) {
+				parachuteLeash = null;
+			}
+		} else {
+			parachuteLeash = null;
 		}
 	}
 
     private void cancelParachuteTask() {
-        if (parachuteTask != null && !parachuteTask.isCancelled()) {
-            parachuteTask.cancel();
-        }
-        parachuteTask = null;
+		BukkitTask task = parachuteTask;
+		if (task == null || task.isCancelled()
+				|| cleanupResource("parachute task", task::cancel)) {
+			parachuteTask = null;
+		}
     }
 
     private void cancelDelayedCleanupTask() {
-        if (delayedCleanupTask != null && !delayedCleanupTask.isCancelled()) {
-            delayedCleanupTask.cancel();
-        }
-        delayedCleanupTask = null;
+		BukkitTask task = delayedCleanupTask;
+		if (task == null || task.isCancelled()
+				|| cleanupResource("delayed parachute cleanup task", task::cancel)) {
+			delayedCleanupTask = null;
+		}
     }
+
+	private boolean cleanupResource(String resource, Runnable cleanup) {
+		try {
+			cleanup.run();
+			return true;
+		} catch (RuntimeException failure) {
+			try {
+				AirdropLogger.log(Level.WARNING, "Failed to clean up " + resource, failure);
+			} catch (RuntimeException loggingFailure) {
+				failure.addSuppressed(loggingFailure);
+			}
+			return false;
+		}
+	}
 }
