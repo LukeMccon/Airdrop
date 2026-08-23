@@ -24,7 +24,7 @@ public class AirdropTabCompleter implements TabCompleter {
             return new ArrayList<>(suggestions);
         }
 
-        if (Objects.equals(args[0], "package")) {
+        if (Objects.equals(args[0], AirdropCommandNames.PACKAGE)) {
             return (new PackageTabCompletion()).onTabComplete(commandSender, command, alias, args);
         }
         return new ArrayList<>();
