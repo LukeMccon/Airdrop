@@ -38,6 +38,22 @@ class PackageEditorInteractionTest {
 		assertEquals(DENY, classify(click, action, cursor, false));
 	}
 
+	@ParameterizedTest
+	@MethodSource("allOtherEditableInteractions")
+	void deniesEveryOtherEmptyCursorInteractionKnownToTheTestApi(
+			ClickType click,
+			InventoryAction action) {
+		assertEquals(DENY, classify(click, action, null, false));
+	}
+
+	@ParameterizedTest
+	@MethodSource("allOtherControlInteractions")
+	void deniesEveryOtherEmptyCursorControlInteractionKnownToTheTestApi(
+			ClickType click,
+			InventoryAction action) {
+		assertEquals(DENY, classify(click, action, null, true));
+	}
+
 	private static Stream<Arguments> deniedInteractions() {
 		return Stream.of(
 				arguments(ClickType.SHIFT_LEFT, InventoryAction.MOVE_TO_OTHER_INVENTORY, null),
@@ -54,6 +70,30 @@ class PackageEditorInteractionTest {
 				arguments(ClickType.UNKNOWN, InventoryAction.UNKNOWN, null),
 				arguments(ClickType.LEFT, InventoryAction.PICKUP_ONE, null),
 				arguments(ClickType.RIGHT, InventoryAction.PICKUP_ONE, null));
+	}
+
+	private static Stream<Arguments> allOtherEditableInteractions() {
+		return allInteractions()
+				.filter(arguments -> !isAllowedEditable(
+						(ClickType) arguments.get()[0],
+						(InventoryAction) arguments.get()[1]));
+	}
+
+	private static Stream<Arguments> allOtherControlInteractions() {
+		return allInteractions()
+				.filter(arguments -> arguments.get()[0] != ClickType.LEFT
+						|| arguments.get()[1] != InventoryAction.PICKUP_ALL);
+	}
+
+	private static Stream<Arguments> allInteractions() {
+		return Stream.of(ClickType.values())
+				.flatMap(click -> Stream.of(InventoryAction.values())
+						.map(action -> arguments(click, action)));
+	}
+
+	private static boolean isAllowedEditable(ClickType click, InventoryAction action) {
+		return (click == ClickType.LEFT && action == InventoryAction.PICKUP_ALL)
+				|| (click == ClickType.RIGHT && action == InventoryAction.PICKUP_HALF);
 	}
 
 	private static PackageEditorInteraction.VirtualAction classify(

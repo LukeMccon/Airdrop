@@ -344,6 +344,18 @@ class PackageEditorInventoryIntegrityTest {
 		}
 	}
 
+	@Test
+	void editorInteractionsCancelAtHighestPriority() throws Exception {
+		for (Class<?> editor : List.of(CreatePackageGui.class, PackageGui.class)) {
+			for (Class<?> eventType : List.of(InventoryClickEvent.class, InventoryDragEvent.class)) {
+				EventHandler handler = editor.getMethod("onInventoryClick", eventType)
+						.getAnnotation(EventHandler.class);
+				assertSame(EventPriority.HIGHEST, handler.priority());
+				assertFalse(handler.ignoreCancelled());
+			}
+		}
+	}
+
 	private void assertPreservedAfterClose(PlayerMock player, java.util.function.Consumer<InventoryCloseEvent> closeHandler) {
 		player.getInventory().setItem(0, new ItemStack(Material.GOLD_INGOT, 4));
 		ItemStack unrelated = player.getInventory().getItem(0);

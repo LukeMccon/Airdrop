@@ -87,7 +87,7 @@ public class CreatePackageGui extends Gui implements Listener {
         }
     }
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(final InventoryClickEvent e) {
 		Inventory top = e.getView().getTopInventory();
 		if (!(e.getWhoClicked() instanceof Player player) || !session.protects(player, top)) {
@@ -172,7 +172,7 @@ public class CreatePackageGui extends Gui implements Listener {
      * 
      * @param e drag event
      */
-	@EventHandler
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(final InventoryDragEvent e) {
 		if (session.protects(e.getWhoClicked(), e.getView().getTopInventory())) {
 			e.setCancelled(true);
