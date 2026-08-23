@@ -22,6 +22,7 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 - In-game GUI package creation and editing
 - Economy support through Treasury (preferred) with Vault fallback
 - Refund protection when a charged drop fails before spawning
+- Bounded request rate, falling entities, landed crates, and landed lifetime
 - Language file support (`lang/<language>.yml`) and configurable chat theme colors
 - Runtime reload command for config, language, and packages
 
@@ -100,6 +101,10 @@ All commands start with `/airdrop` (aliases: `/drop`, `/ad`).
   - Use one specific package
 - `airdrop.package.*`
   - Wildcard alias for package usage
+- `airdrop.cooldown.bypass`
+  - Bypasses only the per-player request cooldown
+  - Granted to operators by default and included under `airdrop.admin`
+  - Does not bypass falling or landed capacity limits
 
 LuckPerms integration also ensures these groups exist:
 - `airdrop-admin` with `airdrop.admin`
@@ -124,6 +129,11 @@ drop:
       height: 20
   falling-speed: 0.3
   height: 20
+  limits:
+    request-cooldown-seconds: 30
+    max-falling: 3
+    max-landed: 10
+    landed-lifetime-seconds: 600
 
 economy:
   enabled: true
@@ -148,6 +158,18 @@ Validation ranges:
 - `drop.falling-speed`: `0.01` to `4.0`
 - `drop.height`: `1` to `320`
 - `drop.particles.smoke.height`: `0` to `128`
+- `drop.limits.request-cooldown-seconds`: `1` to `86400`
+- `drop.limits.max-falling`: `1` to `64`
+- `drop.limits.max-landed`: `1` to `256`
+- `drop.limits.landed-lifetime-seconds`: `30` to `86400`
+
+Limit behavior:
+
+- Capacity and landing-location reservations happen before package items are materialized or economy funds are withdrawn.
+- `max-landed` includes landed crates and reserved slots for crates still falling, preventing in-flight overcommit.
+- Successful player drops start a UUID-based cooldown; rejected or failed drops do not.
+- Landed crates are removed after `landed-lifetime-seconds`, including their effects and scheduled tasks.
+- `/airdrop reload` applies new limits to future requests without deleting active crates or resetting existing cooldown/expiry deadlines. Lowering a cap below current occupancy blocks new drops until usage falls under the cap.
 
 Packages are stored in `plugins/Airdrop/packages.yml` and can be managed in-game.
 A package can contain up to `27` item stacks (barrel capacity).
