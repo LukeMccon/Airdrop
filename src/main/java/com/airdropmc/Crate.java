@@ -7,6 +7,7 @@ import java.util.Map;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.AirdropLogger;
+import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.tasks.RenderFlareTask;
 import com.airdropmc.tasks.RenderPackageGlowTask;
 import com.airdropmc.tasks.RenderPackageLandedTask;
@@ -37,6 +38,7 @@ public class Crate {
     private final ArrayList<ItemStack> contents;
     private State state;
     private final DropOptions options;
+	private final DropAdmissionController.Lease lease;
 
     // Falling state fields
     private Location dropLocation;
@@ -62,11 +64,17 @@ public class Crate {
      * @param contents of the crate
      */
     public Crate(Location location, World world, List<ItemStack> contents, DropOptions options) {
+		this(location, world, contents, options, null);
+	}
+
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease) {
         this.dropLocation = location.clone();
         this.world = world;
         this.contents = cloneContents(contents);
         this.state = State.FALLING;
         this.options = options;
+		this.lease = lease;
         this.parachuteSystem = new ParachuteSystem(world, options);
     }
 

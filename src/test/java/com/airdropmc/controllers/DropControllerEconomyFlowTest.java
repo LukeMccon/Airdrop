@@ -5,128 +5,219 @@ import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.WorldMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
+import com.airdropmc.Config;
+import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.economy.EconomyProvider;
+import com.airdropmc.economy.EconomyResult;
 import com.airdropmc.exceptions.CannotAffordException;
+import com.airdropmc.exceptions.DropLimitException;
+import com.airdropmc.exceptions.DropLimitException.Reason;
 import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.lang.MessageKey;
+import com.airdropmc.limits.DropAdmissionController;
+import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.packages.Package;
 import org.bukkit.Location;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
 
 class DropControllerEconomyFlowTest {
 
 	private ServerMock server;
 	private WorldMock world;
+	private DropAdmissionController admission;
+	private EconomyProvider economy;
 
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
 		world = server.addSimpleWorld("test_world");
-		clearCrateManager();
-		setAirdropEconomy(null);
+		CrateManager.clearAll();
+		admission = new DropAdmissionController();
+		setStatic("dropAdmissionController", admission);
+		setStatic("configuration", null);
+		economy = mock(EconomyProvider.class);
+		when(economy.deposit(org.mockito.ArgumentMatchers.any(), anyDouble())).thenReturn(EconomyResult.ok());
+		setStatic("economyProvider", economy);
+		Airdrop.setPluginInstance(null);
 	}
 
 	@AfterEach
 	void tearDown() throws Exception {
-		clearCrateManager();
-		setAirdropEconomy(null);
+		CrateManager.clearAll();
+		admission.clear();
+		setStatic("dropAdmissionController", null);
+		setStatic("economyProvider", null);
+		setStatic("configuration", null);
+		Airdrop.setPluginInstance(null);
 		MockBukkit.unmock();
 	}
 
 	@Test
-	void playerInitiatedDropPackage_doesNotSpawnCrate_whenChargeFails() throws Exception {
-		PlayerMock player = server.addPlayer();
-		player.setOp(true);
-		player.teleport(new Location(world, 0, 120, 0));
-		setAirdropEconomy(mockEconomyProvider());
+	void playerDrop_capacityRejectionOccursBeforeChargeOrItems() throws Exception {
+		installLimitConfig(1, 10);
+		admission.acquireSystem(new DropLocationKey(world.getUID(), 50, 65, 50),
+				ConfigKeys.getDropLimitSettings());
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = affordablePackage(player);
 
-		Package pkg = mock(Package.class);
-		when(pkg.getName()).thenReturn("starter");
-		when(pkg.canAfford(player)).thenReturn(true);
-		when(pkg.getPrice()).thenReturn(10.0);
-		doThrow(new CannotAffordException(player.getName(), 10.0)).when(pkg).chargeUser(player);
-		DropOptions options = DropOptions.createDefault().withDropHeight(20);
+		DropLimitException rejection = assertThrows(DropLimitException.class,
+				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
 
-		assertThrows(CannotAffordException.class, () -> DropController.playerInitiatedDropPackage(pkg, player, options));
+		assertEquals(Reason.FALLING_CAPACITY, rejection.getReason());
+		verify(pkg, never()).chargeUser(player);
 		verify(pkg, never()).getItems();
-		assertEquals(0, getMapSize("crateMap"));
-		assertEquals(0, getMapSize("landedCrateMap"));
 	}
 
 	@Test
-	void playerInitiatedDropPackage_attemptsRefund_whenDropFailsAfterCharge() throws Exception {
-		PlayerMock player = server.addPlayer();
-		player.setOp(true);
-		player.teleport(new Location(world, 0, 120, 0));
-		setAirdropEconomy(mockEconomyProvider());
-
+	void programmaticDrop_capacityRejectionOccursBeforeItems() throws Exception {
+		installLimitConfig(1, 10);
+		admission.acquireSystem(new DropLocationKey(world.getUID(), 50, 65, 50),
+				ConfigKeys.getDropLimitSettings());
 		Package pkg = mock(Package.class);
 
-		when(pkg.getName()).thenReturn("starter");
-		when(pkg.canAfford(player)).thenReturn(true);
-		when(pkg.getPrice()).thenReturn(25.0);
-		when(pkg.getItems()).thenThrow(new IllegalStateException("spawn failed"));
+		DropLimitException rejection = assertThrows(DropLimitException.class,
+				() -> DropController.dropPackage(pkg, world, new Location(world, 0, 120, 0), options()));
 
-		IllegalStateException ex = assertThrows(IllegalStateException.class, () -> DropController.playerInitiatedDropPackage(
-				pkg, player, DropOptions.createDefault().withDropHeight(20)));
-		verify(pkg).chargeUser(player);
-		assertEquals(1, ex.getSuppressed().length);
-		assertEquals(0, getMapSize("crateMap"));
-		assertEquals(0, getMapSize("landedCrateMap"));
+		assertEquals(Reason.FALLING_CAPACITY, rejection.getReason());
+		verify(pkg, never()).getItems();
 	}
 
 	@Test
-	void playerInitiatedDropPackage_throwsEconomyUnavailable_whenEconomyProviderMissing() throws Exception {
-		PlayerMock player = server.addPlayer();
-		player.setOp(true);
-		player.teleport(new Location(world, 0, 120, 0));
+	void playerDrop_chargeFailureReleasesReservationsAndStartsNoCooldown() throws Exception {
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = affordablePackage(player);
+		when(pkg.chargeUser(player)).thenThrow(new CannotAffordException(player.getName(), 10.0));
 
+		assertThrows(CannotAffordException.class,
+				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+
+		assertEquals(new DropAdmissionController.Snapshot(0, 0, 0, 0, 0, true), admission.snapshot());
+	}
+
+	@Test
+	void playerDrop_payloadFailureReleasesBeforeChargeOrRefund() throws Exception {
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = affordablePackage(player);
+		when(pkg.getItems()).thenThrow(new IllegalStateException("payload failed"));
+
+		assertThrows(IllegalStateException.class,
+				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+
+		assertEquals(new DropAdmissionController.Snapshot(0, 0, 0, 0, 0, true), admission.snapshot());
+		verify(pkg, never()).chargeUser(player);
+		verify(economy, never()).deposit(eq(player), anyDouble());
+	}
+
+	@Test
+	void playerDrop_spawnFailureAfterConfirmedChargeRefundsAndReleases() throws Exception {
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = affordablePackage(player);
+
+		assertThrows(IllegalStateException.class,
+				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+
+		assertEquals(new DropAdmissionController.Snapshot(0, 0, 0, 0, 0, true), admission.snapshot());
+		verify(economy).deposit(player, 10.0);
+	}
+
+	@Test
+	void playerDrop_chargeMessageFailureDoesNotRollbackSuccessfulDrop() throws Exception {
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		Airdrop.setPluginInstance(plugin);
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = affordablePackage(player);
+		try (MockedStatic<ChatHandler> chat = mockStatic(ChatHandler.class, CALLS_REAL_METHODS)) {
+			chat.when(() -> ChatHandler.send(player, MessageKey.DROP_CHARGED,
+					Map.of("amount", "10.0"))).thenThrow(new IllegalStateException("feedback failed"));
+
+			assertDoesNotThrow(() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+		}
+
+		assertEquals(1, admission.snapshot().falling());
+		verify(economy, never()).deposit(eq(player), anyDouble());
+	}
+
+	@Test
+	void playerDrop_throwsEconomyUnavailableBeforeAdmission_whenProviderMissing() throws Exception {
+		setStatic("economyProvider", null);
+		PlayerMock player = operatorAtClearSky();
 		Package pkg = mock(Package.class);
 		when(pkg.getName()).thenReturn("starter");
 
-		assertThrows(EconomyUnavailableException.class, () -> DropController.playerInitiatedDropPackage(
-				pkg, player, DropOptions.createDefault().withDropHeight(20)));
+		assertThrows(EconomyUnavailableException.class,
+				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+
+		assertEquals(new DropAdmissionController.Snapshot(0, 0, 0, 0, 0, true), admission.snapshot());
 		verify(pkg, never()).canAfford(player);
 		verify(pkg, never()).chargeUser(player);
 	}
 
-	private void clearCrateManager() throws Exception {
-		Field crateMapField = CrateManager.class.getDeclaredField("crateMap");
-		crateMapField.setAccessible(true);
-		((Map<?, ?>) crateMapField.get(null)).clear();
-
-		Field landedCrateMapField = CrateManager.class.getDeclaredField("landedCrateMap");
-		landedCrateMapField.setAccessible(true);
-		((Map<?, ?>) landedCrateMapField.get(null)).clear();
+	private PlayerMock operatorAtClearSky() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		player.teleport(new Location(world, 0, 120, 0));
+		return player;
 	}
 
-	private int getMapSize(String fieldName) throws Exception {
-		Field mapField = CrateManager.class.getDeclaredField(fieldName);
-		mapField.setAccessible(true);
-		return ((Map<?, ?>) mapField.get(null)).size();
+	private Package affordablePackage(PlayerMock player) throws Exception {
+		Package pkg = mock(Package.class);
+		when(pkg.getName()).thenReturn("starter");
+		when(pkg.getPrice()).thenReturn(10.0);
+		when(pkg.canAfford(player)).thenReturn(true);
+		when(pkg.getItems()).thenReturn(List.of());
+		when(pkg.chargeUser(player)).thenReturn(true);
+		return pkg;
 	}
 
-	private void setAirdropEconomy(Object economy) throws Exception {
-		Field economyField = Airdrop.class.getDeclaredField("economyProvider");
-		economyField.setAccessible(true);
-		economyField.set(null, economy);
+	private DropOptions options() {
+		return DropOptions.createDefault()
+				.withDropHeight(20)
+				.withChickenCount(1)
+				.withFlareEffects(false)
+				.withLandingEffects(false)
+				.withContinuousEffects(false)
+				.withSmokeEnabled(false);
 	}
 
-	private EconomyProvider mockEconomyProvider() {
-		return mock(EconomyProvider.class);
+	private void installLimitConfig(int maxFalling, int maxLanded) throws Exception {
+		YamlConfiguration values = new YamlConfiguration();
+		values.set(ConfigKeys.ECONOMY_ENABLED, true);
+		values.set(ConfigKeys.DROP_REQUEST_COOLDOWN_SECONDS, 30);
+		values.set(ConfigKeys.DROP_MAX_FALLING, maxFalling);
+		values.set(ConfigKeys.DROP_MAX_LANDED, maxLanded);
+		values.set(ConfigKeys.DROP_LANDED_LIFETIME_SECONDS, 600);
+		Config config = mock(Config.class);
+		when(config.getConfig()).thenReturn(values);
+		setStatic("configuration", config);
+	}
+
+	private void setStatic(String fieldName, Object value) throws Exception {
+		Field field = Airdrop.class.getDeclaredField(fieldName);
+		field.setAccessible(true);
+		field.set(null, value);
 	}
 }

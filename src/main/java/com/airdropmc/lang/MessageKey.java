@@ -49,6 +49,16 @@ public enum MessageKey {
 	ERROR_PACKAGE_SAVE_FAILED(
 			"errors.package-save-failed",
 			"Could not save package changes. No changes were made. Check the server log."),
+	ERROR_DROP_REQUEST_PENDING("errors.drop-request-pending", "A drop request is already being processed"),
+	ERROR_DROP_COOLDOWN("errors.drop-cooldown", "Wait {seconds} seconds before requesting another airdrop"),
+	ERROR_DROP_FALLING_LIMIT("errors.drop-falling-limit",
+			"Too many airdrops are currently falling; try again shortly"),
+	ERROR_DROP_LANDED_LIMIT("errors.drop-landed-limit",
+			"Too many landed airdrops are active; try again later"),
+	ERROR_DROP_LOCATION_RESERVED("errors.drop-location-reserved",
+			"An airdrop already owns this landing location"),
+	ERROR_DROP_SHUTTING_DOWN("errors.drop-shutting-down",
+			"Airdrops are unavailable while the plugin is shutting down"),
 
 	DROP_CHARGED("drop.charged", "{accent}${amount}{primary} has been taken from your account"),
 

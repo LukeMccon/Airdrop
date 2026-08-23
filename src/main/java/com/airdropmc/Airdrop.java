@@ -12,6 +12,7 @@ import com.airdropmc.listeners.CrateCloseListener;
 import com.airdropmc.listeners.CrateCleanupListener;
 import com.airdropmc.listeners.CrateOpenListener;
 import com.airdropmc.listeners.FallingCrateListener;
+import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
 import com.airdropmc.config.ConfigKeys;
@@ -42,6 +43,7 @@ public class Airdrop extends JavaPlugin {
 	private static EconomyProvider economyProvider = null;
 	private static Config configuration;
 	private static PackagesConfig packagesConfiguration;
+	private static DropAdmissionController dropAdmissionController;
 	private LanguageManager languageManager;
 
 
@@ -57,6 +59,7 @@ public class Airdrop extends JavaPlugin {
 		configuration = new Config(this);
 		configuration.saveDefaultConfig();
 		configuration.getConfig();
+		dropAdmissionController = new DropAdmissionController();
 
 		// Initialize language system
 		this.languageManager = new LanguageManager(this);
@@ -201,6 +204,10 @@ public class Airdrop extends JavaPlugin {
 
 	public static PackagesConfig getPackagesConfiguration() {
 		return packagesConfiguration;
+	}
+
+	public static DropAdmissionController getDropAdmissionController() {
+		return dropAdmissionController;
 	}
 
 	public LanguageManager getLanguageManager() {

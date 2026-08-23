@@ -37,6 +37,12 @@ errors:
   package-exists: "A package named {accent}{name}{error} already exists"
   package-delete-not-found: "Unable to delete package: {error-detail}{name}{error} not found"
   package-save-failed: "Could not save package changes. No changes were made. Check the server log."
+  drop-request-pending: "A drop request is already being processed"
+  drop-cooldown: "Wait {seconds} seconds before requesting another airdrop"
+  drop-falling-limit: "Too many airdrops are currently falling; try again shortly"
+  drop-landed-limit: "Too many landed airdrops are active; try again later"
+  drop-location-reserved: "An airdrop already owns this landing location"
+  drop-shutting-down: "Airdrops are unavailable while the plugin is shutting down"
 
 drop:
   charged: "{accent}${amount}{primary} has been taken from your account"

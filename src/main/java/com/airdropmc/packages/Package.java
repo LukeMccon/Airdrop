@@ -7,9 +7,7 @@ import java.util.Map;
 
 import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.exceptions.EconomyUnavailableException;
-import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.ChatTheme;
-import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.economy.EconomyProvider;
@@ -64,9 +62,9 @@ public class Package {
 		return Double.compare(economy.getBalance(player), this.price) >= 0;
 	}
 
-	public void chargeUser(Player player) throws CannotAffordException, EconomyUnavailableException {
+	public boolean chargeUser(Player player) throws CannotAffordException, EconomyUnavailableException {
 		if (!ConfigKeys.isEconomyEnabled()) {
-			return;
+			return false;
 		}
 		EconomyProvider economy = Airdrop.getEconomyProvider();
 		if (economy == null) {
@@ -75,7 +73,7 @@ public class Package {
 		if (!economy.withdraw(player, this.price).success()) {
 			throw new CannotAffordException(player.getName(), this.price);
 		}
-		ChatHandler.send(player, MessageKey.DROP_CHARGED, Map.of("amount", String.valueOf(this.price)));
+		return true;
 	}
 
 	public String toString() {
