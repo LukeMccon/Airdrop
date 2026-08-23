@@ -3,8 +3,6 @@ package com.airdropmc.packages;
 import java.util.*;
 
 import com.airdropmc.helpers.AirdropLogger;
-import com.airdropmc.helpers.ChatHandler;
-import com.airdropmc.lang.MessageKey;
 import com.airdropmc.Airdrop;
 import com.airdropmc.PackagesConfig;
 import org.bukkit.configuration.ConfigurationSection;
@@ -104,8 +102,7 @@ public class PackageManager {
 	 * @return set of package names
 	 */
 	public static Set<String> getPackages() {
-		ConfigurationSection section = getPackagesSection();
-		return section != null ? section.getKeys(false) : Collections.emptySet();
+		return Set.copyOf(packages.keySet());
 	}
 
 	/**
@@ -151,21 +148,26 @@ public class PackageManager {
 				}
 
 				String name = pkg;
-				double price = config.getDouble(pkg + ".price", 0.0);
-
-				if (price == 0.0 && !config.isSet(pkg + ".price")) {
-					AirdropLogger.warning(
-							ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_MISSING, Map.of("name", name)));
+				Object rawPrice = config.get(pkg + ".price");
+				if (!(rawPrice instanceof Number number)) {
+					logInvalidPrice(name, rawPrice);
+					continue;
 				}
+				double price = number.doubleValue();
 				if (!Package.isValidPrice(price)) {
-					AirdropLogger.warning(ChatHandler.get(MessageKey.SYSTEM_PACKAGE_PRICE_INVALID,
-							Map.of("name", name, "price", String.valueOf(price))));
-					price = 0.0;
+					logInvalidPrice(name, rawPrice);
+					continue;
 				}
 				List<ItemStack> limitedItems = limitToBarrelCapacity(items, name);
 				PackageManager.packages.put(name, new Package(name, price, limitedItems));
 			}
 		}
+	}
+
+	private static void logInvalidPrice(String packageName, Object rawPrice) {
+		String invalidValue = rawPrice == null ? "<missing>" : String.valueOf(rawPrice);
+		AirdropLogger.warning("Skipping package '" + packageName
+				+ "' because its price is invalid: " + invalidValue);
 	}
 
 	public static int getFilteredItemCount(List<ItemStack> items) {

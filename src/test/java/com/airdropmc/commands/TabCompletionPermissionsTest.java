@@ -6,6 +6,7 @@ import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.AirdropTabCompleter;
 import com.airdropmc.PackagesConfig;
+import com.airdropmc.packages.PackageManager;
 import org.bukkit.command.Command;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
@@ -28,17 +29,22 @@ class TabCompletionPermissionsTest {
 	void setUp() {
 		server = MockBukkit.mock();
 		stubPackagesConfig();
+		PackageManager.reload();
 	}
 
 	@AfterEach
 	void tearDown() {
+		PackageManager.clear();
 		clearPackagesConfig();
 		MockBukkit.unmock();
 	}
 
 	private void stubPackagesConfig() {
 		YamlConfiguration config = new YamlConfiguration();
-		config.createSection("packages.starter");
+		config.set("packages.starter.price", 10.0);
+		config.set("packages.starter.items", List.of());
+		config.set("packages.broken.price", "ten");
+		config.set("packages.broken.items", List.of());
 		PackagesConfig packagesConfig = mock(PackagesConfig.class);
 		org.mockito.Mockito.when(packagesConfig.getConfig()).thenReturn(config);
 		try {
@@ -82,6 +88,16 @@ class TabCompletionPermissionsTest {
 	}
 
 	@Test
+	void airdropTabCompleter_omitsPackagesWithInvalidPrices() {
+		PlayerMock player = server.addPlayer();
+		AirdropTabCompleter completer = new AirdropTabCompleter();
+
+		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop", new String[]{""});
+
+		assertFalse(results.contains("broken"));
+	}
+
+	@Test
 	void airdropTabCompleter_showsReloadForAdmin() {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
@@ -115,6 +131,17 @@ class TabCompletionPermissionsTest {
 
 		assertTrue(results.contains("create"));
 		assertTrue(results.contains("delete"));
+	}
+
+	@Test
+	void packageTabCompletion_omitsPackagesWithInvalidPrices() {
+		PlayerMock player = server.addPlayer();
+		PackageTabCompletion completer = new PackageTabCompletion();
+
+		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop",
+				new String[]{"package", ""});
+
+		assertFalse(results.contains("broken"));
 	}
 
 	@Test

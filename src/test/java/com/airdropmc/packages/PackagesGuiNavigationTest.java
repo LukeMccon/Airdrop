@@ -7,6 +7,7 @@ import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.PackagesConfig;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -21,8 +22,11 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -43,10 +47,13 @@ class PackagesGuiNavigationTest {
 		when(plugin.getPluginLoader()).thenReturn(eventPlugin.getPluginLoader());
 		when(plugin.getName()).thenReturn("Airdrop");
 		when(plugin.getServer()).thenReturn(server);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("PackagesGuiNavigationTest"));
 
 		YamlConfiguration config = new YamlConfiguration();
 		config.set("packages.starter.price", 10.0);
 		config.set("packages.starter.items", List.of(new ItemStack(Material.STONE, 2)));
+		config.set("packages.broken.price", "ten");
+		config.set("packages.broken.items", List.of(new ItemStack(Material.DIRT, 1)));
 		PackagesConfig packagesConfig = mock(PackagesConfig.class);
 		when(packagesConfig.getConfig()).thenReturn(config);
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
@@ -78,6 +85,23 @@ class PackagesGuiNavigationTest {
 		assertSame(browserInventory, player.getOpenInventory().getTopInventory());
 		server.getScheduler().performOneTick();
 		assertNotSame(browserInventory, player.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void packageBrowserOmitsPackagesWithInvalidPrices() {
+		PackagesGui browser = new PackagesGui();
+		PlayerMock player = operator();
+		browser.openInventory(player);
+		Inventory inventory = player.getOpenInventory().getTopInventory();
+
+		List<String> displayedNames = Arrays.stream(inventory.getContents())
+				.filter(Objects::nonNull)
+				.map(ItemStack::getItemMeta)
+				.filter(Objects::nonNull)
+				.map(meta -> ChatColor.stripColor(meta.getDisplayName()))
+				.toList();
+		assertTrue(displayedNames.contains("starter"));
+		assertFalse(displayedNames.stream().anyMatch(name -> name.contains("broken")));
 	}
 
 	@Test
