@@ -16,6 +16,7 @@ import org.bukkit.World;
 import org.bukkit.entity.FallingBlock;
 
 import com.airdropmc.Crate;
+import com.airdropmc.limits.DropLocationKey;
 
 /**
  * Manages crates
@@ -30,11 +31,11 @@ public class CrateManager {
 	private static final Map<FallingBlock, Crate> crateMap = new HashMap<>();
 
 	// Guarded by synchronized access methods in this class
-	private static final Map<BlockKey, Crate> landedCrateMap = new HashMap<>();
+	private static final Map<DropLocationKey, Crate> landedCrateMap = new HashMap<>();
 
 	// Thread-safe access methods for crateMap
-	public static synchronized void addCrate(FallingBlock block, Crate crate) {
-		crateMap.put(block, crate);
+	public static synchronized boolean addCrate(FallingBlock block, Crate crate) {
+		return block != null && crate != null && crateMap.putIfAbsent(block, crate) == null;
 	}
 
 	public static synchronized Crate removeCrate(FallingBlock block) {
@@ -50,16 +51,13 @@ public class CrateManager {
 	}
 
 	// Thread-safe access methods for CrateMap
-	public static synchronized void addCrate(Location location, Crate crate) {
-		BlockKey key = toBlockKey(location);
-		if (key == null) {
-			return;
-		}
-		landedCrateMap.put(key, crate);
+	public static synchronized boolean addCrate(Location location, Crate crate) {
+		DropLocationKey key = toDropLocationKey(location);
+		return key != null && crate != null && landedCrateMap.putIfAbsent(key, crate) == null;
 	}
 
 	public static synchronized Crate removeCrate(Location location) {
-		BlockKey key = toBlockKey(location);
+		DropLocationKey key = toDropLocationKey(location);
 		if (key == null) {
 			return null;
 		}
@@ -84,8 +82,18 @@ public class CrateManager {
 		return true;
 	}
 
+	public static synchronized boolean removeCrateAndDestroy(Crate crate) {
+		if (crate == null) {
+			return false;
+		}
+		boolean removed = crateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
+		removed |= landedCrateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
+		crate.destroy();
+		return removed;
+	}
+
 	public static synchronized Crate getCrate(Location location) {
-		BlockKey key = toBlockKey(location);
+		DropLocationKey key = toDropLocationKey(location);
 		if (key == null) {
 			return null;
 		}
@@ -132,10 +140,10 @@ public class CrateManager {
 		int chunkZ = chunk.getZ();
 		UUID chunkWorldId = chunk.getWorld().getUID();
 		List<Location> landedLocationsToRemove = new ArrayList<>();
-		Iterator<Map.Entry<BlockKey, Crate>> iterator = landedCrateMap.entrySet().iterator();
+		Iterator<Map.Entry<DropLocationKey, Crate>> iterator = landedCrateMap.entrySet().iterator();
 		while (iterator.hasNext()) {
-			Map.Entry<BlockKey, Crate> entry = iterator.next();
-			BlockKey key = entry.getKey();
+			Map.Entry<DropLocationKey, Crate> entry = iterator.next();
+			DropLocationKey key = entry.getKey();
 			if (key == null) {
 				Crate crate = entry.getValue();
 				if (crate != null) {
@@ -183,10 +191,10 @@ public class CrateManager {
 		}
 
 		List<Location> landedLocationsToRemove = new ArrayList<>();
-		Iterator<Map.Entry<BlockKey, Crate>> landedIterator = landedCrateMap.entrySet().iterator();
+		Iterator<Map.Entry<DropLocationKey, Crate>> landedIterator = landedCrateMap.entrySet().iterator();
 		while (landedIterator.hasNext()) {
-			Map.Entry<BlockKey, Crate> entry = landedIterator.next();
-			BlockKey key = entry.getKey();
+			Map.Entry<DropLocationKey, Crate> entry = landedIterator.next();
+			DropLocationKey key = entry.getKey();
 			if (key == null) {
 				Crate crate = entry.getValue();
 				if (crate != null) {
@@ -226,17 +234,10 @@ public class CrateManager {
 		}
 	}
 
-	private static BlockKey toBlockKey(Location location) {
+	private static DropLocationKey toDropLocationKey(Location location) {
 		if (location == null || location.getWorld() == null) {
 			return null;
 		}
-		return new BlockKey(
-				location.getWorld().getUID(),
-				location.getBlockX(),
-				location.getBlockY(),
-				location.getBlockZ());
-	}
-
-	private record BlockKey(UUID worldId, int x, int y, int z) {
+		return DropLocationKey.from(location);
 	}
 }

@@ -2,6 +2,9 @@ package com.airdropmc;
 
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.limits.DropAdmissionController;
+import com.airdropmc.limits.DropLimitSettings;
+import com.airdropmc.limits.DropLocationKey;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -18,12 +21,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.Duration;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 class CrateDestroyTest {
 
@@ -35,31 +40,64 @@ class CrateDestroyTest {
 	@Test
 	void destroy_removesFallingCrateAndRestoresGravity_whenEntityStillAlive() throws Exception {
 		World world = mock(World.class);
+		when(world.getUID()).thenReturn(UUID.randomUUID());
 		FallingBlock fallingBlock = mock(FallingBlock.class);
 		when(fallingBlock.isDead()).thenReturn(false);
+		DropAdmissionController admission = new DropAdmissionController();
+		DropAdmissionController.Lease lease = acquireFallingLease(admission, world);
 
-		Crate crate = new Crate(new Location(world, 100, 100, 100), world, List.of(), DropOptions.createDefault());
+		Crate crate = new Crate(new Location(world, 100, 100, 100), world,
+				List.of(), DropOptions.createDefault(), lease);
 		setFallingCrate(crate, fallingBlock);
 
 		crate.destroy();
+		crate.destroy();
 
-		verify(fallingBlock).setGravity(true);
-		verify(fallingBlock).remove();
+		verify(fallingBlock, times(1)).setGravity(true);
+		verify(fallingBlock, times(1)).remove();
+		assertSnapshotEmpty(admission);
 	}
 
 	@Test
 	void destroy_skipsEntityRemoval_whenFallingCrateAlreadyDead() throws Exception {
 		World world = mock(World.class);
+		when(world.getUID()).thenReturn(UUID.randomUUID());
 		FallingBlock fallingBlock = mock(FallingBlock.class);
 		when(fallingBlock.isDead()).thenReturn(true);
+		DropAdmissionController admission = new DropAdmissionController();
+		DropAdmissionController.Lease lease = acquireFallingLease(admission, world);
 
-		Crate crate = new Crate(new Location(world, 100, 100, 100), world, List.of(), DropOptions.createDefault());
+		Crate crate = new Crate(new Location(world, 100, 100, 100), world,
+				List.of(), DropOptions.createDefault(), lease);
 		setFallingCrate(crate, fallingBlock);
 
 		crate.destroy();
 
 		verify(fallingBlock, never()).setGravity(true);
 		verify(fallingBlock, never()).remove();
+		assertSnapshotEmpty(admission);
+	}
+
+	@Test
+	void destroy_continuesCleanupAndClosesLeaseWhenEntityCleanupThrows() throws Exception {
+		World world = mock(World.class);
+		when(world.getUID()).thenReturn(UUID.randomUUID());
+		FallingBlock fallingBlock = mock(FallingBlock.class);
+		when(fallingBlock.isDead()).thenReturn(false);
+		org.mockito.Mockito.doThrow(new IllegalStateException("entity cleanup failed"))
+				.when(fallingBlock).setGravity(true);
+		ParachuteSystem parachuteSystem = mock(ParachuteSystem.class);
+		DropAdmissionController admission = new DropAdmissionController();
+		DropAdmissionController.Lease lease = acquireFallingLease(admission, world);
+		Crate crate = new Crate(new Location(world, 100, 100, 100), world,
+				List.of(), DropOptions.createDefault(), lease);
+		setFallingCrate(crate, fallingBlock);
+		setField(crate, "parachuteSystem", parachuteSystem);
+
+		crate.destroy();
+
+		verify(parachuteSystem).cancel();
+		assertSnapshotEmpty(admission);
 	}
 
 	@Test
@@ -81,8 +119,13 @@ class CrateDestroyTest {
 		when(barrel.getLocation()).thenReturn(landedLocation);
 		when(inventory.addItem(any(ItemStack[].class))).thenReturn(new HashMap<>(overflowMap));
 
+		DropAdmissionController admission = new DropAdmissionController();
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				DropLocationKey.from(landedLocation),
+				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
+		lease.commitSpawn();
 		Crate crate = new Crate(new Location(world, 10, 100, 10), world,
-				List.of(new ItemStack(Material.STONE, 1)), DropOptions.createDefault());
+				List.of(new ItemStack(Material.STONE, 1)), DropOptions.createDefault(), lease);
 
 		crate.land(block);
 
@@ -90,9 +133,28 @@ class CrateDestroyTest {
 	}
 
 	private void setFallingCrate(Crate crate, FallingBlock fallingBlock) throws Exception {
-		Field fallingCrateField = Crate.class.getDeclaredField("fallingCrate");
-		fallingCrateField.setAccessible(true);
-		fallingCrateField.set(crate, fallingBlock);
+		setField(crate, "fallingCrate", fallingBlock);
+	}
+
+	private void setField(Crate crate, String fieldName, Object value) throws Exception {
+		Field field = Crate.class.getDeclaredField(fieldName);
+		field.setAccessible(true);
+		field.set(crate, value);
+	}
+
+	private DropAdmissionController.Lease acquireFallingLease(DropAdmissionController admission, World world)
+			throws Exception {
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				new DropLocationKey(world.getUID(), 100, 65, 100),
+				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
+		lease.commitSpawn();
+		return lease;
+	}
+
+	private void assertSnapshotEmpty(DropAdmissionController admission) {
+		org.junit.jupiter.api.Assertions.assertEquals(0, admission.snapshot().falling());
+		org.junit.jupiter.api.Assertions.assertEquals(0, admission.snapshot().landedClaims());
+		org.junit.jupiter.api.Assertions.assertEquals(0, admission.snapshot().locations());
 	}
 
 	private void clearCrateManager() throws Exception {

@@ -246,22 +246,43 @@ class CrateManagerTest {
     }
 
     @Test
-    void addCrate_replacesExistingCrate_forSameFallingBlock() {
-        CrateManager.addCrate(mockFallingBlock, mockCrate);
-        CrateManager.addCrate(mockFallingBlock, mockCrate2);
+    void addCrate_rejectsExistingCrate_forSameFallingBlock() {
+        assertTrue(CrateManager.addCrate(mockFallingBlock, mockCrate));
+        assertFalse(CrateManager.addCrate(mockFallingBlock, mockCrate2));
 
-        assertSame(mockCrate2, CrateManager.getCrate(mockFallingBlock));
+        assertSame(mockCrate, CrateManager.getCrate(mockFallingBlock));
     }
 
 	    @Test
-	    void addCrate_replacesExistingCrate_forSameLocation() {
+	    void addCrate_rejectsExistingCrate_forSameLocation() {
 	        Location location = new Location(world, 100, 64, 200);
 
-	        CrateManager.addCrate(location, mockCrate);
-	        CrateManager.addCrate(location, mockCrate2);
+	        assertTrue(CrateManager.addCrate(location, mockCrate));
+	        assertFalse(CrateManager.addCrate(location, mockCrate2));
 
-	        assertSame(mockCrate2, CrateManager.getCrate(location));
+	        assertSame(mockCrate, CrateManager.getCrate(location));
 	    }
+
+	@Test
+	void removeCrateAndDestroy_withCrate_removesEveryIdentityMappingAndDestroysOnce() {
+		Location location = new Location(world, 100, 64, 200);
+		CrateManager.addCrate(mockFallingBlock, mockCrate);
+		CrateManager.addCrate(location, mockCrate);
+
+		assertTrue(CrateManager.removeCrateAndDestroy(mockCrate));
+
+		assertFalse(CrateManager.hasCrate(mockFallingBlock));
+		assertNull(CrateManager.getCrate(location));
+		verify(mockCrate).destroy();
+	}
+
+	@Test
+	void addCrate_rejectsNullKeysAndValues() {
+		assertFalse(CrateManager.addCrate((FallingBlock) null, mockCrate));
+		assertFalse(CrateManager.addCrate(mockFallingBlock, null));
+		assertFalse(CrateManager.addCrate((Location) null, mockCrate));
+		assertFalse(CrateManager.addCrate(new Location(world, 1, 2, 3), null));
+	}
 
 	    @Test
 	    void removeFallingCratesInChunk_removesMatchingFallingCrates_only() {

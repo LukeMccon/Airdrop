@@ -23,7 +23,6 @@ import com.airdropmc.packages.Package;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -182,10 +181,7 @@ public class DropController {
 
 	private static void cleanupFailedCrate(Crate crate, RuntimeException failure) {
 		try {
-			FallingBlock fallingBlock = crate.getFallingCrate();
-			if (fallingBlock == null || !CrateManager.removeCrateAndDestroy(fallingBlock)) {
-				crate.destroy();
-			}
+			CrateManager.removeCrateAndDestroy(crate);
 		} catch (RuntimeException cleanupFailure) {
 			failure.addSuppressed(cleanupFailure);
 		}

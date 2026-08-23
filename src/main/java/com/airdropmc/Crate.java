@@ -3,6 +3,8 @@ package com.airdropmc;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.logging.Level;
 
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
@@ -54,6 +56,7 @@ public class Crate {
     private RenderPackageGlowTask glowEffect;
     private RenderPackageSmokeTask smokeEffect;
     private volatile boolean opened = false;
+	private boolean destroyed;
 
     /**
      * Construct a new Crate object with a location, world, and ArrayList of
@@ -63,10 +66,6 @@ public class Crate {
      * @param world    where it will drop in
      * @param contents of the crate
      */
-    public Crate(Location location, World world, List<ItemStack> contents, DropOptions options) {
-		this(location, world, contents, options, null);
-	}
-
 	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
 			DropAdmissionController.Lease lease) {
         this.dropLocation = location.clone();
@@ -74,7 +73,7 @@ public class Crate {
         this.contents = cloneContents(contents);
         this.state = State.FALLING;
         this.options = options;
-		this.lease = lease;
+		this.lease = Objects.requireNonNull(lease, "lease");
         this.parachuteSystem = new ParachuteSystem(world, options);
     }
 
@@ -117,7 +116,9 @@ public class Crate {
         });
         parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
 
-        CrateManager.addCrate(fallingCrate, this);
+		if (!CrateManager.addCrate(fallingCrate, this)) {
+			throw new IllegalStateException("Falling crate entity is already tracked");
+		}
     }
 
     /**
@@ -189,44 +190,68 @@ public class Crate {
     /**
      * Stop particle effects
      */
-    public void stopEffects() {
-        if (glowTask != null) {
-            glowTask.cancel();
-        }
-        if (smokeTask != null) {
-            smokeTask.cancel();
-        }
+	public synchronized void stopEffects() {
+		cleanupResource("glow task", () -> {
+			if (glowTask != null && !glowTask.isCancelled()) {
+				glowTask.cancel();
+			}
+		});
+		cleanupResource("smoke task", () -> {
+			if (smokeTask != null && !smokeTask.isCancelled()) {
+				smokeTask.cancel();
+			}
+		});
+		glowTask = null;
+		smokeTask = null;
     }
 
     /**
      * Cleans up resources used by this crate
      */
-    public void destroy() {
-        if (state == State.FALLING && fallingCrate != null && !fallingCrate.isDead()) {
-            fallingCrate.setGravity(true);
-            fallingCrate.remove();
-        }
-
-        // Cancel parachute system tasks and cleanup entities
-        if (parachuteSystem != null) {
-            parachuteSystem.cancel();
-        }
-
-        // Stop particle effects if landed
-        if (state == State.LANDED) {
-            stopEffects();
-            if (blockChest != null && blockChest.getType() == Material.BARREL) {
-                blockChest.setType(Material.AIR);
-            } else if (landedLocation != null && landedLocation.getBlock().getType() == Material.BARREL) {
-                landedLocation.getBlock().setType(Material.AIR);
-            }
-        }
-
-        // Cancel flare effect if still running
-        if (flareEffect != null && !flareEffect.isCancelled()) {
-            flareEffect.cancel();
-        }
+	public synchronized void destroy() {
+		if (destroyed) {
+			return;
+		}
+		destroyed = true;
+		cleanupResource("falling crate entity", () -> {
+			if (state == State.FALLING && fallingCrate != null && !fallingCrate.isDead()) {
+				fallingCrate.setGravity(true);
+				fallingCrate.remove();
+			}
+		});
+		cleanupResource("parachute system", () -> {
+			if (parachuteSystem != null) {
+				parachuteSystem.cancel();
+			}
+		});
+		stopEffects();
+		cleanupResource("flare effect", () -> {
+			if (flareEffect != null && !flareEffect.isCancelled()) {
+				flareEffect.cancel();
+			}
+		});
+		cleanupResource("landed barrel", () -> {
+			if (state == State.LANDED && blockChest != null && blockChest.getType() == Material.BARREL) {
+				blockChest.setType(Material.AIR);
+			} else if (state == State.LANDED && landedLocation != null
+					&& landedLocation.getBlock().getType() == Material.BARREL) {
+				landedLocation.getBlock().setType(Material.AIR);
+			}
+		});
+		lease.close();
     }
+
+	private void cleanupResource(String resource, Runnable cleanup) {
+		try {
+			cleanup.run();
+		} catch (RuntimeException failure) {
+			try {
+				AirdropLogger.log(Level.WARNING, "Failed to clean up crate " + resource, failure);
+			} catch (RuntimeException loggingFailure) {
+				failure.addSuppressed(loggingFailure);
+			}
+		}
+	}
 
     /**
      * Returns the Crate's current state

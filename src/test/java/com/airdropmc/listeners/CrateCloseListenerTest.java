@@ -15,6 +15,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -37,6 +39,7 @@ class CrateCloseListenerTest {
 		clearCrateManager();
 
 		world = mock(World.class);
+		when(world.getUID()).thenReturn(UUID.randomUUID());
 		block = mock(Block.class);
 		barrel = mock(Barrel.class);
 		event = mock(InventoryCloseEvent.class);
