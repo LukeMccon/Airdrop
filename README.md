@@ -181,6 +181,7 @@ The 4.0 API intentionally includes these source and binary compatibility changes
 - `Package.chargeUser(Player)` now returns whether an economy withdrawal was confirmed, allowing failed drops to refund only confirmed charges.
 - `Crate` construction requires a `DropAdmissionController.Lease` so every crate owns and releases its capacity and location reservations.
 - Public `DropController` drop methods now declare the checked `DropLimitException` rejection type.
+- Both public `CrateManager.addCrate(...)` overloads now return `boolean` so callers can detect collision-safe registration failure; existing source calls may ignore the result, but previously compiled integrations must be rebuilt.
 
 `airdrop.cooldown.bypass` is new in version 4. No cooldown- or limit-bypass permission shipped in a pre-v4 release, so there is no legacy permission migration or alias to configure.
 
