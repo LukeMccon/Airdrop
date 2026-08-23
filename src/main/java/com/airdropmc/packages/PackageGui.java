@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public class PackageGui extends Gui implements Listener {
     private final Inventory inv;
@@ -95,78 +94,85 @@ public class PackageGui extends Gui implements Listener {
 
 	@EventHandler
 	public void onInventoryClick(final InventoryClickEvent e) {
-		InventoryView view = e.getView();
-		if (!view.getTopInventory().equals(inv)) {
-			return;
-		}
-		if (!(e.getWhoClicked() instanceof Player p)) {
+		Inventory top = e.getView().getTopInventory();
+		if (!(e.getWhoClicked() instanceof Player player) || !session.protects(player, top)) {
 			return;
 		}
 
-        e.setCancelled(true);
+		e.setCancelled(true);
+		if (!session.canProcess(player, top)) {
+			return;
+		}
 
 		Inventory clickedInventory = e.getClickedInventory();
 		if (clickedInventory == null) {
 			return;
 		}
 
-		final ItemStack clickedItem = e.getCurrentItem();
+		boolean controlSlot = clickedInventory == inv && isControlSlot(e.getSlot());
+		PackageEditorInteraction.VirtualAction action = PackageEditorInteraction.classify(
+				e.getClick(), e.getAction(), e.getCursor(), controlSlot);
+		if (action == PackageEditorInteraction.VirtualAction.DENY) {
+			return;
+		}
 
-        if (clickedItem == null || clickedItem.getType().isAir()) {
-            return;
-        }
+		ItemStack clickedItem = e.getCurrentItem();
+		if (clickedItem == null || clickedItem.getType().isAir()) {
+			return;
+		}
 
-        String itemStackName = getDisplayName(clickedItem);
+		if (action == PackageEditorInteraction.VirtualAction.CONTROL) {
+			handleControl(e, player);
+			return;
+		}
 
-        String backLabel = ChatHandler.get(MessageKey.GUI_BACK);
-        String saveLabel = ChatHandler.get(MessageKey.GUI_SAVE);
-        String cancelLabel = ChatHandler.get(MessageKey.GUI_CANCEL);
-        String helpLabel = ChatHandler.get(MessageKey.GUI_HELP);
+		if (!PermissionsHelper.isAdmin(player)) {
+			return;
+		}
 
-        if (clickedInventory.equals(inv) && Objects.equals(itemStackName, backLabel)) {
-            this.back(e);
-            return;
-        }
+		if (clickedInventory == inv) {
+			if (isEditablePackageSlot(e.getSlot())) {
+				removeFromPackage(e.getSlot(), clickedItem, action);
+			}
+			return;
+		}
 
-        if (clickedInventory.equals(inv) && Objects.equals(itemStackName, saveLabel)) {
-            if (PermissionsHelper.isAdmin(p)) {
-                this.save(e);
-            } else {
-                ChatHandler.sendError(p, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
-            }
-            return;
-        }
+		if (clickedInventory == player.getInventory()) {
+			addItemToPackage(
+					player,
+					clickedItem,
+					action == PackageEditorInteraction.VirtualAction.SINGLE_ITEM);
+		}
+	}
 
-        if (clickedInventory.equals(inv) && Objects.equals(itemStackName, cancelLabel)) {
-            this.cancel(e);
-            return;
-        }
+	private void handleControl(InventoryClickEvent event, Player player) {
+		int slot = event.getSlot();
+		if (slot == inv.getSize() - 3) {
+			back(event);
+		} else if (slot == inv.getSize() - 2) {
+			if (PermissionsHelper.isAdmin(player)) {
+				save(event);
+			} else {
+				ChatHandler.sendError(player, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
+			}
+		} else if (slot == inv.getSize() - 1) {
+			cancel(event);
+		}
+	}
 
-        if (clickedInventory.equals(inv) && Objects.equals(itemStackName, helpLabel)) {
-            return;
-        }
+	private void removeFromPackage(
+			int slot,
+			ItemStack clickedItem,
+			PackageEditorInteraction.VirtualAction action) {
+		if (action == PackageEditorInteraction.VirtualAction.SINGLE_ITEM && clickedItem.getAmount() > 1) {
+			ItemStack updated = clickedItem.clone();
+			updated.setAmount(clickedItem.getAmount() - 1);
+			inv.setItem(slot, updated);
+			return;
+		}
 
-        if (!PermissionsHelper.isAdmin(p)) {
-            return;
-        }
-
-        if (clickedInventory.equals(inv)) {
-            if (isEditablePackageSlot(e.getSlot())) {
-                if (e.isRightClick() && clickedItem.getAmount() > 1) {
-                    ItemStack updated = clickedItem.clone();
-                    updated.setAmount(clickedItem.getAmount() - 1);
-                    inv.setItem(e.getSlot(), updated);
-                } else {
-                    inv.setItem(e.getSlot(), null);
-                }
-            }
-            return;
-        }
-
-        if (clickedInventory.equals(p.getInventory())) {
-            addItemToPackage(p, clickedItem, e.isRightClick());
-        }
-    }
+		inv.setItem(slot, null);
+	}
 
     /**
      * Cancel actions that are not done by an admin
@@ -175,7 +181,7 @@ public class PackageGui extends Gui implements Listener {
      */
 	@EventHandler
 	public void onInventoryClick(final InventoryDragEvent e) {
-		if (e.getInventory().equals(inv)) {
+		if (session.protects(e.getWhoClicked(), e.getView().getTopInventory())) {
 			e.setCancelled(true);
 		}
 	}
@@ -270,12 +276,16 @@ public class PackageGui extends Gui implements Listener {
     }
 
     private int getFirstControlSlot() {
-        return inv.getSize() - 4;
+		return PackageManager.MAX_PACKAGE_ITEM_STACKS;
     }
 
-    private boolean isEditablePackageSlot(int slot) {
+	private boolean isEditablePackageSlot(int slot) {
         return slot >= 0 && slot < getFirstControlSlot();
     }
+
+	private boolean isControlSlot(int slot) {
+		return slot >= inv.getSize() - 4 && slot < inv.getSize();
+	}
 
     private void addItemToPackage(Player player, ItemStack itemToCopy, boolean singleItem) {
         int requestedAmount = singleItem ? 1 : itemToCopy.getAmount();
