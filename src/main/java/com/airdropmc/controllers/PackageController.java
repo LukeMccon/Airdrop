@@ -96,10 +96,12 @@ public class PackageController {
 
 		PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(packageName);
 		if (!nameValidation.accepted()) {
-			ChatHandler.sendError(sender,
-					nameValidation.rejection() == PackageNamePolicy.Rejection.MISSING
-							? MessageKey.PACKAGES_NAME_REQUIRED
-							: MessageKey.PACKAGES_NAME_INVALID);
+			MessageKey message = switch (nameValidation.rejection()) {
+				case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
+				case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
+				case RESERVED -> MessageKey.PACKAGES_NAME_RESERVED;
+			};
+			ChatHandler.sendError(sender, message);
 			return;
 		}
 

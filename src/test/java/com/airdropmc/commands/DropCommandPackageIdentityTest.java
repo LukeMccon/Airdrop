@@ -8,6 +8,7 @@ import com.airdropmc.PackagesConfig;
 import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.LanguageManager;
+import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
 import net.kyori.adventure.text.Component;
@@ -20,12 +21,15 @@ import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.anyMap;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 
 class DropCommandPackageIdentityTest {
@@ -78,6 +82,27 @@ class DropCommandPackageIdentityTest {
 		String text = PlainTextComponentSerializer.plainText().serialize(message);
 		assertTrue(text.contains("airdrop.package.starter"), text);
 		assertFalse(text.contains("airdrop.package.Starter"));
+	}
+
+	@Test
+	void permissionDenialSupportsLegacyPackagePlaceholder() {
+		LanguageManager language = mock(LanguageManager.class);
+		when(language.get(MessageKey.PREFIX)).thenReturn("[Airdrop]");
+		when(language.get(eq(MessageKey.ERROR_INSUFFICIENT_PERMISSIONS), anyMap()))
+				.thenAnswer(invocation -> {
+					Map<String, String> placeholders = invocation.getArgument(1);
+					return "requires airdrop.package." + placeholders.get("package");
+				});
+		ChatHandler.init(language);
+		PlayerMock player = server.addPlayer();
+
+		DropCommand.onCommand(player, new String[]{"Starter"});
+
+		Component message = player.nextComponentMessage();
+		assertNotNull(message);
+		String text = PlainTextComponentSerializer.plainText().serialize(message);
+		assertTrue(text.contains("airdrop.package.starter"), text);
+		assertFalse(text.contains("airdrop.package.null"), text);
 	}
 
 	private static void setStaticField(String fieldName, Object value) throws Exception {

@@ -8,6 +8,9 @@ import com.airdropmc.Airdrop;
 import com.airdropmc.PackagesConfig;
 import com.airdropmc.controllers.PackageController;
 import com.airdropmc.exceptions.PackageNotFoundException;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.lang.LanguageManager;
+import com.airdropmc.lang.MessageKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
@@ -183,15 +186,24 @@ class PackagePersistenceFailureFeedbackTest {
 		CreatePackageGui gui = new CreatePackageGui("reload", 3.0);
 		gui.openInventory(player);
 		Inventory editor = player.getOpenInventory().getTopInventory();
+		LanguageManager language = mock(LanguageManager.class);
+		when(language.get(MessageKey.PREFIX)).thenReturn("[Airdrop]");
+		when(language.get(MessageKey.PACKAGES_NAME_INVALID)).thenReturn("legacy character message");
+		when(language.get(MessageKey.PACKAGES_NAME_RESERVED)).thenReturn("package name is reserved");
+		ChatHandler.init(language);
 
-		gui.save(saveClick(player));
+		try {
+			gui.save(saveClick(player));
 
-		assertSame(editor, player.getOpenInventory().getTopInventory());
-		assertThrows(PackageNotFoundException.class, () -> PackageManager.get("reload"));
-		Component message = player.nextComponentMessage();
-		assertNotNull(message);
-		assertTrue(PlainTextComponentSerializer.plainText().serialize(message)
-				.toLowerCase(Locale.ROOT).contains("reserved"));
+			assertSame(editor, player.getOpenInventory().getTopInventory());
+			assertThrows(PackageNotFoundException.class, () -> PackageManager.get("reload"));
+			Component message = player.nextComponentMessage();
+			assertNotNull(message);
+			assertTrue(PlainTextComponentSerializer.plainText().serialize(message)
+					.toLowerCase(Locale.ROOT).contains("reserved"));
+		} finally {
+			ChatHandler.init(null);
+		}
 	}
 
 	private PlayerMock operator() {

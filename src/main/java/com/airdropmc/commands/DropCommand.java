@@ -53,8 +53,11 @@ public class DropCommand {
 			} catch (SkyNotClearException e) {
 				ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
 			} catch (InsufficientPermissionsException e) {
+				String canonicalName = PackageNamePolicy.requireCanonical(e.getPackageName());
 				ChatHandler.sendError(player, MessageKey.ERROR_INSUFFICIENT_PERMISSIONS,
-						Map.of("permission", PackageNamePolicy.permissionNode(e.getPackageName())));
+						Map.of(
+								"permission", PackageNamePolicy.permissionNode(e.getPackageName()),
+								"package", canonicalName));
 			} catch (DropLimitException e) {
 				sendLimitError(player, e);
             }

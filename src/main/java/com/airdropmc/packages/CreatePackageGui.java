@@ -264,6 +264,17 @@ public class CreatePackageGui extends Gui implements Listener {
 
         Player p = (Player) e.getWhoClicked();
 
+		PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(this.name);
+		if (!nameValidation.accepted()) {
+			MessageKey message = switch (nameValidation.rejection()) {
+				case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
+				case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
+				case RESERVED -> MessageKey.PACKAGES_NAME_RESERVED;
+			};
+			ChatHandler.sendError(p, message);
+			return;
+		}
+
 		List<ItemStack> packageItems = PackageManager.sanitizePackageItems(editableItems());
         if (packageItems.size() > PackageManager.MAX_PACKAGE_ITEM_STACKS) {
             ChatHandler.sendError(p, MessageKey.PACKAGES_ITEM_LIMIT,
@@ -282,9 +293,6 @@ public class CreatePackageGui extends Gui implements Listener {
             ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_EXISTS,
                     Map.of("name", error.getPackageName()));
             return;
-		} catch (IllegalArgumentException error) {
-			ChatHandler.sendError(p, MessageKey.PACKAGES_NAME_INVALID);
-			return;
         }
 
 		scheduleTransition(p, p::closeInventory);

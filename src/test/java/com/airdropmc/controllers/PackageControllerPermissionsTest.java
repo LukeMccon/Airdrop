@@ -4,6 +4,9 @@ import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
+import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.lang.LanguageManager;
+import com.airdropmc.lang.MessageKey;
 import org.bukkit.event.inventory.InventoryType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class PackageControllerPermissionsTest {
 
@@ -110,5 +115,28 @@ class PackageControllerPermissionsTest {
 				() -> PackageController.createPackage("all", 1.0));
 		assertThrows(IllegalArgumentException.class,
 				() -> PackageController.createPackage("reload", 1.0, List.of()));
+	}
+
+	@Test
+	void reservedNameUsesDedicatedMessageWithLegacyLanguageConfiguration() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		LanguageManager language = mock(LanguageManager.class);
+		when(language.get(MessageKey.PREFIX)).thenReturn("[Airdrop]");
+		when(language.get(MessageKey.PACKAGES_NAME_INVALID)).thenReturn("legacy character message");
+		when(language.get(MessageKey.PACKAGES_NAME_RESERVED)).thenReturn("package name is reserved");
+		ChatHandler.init(language);
+
+		try {
+			PackageController.createPackageCommand(player,
+					new String[]{"package", "create", "reload", "10.0"});
+
+			Component message = player.nextComponentMessage();
+			assertNotNull(message);
+			String text = PlainTextComponentSerializer.plainText().serialize(message);
+			assertTrue(text.contains("package name is reserved"), text);
+		} finally {
+			ChatHandler.init(null);
+		}
 	}
 }
