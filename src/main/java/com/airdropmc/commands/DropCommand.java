@@ -10,6 +10,7 @@ import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
+import com.airdropmc.packages.PackageNamePolicy;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import com.airdropmc.controllers.DropController;
@@ -53,7 +54,7 @@ public class DropCommand {
 				ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
 			} catch (InsufficientPermissionsException e) {
 				ChatHandler.sendError(player, MessageKey.ERROR_INSUFFICIENT_PERMISSIONS,
-						Map.of("package", e.getPackageName()));
+						Map.of("permission", PackageNamePolicy.permissionNode(e.getPackageName())));
 			} catch (DropLimitException e) {
 				sendLimitError(player, e);
             }

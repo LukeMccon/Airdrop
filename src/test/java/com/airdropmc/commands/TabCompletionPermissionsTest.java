@@ -45,6 +45,12 @@ class TabCompletionPermissionsTest {
 		config.set("packages.starter.items", List.of());
 		config.set("packages.broken.price", "ten");
 		config.set("packages.broken.items", List.of());
+		config.set("packages.Premium.price", 15.0);
+		config.set("packages.Premium.items", List.of());
+		for (String reserved : List.of("all", "package", "packages", "version", "reload")) {
+			config.set("packages." + reserved + ".price", 1.0);
+			config.set("packages." + reserved + ".items", List.of());
+		}
 		PackagesConfig packagesConfig = mock(PackagesConfig.class);
 		org.mockito.Mockito.when(packagesConfig.getConfig()).thenReturn(config);
 		try {
@@ -177,5 +183,38 @@ class TabCompletionPermissionsTest {
 				new String[]{"package", "create", "starter", ""});
 
 		assertEquals(List.of("[price]"), results);
+	}
+
+	@Test
+	void topLevelCompletionPreservesDisplayCaseWithoutPackageCommandCollisions() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		AirdropTabCompleter completer = new AirdropTabCompleter();
+
+		List<String> results = completer.onTabComplete(
+				player, mock(Command.class), "airdrop", new String[]{""});
+
+		assertEquals(1, results.stream().filter("Premium"::equals).count());
+		assertFalse(results.contains("premium"));
+		assertFalse(results.contains("all"));
+		for (String commandName : List.of("package", "packages", "version", "reload")) {
+			assertEquals(1, results.stream().filter(commandName::equals).count(), commandName);
+		}
+	}
+
+	@Test
+	void packageCompletionPreservesDisplayCaseAndOmitsReservedEntries() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		PackageTabCompletion completer = new PackageTabCompletion();
+
+		List<String> results = completer.onTabComplete(
+				player, mock(Command.class), "airdrop", new String[]{"package", ""});
+
+		assertEquals(1, results.stream().filter("Premium"::equals).count());
+		assertFalse(results.contains("premium"));
+		for (String reserved : List.of("all", "package", "packages", "version", "reload")) {
+			assertFalse(results.contains(reserved), reserved);
+		}
 	}
 }

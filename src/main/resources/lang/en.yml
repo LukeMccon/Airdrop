@@ -28,7 +28,7 @@ packages:
 
 errors:
   cannot-afford: "{accent}{player}{error} cannot afford package price of {accent}{price}{error}"
-  insufficient-permissions: "You lack permission to drop that package (requires {accent}airdrop.package.{package}{error})"
+  insufficient-permissions: "You lack permission to drop that package (requires {accent}{permission}{error})"
   economy-unavailable: "Economy provider is unavailable. Contact a server administrator."
   reload-unavailable: "Reload unavailable while plugin is shutting down"
   packages-reload-failed: "Reload failed because packages configuration is unavailable"

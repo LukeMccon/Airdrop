@@ -1,6 +1,7 @@
 package com.airdropmc.helpers;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.packages.PackageNamePolicy;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.group.GroupManager;
@@ -12,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.permissions.ServerOperator;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
-import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
@@ -26,7 +26,6 @@ public class PermissionsHelper {
     private static final String AIRDROP_GROUP_USER = "airdrop-user";
     private static final String AIRDROP_ADMIN = "airdrop.admin";
     private static final String AIRDROP_PACKAGES_ALL = "airdrop.package.all";
-    private static final String AIRDROP_PACKAGE = "airdrop.package";
 	private static final String AIRDROP_COOLDOWN_BYPASS = "airdrop.cooldown.bypass";
 
     /**
@@ -69,19 +68,17 @@ public class PermissionsHelper {
      * @return player has permissions
      */
     public static boolean hasPermission(Player player, String packageName) {
+		PackageNamePolicy.Result validation = PackageNamePolicy.validate(packageName);
+		if (!validation.accepted()) {
+			return false;
+		}
 
         if (isAdmin(player)) {
             return true;
         }
-        if (packageName == null || packageName.isBlank()) {
-            return false;
-        }
 
-        String normalizedNode = AIRDROP_PACKAGE + "." + packageName.toLowerCase(Locale.ROOT);
-        String exactNode = AIRDROP_PACKAGE + "." + packageName;
-
-        return player.hasPermission(normalizedNode)
-                || (!exactNode.equals(normalizedNode) && player.hasPermission(exactNode))
+		String packageNode = PackageNamePolicy.permissionNode(packageName);
+		return player.hasPermission(packageNode)
                 || player.hasPermission(PermissionsHelper.AIRDROP_PACKAGES_ALL);
     }
 

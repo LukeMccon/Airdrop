@@ -34,7 +34,7 @@ public enum MessageKey {
 	ERROR_CANNOT_AFFORD("errors.cannot-afford",
 			"{accent}{player}{error} cannot afford package price of {accent}{price}{error}"),
 	ERROR_INSUFFICIENT_PERMISSIONS("errors.insufficient-permissions",
-			"You lack permission to drop that package (requires {accent}airdrop.package.{package}{error})"),
+			"You lack permission to drop that package (requires {accent}{permission}{error})"),
 	ERROR_ECONOMY_UNAVAILABLE("errors.economy-unavailable",
 			"Economy provider is unavailable. Contact a server administrator."),
 	ERROR_RELOAD_UNAVAILABLE("errors.reload-unavailable", "Reload unavailable while plugin is shutting down"),
