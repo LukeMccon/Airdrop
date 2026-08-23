@@ -294,6 +294,31 @@ void registryLookupAndDuplicateDetectionIgnoreCase() throws Exception {
 }
 
 @Test
+void createPackageRejectsConfiguredIdentitySkippedForInvalidPayload() {
+	config.set("packages.starter.price", "invalid");
+	assertTrue(PackageManager.reload());
+	assertFalse(PackageManager.has("starter"));
+	clearInvocations(packagesConfig);
+
+	assertThrows(DuplicatePackageException.class, () -> PackageManager.createPackage(
+			new Package("STARTER", 3.0, List.of())));
+	verify(packagesConfig, never()).saveConfig(any(FileConfiguration.class));
+}
+
+@Test
+void createPackageRejectsConfiguredIdentitySkippedForCaseCollision() {
+	config.set("packages.Starter.price", 12.0);
+	config.set("packages.Starter.items", List.of());
+	assertTrue(PackageManager.reload());
+	assertFalse(PackageManager.has("starter"));
+	clearInvocations(packagesConfig);
+
+	assertThrows(DuplicatePackageException.class, () -> PackageManager.createPackage(
+			new Package("sTaRtEr", 3.0, List.of())));
+	verify(packagesConfig, never()).saveConfig(any(FileConfiguration.class));
+}
+
+@Test
 void differentlyCasedUpdateUsesStoredYamlKey() throws Exception {
 	config.set("packages.Starter.price", 10.0);
 	config.set("packages.Starter.items", List.of());
@@ -436,6 +461,20 @@ All members of a case-collision group are rejected before section, price, or ite
 Replace the three mutation methods with the following implementations:
 
 ```java
+private static boolean hasConfiguredIdentity(FileConfiguration fileConfig, String canonicalName) {
+	ConfigurationSection configuredPackages = fileConfig.getConfigurationSection(PACKAGES);
+	if (configuredPackages == null) {
+		return false;
+	}
+	for (String configuredName : configuredPackages.getKeys(false)) {
+		PackageNamePolicy.Result validation = PackageNamePolicy.validate(configuredName);
+		if (validation.accepted() && validation.canonicalName().equals(canonicalName)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 public static boolean createPackage(Package pkg) throws DuplicatePackageException {
 	String canonicalName = PackageNamePolicy.requireCanonical(pkg.getName());
 	if (packages.containsKey(canonicalName)) {
@@ -448,6 +487,9 @@ public static boolean createPackage(Package pkg) throws DuplicatePackageExceptio
 	FileConfiguration fileConfig = packagesConfig != null ? packagesConfig.getConfig() : null;
 	if (fileConfig == null) {
 		throw new IllegalStateException("Packages configuration is unavailable");
+	}
+	if (hasConfiguredIdentity(fileConfig, canonicalName)) {
+		throw new DuplicatePackageException(pkg.getName());
 	}
 
 	List<ItemStack> limitedItems = limitToBarrelCapacity(pkg.getItems(), pkg.getName());
@@ -610,44 +652,43 @@ Remove `VALID_PACKAGE_NAME_PATTERN` from `PackageController` and use:
 String packageName = args[2] == null ? "" : args[2].trim();
 PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(packageName);
 if (!nameValidation.accepted()) {
-	ChatHandler.sendError(sender,
-			nameValidation.rejection() == PackageNamePolicy.Rejection.MISSING
-					? MessageKey.PACKAGES_NAME_REQUIRED
-					: MessageKey.PACKAGES_NAME_INVALID);
+	MessageKey message = switch (nameValidation.rejection()) {
+		case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
+		case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
+		case RESERVED -> MessageKey.PACKAGES_NAME_RESERVED;
+	};
+	ChatHandler.sendError(sender, message);
 	return;
 }
 ```
 
 The two public overloads keep constructing `Package` and calling `PackageManager.createPackage`; the manager remains the mandatory enforcement boundary.
 
-- [ ] **Step 5: Report direct GUI policy rejection without success**
+- [ ] **Step 5: Validate direct GUI saves without success**
 
-Extend the existing `CreatePackageGui.save` catch block:
+Validate immediately after resolving the player and before reading editor contents:
 
 ```java
-try {
-	if (!PackageManager.createPackage(pkg)) {
-		ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
-		return;
-	}
-} catch (DuplicatePackageException error) {
-	ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_EXISTS,
-			Map.of("name", error.getPackageName()));
-	return;
-} catch (IllegalArgumentException error) {
-	ChatHandler.sendError(p, MessageKey.PACKAGES_NAME_INVALID);
+PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(this.name);
+if (!nameValidation.accepted()) {
+	MessageKey message = switch (nameValidation.rejection()) {
+		case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
+		case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
+		case RESERVED -> MessageKey.PACKAGES_NAME_RESERVED;
+	};
+	ChatHandler.sendError(p, message);
 	return;
 }
 ```
 
-The invalid path leaves the editor open and sends no creation-success message.
+The invalid path leaves the editor open and sends no creation-success message. The later manager call remains the authoritative persistence backstop.
 
 - [ ] **Step 6: Clarify localized validation feedback**
 
-Change both the enum fallback and `en.yml` value to:
+Keep `packages.name-invalid` focused on unsupported characters and add a new enum/resource key `packages.name-reserved` so upgraded servers with an existing language file receive a clear new diagnostic:
 
 ```text
-Package names may only contain letters, numbers, underscores, and dashes and cannot use reserved names: all, *, package, packages, version, reload
+Package names cannot use reserved names: all, *, package, packages, version, reload
 ```
 
 - [ ] **Step 7: Run boundary and language tests and verify GREEN**
@@ -816,8 +857,11 @@ Change `DropCommand` permission feedback to use the same policy output:
 
 ```java
 } catch (InsufficientPermissionsException e) {
+	String canonicalName = PackageNamePolicy.requireCanonical(e.getPackageName());
 	ChatHandler.sendError(player, MessageKey.ERROR_INSUFFICIENT_PERMISSIONS,
-			Map.of("permission", PackageNamePolicy.permissionNode(e.getPackageName())));
+			Map.of(
+					"permission", PackageNamePolicy.permissionNode(e.getPackageName()),
+					"package", canonicalName));
 }
 ```
 
@@ -826,6 +870,8 @@ Change the enum fallback and `en.yml` message from an appended display-name plac
 ```text
 You lack permission to drop that package (requires {accent}{permission}{error})
 ```
+
+Supplying canonical `{package}` alongside `{permission}` preserves existing customized language entries that still contain `airdrop.package.{package}`.
 
 - [ ] **Step 6: Run permission and command tests and verify GREEN**
 
@@ -909,6 +955,7 @@ Confirm from tests and source that:
 - every member of a case-only YAML conflict is rejected before payload validation with diagnostics
 - command, GUI, both public API overloads, and PackageManager share the policy
 - accepted packages have one canonical permission node and denial text displays that node
+- existing customized denial messages using `{package}` receive the canonical lowercase identity
 - accepted mixed-case packages are reachable through the drop command
 - exact display/YAML casing is preserved
 - differently cased update and delete calls modify the stored YAML key

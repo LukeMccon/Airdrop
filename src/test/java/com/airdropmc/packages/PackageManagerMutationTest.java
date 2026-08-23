@@ -56,6 +56,7 @@ class PackageManagerMutationTest {
 
 		plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("PackageManagerMutationTest"));
 
 		setStaticField("packagesConfiguration", packagesConfig);
 		setStaticField("pluginInstance", plugin);
@@ -279,6 +280,33 @@ class PackageManagerMutationTest {
 		assertTrue(PackageManager.has("StArTeR"));
 		assertThrows(DuplicatePackageException.class, () -> PackageManager.createPackage(
 				new Package("STARTER", 3.0, List.of())));
+	}
+
+	@Test
+	void createPackageRejectsConfiguredIdentitySkippedForInvalidPayload() {
+		config.set("packages.starter.price", "invalid");
+		assertTrue(PackageManager.reload());
+		assertFalse(PackageManager.has("starter"));
+		clearInvocations(packagesConfig);
+
+		assertThrows(DuplicatePackageException.class, () -> PackageManager.createPackage(
+				new Package("STARTER", 3.0, List.of())));
+
+		verify(packagesConfig, never()).saveConfig(any(FileConfiguration.class));
+	}
+
+	@Test
+	void createPackageRejectsConfiguredIdentitySkippedForCaseCollision() {
+		config.set("packages.Starter.price", 12.0);
+		config.set("packages.Starter.items", List.of());
+		assertTrue(PackageManager.reload());
+		assertFalse(PackageManager.has("starter"));
+		clearInvocations(packagesConfig);
+
+		assertThrows(DuplicatePackageException.class, () -> PackageManager.createPackage(
+				new Package("sTaRtEr", 3.0, List.of())));
+
+		verify(packagesConfig, never()).saveConfig(any(FileConfiguration.class));
 	}
 
 	@Test

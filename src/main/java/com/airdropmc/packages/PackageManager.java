@@ -56,6 +56,21 @@ public class PackageManager {
 		return fileConfig.getConfigurationSection(PACKAGES);
 	}
 
+	private static boolean hasConfiguredIdentity(FileConfiguration fileConfig, String canonicalName) {
+		ConfigurationSection configuredPackages = fileConfig.getConfigurationSection(PACKAGES);
+		if (configuredPackages == null) {
+			return false;
+		}
+
+		for (String configuredName : configuredPackages.getKeys(false)) {
+			PackageNamePolicy.Result validation = PackageNamePolicy.validate(configuredName);
+			if (validation.accepted() && validation.canonicalName().equals(canonicalName)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static YamlConfiguration copyConfiguration(FileConfiguration fileConfig) {
 		YamlConfiguration candidate = new YamlConfiguration();
 		try {
@@ -293,6 +308,9 @@ public class PackageManager {
 		FileConfiguration fileConfig = packagesConfig != null ? packagesConfig.getConfig() : null;
 		if (fileConfig == null) {
 			throw new IllegalStateException("Packages configuration is unavailable");
+		}
+		if (hasConfiguredIdentity(fileConfig, canonicalName)) {
+			throw new DuplicatePackageException(pkg.getName());
 		}
 
 		List<ItemStack> limitedItems = limitToBarrelCapacity(pkg.getItems(), pkg.getName());

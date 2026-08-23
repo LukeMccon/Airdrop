@@ -20,7 +20,7 @@ Top-level command names move into a small `AirdropCommandNames` constants class.
 
 `PackageManager` stores packages under their canonical lowercase identity while each `Package` retains its exact configured/display name. `get`, `has`, inventory updates, and deletion canonicalize caller input before accessing the registry. Consequently, `Starter`, `starter`, and `STARTER` identify the same package, while user-visible names and YAML keys remain unchanged.
 
-Creating a package checks the centralized policy before checking the canonical map for duplicates. An invalid name throws `IllegalArgumentException` with the rejected name and reason. A case-only collision throws the existing `DuplicatePackageException`. Successful writes use the package's preserved exact name as the YAML key.
+Creating a package checks the centralized policy before checking both the canonical runtime map and every raw YAML key for duplicates. Inspecting raw keys prevents malformed entries and fail-closed collision groups—which are intentionally absent from the runtime map—from being shadowed by a newly created case variant. An invalid name throws `IllegalArgumentException` with the rejected name and reason. A case-only collision throws the existing `DuplicatePackageException`. Successful writes use the package's preserved exact name as the YAML key.
 
 Updating or deleting through a differently cased lookup uses the stored package's exact name for the YAML path. This prevents an operation such as `deletePackage("STARTER")` from writing to the wrong configuration path when the stored name is `Starter`.
 
@@ -36,25 +36,25 @@ Name validation and collision grouping happen before price and item ingestion. A
 
 ## Commands, GUI, APIs, and Permissions
 
-`PackageController.createPackageCommand` calls the policy before opening `CreatePackageGui`, so invalid or reserved input never creates an editor session. Its two public `createPackage` overloads continue through `PackageManager.createPackage`, which enforces the same policy even when callers bypass the command.
+`PackageController.createPackageCommand` calls the policy before opening `CreatePackageGui`, so invalid or reserved input never creates an editor session. Unsupported characters and reserved identities use separate localized message keys, allowing upgraded servers with an existing `packages.name-invalid` customization to receive the newly added reserved-name diagnostic. Its two public `createPackage` overloads continue through `PackageManager.createPackage`, which enforces the same policy even when callers bypass the command.
 
-`CreatePackageGui` saves through `PackageManager`, preserving defense in depth for direct GUI construction. Rejected saves report the existing invalid-name error to the viewer rather than reporting success.
+`CreatePackageGui` validates with the same policy before saving through `PackageManager`, preserving defense in depth for direct GUI construction. Rejected saves report the matching missing, invalid-character, or reserved-name error to the viewer rather than reporting success.
 
 Drop and package-info commands already resolve through `PackageManager.get`; canonical lookup makes every accepted package reachable regardless of input case. The package browser and tab completers enumerate `getPackages()`, so they display only accepted packages with preserved casing.
 
-`PackageNamePolicy` derives exactly one package-specific node from the canonical identity: `airdrop.package.<canonical-name>`. `PermissionsHelper.hasPermission` checks that node and removes the exact-case legacy fallback. Permission-denial feedback also uses the policy-generated lowercase node rather than appending the display name. Admin and `airdrop.package.all` behavior remains unchanged. Invalid names fail closed instead of generating ambiguous permission nodes.
+`PackageNamePolicy` derives exactly one package-specific node from the canonical identity: `airdrop.package.<canonical-name>`. `PermissionsHelper.hasPermission` checks that node and removes the exact-case legacy fallback. Permission-denial feedback also uses the policy-generated lowercase node rather than appending the display name. It supplies both the new full `{permission}` placeholder and the canonical lowercase `{package}` placeholder so existing customized language files continue rendering accurate denial text. Admin and `airdrop.package.all` behavior remains unchanged. Invalid names fail closed instead of generating ambiguous permission nodes.
 
 ## Error Handling
 
-- Command creation: send a localized invalid-name message explaining allowed characters and reserved names; do not open a GUI.
+- Command creation: send a localized missing-name, invalid-character, or reserved-name message; do not open a GUI.
 - Public API or direct manager creation: throw `IllegalArgumentException` with a precise name-policy reason before persistence.
 - Configuration load: skip the invalid or colliding entry, warn clearly, and continue loading independent valid packages.
 - Lookup of syntactically invalid or reserved input: behave as not found rather than exposing policy internals to ordinary drop callers.
-- Direct GUI save rejection: send the localized invalid-name message and leave the editor open without mutating live or persisted packages.
+- Direct GUI save rejection: send the matching localized name-policy message and leave the editor open without mutating live or persisted packages.
 
 ## Testing
 
-Focused unit tests will establish the policy contract for valid names, invalid syntax, blank/null values, every reserved name in mixed case, and Turkish-default-locale normalization. Manager tests will cover case-insensitive lookup, duplicate creation, differently cased update/delete persistence paths, and preserved display names.
+Focused unit tests will establish the policy contract for valid names, invalid syntax, blank/null values, every reserved name in mixed case, and Turkish-default-locale normalization. Manager tests will cover case-insensitive lookup, duplicate creation against live and skipped raw configuration identities, differently cased update/delete persistence paths, and preserved display names.
 
 Configuration tests will cover reserved keys, invalid syntax, fail-closed case-only collisions before payload validation, warnings, and continued loading of unrelated valid siblings. Controller tests will confirm command rejection occurs before GUI creation and both public API overloads reject the same inputs. GUI-save coverage will confirm a directly constructed invalid editor cannot persist a package.
 
