@@ -9,6 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -200,11 +201,12 @@ public class PackageGui extends Gui implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerKick(PlayerKickEvent e) {
-        if (session.viewerId() != null && session.viewerId().equals(e.getPlayer().getUniqueId())) {
-            retire();
-        }
+		if (session.viewerId() == null || !session.viewerId().equals(e.getPlayer().getUniqueId())) {
+			return;
+		}
+		scheduleKickObservation(e.getPlayer());
     }
 
 	private boolean retire() {
@@ -213,6 +215,48 @@ public class PackageGui extends Gui implements Listener {
 		}
 		HandlerList.unregisterAll(this);
 		return false;
+	}
+
+	private void scheduleTransition(Player player, Runnable viewChange) {
+		if (!session.beginTransition()) {
+			return;
+		}
+
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !plugin.isEnabled()) {
+			retire();
+			return;
+		}
+
+		Bukkit.getScheduler().runTask(plugin, () -> {
+			if (session.state() != PackageEditorSession.State.TRANSITIONING) {
+				return;
+			}
+			if (!player.isOnline() || player.getOpenInventory().getTopInventory() != inv) {
+				retire();
+				return;
+			}
+
+			viewChange.run();
+			if (session.state() == PackageEditorSession.State.TRANSITIONING
+					&& (!player.isOnline() || player.getOpenInventory().getTopInventory() != inv)) {
+				retire();
+			}
+		});
+	}
+
+	private void scheduleKickObservation(Player player) {
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !plugin.isEnabled()) {
+			retire();
+			return;
+		}
+
+		Bukkit.getScheduler().runTask(plugin, () -> {
+			if (!player.isOnline() || player.getOpenInventory().getTopInventory() != inv) {
+				retire();
+			}
+		});
 	}
 
     public String getName() {
@@ -243,13 +287,13 @@ public class PackageGui extends Gui implements Listener {
             return;
         }
 
-        p.closeInventory();
+		scheduleTransition(p, p::closeInventory);
         ChatHandler.send(p, MessageKey.PACKAGES_SAVED, Map.of("name", this.getName()));
     }
 
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
-        p.closeInventory();
+		scheduleTransition(p, p::closeInventory);
         ChatHandler.send(p, MessageKey.PACKAGES_EDIT_CANCELED);
     }
 
@@ -260,8 +304,14 @@ public class PackageGui extends Gui implements Listener {
      */
     public void back(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
-        p.closeInventory();
-        Airdrop.getPackagesGui().openInventory(p);
+		scheduleTransition(p, () -> {
+			PackagesGui packagesGui = Airdrop.getPackagesGui();
+			if (packagesGui == null) {
+				p.closeInventory();
+				return;
+			}
+			packagesGui.openInventory(p);
+		});
     }
 
     /**

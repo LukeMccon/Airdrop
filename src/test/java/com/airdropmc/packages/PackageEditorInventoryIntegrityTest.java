@@ -7,11 +7,15 @@ import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
@@ -20,6 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -53,6 +58,11 @@ class PackageEditorInventoryIntegrityTest {
 
 	@AfterEach
 	void tearDown() {
+		try {
+			setPackagesGui(null);
+		} catch (ReflectiveOperationException error) {
+			throw new IllegalStateException(error);
+		}
 		Airdrop.setPluginInstance(null);
 		MockBukkit.unmock();
 	}
@@ -229,6 +239,111 @@ class PackageEditorInventoryIntegrityTest {
 		}
 	}
 
+	@Test
+	void createCancelWaitsOneTickAndBlocksRepeatedInteractions() {
+		PlayerMock player = operator();
+		CreatePackageGui gui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+
+		InventoryClickEvent cancel = topClick(
+				player,
+				editor.getSize() - 1,
+				ClickType.LEFT,
+				InventoryAction.PICKUP_ALL);
+		gui.onInventoryClick(cancel);
+
+		verify(cancel).setCancelled(true);
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+
+		player.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 5));
+		InventoryClickEvent repeated = bottomClick(player, ClickType.LEFT, InventoryAction.PICKUP_ALL);
+		gui.onInventoryClick(repeated);
+		verify(repeated).setCancelled(true);
+		assertNull(editor.getItem(0));
+
+		server.getScheduler().performOneTick();
+
+		assertFalse(player.getOpenInventory().getType() == InventoryType.CHEST);
+	}
+
+	@Test
+	void deferredCancelNeverClosesANewerView() {
+		PlayerMock player = operator();
+		PackageGui gui = new PackageGui(packageWithStone());
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+		InventoryClickEvent cancel = topClick(
+				player,
+				editor.getSize() - 1,
+				ClickType.LEFT,
+				InventoryAction.PICKUP_ALL);
+
+		gui.onInventoryClick(cancel);
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+
+		Inventory newer = org.bukkit.Bukkit.createInventory(null, 9, "newer");
+		player.openInventory(newer);
+		server.getScheduler().performOneTick();
+
+		assertSame(newer, player.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void backNavigationRunsOnlyOnTheNextTick() throws Exception {
+		PlayerMock player = operator();
+		PackageGui gui = new PackageGui(packageWithStone());
+		assertTrue(gui.openInventory(player));
+		PackagesGui browser = mock(PackagesGui.class);
+		setPackagesGui(browser);
+		Inventory editor = player.getOpenInventory().getTopInventory();
+		InventoryClickEvent back = topClick(
+				player,
+				editor.getSize() - 3,
+				ClickType.LEFT,
+				InventoryAction.PICKUP_ALL);
+
+		gui.onInventoryClick(back);
+
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+		verify(browser, never()).openInventory(player);
+		server.getScheduler().performOneTick();
+		verify(browser).openInventory(player);
+	}
+
+	@Test
+	void kickRemainsProtectedUntilDeferredDisconnectObservation() {
+		Player player = mockPlayer();
+		CreatePackageGui gui = new CreatePackageGui("newpkg", 3.0);
+		Inventory editor = openMockPlayer(gui::openInventory, player);
+		when(player.isOnline()).thenReturn(false);
+		PlayerKickEvent kick = mock(PlayerKickEvent.class);
+		when(kick.getPlayer()).thenReturn(player);
+
+		gui.onPlayerKick(kick);
+
+		InventoryClickEvent beforeTick = protectedClick(player);
+		gui.onInventoryClick(beforeTick);
+		verify(beforeTick).setCancelled(true);
+
+		server.getScheduler().performOneTick();
+
+		InventoryClickEvent afterTick = protectedClick(player);
+		gui.onInventoryClick(afterTick);
+		verify(afterTick, never()).setCancelled(true);
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void kickCleanupIgnoresCancelledEventsAtMonitorPriority() throws Exception {
+		for (Class<?> editor : List.of(CreatePackageGui.class, PackageGui.class)) {
+			EventHandler handler = editor.getMethod("onPlayerKick", PlayerKickEvent.class)
+					.getAnnotation(EventHandler.class);
+			assertSame(EventPriority.MONITOR, handler.priority());
+			assertTrue(handler.ignoreCancelled());
+		}
+	}
+
 	private void assertPreservedAfterClose(PlayerMock player, java.util.function.Consumer<InventoryCloseEvent> closeHandler) {
 		player.getInventory().setItem(0, new ItemStack(Material.GOLD_INGOT, 4));
 		ItemStack unrelated = player.getInventory().getItem(0);
@@ -256,8 +371,17 @@ class PackageEditorInventoryIntegrityTest {
 			when(view.getTopInventory()).thenReturn(opened[0]);
 			return view;
 		});
+		when(player.getOpenInventory()).thenReturn(view);
 		assertTrue(opener.apply(player));
 		return opened[0];
+	}
+
+	private InventoryClickEvent protectedClick(Player player) {
+		InventoryClickEvent event = mock(InventoryClickEvent.class);
+		InventoryView view = player.getOpenInventory();
+		when(event.getView()).thenReturn(view);
+		when(event.getWhoClicked()).thenReturn(player);
+		return event;
 	}
 
 	private InventoryCloseEvent closeEvent(Player player, Inventory editor) {
@@ -305,6 +429,12 @@ class PackageEditorInventoryIntegrityTest {
 		verify(player.getInventory(), never()).setContents(any(ItemStack[].class));
 		verify(player, never()).setItemOnCursor(any());
 		verify(player, never()).updateInventory();
+	}
+
+	private void setPackagesGui(PackagesGui packagesGui) throws ReflectiveOperationException {
+		Field field = Airdrop.class.getDeclaredField("packagesGui");
+		field.setAccessible(true);
+		field.set(null, packagesGui);
 	}
 
 	private PlayerMock operator() {

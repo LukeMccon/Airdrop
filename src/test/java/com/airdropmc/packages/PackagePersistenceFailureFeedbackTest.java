@@ -1,6 +1,7 @@
 package com.airdropmc.packages;
 
 import be.seeseemelk.mockbukkit.MockBukkit;
+import be.seeseemelk.mockbukkit.MockPlugin;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
@@ -31,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,6 +57,13 @@ class PackagePersistenceFailureFeedbackTest {
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(false);
 
 		setAirdropStaticField("packagesConfiguration", packagesConfig);
+		MockPlugin eventPlugin = MockBukkit.createMockPlugin("AirdropPersistenceHarness");
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getPluginLoader()).thenReturn(eventPlugin.getPluginLoader());
+		when(plugin.getName()).thenReturn("Airdrop");
+		when(plugin.getServer()).thenReturn(server);
+		setAirdropStaticField("pluginInstance", plugin);
 		PackageManager.clear();
 		assertTrue(PackageManager.reload());
 	}
@@ -95,8 +102,11 @@ class PackagePersistenceFailureFeedbackTest {
 		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
 		gui.save(saveEvent);
 
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+		server.getScheduler().performOneTick();
+
 		assertNotEquals(InventoryType.CHEST, player.getOpenInventory().getType());
-		assertNull(player.getInventory().getItem(0));
+		assertEquals(new ItemStack(Material.GOLD_INGOT, 4), player.getInventory().getItem(0));
 		assertNextMessageContains(player, "saved successfully");
 	}
 
