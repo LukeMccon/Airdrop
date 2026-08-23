@@ -30,9 +30,9 @@ Updating or deleting through a differently cased lookup uses the stored package'
 
 Reload validates every YAML key before reading its package data. Invalid syntax and reserved names are skipped with a warning that includes the exact name and rejection reason.
 
-For legacy keys that differ only by case, loading is deterministic: candidate keys are ordered first by their `Locale.ROOT` canonical identity and then by exact natural order. The first otherwise-valid package for a canonical identity is loaded; later collisions are skipped with a warning naming both the rejected key and the retained package. The file is not rewritten automatically. Operators can rename rejected entries explicitly, avoiding silent package, command, or permission changes.
+For legacy keys that differ only by case, loading fails closed: before reading package payloads, the loader groups syntactically valid keys by their `Locale.ROOT` canonical identity. Every member of a group containing multiple exact names is skipped, and a warning lists the conflicting keys. The file is not rewritten automatically. Operators must choose and rename the intended entry explicitly, avoiding silent selection of package contents under a formerly shared permission.
 
-Validation happens before price and item ingestion. A bad name therefore produces one name diagnostic without constructing or registering a `Package`.
+Name validation and collision grouping happen before price and item ingestion. A bad or colliding name therefore produces one name diagnostic without constructing or registering a `Package`, even if one colliding entry also has an invalid payload.
 
 ## Commands, GUI, APIs, and Permissions
 
@@ -42,7 +42,7 @@ Validation happens before price and item ingestion. A bad name therefore produce
 
 Drop and package-info commands already resolve through `PackageManager.get`; canonical lookup makes every accepted package reachable regardless of input case. The package browser and tab completers enumerate `getPackages()`, so they display only accepted packages with preserved casing.
 
-`PermissionsHelper.hasPermission` derives exactly one package-specific node from the canonical identity: `airdrop.package.<canonical-name>`. The exact-case legacy fallback is removed. Admin and `airdrop.package.all` behavior remains unchanged. Invalid names fail closed instead of generating ambiguous permission nodes.
+`PackageNamePolicy` derives exactly one package-specific node from the canonical identity: `airdrop.package.<canonical-name>`. `PermissionsHelper.hasPermission` checks that node and removes the exact-case legacy fallback. Permission-denial feedback also uses the policy-generated lowercase node rather than appending the display name. Admin and `airdrop.package.all` behavior remains unchanged. Invalid names fail closed instead of generating ambiguous permission nodes.
 
 ## Error Handling
 
@@ -56,8 +56,8 @@ Drop and package-info commands already resolve through `PackageManager.get`; can
 
 Focused unit tests will establish the policy contract for valid names, invalid syntax, blank/null values, every reserved name in mixed case, and Turkish-default-locale normalization. Manager tests will cover case-insensitive lookup, duplicate creation, differently cased update/delete persistence paths, and preserved display names.
 
-Configuration tests will cover reserved keys, invalid syntax, deterministic case-only collisions, warnings, and continued loading of valid siblings. Controller tests will confirm command rejection occurs before GUI creation and both public API overloads reject the same inputs. GUI-save coverage will confirm a directly constructed invalid editor cannot persist a package.
+Configuration tests will cover reserved keys, invalid syntax, fail-closed case-only collisions before payload validation, warnings, and continued loading of unrelated valid siblings. Controller tests will confirm command rejection occurs before GUI creation and both public API overloads reject the same inputs. GUI-save coverage will confirm a directly constructed invalid editor cannot persist a package.
 
-Permission tests will prove one lowercase `Locale.ROOT` node is checked, the exact-case fallback is gone, invalid names fail closed, and global/admin access still works. Command tests will prove accepted mixed-case packages are reachable through drop lookup and are exposed once through completion/browser enumeration.
+Permission tests will prove one lowercase `Locale.ROOT` node is checked and displayed, the exact-case fallback is gone, invalid names fail closed, and global/admin access still works. Command tests will prove accepted mixed-case packages are reachable through drop lookup and are exposed once through completion/browser enumeration.
 
 The focused test classes, complete JUnit suite, clean Gradle build, and `git diff --check` form the final verification gate.
