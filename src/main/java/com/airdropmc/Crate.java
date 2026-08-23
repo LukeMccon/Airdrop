@@ -77,8 +77,9 @@ public class Crate {
         this.state = State.FALLING;
         this.options = options;
 		this.lease = Objects.requireNonNull(lease, "lease");
-        this.parachuteSystem = new ParachuteSystem(world, options);
-    }
+		this.parachuteSystem = new ParachuteSystem(
+				world, options, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
+	}
 
     private static ArrayList<ItemStack> cloneContents(List<ItemStack> contents) {
         ArrayList<ItemStack> clonedContents = new ArrayList<>();

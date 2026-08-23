@@ -1,6 +1,7 @@
 package com.airdropmc;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.logging.Level;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -22,20 +23,28 @@ import com.airdropmc.helpers.AirdropLogger;
  */
 public class ParachuteSystem {
     private final World world;
-    private final ArrayList<Chicken> chickenParachutes;
-    private final DropOptions options;
+	private final ArrayList<Chicken> chickenParachutes;
+	private final DropOptions options;
+	private final Runnable fallingCrateLostHandler;
     private Slime parachuteLeash;
     private FallingBlock fallingCrate;
     private BukkitTask parachuteTask;
     private BukkitTask delayedCleanupTask;
-    private Airdrop plugin;
-    private boolean parachutesReleased;
+	private Airdrop plugin;
+	private boolean parachutesReleased;
+	private boolean fallingCrateLossHandled;
 
-    public ParachuteSystem(World world, DropOptions options) {
-        this.world = world;
-        this.chickenParachutes = new ArrayList<>();
-        this.options = options;
-    }
+	public ParachuteSystem(World world, DropOptions options) {
+		this(world, options, () -> {});
+	}
+
+	ParachuteSystem(World world, DropOptions options, Runnable fallingCrateLostHandler) {
+		this.world = world;
+		this.chickenParachutes = new ArrayList<>();
+		this.options = options;
+		this.fallingCrateLostHandler = Objects.requireNonNull(
+				fallingCrateLostHandler, "fallingCrateLostHandler");
+	}
 
     /**
      * Initializes the parachute system for a falling crate
@@ -45,9 +54,10 @@ public class ParachuteSystem {
      */
     public void initialize(Location dropLocation, FallingBlock fallingCrate, Airdrop plugin) {
         this.fallingCrate = fallingCrate;
-        this.plugin = plugin;
-        this.parachutesReleased = false;
-        cancelDelayedCleanupTask();
+		this.plugin = plugin;
+		this.parachutesReleased = false;
+		this.fallingCrateLossHandled = false;
+		cancelDelayedCleanupTask();
 
         // Create a tiny invisible slime to hold leashes for the crate
         Location leashLocation = dropLocation.clone().add(new Vector(0, 1, 0));
@@ -80,11 +90,12 @@ public class ParachuteSystem {
             return;
         }
         parachuteTask = Bukkit.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
-            @Override
-            public void run() {
-                if (fallingCrate == null || fallingCrate.isDead()) {
-                    releaseParachutes();
-                    return;
+			@Override
+			public void run() {
+				if (fallingCrate == null || fallingCrate.isDead()) {
+					handleFallingCrateLoss();
+					releaseParachutes();
+					return;
                 }
 
                 // Play smoke effects
@@ -99,8 +110,16 @@ public class ParachuteSystem {
                 // Maintain falling velocity
                 fallingCrate.setVelocity(new Vector(0, fallingVelocity, 0));
             }
-        }, 0, 2);
-    }
+		}, 0, 2);
+	}
+
+	private void handleFallingCrateLoss() {
+		if (fallingCrateLossHandled) {
+			return;
+		}
+		fallingCrateLossHandled = true;
+		fallingCrateLostHandler.run();
+	}
 
     /**
      * Releases the parachutes and cleans up the system.

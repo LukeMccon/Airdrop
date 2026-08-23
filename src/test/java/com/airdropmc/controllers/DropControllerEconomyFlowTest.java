@@ -279,6 +279,23 @@ class DropControllerEconomyFlowTest {
 	}
 
 	@Test
+	void fallingEntityDeathDestroysTrackedCrateAndReleasesCapacity() throws Exception {
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.isEnabled()).thenReturn(true);
+		Airdrop.setPluginInstance(plugin);
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = affordablePackage(player);
+
+		DropController.playerInitiatedDropPackage(pkg, player, options());
+		FallingBlock fallingBlock = CrateManager.getCrateMap().keySet().iterator().next();
+		fallingBlock.remove();
+		server.getScheduler().performTicks(2L);
+
+		assertEquals(Map.of(), CrateManager.getCrateMap());
+		assertEquals(new DropAdmissionController.Snapshot(0, 0, 0, 0, 0, true), admission.snapshot());
+	}
+
+	@Test
 	void playerDrop_throwsEconomyUnavailableBeforeAdmission_whenProviderMissing() throws Exception {
 		setStatic("economyProvider", null);
 		PlayerMock player = operatorAtClearSky();
