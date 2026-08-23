@@ -1,5 +1,6 @@
 package com.airdropmc.packages;
 
+import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
@@ -7,7 +8,6 @@ import com.airdropmc.exceptions.DuplicatePackageException;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -26,14 +26,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 public class CreatePackageGui extends Gui implements Listener {
     private final Inventory inv;
     private final String name;
     private final double price;
-    private final PlayerInventorySnapshot inventorySnapshot = new PlayerInventorySnapshot();
-    private UUID viewerId;
+    private final PackageEditorSession session;
 
 	public CreatePackageGui(String name, double price) {
 
@@ -43,6 +41,7 @@ public class CreatePackageGui extends Gui implements Listener {
         int inventorySize = 36;
 
         inv = Bukkit.createInventory(null, inventorySize, name);
+        session = new PackageEditorSession(inv);
 
         initializeItems();
     }
@@ -66,12 +65,27 @@ public class CreatePackageGui extends Gui implements Listener {
         inv.setItem(inventorySize - 1, createGuiItem(Material.RED_WOOL, ChatHandler.get(MessageKey.GUI_CANCEL), 1));
     }
 
-    public void openInventory(final HumanEntity ent) {
-        if (ent instanceof Player p) {
-            this.viewerId = p.getUniqueId();
-            this.inventorySnapshot.capture(p);
+    public boolean openInventory(final Player player) {
+        if (!session.bind(player)) {
+            return false;
         }
-        ent.openInventory(inv);
+
+        Airdrop plugin = Airdrop.getPluginInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            return retire();
+        }
+
+        try {
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+            InventoryView view = player.openInventory(inv);
+            if (view == null || view.getTopInventory() != inv || !session.activate(view.getTopInventory())) {
+                return retire();
+            }
+            return true;
+        } catch (RuntimeException error) {
+            retire();
+            throw error;
+        }
     }
 
 	@EventHandler
@@ -157,27 +171,32 @@ public class CreatePackageGui extends Gui implements Listener {
 
     @EventHandler
     public void onInventoryClose(final InventoryCloseEvent e) {
-        if (e.getInventory().equals(inv) && e.getPlayer() instanceof Player p) {
-            inventorySnapshot.restore(p);
-            HandlerList.unregisterAll(this);
+        if (session.protects(e.getPlayer(), e.getInventory())) {
+            retire();
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent e) {
-        if (viewerId != null && viewerId.equals(e.getPlayer().getUniqueId())) {
-            inventorySnapshot.restore(e.getPlayer());
-            HandlerList.unregisterAll(this);
+        if (session.viewerId() != null && session.viewerId().equals(e.getPlayer().getUniqueId())) {
+            retire();
         }
     }
 
     @EventHandler
     public void onPlayerKick(PlayerKickEvent e) {
-        if (viewerId != null && viewerId.equals(e.getPlayer().getUniqueId())) {
-            inventorySnapshot.restore(e.getPlayer());
-            HandlerList.unregisterAll(this);
+        if (session.viewerId() != null && session.viewerId().equals(e.getPlayer().getUniqueId())) {
+            retire();
         }
     }
+
+	private boolean retire() {
+		if (!session.retire()) {
+			return false;
+		}
+		HandlerList.unregisterAll(this);
+		return false;
+	}
 
     public String getName() {
         return this.name;
@@ -213,7 +232,6 @@ public class CreatePackageGui extends Gui implements Listener {
             return;
         }
 
-        inventorySnapshot.restore(p);
         p.closeInventory();
         ChatHandler.send(p, MessageKey.PACKAGES_CREATED, Map.of("name", this.getName()));
     }
@@ -225,7 +243,6 @@ public class CreatePackageGui extends Gui implements Listener {
      */
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
-        inventorySnapshot.restore(p);
         p.closeInventory();
         ChatHandler.send(p, MessageKey.PACKAGES_CREATE_CANCELED);
     }

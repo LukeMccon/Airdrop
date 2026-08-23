@@ -6,7 +6,6 @@ import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.Package;
-import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 
@@ -18,7 +17,6 @@ import java.util.regex.Pattern;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.Bukkit;
 
 public class PackageController {
 	private static final Pattern VALID_PACKAGE_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_-]+$");
@@ -124,13 +122,9 @@ public class PackageController {
 		}
 
 		CreatePackageGui createGui = new CreatePackageGui(packageName, price);
-		Airdrop plugin = Airdrop.getPluginInstance();
-		if (plugin == null || !plugin.isEnabled()) {
+		if (!createGui.openInventory(player)) {
 			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
-			return;
 		}
-		Bukkit.getPluginManager().registerEvents(createGui, plugin);
-		createGui.openInventory(player);
 	}
 
 	/**
