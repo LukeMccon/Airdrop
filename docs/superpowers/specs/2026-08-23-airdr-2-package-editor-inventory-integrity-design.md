@@ -63,9 +63,6 @@ This is the selected approach. The player inventory is a read-only source for ex
 
 ```text
 NEW -> ACTIVE -> TRANSITIONING -> CLOSED
-          ^            |
-          |            | persistence failure before commit/transition
-          +------------+
 ```
 
 - `NEW`: constructed but not successfully opened.
@@ -148,7 +145,7 @@ Bottom-inventory items are read only. For an allowed source click, the editor cl
 
 Top-inventory edit operations mutate only editable top slots. Generated controls cannot be moved by an inventory transaction because the event is cancelled, and manual logic never inserts them into the player inventory.
 
-Save reads only the explicit editable slot range rather than the entire top inventory. This structurally excludes control slots from persistence. Existing sanitization and package boundaries continue cloning retained `ItemStack` values.
+Save reads only slots `0` through `PackageManager.MAX_PACKAGE_ITEM_STACKS - 1` rather than the entire top inventory. This structurally excludes control and unused layout slots from persistence. Existing sanitization and package boundaries continue cloning retained `ItemStack` values.
 
 ### Persistence and transitions
 
