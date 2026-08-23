@@ -27,6 +27,7 @@ public class PermissionsHelper {
     private static final String AIRDROP_ADMIN = "airdrop.admin";
     private static final String AIRDROP_PACKAGES_ALL = "airdrop.package.all";
     private static final String AIRDROP_PACKAGE = "airdrop.package";
+	private static final String AIRDROP_COOLDOWN_BYPASS = "airdrop.cooldown.bypass";
 
     /**
      * Determines if the player is a superuser in the context of airdrop
@@ -83,6 +84,10 @@ public class PermissionsHelper {
                 || (!exactNode.equals(normalizedNode) && player.hasPermission(exactNode))
                 || player.hasPermission(PermissionsHelper.AIRDROP_PACKAGES_ALL);
     }
+
+	public static boolean hasCooldownBypass(Player player) {
+		return player.hasPermission(AIRDROP_COOLDOWN_BYPASS);
+	}
 
     public static void initialize() {
         RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);

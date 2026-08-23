@@ -104,10 +104,14 @@ bukkit {
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.FALSE
             children = listOf("airdrop.package.all")
         }
+        register("airdrop.cooldown.bypass") {
+            description = "Bypasses only the per-player airdrop request cooldown"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+        }
         register("airdrop.admin") {
             description = "Allows full administrative access to Airdrop commands and GUIs"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
-            children = listOf("airdrop.package.all", "airdrop.package.*")
+            children = listOf("airdrop.package.all", "airdrop.package.*", "airdrop.cooldown.bypass")
         }
     }
 }

@@ -17,6 +17,16 @@ import static org.mockito.Mockito.when;
 
 class PermissionsHelperTest {
 
+	@Test
+	void hasCooldownBypass_checksOnlyNarrowPermission() {
+		Player player = mock(Player.class);
+		when(player.hasPermission("airdrop.cooldown.bypass")).thenReturn(true);
+
+		assertTrue(PermissionsHelper.hasCooldownBypass(player));
+		verify(player).hasPermission("airdrop.cooldown.bypass");
+		verify(player, never()).hasPermission("airdrop.admin");
+	}
+
 	private Locale defaultLocale;
 
 	@BeforeEach

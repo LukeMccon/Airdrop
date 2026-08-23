@@ -9,6 +9,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class PluginYmlPermissionsTest {
 
@@ -29,11 +30,16 @@ class PluginYmlPermissionsTest {
 		Map<?, ?> permissions = castMap(root.get("permissions"), "permissions");
 		Map<?, ?> packageAll = castMap(permissions.get("airdrop.package.all"), "airdrop.package.all");
 		Map<?, ?> packageWildcard = castMap(permissions.get("airdrop.package.*"), "airdrop.package.*");
+		Map<?, ?> cooldownBypass = castMap(permissions.get("airdrop.cooldown.bypass"), "airdrop.cooldown.bypass");
 		Map<?, ?> admin = castMap(permissions.get("airdrop.admin"), "airdrop.admin");
+		Map<?, ?> adminChildren = castMap(admin.get("children"), "airdrop.admin.children");
 
 		assertEquals("false", String.valueOf(packageAll.get("default")));
 		assertEquals("false", String.valueOf(packageWildcard.get("default")));
+		assertEquals("op", String.valueOf(cooldownBypass.get("default")));
 		assertEquals("op", String.valueOf(admin.get("default")));
+		assertEquals("true", String.valueOf(adminChildren.get("airdrop.cooldown.bypass")));
+		assertNull(permissions.get("airdrop.limits.bypass"));
 	}
 
 	private static Map<?, ?> castMap(Object value, String key) {

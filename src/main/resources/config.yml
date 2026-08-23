@@ -25,6 +25,15 @@ drop:
   falling-speed: 0.3
   # Height in blocks from which to drop the crate
   height: 20
+  limits:
+    # Minimum time between successful player-requested drops
+    request-cooldown-seconds: 30
+    # Maximum number of crates falling at once
+    max-falling: 3
+    # Maximum number of landed crates plus reserved landing slots
+    max-landed: 10
+    # Seconds before a landed crate is removed
+    landed-lifetime-seconds: 600
 
 # Economy settings
 economy:
