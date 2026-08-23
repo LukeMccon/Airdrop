@@ -2,6 +2,7 @@ package com.airdropmc.packages;
 
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.AirdropLogger;
+import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.Airdrop;
 import com.airdropmc.lang.MessageKey;
 
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * GUI that shows available packages within airdrop
@@ -80,39 +82,64 @@ public class PackagesGui extends Gui implements Listener {
 
     @EventHandler
     public void onInventoryClick(final InventoryClickEvent e) {
+		if (e.getView().getTopInventory() != inv) {
+			return;
+		}
 
-        if (!e.getInventory().equals(inv))
-            return;
+		e.setCancelled(true);
+		if (!(e.getWhoClicked() instanceof Player player)) {
+			return;
+		}
+		if (e.getClickedInventory() != inv || !PermissionsHelper.isAdmin(player)) {
+			return;
+		}
 
-        e.setCancelled(true);
+		ItemStack cursor = e.getCursor();
+		if ((cursor != null && !cursor.getType().isAir())
+				|| e.getClick() != org.bukkit.event.inventory.ClickType.LEFT
+				|| e.getAction() != org.bukkit.event.inventory.InventoryAction.PICKUP_ALL) {
+			return;
+		}
 
-        final ItemStack clickedItem = e.getCurrentItem();
+		ItemStack clickedItem = e.getCurrentItem();
+		if (clickedItem == null || clickedItem.getType().isAir()) {
+			return;
+		}
 
-        // verify current item is not null
-        if (clickedItem == null || clickedItem.getType().isAir())
-            return;
+		String packageName = getDisplayName(clickedItem);
+		if (packageName.isEmpty()) {
+			return;
+		}
 
-        if (!(e.getWhoClicked() instanceof Player p))
-            return;
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !plugin.isEnabled()) {
+			ChatHandler.sendError(player, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
+			return;
+		}
 
-        String displayName = getDisplayName(clickedItem);
-        if (displayName.isEmpty()) {
-            return;
-        }
-        String packageName = displayName;
-
-        Package pkg = null;
-        try {
-            pkg = PackageManager.get(packageName);
-        } catch (PackageNotFoundException error) {
-            ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_NOT_FOUND,
-                    Map.of("name", error.getPackageName()));
-            return;
-        }
-        PackageGui packageGui = new PackageGui(pkg);
-        Bukkit.getPluginManager().registerEvents(packageGui, Airdrop.getPluginInstance());
-        packageGui.openInventory(p);
+		UUID viewerId = player.getUniqueId();
+		Bukkit.getScheduler().runTask(plugin, () -> openEditor(viewerId, packageName));
     }
+
+	private void openEditor(UUID viewerId, String packageName) {
+		Player player = Bukkit.getPlayer(viewerId);
+		if (player == null || !player.isOnline()) {
+			return;
+		}
+		if (player.getOpenInventory().getTopInventory() != inv || !PermissionsHelper.isAdmin(player)) {
+			return;
+		}
+
+		try {
+			PackageGui editor = new PackageGui(PackageManager.get(packageName));
+			if (!editor.openInventory(player)) {
+				ChatHandler.sendError(player, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
+			}
+		} catch (PackageNotFoundException error) {
+			ChatHandler.sendError(player, MessageKey.ERROR_PACKAGE_NOT_FOUND,
+					Map.of("name", error.getPackageName()));
+		}
+	}
 
     @EventHandler
     public void onInventoryClick(final InventoryDragEvent e) {
