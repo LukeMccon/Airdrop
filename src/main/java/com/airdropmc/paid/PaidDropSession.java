@@ -29,6 +29,7 @@ public final class PaidDropSession {
 		CHECKING,
 		WITHDRAWING,
 		FALLING,
+		DELIVERED,
 		CANCELLED,
 		REFUNDING
 	}
@@ -69,6 +70,24 @@ public final class PaidDropSession {
 
 		phase = Phase.CHECKING;
 		startOperation(Phase.CHECKING, () -> economy.canAfford(player, amount), this::acceptAffordability);
+	}
+
+	public void landed() {
+		if (phase == Phase.FALLING) {
+			phase = Phase.DELIVERED;
+		}
+	}
+
+	public void failed() {
+		if (phase != Phase.FALLING) {
+			return;
+		}
+		if (Airdrop.isShuttingDown()) {
+			phase = Phase.CANCELLED;
+			return;
+		}
+		sendError(MessageKey.DROP_FAILED, Map.of());
+		startRefund("Falling crate failed before landing");
 	}
 
 	private void acceptAffordability(EconomyResult result) {
@@ -128,9 +147,10 @@ public final class PaidDropSession {
 			}
 		} catch (RuntimeException failure) {
 			lease.close();
-			if (charged) {
+			if (charged && phase == Phase.FALLING) {
+				sendError(MessageKey.DROP_FAILED, Map.of());
 				startRefund("Crate creation failed: " + message(failure));
-			} else {
+			} else if (!charged) {
 				phase = Phase.CANCELLED;
 				sendError(MessageKey.DROP_FAILED, Map.of());
 			}

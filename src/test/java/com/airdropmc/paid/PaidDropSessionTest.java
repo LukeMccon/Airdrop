@@ -51,12 +51,14 @@ class PaidDropSessionTest {
 				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofMinutes(10)));
 		economy = new ControlledEconomyProvider(true);
 		spawns = new AtomicInteger();
+		Airdrop.setPluginInstance(null);
 		setStatic("shuttingDown", false);
 	}
 
 	@AfterEach
 	void tearDown() throws Exception {
 		admission.clear();
+		Airdrop.setPluginInstance(null);
 		setStatic("shuttingDown", false);
 		MockBukkit.unmock();
 	}
@@ -138,6 +140,71 @@ class PaidDropSessionTest {
 		assertEquals(0, economy.affordabilityChecks);
 		assertEquals(0, economy.withdrawals);
 		assertNull(player.nextComponentMessage());
+	}
+
+	@Test
+	void landedCrateIsNeverRefundedByLaterCleanup() {
+		PaidDropSession session = session(BigDecimal.TEN);
+		advanceToFalling(session);
+
+		session.landed();
+		session.failed();
+
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void knownCrateFailureStartsOneRefund() {
+		PaidDropSession session = session(BigDecimal.TEN);
+		advanceToFalling(session);
+
+		session.failed();
+		session.failed();
+
+		assertEquals(1, economy.deposits);
+	}
+
+	@Test
+	void shutdownDoesNotStartRefundForFallingCrate() throws Exception {
+		PaidDropSession session = session(BigDecimal.TEN);
+		advanceToFalling(session);
+		setStatic("shuttingDown", true);
+
+		session.failed();
+
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void crateCleanupDuringSpawnDoesNotDuplicateFailureMessageOrRefund() {
+		PaidDropSession session = new PaidDropSession(
+				plugin,
+				economy,
+				new EconomyPlayer(player.getUniqueId(), player.getName()),
+				BigDecimal.TEN,
+				lease,
+				paidSession -> {
+					paidSession.failed();
+					throw new IllegalStateException("spawn failed");
+				});
+
+		session.start();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+
+		assertEquals(1, economy.deposits);
+		assertTrue(nextMessage().contains("no crate was created"));
+		assertNull(player.nextComponentMessage());
+	}
+
+	private void advanceToFalling(PaidDropSession session) {
+		session.start();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
 	}
 
 	private PaidDropSession session(BigDecimal amount) {

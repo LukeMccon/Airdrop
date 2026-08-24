@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 
 import com.airdropmc.config.DropOptions;
@@ -37,11 +38,18 @@ public class Crate {
         LANDED
     }
 
+	public enum Outcome {
+		LANDED,
+		FAILED
+	}
+
     private final World world;
     private final ArrayList<ItemStack> contents;
     private State state;
     private final DropOptions options;
 	private final DropAdmissionController.Lease lease;
+	private final Consumer<Outcome> outcomeListener;
+	private Outcome outcome;
 
     // Falling state fields
     private Location dropLocation;
@@ -71,12 +79,18 @@ public class Crate {
      */
 	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
 			DropAdmissionController.Lease lease) {
+		this(location, world, contents, options, lease, ignored -> { });
+	}
+
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease, Consumer<Outcome> outcomeListener) {
         this.dropLocation = location.clone();
         this.world = world;
         this.contents = cloneContents(contents);
         this.state = State.FALLING;
         this.options = options;
 		this.lease = Objects.requireNonNull(lease, "lease");
+		this.outcomeListener = Objects.requireNonNull(outcomeListener, "outcomeListener");
 		this.parachuteSystem = new ParachuteSystem(
 				world, options, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
 	}
@@ -168,6 +182,7 @@ public class Crate {
 				flareEffect.cancel();
 				flareEffect = null;
 			}
+			reportOutcome(Outcome.LANDED);
 		} catch (RuntimeException failure) {
 			CrateManager.removeCrateAndDestroy(this);
 			throw failure;
@@ -285,7 +300,24 @@ public class Crate {
 			}
 		});
 		lease.close();
+		reportOutcome(Outcome.FAILED);
     }
+
+	private void reportOutcome(Outcome reported) {
+		if (outcome != null) {
+			return;
+		}
+		outcome = reported;
+		try {
+			outcomeListener.accept(reported);
+		} catch (RuntimeException failure) {
+			try {
+				AirdropLogger.log(Level.WARNING, "Failed to report crate outcome " + reported, failure);
+			} catch (RuntimeException loggingFailure) {
+				failure.addSuppressed(loggingFailure);
+			}
+		}
+	}
 
 	private void cleanupResource(String resource, Runnable cleanup) {
 		try {

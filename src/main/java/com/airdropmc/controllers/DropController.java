@@ -119,8 +119,15 @@ public class DropController {
 				new EconomyPlayer(player.getUniqueId(), player.getName()),
 				BigDecimal.valueOf(pkg.getPrice()),
 				lease,
-				ignored -> dropPackageAtLocation(
-						items, world, target.spawnLocation(), resolvedOptions, lease));
+				paidSession -> dropPackageAtLocation(
+						items, world, target.spawnLocation(), resolvedOptions, lease,
+						outcome -> {
+							if (outcome == Crate.Outcome.LANDED) {
+								paidSession.landed();
+							} else {
+								paidSession.failed();
+							}
+						}));
 		try {
 			session.start();
 		} catch (RuntimeException failure) {
@@ -143,9 +150,15 @@ public class DropController {
 
 	private static void dropPackageAtLocation(List<ItemStack> items, World world, Location spawn,
 			DropOptions options, DropAdmissionController.Lease lease) {
+		dropPackageAtLocation(items, world, spawn, options, lease, ignored -> { });
+	}
+
+	private static void dropPackageAtLocation(List<ItemStack> items, World world, Location spawn,
+			DropOptions options, DropAdmissionController.Lease lease,
+			java.util.function.Consumer<Crate.Outcome> outcomeListener) {
 		Crate crate = null;
 		try {
-			crate = new Crate(spawn.clone(), world, items, options, lease);
+			crate = new Crate(spawn.clone(), world, items, options, lease, outcomeListener);
 			crate.dropCrate();
 			Bukkit.getPluginManager().callEvent(new PackageDropEvent(crate, world, crate.getDropLocation()));
 			lease.commitSpawn();

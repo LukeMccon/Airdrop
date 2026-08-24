@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.time.Duration;
+import java.util.ArrayList;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -37,6 +38,22 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
 
 class CrateDestroyTest {
+
+	@Test
+	void destroy_reportsFallingFailureExactlyOnce() throws Exception {
+		World world = mock(World.class);
+		when(world.getUID()).thenReturn(UUID.randomUUID());
+		DropAdmissionController admission = new DropAdmissionController();
+		DropAdmissionController.Lease lease = acquireFallingLease(admission, world);
+		List<Crate.Outcome> outcomes = new ArrayList<>();
+		Crate crate = new Crate(new Location(world, 100, 100, 100), world,
+				List.of(), DropOptions.createDefault(), lease, outcomes::add);
+
+		crate.destroy();
+		crate.destroy();
+
+		org.junit.jupiter.api.Assertions.assertEquals(List.of(Crate.Outcome.FAILED), outcomes);
+	}
 
 	@AfterEach
 	void tearDown() throws Exception {

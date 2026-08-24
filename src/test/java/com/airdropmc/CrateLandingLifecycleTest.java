@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -71,6 +72,17 @@ class CrateLandingLifecycleTest {
 		assertEquals(1, admission.snapshot().landedClaims());
 		assertSame(crate, CrateManager.getCrate(reservedBlock.getLocation()));
 		assertEquals(Material.BARREL, reservedBlock.getType());
+	}
+
+	@Test
+	void successfulLandingReportsLandedAndLaterDestroyDoesNotReportFailure() throws Exception {
+		List<Crate.Outcome> outcomes = new ArrayList<>();
+		Crate crate = newCrate(reservedBlock, outcomes);
+
+		crate.land(reservedBlock);
+		CrateManager.removeCrateAndDestroy(crate);
+
+		assertEquals(List.of(Crate.Outcome.LANDED), outcomes);
 	}
 
 	@Test
@@ -214,5 +226,19 @@ class CrateLandingLifecycleTest {
 				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
 		lease.commitSpawn();
 		return new Crate(new Location(world, 10.5, 100, 10.5), world, List.of(), options, lease);
+	}
+
+	private Crate newCrate(Block landingBlock, List<Crate.Outcome> outcomes) throws Exception {
+		DropOptions options = DropOptions.createDefault()
+				.withLandingEffects(false)
+				.withContinuousEffects(false)
+				.withSmokeEnabled(false)
+				.withFlareEffects(false);
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				DropLocationKey.from(landingBlock.getLocation()),
+				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
+		lease.commitSpawn();
+		return new Crate(new Location(world, 10.5, 100, 10.5), world,
+				List.of(), options, lease, outcomes::add);
 	}
 }

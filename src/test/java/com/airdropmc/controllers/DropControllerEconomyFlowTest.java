@@ -21,6 +21,7 @@ import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.packages.Package;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.FallingBlock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -70,6 +72,7 @@ class DropControllerEconomyFlowTest {
 
 		plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("DropControllerEconomyFlowTest"));
 		Airdrop.setPluginInstance(plugin);
 	}
 
@@ -125,6 +128,19 @@ class DropControllerEconomyFlowTest {
 		assertEquals(1, CrateManager.getCrateMap().size());
 		assertEquals(1, admission.snapshot().falling());
 		verify(economy).withdraw(any(EconomyPlayer.class), any(BigDecimal.class));
+	}
+
+	@Test
+	void fallingCrateFailureRequestsOneRefund() throws Exception {
+		PlayerMock player = operatorAtClearSky();
+		DropController.playerInitiatedDropPackage(paidPackage(), player, options());
+		server.getScheduler().performTicks(2L);
+		FallingBlock fallingBlock = CrateManager.getCrateMap().keySet().iterator().next();
+
+		CrateManager.removeCrateAndDestroy(fallingBlock);
+
+		verify(economy).deposit(any(EconomyPlayer.class), any(BigDecimal.class));
+		assertEquals(emptyAdmission(), admission.snapshot());
 	}
 
 	@Test
