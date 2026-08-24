@@ -7,12 +7,15 @@ import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
@@ -29,6 +32,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -133,6 +138,7 @@ class CrateDestroyTest {
 		Block block = mock(Block.class);
 		Barrel barrel = mock(Barrel.class);
 		Inventory inventory = mock(Inventory.class);
+		PersistentDataContainer persistentData = mock(PersistentDataContainer.class);
 		Location landedLocation = new Location(world, 10, 64, 10);
 		ItemStack overflowStack = new ItemStack(Material.DIRT, 1);
 		Map<Integer, ItemStack> overflowMap = new HashMap<>();
@@ -142,6 +148,8 @@ class CrateDestroyTest {
 		when(block.getState()).thenReturn(barrel);
 		when(barrel.getInventory()).thenReturn(inventory);
 		when(barrel.getLocation()).thenReturn(landedLocation);
+		when(barrel.getPersistentDataContainer()).thenReturn(persistentData);
+		when(barrel.update(true, false)).thenReturn(true);
 		when(inventory.addItem(any(ItemStack[].class))).thenReturn(new HashMap<>(overflowMap));
 		Airdrop plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
@@ -168,6 +176,8 @@ class CrateDestroyTest {
 			crate.land(block);
 		}
 
+		verify(persistentData).set(any(NamespacedKey.class), eq(PersistentDataType.STRING), anyString());
+		verify(barrel).update(true, false);
 		verify(world).dropItemNaturally(any(Location.class), any(ItemStack.class));
 	}
 

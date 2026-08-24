@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
@@ -19,6 +20,7 @@ import com.airdropmc.tasks.RenderPackageSmokeTask;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
@@ -26,6 +28,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 
 /**
@@ -33,6 +36,9 @@ import org.bukkit.scheduler.BukkitTask;
  * A.K.A an Airdrop
  */
 public class Crate {
+	private static final NamespacedKey CRATE_ID_KEY = Objects.requireNonNull(
+			NamespacedKey.fromString("airdrop:crate_id"));
+
     public enum State {
         FALLING,
         LANDED
@@ -45,6 +51,7 @@ public class Crate {
 
     private final World world;
     private final ArrayList<ItemStack> contents;
+	private final String crateId = UUID.randomUUID().toString();
     private State state;
     private final DropOptions options;
 	private final DropAdmissionController.Lease lease;
@@ -63,6 +70,7 @@ public class Crate {
     private BukkitTask smokeTask;
 	private BukkitTask landingEffectTask;
 	private BukkitTask expiryTask;
+	private boolean barrelIdentityPersisted;
     private RenderFlareTask flareEffect;
     private RenderPackageGlowTask glowEffect;
     private RenderPackageSmokeTask smokeEffect;
@@ -173,6 +181,7 @@ public class Crate {
 			if (!(barrelState instanceof Barrel barrel)) {
 				throw new IllegalStateException("Failed to create barrel at landed location");
 			}
+			markLandedBarrel(barrel);
 			insertContents(barrel);
 			lease.markLanded();
 			scheduleExpiry(plugin);
@@ -187,6 +196,22 @@ public class Crate {
 			CrateManager.removeCrateAndDestroy(this);
 			throw failure;
 		}
+	}
+
+	private void markLandedBarrel(Barrel barrel) {
+		barrel.getPersistentDataContainer().set(CRATE_ID_KEY, PersistentDataType.STRING, crateId);
+		if (!barrel.update(true, false)) {
+			throw new IllegalStateException("Failed to persist landed crate identity");
+		}
+		barrelIdentityPersisted = true;
+	}
+
+	/**
+	 * Returns whether the barrel is the physical block created for this crate.
+	 */
+	public synchronized boolean ownsLandedBarrel(Barrel barrel) {
+		return barrelIdentityPersisted && barrel != null && crateId.equals(
+				barrel.getPersistentDataContainer().get(CRATE_ID_KEY, PersistentDataType.STRING));
 	}
 
 	private void insertContents(Barrel barrel) {
@@ -291,14 +316,7 @@ public class Crate {
 				flareEffect.cancel();
 			}
 		});
-		cleanupResource("landed barrel", () -> {
-			if (state == State.LANDED && blockChest != null && blockChest.getType() == Material.BARREL) {
-				blockChest.setType(Material.AIR);
-			} else if (state == State.LANDED && landedLocation != null
-					&& landedLocation.getBlock().getType() == Material.BARREL) {
-				landedLocation.getBlock().setType(Material.AIR);
-			}
-		});
+		cleanupResource("landed barrel", this::removeOwnedLandedBarrel);
 		lease.close();
 		reportOutcome(Outcome.FAILED);
     }
@@ -316,6 +334,21 @@ public class Crate {
 			} catch (RuntimeException loggingFailure) {
 				failure.addSuppressed(loggingFailure);
 			}
+		}
+	}
+
+	private void removeOwnedLandedBarrel() {
+		if (state != State.LANDED || blockChest == null || blockChest.getType() != Material.BARREL) {
+			return;
+		}
+		if (!barrelIdentityPersisted) {
+			blockChest.setType(Material.AIR);
+			return;
+		}
+
+		BlockState currentState = blockChest.getState();
+		if (currentState instanceof Barrel barrel && ownsLandedBarrel(barrel)) {
+			blockChest.setType(Material.AIR);
 		}
 	}
 
