@@ -19,6 +19,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public final class PaidDropSession {
 
@@ -40,11 +42,14 @@ public final class PaidDropSession {
 	private final BigDecimal amount;
 	private final DropAdmissionController.Lease lease;
 	private final Consumer<PaidDropSession> spawner;
+	private final Logger logger;
 
 	private Phase phase = Phase.NEW;
 	private BukkitTask timeoutTask;
 	private boolean withdrawalTimedOut;
 	private boolean refundStarted;
+	private boolean charged;
+	private boolean failureMessageSent;
 
 	public PaidDropSession(Plugin plugin, EconomyProvider economy, EconomyPlayer player, BigDecimal amount,
 			DropAdmissionController.Lease lease, Consumer<PaidDropSession> spawner) {
@@ -54,6 +59,8 @@ public final class PaidDropSession {
 		this.amount = Objects.requireNonNull(amount, "amount");
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.spawner = Objects.requireNonNull(spawner, "spawner");
+		Logger pluginLogger = plugin.getLogger();
+		this.logger = pluginLogger != null ? pluginLogger : Logger.getLogger(Airdrop.PLUGIN_NAME);
 		if (amount.signum() < 0) {
 			throw new IllegalArgumentException("amount must be non-negative");
 		}
@@ -86,7 +93,11 @@ public final class PaidDropSession {
 			phase = Phase.CANCELLED;
 			return;
 		}
-		sendError(MessageKey.DROP_FAILED, Map.of());
+		if (!charged) {
+			phase = Phase.CANCELLED;
+			sendFailure();
+			return;
+		}
 		startRefund("Falling crate failed before landing");
 	}
 
@@ -140,6 +151,7 @@ public final class PaidDropSession {
 		}
 
 		phase = Phase.FALLING;
+		this.charged = charged;
 		try {
 			spawner.accept(this);
 			if (charged) {
@@ -148,11 +160,10 @@ public final class PaidDropSession {
 		} catch (RuntimeException failure) {
 			lease.close();
 			if (charged && phase == Phase.FALLING) {
-				sendError(MessageKey.DROP_FAILED, Map.of());
 				startRefund("Crate creation failed: " + message(failure));
 			} else if (!charged) {
 				phase = Phase.CANCELLED;
-				sendError(MessageKey.DROP_FAILED, Map.of());
+				sendFailure();
 			}
 		}
 	}
@@ -177,6 +188,7 @@ public final class PaidDropSession {
 			sendError(MessageKey.DROP_REFUNDED, Map.of());
 			return;
 		}
+		sendFailure();
 		AirdropLogger.warning("Paid drop refund was not confirmed for " + player.uniqueId()
 				+ ": " + result.message());
 	}
@@ -218,6 +230,7 @@ public final class PaidDropSession {
 		}
 		if (expectedPhase == Phase.REFUNDING) {
 			phase = Phase.CANCELLED;
+			sendFailure();
 			AirdropLogger.warning("Paid drop refund timed out for " + player.uniqueId()
 					+ "; it will not be retried automatically");
 			return;
@@ -229,6 +242,14 @@ public final class PaidDropSession {
 		phase = Phase.CANCELLED;
 		lease.close();
 		AirdropLogger.warning(reason + " for " + player.uniqueId());
+		sendFailure();
+	}
+
+	private void sendFailure() {
+		if (failureMessageSent) {
+			return;
+		}
+		failureMessageSent = true;
 		sendError(MessageKey.DROP_FAILED, Map.of());
 	}
 
@@ -240,13 +261,15 @@ public final class PaidDropSession {
 	}
 
 	private void post(Runnable action) {
-		if (Airdrop.isShuttingDown() || !plugin.isEnabled()) {
-			return;
-		}
 		try {
-			Bukkit.getScheduler().runTask(plugin, action);
+			Bukkit.getScheduler().runTask(plugin, () -> {
+				if (!Airdrop.isShuttingDown() && plugin.isEnabled()) {
+					action.run();
+				}
+			});
 		} catch (RuntimeException failure) {
-			AirdropLogger.warning("Could not schedule paid drop economy result for " + player.uniqueId());
+			logger.log(Level.WARNING,
+					"Could not schedule paid drop economy result for " + player.uniqueId(), failure);
 		}
 	}
 
