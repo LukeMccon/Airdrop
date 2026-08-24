@@ -31,7 +31,6 @@
 - Modify: `src/main/java/com/airdropmc/economy/VaultEconomyProvider.java`
 - Create: `src/main/java/com/airdropmc/economy/EconomyPlayer.java`
 - Create: `src/main/java/com/airdropmc/economy/VaultUnlockedEconomyProvider.java`
-- Delete: `src/main/java/com/airdropmc/economy/TreasuryEconomyProvider.java`
 - Replace: `src/test/java/com/airdropmc/economy/TreasuryEconomyProviderTest.java`
 - Create: `src/test/java/com/airdropmc/economy/VaultUnlockedEconomyProviderTest.java`
 - Create: `src/test/java/com/airdropmc/economy/VaultEconomyProviderTest.java`
@@ -51,7 +50,7 @@
    ```
 
    Confirm the new tests fail for missing contracts.
-3. Add the creatorfromhell CodeMC repository and `compileOnly`/test dependency `net.milkbowl.vault:VaultUnlockedAPI:2.20`. Remove Treasury dependencies.
+3. Add the creatorfromhell CodeMC repository and `compileOnly`/test dependency `net.milkbowl.vault:VaultUnlockedAPI:2.20`. Treasury remains temporarily until startup discovery is replaced in Task 2.
 4. Change `EconomyProvider` to expose:
    - `boolean nativeAsync()`;
    - `CompletionStage<EconomyResult> canAfford(EconomyPlayer, BigDecimal)`;
@@ -60,7 +59,7 @@
    - `String getName()`.
 5. Implement `VaultUnlockedEconomyProvider` around a required `AsyncEconomy`; keep the raw mapped stages externally timeout-able without mutating them.
 6. Adapt legacy Vault by resolving `OfflinePlayer` and performing each call immediately on the caller's server thread.
-7. Delete Treasury production/tests and rerun the focused tests until green.
+7. Delete the obsolete Treasury test and rerun the focused tests until green.
 8. Commit:
 
    ```bash
@@ -75,6 +74,7 @@
 **Files:**
 
 - Modify: `src/main/java/com/airdropmc/Airdrop.java`
+- Delete: `src/main/java/com/airdropmc/economy/TreasuryEconomyProvider.java`
 - Create: `src/main/java/com/airdropmc/economy/EconomyProviderDiscovery.java`
 - Create: `src/test/java/com/airdropmc/economy/EconomyProviderDiscoveryTest.java`
 - Modify: `src/test/java/com/airdropmc/config/PluginYmlPermissionsTest.java`
@@ -89,16 +89,17 @@
    - discovery is performed once and does not hot-swap registrations.
 2. Add `EconomyProviderDiscovery` with modern API references isolated so original Vault-only servers fail gracefully when `vault2` classes are absent.
 3. Replace Treasury-first setup in `Airdrop` with one discovery call during `onEnable()`.
-4. Keep `softdepend` as `Vault`: VaultUnlocked intentionally declares its plugin name as `Vault`. Remove `Treasury`.
-5. Add a shutdown flag set before crate cleanup so late callbacks and crate destruction cannot start payment work during disable.
-6. Run:
+4. Delete the Treasury adapter and its Gradle dependencies.
+5. Keep `softdepend` as `Vault`: VaultUnlocked intentionally declares its plugin name as `Vault`. Remove `Treasury`.
+6. Add a shutdown flag set before crate cleanup so late callbacks and crate destruction cannot start payment work during disable.
+7. Run:
 
    ```bash
    ./gradlew test --tests com.airdropmc.economy.EconomyProviderDiscoveryTest \
      --tests com.airdropmc.config.PluginYmlPermissionsTest
    ```
 
-7. Commit:
+8. Commit:
 
    ```bash
    git add build.gradle.kts src/main/java/com/airdropmc/Airdrop.java \

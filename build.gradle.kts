@@ -21,6 +21,9 @@ repositories {
     maven("https://repo.codemc.io/repository/maven-public/") {
         name = "codemc"
     }
+    maven("https://repo.codemc.io/repository/creatorfromhell/") {
+        name = "creatorfromhell"
+    }
     maven("https://oss.sonatype.org/content/groups/public/") {
         name = "sonatype"
     }
@@ -35,20 +38,15 @@ dependencies {
     
     // Plugin dependencies
     compileOnly("net.luckperms:api:5.4")
-    compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
-        exclude(group = "org.bukkit", module = "bukkit")
-    }
+    compileOnly("net.milkbowl.vault:VaultUnlockedAPI:2.20")
     compileOnly("me.lokka30:treasury-api:2.0.1")
     testRuntimeOnly("net.luckperms:api:5.4")
-    testRuntimeOnly("com.github.MilkBowl:VaultAPI:1.7") {
-        exclude(group = "org.bukkit", module = "bukkit")
-    }
-    testRuntimeOnly("me.lokka30:treasury-api:2.0.1")
     
     // Annotations
     compileOnly("org.jetbrains:annotations:24.1.0")
     
     // Test dependencies
+    testImplementation("net.milkbowl.vault:VaultUnlockedAPI:2.20")
     testImplementation("me.lokka30:treasury-api:2.0.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("org.yaml:snakeyaml:2.2")

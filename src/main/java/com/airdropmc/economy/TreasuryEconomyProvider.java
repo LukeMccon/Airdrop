@@ -2,6 +2,7 @@ package com.airdropmc.economy;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 
 import me.lokka30.treasury.api.common.Cause;
 import me.lokka30.treasury.api.common.NamespacedKey;
@@ -27,23 +28,36 @@ public class TreasuryEconomyProvider implements EconomyProvider {
 	public static Optional<TreasuryEconomyProvider> fromServiceRegistry() {
 		Optional<Service<me.lokka30.treasury.api.economy.EconomyProvider>> service =
 				ServiceRegistry.INSTANCE.serviceFor(me.lokka30.treasury.api.economy.EconomyProvider.class);
-		if (service.isEmpty()) {
+		if (service.isEmpty() || service.get().get() == null) {
 			return Optional.empty();
 		}
+		return Optional.of(new TreasuryEconomyProvider(service.get().get(), service.get().registrarName()));
+	}
 
-		me.lokka30.treasury.api.economy.EconomyProvider provider = service.get().get();
-		if (provider == null) {
-			return Optional.empty();
-		}
+	@Override
+	public boolean nativeAsync() {
+		return false;
+	}
 
-		return Optional.of(new TreasuryEconomyProvider(provider, service.get().registrarName()));
+	@Override
+	public CompletionStage<EconomyResult> canAfford(EconomyPlayer player, BigDecimal amount) {
+		throw new UnsupportedOperationException("Treasury is pending removal");
+	}
+
+	@Override
+	public CompletionStage<EconomyResult> withdraw(EconomyPlayer player, BigDecimal amount) {
+		throw new UnsupportedOperationException("Treasury is pending removal");
+	}
+
+	@Override
+	public CompletionStage<EconomyResult> deposit(EconomyPlayer player, BigDecimal amount) {
+		throw new UnsupportedOperationException("Treasury is pending removal");
 	}
 
 	@Override
 	public double getBalance(Player player) {
 		try {
-			PlayerAccount account = resolveAccount(player);
-			return account.retrieveBalance(primaryCurrency).join().doubleValue();
+			return resolveAccount(player).retrieveBalance(primaryCurrency).join().doubleValue();
 		} catch (RuntimeException ex) {
 			return 0.0;
 		}
@@ -52,41 +66,37 @@ public class TreasuryEconomyProvider implements EconomyProvider {
 	@Override
 	public EconomyResult withdraw(Player player, double amount) {
 		if (!Double.isFinite(amount) || Double.compare(amount, 0.0) < 0) {
-			return EconomyResult.fail("Invalid withdrawal amount");
+			return EconomyResult.rejected("Invalid withdrawal amount");
 		}
 		if (Double.compare(amount, 0.0) == 0) {
 			return EconomyResult.ok();
 		}
-
 		try {
 			PlayerAccount account = resolveAccount(player);
-			BigDecimal amountValue = BigDecimal.valueOf(amount);
-			BigDecimal balance = account.retrieveBalance(primaryCurrency).join();
-			if (balance.compareTo(amountValue) < 0) {
-				return EconomyResult.fail("Insufficient funds");
+			BigDecimal value = BigDecimal.valueOf(amount);
+			if (account.retrieveBalance(primaryCurrency).join().compareTo(value) < 0) {
+				return EconomyResult.rejected("Insufficient funds");
 			}
-			account.withdrawBalance(amountValue, CAUSE, primaryCurrency).join();
+			account.withdrawBalance(value, CAUSE, primaryCurrency).join();
 			return EconomyResult.ok();
 		} catch (RuntimeException ex) {
-			return EconomyResult.fail(ex.getMessage() != null ? ex.getMessage() : "Treasury withdrawal failed");
+			return EconomyResult.rejected(message(ex, "Treasury withdrawal failed"));
 		}
 	}
 
 	@Override
 	public EconomyResult deposit(Player player, double amount) {
 		if (!Double.isFinite(amount) || Double.compare(amount, 0.0) < 0) {
-			return EconomyResult.fail("Invalid deposit amount");
+			return EconomyResult.rejected("Invalid deposit amount");
 		}
 		if (Double.compare(amount, 0.0) == 0) {
 			return EconomyResult.ok();
 		}
-
 		try {
-			PlayerAccount account = resolveAccount(player);
-			account.depositBalance(BigDecimal.valueOf(amount), CAUSE, primaryCurrency).join();
+			resolveAccount(player).depositBalance(BigDecimal.valueOf(amount), CAUSE, primaryCurrency).join();
 			return EconomyResult.ok();
 		} catch (RuntimeException ex) {
-			return EconomyResult.fail(ex.getMessage() != null ? ex.getMessage() : "Treasury deposit failed");
+			return EconomyResult.rejected(message(ex, "Treasury deposit failed"));
 		}
 	}
 
@@ -96,10 +106,10 @@ public class TreasuryEconomyProvider implements EconomyProvider {
 	}
 
 	private PlayerAccount resolveAccount(Player player) {
-		return treasury.accountAccessor()
-				.player()
-				.withUniqueId(player.getUniqueId())
-				.get()
-				.join();
+		return treasury.accountAccessor().player().withUniqueId(player.getUniqueId()).get().join();
+	}
+
+	private static String message(RuntimeException failure, String fallback) {
+		return failure.getMessage() == null ? fallback : failure.getMessage();
 	}
 }
