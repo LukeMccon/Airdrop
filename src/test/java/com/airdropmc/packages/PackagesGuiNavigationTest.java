@@ -223,7 +223,7 @@ class PackagesGuiNavigationTest {
 		for (Field field : Airdrop.class.getDeclaredFields()) {
 			if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())) {
 				field.setAccessible(true);
-				field.set(null, null);
+				field.set(null, field.getType() == boolean.class ? false : null);
 			}
 		}
 	}

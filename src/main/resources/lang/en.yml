@@ -47,6 +47,8 @@ errors:
 
 drop:
   charged: "{accent}${amount}{primary} has been taken from your account"
+  failed: "Airdrop failed; no crate was created"
+  refunded: "Airdrop failed; your payment was refunded"
 
 gui:
   save: "Save"
@@ -66,8 +68,7 @@ admin:
 
 system:
   config-loaded: "Config loaded successfully"
-  economy-missing: "Disabling due to missing economy provider (Treasury or Vault)"
-  vault-missing: "Disabling due to missing Vault dependency"
+  economy-missing: "Disabling due to missing economy provider (VaultUnlocked or Vault)"
   reload-success: "Configuration and language reloaded"
   package-price-missing: "Could not find price for package: {accent}{name}"
   package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"

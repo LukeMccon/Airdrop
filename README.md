@@ -20,8 +20,8 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 - Configurable parachute drops with custom chicken count, fall speed, and drop height
 - Landing, flare, glow, and optional smoke particle effects
 - In-game GUI package creation and editing
-- Economy support through Treasury (preferred) with Vault fallback
-- Refund protection when a charged drop fails before spawning
+- Economy support through VaultUnlocked's native async API, with original Vault compatibility
+- Refund protection when a charged drop has a known failure before landing
 - Bounded request rate, falling entities, landed crates, and landed lifetime
 - Language file support (`lang/<language>.yml`) and configurable chat theme colors
 - Runtime reload command for config, language, and packages
@@ -32,8 +32,8 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 - Java `21`
 - [LuckPerms](https://luckperms.net/) (required)
 - Economy provider when `economy.enabled: true` (default):
-  - Treasury-compatible provider, or
-  - [Vault](https://github.com/milkbowl/Vault) with a Vault-compatible economy plugin
+  - [VaultUnlocked](https://github.com/TheNewEconomy/VaultUnlocked) with a compatible economy plugin (preferred), or
+  - [Vault](https://github.com/milkbowl/Vault) with a Vault-compatible economy plugin (legacy fallback)
 
 If no economy provider is installed, set `economy.enabled: false` in `config.yml` before starting.
 
@@ -41,7 +41,7 @@ If no economy provider is installed, set `economy.enabled: false` in `config.yml
 
 1. Install plugin dependencies into your server `plugins/` directory:
    - LuckPerms
-   - Optional: Vault and your economy plugin (if you keep economy enabled)
+   - Optional: VaultUnlocked or Vault, plus your economy plugin (if you keep economy enabled)
 2. Download the latest Airdrop release from [Releases](https://github.com/LukeMccon/Airdrop/releases/latest).
 3. Place the Airdrop `.jar` in `plugins/`.
 4. Start or restart the server.
@@ -178,7 +178,7 @@ A package can contain up to `27` item stacks (barrel capacity).
 
 The 4.0 API intentionally includes these source and binary compatibility changes:
 
-- `Package.chargeUser(Player)` now returns whether an economy withdrawal was confirmed, allowing failed drops to refund only confirmed charges.
+- Package affordability and charging are now handled asynchronously by `DropController`; the old `Package.canAfford(Player)` and `Package.chargeUser(Player)` methods were removed.
 - `Crate` construction requires a `DropAdmissionController.Lease` so every crate owns and releases its capacity and location reservations.
 - Public `DropController` drop methods now declare the checked `DropLimitException` rejection type.
 - Both public `CrateManager.addCrate(...)` overloads now return `boolean` so callers can detect collision-safe registration failure; existing source calls may ignore the result, but previously compiled integrations must be rebuilt.

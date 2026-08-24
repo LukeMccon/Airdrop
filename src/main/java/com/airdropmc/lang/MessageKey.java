@@ -82,7 +82,7 @@ public enum MessageKey {
 
 	SYSTEM_CONFIG_LOADED("system.config-loaded", "Config loaded successfully"),
 	SYSTEM_ECONOMY_MISSING("system.economy-missing",
-			"Disabling due to missing economy provider (Treasury or Vault)"),
+			"Disabling due to missing economy provider (VaultUnlocked or Vault)"),
 	SYSTEM_RELOAD_SUCCESS("system.reload-success", "Configuration and language reloaded"),
 	SYSTEM_PACKAGE_PRICE_MISSING("system.package-price-missing", "Could not find price for package: {accent}{name}"),
 	SYSTEM_PACKAGE_PRICE_INVALID("system.package-price-invalid",
