@@ -51,6 +51,7 @@ dependencies {
     // Test dependencies
     testImplementation("me.lokka30:treasury-api:2.0.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
+    testImplementation("org.yaml:snakeyaml:2.2")
     testImplementation("org.mockito:mockito-core:5.14.2")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
     testImplementation("com.github.seeseemelk:MockBukkit-v1.21:3.133.2")
