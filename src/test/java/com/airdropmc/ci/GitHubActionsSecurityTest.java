@@ -2,6 +2,10 @@ package com.airdropmc.ci;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.error.YAMLException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -9,6 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -34,27 +39,23 @@ class GitHubActionsSecurityTest {
 
 	@Test
 	void workflowsDefaultToReadOnlyContents() throws IOException {
-		Pattern readOnlyPermissions = Pattern.compile("(?m)^permissions:\\R  contents: read\\s*$");
 		for (Path workflow : workflowFiles(WORKFLOWS_DIRECTORY)) {
-			String contents = Files.readString(workflow);
-			assertTrue(readOnlyPermissions.matcher(contents).find(),
+			Map<?, ?> document = yamlMap(loadYaml(Files.readString(workflow)));
+			Object permissions = value(document, "permissions");
+			assertTrue(hasContentsPermission(permissions, "read"),
 					() -> workflow + " must default to contents: read");
 		}
 	}
 
 	@Test
 	void onlyGitHubReleasePublisherCanWriteContents() throws IOException {
-		String release = Files.readString(WORKFLOWS_DIRECTORY.resolve("release.yml"));
-		int publishGitHub = release.indexOf("\n  publish-github:\n");
-		int publishModrinth = release.indexOf("\n  publish-modrinth:\n");
 		List<WritePermission> writePermissions = findWritePermissions(WORKFLOWS_DIRECTORY);
-		int writePermission = release.indexOf("      contents: write");
 
-		assertEquals(1, writePermissions.size(), "Only one job may receive contents: write");
-		assertTrue(publishGitHub >= 0 && publishModrinth > publishGitHub,
-				"Expected GitHub and Modrinth publish jobs");
-		assertTrue(writePermission > publishGitHub && writePermission < publishModrinth,
-				"contents: write must belong to publish-github");
+		assertEquals(
+				List.of(new WritePermission(WORKFLOWS_DIRECTORY.resolve("release.yml"), "job:publish-github")),
+				writePermissions,
+				"Only the GitHub release publisher may receive contents: write"
+		);
 	}
 
 	@Test
@@ -89,7 +90,7 @@ class GitHubActionsSecurityTest {
 
 		List<WritePermission> permissions = findWritePermissions(workflowsDirectory);
 
-		assertEquals(List.of(new WritePermission(ci, 1)), permissions);
+		assertEquals(List.of(new WritePermission(ci, "workflow")), permissions);
 	}
 
 	@Test
@@ -106,26 +107,90 @@ class GitHubActionsSecurityTest {
 		assertFalse(hasControlledGitHubActionsUpdates(commentedConfiguration));
 	}
 
+	@Test
+	void quotedAndSpacedUsesKeysAreScanned(@TempDir Path workflowsDirectory) throws IOException {
+		Files.writeString(workflowsDirectory.resolve("variants.yml"), """
+				jobs:
+				  test:
+				    steps:
+				      - uses : owner/first@v1
+				      - "uses": owner/second@v2
+				""");
+
+		ActionScan scan = scanExternalActions(workflowsDirectory);
+
+		assertEquals(2, scan.externalActionCount());
+		assertEquals(2, scan.violations().size());
+	}
+
+	@Test
+	void writePermissionScanIncludesWriteAllAndFlowMaps(@TempDir Path workflowsDirectory) throws IOException {
+		Path ci = workflowsDirectory.resolve("ci.yml");
+		Files.writeString(ci, """
+				permissions: read-all
+				jobs:
+				  broad:
+				    permissions: write-all
+				  inline:
+				    permissions: { contents: write }
+				""");
+
+		List<WritePermission> permissions = findWritePermissions(workflowsDirectory);
+
+		assertEquals(2, permissions.size());
+	}
+
+	@Test
+	void duplicateDependabotUpdatesKeysDoNotSatisfyPolicy() {
+		String duplicateConfiguration = """
+				version: 2
+				updates:
+				  - package-ecosystem: "github-actions"
+				    directory: "/"
+				    schedule:
+				      interval: "weekly"
+				    open-pull-requests-limit: 5
+				updates: []
+				""";
+
+		assertFalse(hasControlledGitHubActionsUpdates(duplicateConfiguration));
+	}
+
 	private ActionScan scanExternalActions(Path workflowsDirectory) throws IOException {
 		List<String> violations = new ArrayList<>();
 		int externalActionCount = 0;
 
 		for (Path workflow : workflowFiles(workflowsDirectory)) {
+			List<String> semanticReferences = findUsesReferences(loadYaml(Files.readString(workflow)));
+			List<ActionReference> lineReferences = new ArrayList<>();
 			List<String> lines = Files.readAllLines(workflow);
 			for (int index = 0; index < lines.size(); index++) {
 				String line = lines.get(index);
 				ActionReference action = parseActionReference(line);
-				if (action == null || action.reference().startsWith("./")) {
+				if (action == null) {
+					continue;
+				}
+				lineReferences.add(action);
+				if (action.reference().startsWith("./")) {
 					continue;
 				}
 
-				externalActionCount++;
 				if (!isPinnedExternalAction(action.reference())
 						|| action.version() == null
 						|| !VERSION_COMMENT.matcher(action.version()).matches()) {
 					violations.add(workflow + ":" + (index + 1) + " " + line.trim());
 				}
 			}
+
+			List<String> lineValues = lineReferences.stream()
+					.map(ActionReference::reference)
+					.toList();
+			if (!sameReferences(semanticReferences, lineValues)) {
+				violations.add(workflow + ": every YAML uses entry must use one canonical, commented line");
+			}
+			externalActionCount += semanticReferences.stream()
+					.filter(reference -> !reference.startsWith("./"))
+					.count();
 		}
 
 		return new ActionScan(externalActionCount, violations);
@@ -134,10 +199,16 @@ class GitHubActionsSecurityTest {
 	private List<WritePermission> findWritePermissions(Path workflowsDirectory) throws IOException {
 		List<WritePermission> permissions = new ArrayList<>();
 		for (Path workflow : workflowFiles(workflowsDirectory)) {
-			List<String> lines = Files.readAllLines(workflow);
-			for (int index = 0; index < lines.size(); index++) {
-				if (lines.get(index).trim().equals("contents: write")) {
-					permissions.add(new WritePermission(workflow, index));
+			Map<?, ?> document = yamlMap(loadYaml(Files.readString(workflow)));
+			if (grantsContentsWrite(value(document, "permissions"))) {
+				permissions.add(new WritePermission(workflow, "workflow"));
+			}
+
+			Map<?, ?> jobs = yamlMap(value(document, "jobs"));
+			for (Map.Entry<?, ?> job : jobs.entrySet()) {
+				Map<?, ?> jobDefinition = yamlMap(job.getValue());
+				if (grantsContentsWrite(value(jobDefinition, "permissions"))) {
+					permissions.add(new WritePermission(workflow, "job:" + job.getKey()));
 				}
 			}
 		}
@@ -145,24 +216,32 @@ class GitHubActionsSecurityTest {
 	}
 
 	private boolean hasControlledGitHubActionsUpdates(String contents) {
-		List<String> activeLines = contents.lines()
-				.map(String::stripTrailing)
-				.filter(line -> !line.isBlank())
-				.filter(line -> !line.stripLeading().startsWith("#"))
-				.toList();
-		List<String> expectedBlock = List.of(
-				"  - package-ecosystem: \"github-actions\"",
-				"    directory: \"/\"",
-				"    schedule:",
-				"      interval: \"weekly\"",
-				"    open-pull-requests-limit: 5"
-		);
-		int versionIndex = activeLines.indexOf("version: 2");
-		int updatesIndex = activeLines.indexOf("updates:");
+		try {
+			Map<?, ?> document = yamlMap(loadYaml(contents));
+			if (!(value(document, "version") instanceof Number version) || version.intValue() != 2) {
+				return false;
+			}
 
-		return versionIndex >= 0
-				&& updatesIndex > versionIndex
-				&& startsWith(activeLines, updatesIndex + 1, expectedBlock);
+			Object updatesValue = value(document, "updates");
+			if (!(updatesValue instanceof List<?> updates)) {
+				return false;
+			}
+
+			long matchingUpdates = updates.stream()
+					.map(this::yamlMap)
+					.filter(update -> "github-actions".equals(value(update, "package-ecosystem")))
+					.filter(update -> "/".equals(value(update, "directory")))
+					.filter(update -> {
+						Map<?, ?> schedule = yamlMap(value(update, "schedule"));
+						return "weekly".equals(value(schedule, "interval"));
+					})
+					.filter(update -> value(update, "open-pull-requests-limit") instanceof Number limit
+							&& limit.intValue() == 5)
+					.count();
+			return matchingUpdates == 1;
+		} catch (YAMLException exception) {
+			return false;
+		}
 	}
 
 	private ActionReference parseActionReference(String line) {
@@ -170,11 +249,21 @@ class GitHubActionsSecurityTest {
 		if (directive.startsWith("-")) {
 			directive = directive.substring(1).stripLeading();
 		}
-		if (!directive.startsWith("uses:")) {
+		int valueSeparator = directive.indexOf(':');
+		if (valueSeparator < 0) {
+			return null;
+		}
+		String key = directive.substring(0, valueSeparator).strip();
+		if (key.length() >= 2
+				&& (key.startsWith("\"") && key.endsWith("\"")
+				|| key.startsWith("'") && key.endsWith("'"))) {
+			key = key.substring(1, key.length() - 1);
+		}
+		if (!key.equals("uses")) {
 			return null;
 		}
 
-		String value = directive.substring("uses:".length()).strip();
+		String value = directive.substring(valueSeparator + 1).strip();
 		int commentIndex = versionCommentIndex(value);
 		if (commentIndex < 0) {
 			return new ActionReference(value, null);
@@ -217,11 +306,56 @@ class GitHubActionsSecurityTest {
 						|| character >= 'A' && character <= 'F');
 	}
 
-	private boolean startsWith(List<String> lines, int startIndex, List<String> expected) {
-		if (startIndex < 0 || startIndex + expected.size() > lines.size()) {
-			return false;
+	private boolean sameReferences(List<String> semanticReferences, List<String> lineReferences) {
+		List<String> sortedSemantic = new ArrayList<>(semanticReferences);
+		List<String> sortedLines = new ArrayList<>(lineReferences);
+		sortedSemantic.sort(Comparator.naturalOrder());
+		sortedLines.sort(Comparator.naturalOrder());
+		return sortedSemantic.equals(sortedLines);
+	}
+
+	private List<String> findUsesReferences(Object node) {
+		List<String> references = new ArrayList<>();
+		if (node instanceof Map<?, ?> map) {
+			for (Map.Entry<?, ?> entry : map.entrySet()) {
+				if ("uses".equals(String.valueOf(entry.getKey()))) {
+					references.add(String.valueOf(entry.getValue()));
+				}
+				references.addAll(findUsesReferences(entry.getValue()));
+			}
+		} else if (node instanceof List<?> list) {
+			for (Object value : list) {
+				references.addAll(findUsesReferences(value));
+			}
 		}
-		return lines.subList(startIndex, startIndex + expected.size()).equals(expected);
+		return references;
+	}
+
+	private boolean grantsContentsWrite(Object permissions) {
+		return "write-all".equals(permissions) || hasContentsPermission(permissions, "write");
+	}
+
+	private boolean hasContentsPermission(Object permissions, String expected) {
+		return expected.equals(value(yamlMap(permissions), "contents"));
+	}
+
+	private Object loadYaml(String contents) {
+		LoaderOptions options = new LoaderOptions();
+		options.setAllowDuplicateKeys(false);
+		return new Yaml(new SafeConstructor(options)).load(contents);
+	}
+
+	private Map<?, ?> yamlMap(Object value) {
+		return value instanceof Map<?, ?> map ? map : Map.of();
+	}
+
+	private Object value(Map<?, ?> map, String key) {
+		for (Map.Entry<?, ?> entry : map.entrySet()) {
+			if (key.equals(String.valueOf(entry.getKey()))) {
+				return entry.getValue();
+			}
+		}
+		return null;
 	}
 
 	private List<Path> workflowFiles(Path workflowsDirectory) throws IOException {
@@ -240,6 +374,6 @@ class GitHubActionsSecurityTest {
 	private record ActionReference(String reference, String version) {
 	}
 
-	private record WritePermission(Path workflow, int lineIndex) {
+	private record WritePermission(Path workflow, String scope) {
 	}
 }
