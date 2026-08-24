@@ -39,7 +39,6 @@ dependencies {
     // Plugin dependencies
     compileOnly("net.luckperms:api:5.4")
     compileOnly("net.milkbowl.vault:VaultUnlockedAPI:2.20")
-    compileOnly("me.lokka30:treasury-api:2.0.1")
     testRuntimeOnly("net.luckperms:api:5.4")
     
     // Annotations
@@ -47,7 +46,6 @@ dependencies {
     
     // Test dependencies
     testImplementation("net.milkbowl.vault:VaultUnlockedAPI:2.20")
-    testImplementation("me.lokka30:treasury-api:2.0.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("org.yaml:snakeyaml:2.2")
     testImplementation("org.mockito:mockito-core:5.14.2")
@@ -84,7 +82,7 @@ bukkit {
     main = "com.airdropmc.Airdrop"
     apiVersion = "1.21"
     depend = listOf("LuckPerms")
-    softDepend = listOf("Vault", "Treasury")
+    softDepend = listOf("Vault")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
     description = "Call in customizable care packages that fall from the sky"
 

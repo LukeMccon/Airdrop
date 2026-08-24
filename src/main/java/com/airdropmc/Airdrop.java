@@ -17,13 +17,11 @@ import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.economy.EconomyProvider;
-import com.airdropmc.economy.TreasuryEconomyProvider;
-import com.airdropmc.economy.VaultEconomyProvider;
+import com.airdropmc.economy.EconomyProviderDiscovery;
 import net.luckperms.api.LuckPerms;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.airdropmc.commands.CmdAirdrop;
@@ -44,11 +42,13 @@ public class Airdrop extends JavaPlugin {
 	private static Config configuration;
 	private static PackagesConfig packagesConfiguration;
 	private static DropAdmissionController dropAdmissionController;
+	private static boolean shuttingDown;
 	private LanguageManager languageManager;
 
 
 	@Override
 	public void onEnable() {
+		shuttingDown = false;
 		PluginDescriptionFile pdf = this.getDescription();
 
 		pluginInstance = this;
@@ -100,6 +100,7 @@ public class Airdrop extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		shuttingDown = true;
 		DropAdmissionController admission = dropAdmissionController;
 		if (admission != null) {
 			admission.stopAccepting();
@@ -126,45 +127,12 @@ public class Airdrop extends JavaPlugin {
 	}
 
 	private boolean setupEconomy() {
-		EconomyProvider treasuryProvider = setupTreasuryEconomy();
-		if (treasuryProvider != null) {
-			economyProvider = treasuryProvider;
-			ChatHandler.logMessage("Using economy provider: " + treasuryProvider.getName());
-			return true;
+		economyProvider = EconomyProviderDiscovery.discover(getServer().getServicesManager()).orElse(null);
+		if (economyProvider == null) {
+			return false;
 		}
-
-		EconomyProvider vaultProvider = setupVaultEconomy();
-		if (vaultProvider != null) {
-			economyProvider = vaultProvider;
-			ChatHandler.logMessage("Using economy provider: " + vaultProvider.getName());
-			return true;
-		}
-
-		return false;
-	}
-
-	private EconomyProvider setupTreasuryEconomy() {
-		try {
-			return TreasuryEconomyProvider.fromServiceRegistry().orElse(null);
-		} catch (NoClassDefFoundError ex) {
-			return null;
-		}
-	}
-
-	private EconomyProvider setupVaultEconomy() {
-		if (getServer().getPluginManager().getPlugin("Vault") == null) {
-			return null;
-		}
-		RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> rsp =
-				getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
-		if (rsp == null) {
-			return null;
-		}
-		net.milkbowl.vault.economy.Economy vault = rsp.getProvider();
-		if (vault == null) {
-			return null;
-		}
-		return new VaultEconomyProvider(vault);
+		ChatHandler.logMessage("Using economy provider: " + economyProvider.getName());
+		return true;
 	}
 
 	public void setupPackageGuis() {
@@ -216,6 +184,10 @@ public class Airdrop extends JavaPlugin {
 
 	public static DropAdmissionController getDropAdmissionController() {
 		return dropAdmissionController;
+	}
+
+	public static boolean isShuttingDown() {
+		return shuttingDown;
 	}
 
 	public LanguageManager getLanguageManager() {

@@ -130,6 +130,7 @@ class CmdAirdropLifecycleSafetyTest {
 		AtomicBoolean crateDestroyed = new AtomicBoolean();
 		doAnswer(invocation -> {
 			assertFalse(admission.snapshot().accepting(), "admission must stop before crate cleanup");
+			assertTrue(Airdrop.isShuttingDown(), "shutdown flag must be visible before crate cleanup");
 			crateDestroyed.set(true);
 			return null;
 		}).when(crate).destroy();
@@ -151,6 +152,7 @@ class CmdAirdropLifecycleSafetyTest {
 		assertEquals(0, admission.snapshot().landedClaims());
 		assertEquals(0, admission.snapshot().cooldowns());
 		assertNull(Airdrop.getDropAdmissionController());
+		assertTrue(Airdrop.isShuttingDown());
 		verify(crate).destroy();
 		verify(scheduler).cancelTasks(plugin);
 	}
