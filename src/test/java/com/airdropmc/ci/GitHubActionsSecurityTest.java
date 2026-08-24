@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GitHubActionsSecurityTest {
@@ -55,6 +56,33 @@ class GitHubActionsSecurityTest {
 		assertTrue(violations.isEmpty(), () ->
 				"External actions must use a 40-character commit and readable version comment:\n"
 						+ String.join("\n", violations));
+	}
+
+	@Test
+	void workflowsDefaultToReadOnlyContents() throws IOException {
+		Pattern readOnlyPermissions = Pattern.compile("(?m)^permissions:\\R  contents: read\\s*$");
+		for (Path workflow : workflowFiles()) {
+			String contents = Files.readString(workflow);
+			assertTrue(readOnlyPermissions.matcher(contents).find(),
+					() -> workflow + " must default to contents: read");
+		}
+	}
+
+	@Test
+	void onlyGitHubReleasePublisherCanWriteContents() throws IOException {
+		String release = Files.readString(WORKFLOWS_DIRECTORY.resolve("release.yml"));
+		int publishGitHub = release.indexOf("\n  publish-github:\n");
+		int publishModrinth = release.indexOf("\n  publish-modrinth:\n");
+		int writePermission = release.indexOf("      contents: write");
+		long writePermissionCount = release.lines()
+				.filter(line -> line.trim().equals("contents: write"))
+				.count();
+
+		assertEquals(1, writePermissionCount, "Only one job may receive contents: write");
+		assertTrue(publishGitHub >= 0 && publishModrinth > publishGitHub,
+				"Expected GitHub and Modrinth publish jobs");
+		assertTrue(writePermission > publishGitHub && writePermission < publishModrinth,
+				"contents: write must belong to publish-github");
 	}
 
 	private List<Path> workflowFiles() throws IOException {
