@@ -1,6 +1,5 @@
 package com.airdropmc.commands;
 
-import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.exceptions.DropLimitException;
 import com.airdropmc.exceptions.InsufficientPermissionsException;
@@ -44,10 +43,6 @@ public class DropCommand {
 
 			try {
 				DropController.playerInitiatedDropPackage(pkg, player);
-			} catch (CannotAffordException e) {
-				ChatHandler.sendError(player, MessageKey.ERROR_CANNOT_AFFORD, Map.of(
-						"player", e.getPlayerName(),
-						"price", String.valueOf(e.getPrice())));
 			} catch (EconomyUnavailableException e) {
 				ChatHandler.sendError(player, MessageKey.ERROR_ECONOMY_UNAVAILABLE);
 			} catch (SkyNotClearException e) {

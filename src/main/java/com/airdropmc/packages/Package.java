@@ -5,14 +5,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import com.airdropmc.exceptions.CannotAffordException;
-import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.ChatTheme;
-import com.airdropmc.Airdrop;
-import com.airdropmc.config.ConfigKeys;
-import com.airdropmc.economy.EconomyProvider;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -49,31 +43,6 @@ public class Package {
 
 	public String getName() {
 		return this.name;
-	}
-
-	public boolean canAfford(Player player) {
-		if (!ConfigKeys.isEconomyEnabled()) {
-			return true;
-		}
-		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (economy == null) {
-			return false;
-		}
-		return Double.compare(economy.getBalance(player), this.price) >= 0;
-	}
-
-	public boolean chargeUser(Player player) throws CannotAffordException, EconomyUnavailableException {
-		if (!ConfigKeys.isEconomyEnabled()) {
-			return false;
-		}
-		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (economy == null) {
-			throw new EconomyUnavailableException();
-		}
-		if (!economy.withdraw(player, this.price).success()) {
-			throw new CannotAffordException(player.getName(), this.price);
-		}
-		return true;
 	}
 
 	public String toString() {

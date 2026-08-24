@@ -2,7 +2,6 @@ package com.airdropmc.economy;
 
 import net.milkbowl.vault2.economy.AsyncEconomy;
 import net.milkbowl.vault2.economy.EconomyResponse;
-import org.bukkit.entity.Player;
 
 import java.math.BigDecimal;
 import java.util.Objects;
@@ -41,21 +40,6 @@ public final class VaultUnlockedEconomyProvider implements EconomyProvider {
 	@Override
 	public CompletionStage<EconomyResult> deposit(EconomyPlayer player, BigDecimal amount) {
 		return invoke(player, amount, () -> economy.deposit(CALLER, player.uniqueId(), amount));
-	}
-
-	@Override
-	public double getBalance(Player player) {
-		throw new UnsupportedOperationException("VaultUnlocked balance is asynchronous");
-	}
-
-	@Override
-	public EconomyResult withdraw(Player player, double amount) {
-		throw new UnsupportedOperationException("VaultUnlocked withdrawal is asynchronous");
-	}
-
-	@Override
-	public EconomyResult deposit(Player player, double amount) {
-		throw new UnsupportedOperationException("VaultUnlocked deposit is asynchronous");
 	}
 
 	@Override

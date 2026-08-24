@@ -4,31 +4,27 @@ import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
+import com.airdropmc.economy.EconomyPlayer;
 import com.airdropmc.economy.EconomyProvider;
-import com.airdropmc.economy.EconomyResult;
 import com.airdropmc.events.PackageDropEvent;
-import com.airdropmc.exceptions.CannotAffordException;
 import com.airdropmc.exceptions.DropLimitException;
 import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.exceptions.InsufficientPermissionsException;
 import com.airdropmc.exceptions.SkyNotClearException;
-import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.PermissionsHelper;
-import com.airdropmc.helpers.AirdropLogger;
-import com.airdropmc.lang.MessageKey;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.packages.Package;
+import com.airdropmc.paid.PaidDropSession;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
 
 public class DropController {
 
@@ -70,23 +66,22 @@ public class DropController {
 	}
 
 	public static void playerInitiatedDropPackage(Package pkg, Player player)
-			throws CannotAffordException, EconomyUnavailableException,
+			throws EconomyUnavailableException,
 			InsufficientPermissionsException, SkyNotClearException, DropLimitException {
 		playerInitiatedDropPackage(pkg, player, DropOptions.createDefault());
 	}
 
 	public static void playerInitiatedDropPackage(Package pkg, Player player, DropOptions options)
-			throws CannotAffordException, EconomyUnavailableException,
+			throws EconomyUnavailableException,
 			InsufficientPermissionsException, SkyNotClearException, DropLimitException {
 		DropOptions resolvedOptions = options != null ? options : DropOptions.createDefault();
 		if (!PermissionsHelper.hasPermission(player, pkg.getName())) {
 			throw new InsufficientPermissionsException(pkg.getName());
 		}
-		if (ConfigKeys.isEconomyEnabled() && Airdrop.getEconomyProvider() == null) {
+		boolean paid = ConfigKeys.isEconomyEnabled();
+		EconomyProvider economy = Airdrop.getEconomyProvider();
+		if (paid && economy == null) {
 			throw new EconomyUnavailableException();
-		}
-		if (!pkg.canAfford(player)) {
-			throw new CannotAffordException(player.getName(), pkg.getPrice());
 		}
 
 		World world = player.getWorld();
@@ -94,59 +89,43 @@ public class DropController {
 		DropAdmissionController.Lease lease = requireAdmissionController().acquirePlayer(
 				player.getUniqueId(), PermissionsHelper.hasCooldownBypass(player), target.landingKey(),
 				ConfigKeys.getDropLimitSettings());
-		boolean charged = false;
+		List<ItemStack> items;
 		try {
-			List<ItemStack> items = pkg.getItems();
-			charged = pkg.chargeUser(player);
-			dropPackageAtLocation(items, world, target.spawnLocation(), resolvedOptions, lease);
-		} catch (CannotAffordException | EconomyUnavailableException failure) {
-			lease.close();
-			throw failure;
+			items = pkg.getItems();
 		} catch (RuntimeException failure) {
 			lease.close();
-			if (charged) {
-				attemptRefundOnDropFailure(pkg, player, failure);
-			}
 			throw failure;
 		}
-		if (charged) {
-			sendChargeConfirmationBestEffort(pkg, player);
-		}
-	}
 
-	private static void sendChargeConfirmationBestEffort(Package pkg, Player player) {
-		try {
-			ChatHandler.send(player, MessageKey.DROP_CHARGED,
-					Map.of("amount", String.valueOf(pkg.getPrice())));
-		} catch (RuntimeException failure) {
+		if (!paid) {
 			try {
-				AirdropLogger.log(Level.WARNING,
-						"Drop succeeded but charge confirmation could not be sent to " + player.getName(), failure);
-			} catch (RuntimeException loggingFailure) {
-				failure.addSuppressed(loggingFailure);
+				dropPackageAtLocation(items, world, target.spawnLocation(), resolvedOptions, lease);
+			} catch (RuntimeException failure) {
+				lease.close();
+				throw failure;
 			}
+			return;
 		}
-	}
 
-	private static void attemptRefundOnDropFailure(Package pkg, Player player, RuntimeException dropFailure) {
-		if (!ConfigKeys.isEconomyEnabled()) {
-			return;
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !plugin.isEnabled()) {
+			lease.close();
+			throw new IllegalStateException("Cannot start paid drop while plugin is unavailable");
 		}
-		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (economy == null) {
-			dropFailure.addSuppressed(new IllegalStateException(
-					"Drop failed after charging " + player.getName()
-							+ " but no economy provider was available for refund"));
-			return;
-		}
+
+		PaidDropSession session = new PaidDropSession(
+				plugin,
+				economy,
+				new EconomyPlayer(player.getUniqueId(), player.getName()),
+				BigDecimal.valueOf(pkg.getPrice()),
+				lease,
+				ignored -> dropPackageAtLocation(
+						items, world, target.spawnLocation(), resolvedOptions, lease));
 		try {
-			EconomyResult result = economy.deposit(player, pkg.getPrice());
-			if (result == null || !result.success()) {
-				dropFailure.addSuppressed(new IllegalStateException(
-						"Drop failed after charging " + player.getName() + " and refund transaction failed"));
-			}
-		} catch (RuntimeException refundFailure) {
-			dropFailure.addSuppressed(refundFailure);
+			session.start();
+		} catch (RuntimeException failure) {
+			lease.close();
+			throw failure;
 		}
 	}
 

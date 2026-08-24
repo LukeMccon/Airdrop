@@ -63,6 +63,8 @@ public enum MessageKey {
 			"Airdrops are unavailable while the plugin is shutting down"),
 
 	DROP_CHARGED("drop.charged", "{accent}${amount}{primary} has been taken from your account"),
+	DROP_FAILED("drop.failed", "Airdrop failed; no crate was created"),
+	DROP_REFUNDED("drop.refunded", "Airdrop failed; your payment was refunded"),
 
 	GUI_SAVE("gui.save", "Save"),
 	GUI_CANCEL("gui.cancel", "Cancel"),
