@@ -85,6 +85,18 @@ class GitHubActionsSecurityTest {
 				"contents: write must belong to publish-github");
 	}
 
+	@Test
+	void dependabotProposesControlledGitHubActionUpdates() throws IOException {
+		Path dependabot = Path.of(".github", "dependabot.yml");
+		assertTrue(Files.isRegularFile(dependabot), "Expected .github/dependabot.yml");
+
+		String contents = Files.readString(dependabot);
+		assertTrue(contents.contains("package-ecosystem: \"github-actions\""));
+		assertTrue(contents.contains("directory: \"/\""));
+		assertTrue(contents.contains("interval: \"weekly\""));
+		assertTrue(contents.contains("open-pull-requests-limit: 5"));
+	}
+
 	private List<Path> workflowFiles() throws IOException {
 		try (Stream<Path> files = Files.list(WORKFLOWS_DIRECTORY)) {
 			return files
