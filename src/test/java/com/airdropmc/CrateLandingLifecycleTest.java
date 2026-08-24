@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -191,7 +192,9 @@ class CrateLandingLifecycleTest {
 		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class, CALLS_REAL_METHODS)) {
 			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
 			crate.land(reservedBlock);
-			CrateManager.removeCrateAndDestroy(crate);
+			Location landedLocation = crate.getLandedLocation();
+			assertSame(crate, CrateManager.getCrate(landedLocation));
+			assertTrue(CrateManager.removeCrateAndDestroy(landedLocation));
 		}
 
 		verify(expiryTask).cancel();

@@ -10,6 +10,7 @@ import com.airdropmc.lang.MessageKey;
 import com.airdropmc.listeners.CrateDestroyListener;
 import com.airdropmc.listeners.CrateCloseListener;
 import com.airdropmc.listeners.CrateCleanupListener;
+import com.airdropmc.listeners.CrateHopperListener;
 import com.airdropmc.listeners.CrateOpenListener;
 import com.airdropmc.listeners.FallingCrateListener;
 import com.airdropmc.limits.DropAdmissionController;
@@ -83,6 +84,7 @@ public class Airdrop extends JavaPlugin {
 		// Register Listeners
 		Bukkit.getPluginManager().registerEvents(new FallingCrateListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateCloseListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateHopperListener(this), this);
 		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateCleanupListener(), this);
