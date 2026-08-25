@@ -10,6 +10,8 @@ Add the same `Project Scale` section near the top of `AGENTS.md` and `CLAUDE.md`
 
 The section will state bluntly that this is a Minecraft plugin, not a multimillion-dollar enterprise project. It will direct agents to choose the simplest change that solves the actual problem, follow existing patterns, and test behavior that matters. It will discourage speculative abstractions, unnecessary compatibility layers, excessive defensive code, and unjustified process overhead.
 
+It will also tell agents not to write design specs or implementation plans for small, straightforward changes unless the user asks for them or the work is complex enough to benefit from them.
+
 The guidance will preserve a focused quality bar for failures that can duplicate or lose items, affect the economy, corrupt configuration, or destabilize the server.
 
 ## Scope
