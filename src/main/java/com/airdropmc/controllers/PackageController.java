@@ -56,10 +56,16 @@ public class PackageController {
 				handleDeleteCompletion(sender, packageName, false, null);
 				return;
 			}
-			deletion.whenComplete((deleted, failure) ->
-					handleDeleteCompletion(sender, packageName, deleted, failure));
+			deletion.whenComplete((deleted, failure) -> {
+				if (Airdrop.isShuttingDown() || Airdrop.getPluginInstance() != plugin) {
+					return;
+				}
+				handleDeleteCompletion(sender, packageName, deleted, failure);
+			});
 		} catch (RuntimeException failure) {
-			handleDeleteCompletion(sender, packageName, false, failure);
+			if (!Airdrop.isShuttingDown() && Airdrop.getPluginInstance() == plugin) {
+				handleDeleteCompletion(sender, packageName, false, failure);
+			}
 		}
 	}
 

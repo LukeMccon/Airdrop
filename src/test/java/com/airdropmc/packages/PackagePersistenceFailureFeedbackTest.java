@@ -334,6 +334,20 @@ class PackagePersistenceFailureFeedbackTest {
 	}
 
 	@Test
+	void deleteCompletionIsSilentAfterShutdownStarts() throws Exception {
+		PlayerMock player = operator();
+		CompletableFuture<Boolean> deletion = new CompletableFuture<>();
+		when(plugin.deletePackageAsync("starter")).thenReturn(deletion);
+		PackageController.deletePackageCommand(
+				player, new String[]{"package", "delete", "starter"});
+		setAirdropStaticField("shuttingDown", true);
+
+		deletion.completeExceptionally(new IllegalStateException("coordinator closed"));
+
+		assertNull(player.nextComponentMessage());
+	}
+
+	@Test
 	void createAndDeleteCommandsAreGatedWhilePluginIsNotReady() throws Exception {
 		setAirdropStaticField("ready", false);
 		PlayerMock createPlayer = operator();
