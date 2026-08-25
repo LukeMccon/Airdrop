@@ -5,12 +5,9 @@ import be.seeseemelk.mockbukkit.MockPlugin;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
-import com.airdropmc.PackagesConfig;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -24,13 +21,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,19 +46,9 @@ class PackagesGuiNavigationTest {
 		when(plugin.getServer()).thenReturn(server);
 		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("PackagesGuiNavigationTest"));
 
-		YamlConfiguration config = new YamlConfiguration();
-		config.set("packages.starter.price", 10.0);
-		config.set("packages.starter.items", List.of(new ItemStack(Material.STONE, 2)));
-		config.set("packages.broken.price", "ten");
-		config.set("packages.broken.items", List.of(new ItemStack(Material.DIRT, 1)));
-		PackagesConfig packagesConfig = mock(PackagesConfig.class);
-		when(packagesConfig.getConfig()).thenReturn(config);
-		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
-
 		setAirdropStaticField("pluginInstance", plugin);
-		setAirdropStaticField("packagesConfiguration", packagesConfig);
-		PackageManager.clear();
-		assertTrue(PackageManager.reload());
+		PackageManager.publishPackages(Map.of(
+				"starter", new Package("starter", 10.0, List.of(new ItemStack(Material.STONE, 2)))));
 	}
 
 	@AfterEach
@@ -88,7 +75,19 @@ class PackagesGuiNavigationTest {
 	}
 
 	@Test
-	void packageBrowserOmitsPackagesWithInvalidPrices() {
+	void closeAndUnregisterClosesCurrentViewers() {
+		PackagesGui browser = new PackagesGui();
+		PlayerMock viewer = operator();
+		browser.openInventory(viewer);
+		Inventory browserInventory = viewer.getOpenInventory().getTopInventory();
+
+		browser.closeAndUnregister();
+
+		assertNotSame(browserInventory, viewer.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void packageBrowserDisplaysPublishedPackages() {
 		PackagesGui browser = new PackagesGui();
 		PlayerMock player = operator();
 		browser.openInventory(player);
@@ -100,8 +99,7 @@ class PackagesGuiNavigationTest {
 				.filter(Objects::nonNull)
 				.map(meta -> ChatColor.stripColor(meta.getDisplayName()))
 				.toList();
-		assertTrue(displayedNames.contains("starter"));
-		assertFalse(displayedNames.stream().anyMatch(name -> name.contains("broken")));
+		assertEquals(List.of("starter"), displayedNames);
 	}
 
 	@Test

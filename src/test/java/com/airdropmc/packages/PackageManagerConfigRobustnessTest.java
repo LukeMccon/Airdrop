@@ -1,191 +1,195 @@
 package com.airdropmc.packages;
 
-import com.airdropmc.Airdrop;
-import com.airdropmc.PackagesConfig;
 import com.airdropmc.exceptions.PackageNotFoundException;
-import com.airdropmc.helpers.AirdropLogger;
+import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.when;
 
 class PackageManagerConfigRobustnessTest {
 
-	@BeforeEach
-	void setUp() throws Exception {
+	@AfterEach
+	void tearDown() {
+		PackageManager.clear();
+	}
+
+	@Test
+	void liveRegistry_isHeldAsOneVolatileSnapshotReference() throws Exception {
+		Field registry = PackageManager.class.getDeclaredField("packages");
+
+		assertTrue(Modifier.isVolatile(registry.getModifiers()));
+		assertTrue(Map.class.isAssignableFrom(registry.getType()));
+	}
+
+	@Test
+	void materializePackages_requiresPackagesSectionButAcceptsExplicitEmpty() throws Exception {
+		PackageMaterializationException missing = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(new YamlConfiguration()));
+		assertTrue(missing.getMessage().contains("packages"));
+
+		YamlConfiguration scalar = new YamlConfiguration();
+		scalar.set("packages", "not-a-section");
+		PackageMaterializationException scalarFailure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(scalar));
+		assertTrue(scalarFailure.getMessage().contains("Root 'packages'"));
+		assertTrue(scalarFailure.getMessage().contains("section"));
+
+		YamlConfiguration explicitEmpty = new YamlConfiguration();
+		explicitEmpty.loadFromString("packages: {}\n");
+		Map<String, Package> materialized = PackageManager.materializePackages(explicitEmpty);
+
+		assertTrue(materialized.isEmpty());
+		assertThrows(UnsupportedOperationException.class,
+				() -> materialized.put("later", new Package("later", 1.0, List.of())));
+	}
+
+	@Test
+	void materializePackages_rejectsWholeCandidateOnNonSectionEntryAndPreservesLiveSnapshot()
+			throws Exception {
+		YamlConfiguration initial = configurationWithPackage("starter", 10.0);
+		PackageManager.publishPackages(PackageManager.materializePackages(initial));
+		Package livePackage = PackageManager.get("starter");
+
+		YamlConfiguration candidate = configurationWithPackage("other", 2.0);
+		candidate.set("packages.broken", "not-a-section");
+
+		PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(candidate));
+
+		assertTrue(failure.getMessage().contains("broken"));
+		assertTrue(failure.getMessage().contains("section"));
+		assertSame(livePackage, PackageManager.get("STARTER"));
+		assertThrows(PackageNotFoundException.class, () -> PackageManager.get("other"));
+	}
+
+	@Test
+	void materializePackages_rejectsWholeCandidateOnInvalidOrReservedName() {
+		for (String invalidName : List.of(
+				"all", "*", "package", "packages", "version", "reload", "bad name")) {
+			YamlConfiguration candidate = configurationWithPackage("valid_name", 1.0);
+			addPackage(candidate, invalidName, 2.0);
+
+			PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+					() -> PackageManager.materializePackages(candidate), invalidName);
+			assertTrue(failure.getMessage().contains(invalidName), failure::getMessage);
+		}
+	}
+
+	@Test
+	void materializePackages_rejectsWholeCandidateOnCaseInsensitiveCollision() {
+		YamlConfiguration candidate = configurationWithPackage("Starter", 1.0);
+		addPackage(candidate, "starter", 2.0);
+		addPackage(candidate, "other", 3.0);
+
+		PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(candidate));
+
+		assertTrue(failure.getMessage().contains("Starter"));
+		assertTrue(failure.getMessage().contains("starter"));
+		assertTrue(failure.getMessage().contains("conflict"));
+	}
+
+	@Test
+	void materializePackages_rejectsWholeCandidateOnEveryInvalidRawPrice() {
+		List<Object> invalidPrices = List.of(
+				"10",
+				true,
+				Double.NaN,
+				Double.POSITIVE_INFINITY,
+				Double.NEGATIVE_INFINITY,
+				-1,
+				new BigDecimal("1e10000"));
+
+		YamlConfiguration missingPrice = new YamlConfiguration();
+		missingPrice.createSection("packages.missing");
+		missingPrice.set("packages.missing.items", List.of());
+		PackageMaterializationException missingFailure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(missingPrice));
+		assertTrue(missingFailure.getMessage().contains("missing"));
+		assertTrue(missingFailure.getMessage().contains("<missing>"));
+
+		for (int index = 0; index < invalidPrices.size(); index++) {
+			String packageName = "invalid" + index;
+			YamlConfiguration candidate = configurationWithPackage("valid", 1.0);
+			addPackage(candidate, packageName, invalidPrices.get(index));
+
+			PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+					() -> PackageManager.materializePackages(candidate), packageName);
+			assertTrue(failure.getMessage().contains(packageName), failure::getMessage);
+			assertTrue(failure.getMessage().contains("price"), failure::getMessage);
+		}
+	}
+
+	@Test
+	void materializePackages_acceptsNumericFiniteNonNegativePrices() throws Exception {
+		YamlConfiguration candidate = new YamlConfiguration();
+		candidate.createSection("packages");
+		addPackage(candidate, "integer-zero", 0);
+		addPackage(candidate, "double-zero", 0.0);
+		addPackage(candidate, "positive", 12.5f);
+
+		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
+
+		assertEquals(Set.of("integer-zero", "double-zero", "positive"), materialized.keySet());
+		assertEquals(0.0, materialized.get("integer-zero").getPrice());
+		assertEquals(0.0, materialized.get("double-zero").getPrice());
+		assertEquals(12.5, materialized.get("positive").getPrice());
+	}
+
+	@Test
+	void materializeAndPublish_detachConfigurationCandidateAndLiveSnapshot() throws Exception {
+		ItemStack sourceItem = new ItemStack(Material.DIRT, 2);
+		YamlConfiguration candidate = configurationWithPackage("Starter", 10.0);
+		candidate.set("packages.Starter.items", List.of(sourceItem));
+
+		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
+		ItemStack materializedItem = materialized.get("starter").getItems().getFirst();
+		assertNotSame(sourceItem, materializedItem);
+
+		PackageManager.publishPackages(materialized);
+		Field registry = PackageManager.class.getDeclaredField("packages");
+		registry.setAccessible(true);
+		assertSame(materialized, registry.get(null));
+		Package livePackage = PackageManager.get("STARTER");
+		assertSame(materialized.get("starter"), livePackage);
+
+		sourceItem.setAmount(7);
+		((ItemStack) candidate.getList("packages.Starter.items").getFirst()).setAmount(9);
+
+		assertEquals(Material.DIRT, livePackage.getItems().getFirst().getType());
+		assertEquals(2, livePackage.getItems().getFirst().getAmount());
+		assertTrue(PackageManager.has("sTaRtEr"));
+		assertFalse(PackageManager.has("missing"));
+		assertEquals(Set.of("Starter"), PackageManager.getPackages());
+	}
+
+	private static YamlConfiguration configurationWithPackage(String packageName, Object price) {
 		YamlConfiguration config = new YamlConfiguration();
 		config.createSection("packages");
-		config.set("packages.broken", "not-a-section");
-		config.set("packages.starter.price", 10.0);
-		config.set("packages.starter.items", java.util.List.of());
-
-		setPackagesConfig(config);
-
-		Field pluginInstanceField = Airdrop.class.getDeclaredField("pluginInstance");
-		pluginInstanceField.setAccessible(true);
-		pluginInstanceField.set(null, null);
-	}
-
-	@AfterEach
-	void tearDown() throws Exception {
-		PackageManager.clear();
-		Field packagesConfigField = Airdrop.class.getDeclaredField("packagesConfiguration");
-		packagesConfigField.setAccessible(true);
-		packagesConfigField.set(null, null);
-
-		Field pluginInstanceField = Airdrop.class.getDeclaredField("pluginInstance");
-		pluginInstanceField.setAccessible(true);
-		pluginInstanceField.set(null, null);
-	}
-
-	@Test
-	void reload_ignoresNonSectionPackageEntries() {
-		assertDoesNotThrow(PackageManager::reload);
-		assertDoesNotThrow(() -> PackageManager.get("starter"));
-		assertThrows(com.airdropmc.exceptions.PackageNotFoundException.class, () -> PackageManager.get("broken"));
-	}
-
-	@Test
-	void reload_rejectsMissingAndInvalidRawPrices() throws Exception {
-		YamlConfiguration config = new YamlConfiguration();
-		addPackage(config, "missing", null);
-		addPackage(config, "numeric-string", "10");
-		addPackage(config, "boolean", true);
-		addPackage(config, "nan", Double.NaN);
-		addPackage(config, "infinity", Double.POSITIVE_INFINITY);
-		addPackage(config, "negative", -1);
-		addPackage(config, "overflow", new BigDecimal("1e10000"));
-		setPackagesConfig(config);
-
-		PackageManager.reload();
-
-		Set<String> loadedPackages = PackageManager.getPackages();
-		for (String packageName : List.of(
-				"missing", "numeric-string", "boolean", "nan", "infinity", "negative", "overflow")) {
-			assertFalse(loadedPackages.contains(packageName), packageName);
-			assertThrows(PackageNotFoundException.class, () -> PackageManager.get(packageName), packageName);
-		}
-	}
-
-	@Test
-	void reload_logsPackageNameAndRawInvalidValue() throws Exception {
-		YamlConfiguration config = new YamlConfiguration();
-		addPackage(config, "missing", null);
-		addPackage(config, "text-price", "ten");
-		setPackagesConfig(config);
-
-		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
-			PackageManager.reload();
-
-			logger.verify(() -> AirdropLogger.warning(argThat(message ->
-					message.contains("missing") && message.contains("<missing>"))), atLeastOnce());
-			logger.verify(() -> AirdropLogger.warning(argThat(message ->
-					message.contains("text-price") && message.contains("ten"))), atLeastOnce());
-		}
-	}
-
-	@Test
-	void reload_acceptsIntegerAndFloatingPointZero() throws Exception {
-		YamlConfiguration config = new YamlConfiguration();
-		addPackage(config, "integer-zero", 0);
-		addPackage(config, "double-zero", 0.0);
-		setPackagesConfig(config);
-
-		PackageManager.reload();
-
-		assertTrue(PackageManager.getPackages().containsAll(Set.of("integer-zero", "double-zero")));
-		assertEquals(0.0, PackageManager.get("integer-zero").getPrice());
-		assertEquals(0.0, PackageManager.get("double-zero").getPrice());
-	}
-
-	@Test
-	void reload_skipsInvalidAndReservedNamesWithDiagnostics() throws Exception {
-		YamlConfiguration config = new YamlConfiguration();
-		for (String name : List.of("all", "*", "package", "packages", "version", "reload", "bad name")) {
-			addPackage(config, name, 1.0);
-		}
-		addPackage(config, "valid_name", 1.0);
-		setPackagesConfig(config);
-
-		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
-			PackageManager.reload();
-
-			assertEquals(Set.of("valid_name"), PackageManager.getPackages());
-			for (String rejected : List.of(
-					"all", "*", "package", "packages", "version", "reload", "bad name")) {
-				logger.verify(() -> AirdropLogger.warning(argThat(message ->
-						message.contains(rejected) && message.contains("Skipping package"))), atLeastOnce());
-			}
-		}
-	}
-
-	@Test
-	void reload_rejectsEveryCaseVariantAndWarnsAboutTheConflict() throws Exception {
-		YamlConfiguration config = new YamlConfiguration();
-		addPackage(config, "starter", 2.0);
-		addPackage(config, "Starter", 1.0);
-		addPackage(config, "other", 4.0);
-		setPackagesConfig(config);
-
-		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
-			PackageManager.reload();
-
-			assertEquals(Set.of("other"), PackageManager.getPackages());
-			assertThrows(PackageNotFoundException.class, () -> PackageManager.get("STARTER"));
-			logger.verify(() -> AirdropLogger.warning(argThat(message ->
-					message.contains("starter") && message.contains("Starter")
-							&& message.contains("conflict"))), atLeastOnce());
-		}
-	}
-
-	@Test
-	void reload_rejectsCaseCollisionBeforeReadingEitherPayload() throws Exception {
-		YamlConfiguration config = new YamlConfiguration();
-		addPackage(config, "Starter", "invalid");
-		addPackage(config, "starter", 2.0);
-		setPackagesConfig(config);
-
-		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
-			PackageManager.reload();
-
-			assertTrue(PackageManager.getPackages().isEmpty());
-			assertThrows(PackageNotFoundException.class, () -> PackageManager.get("STARTER"));
-			logger.verify(() -> AirdropLogger.warning(argThat(message ->
-					message.contains("price is invalid"))), never());
-		}
+		addPackage(config, packageName, price);
+		return config;
 	}
 
 	private static void addPackage(YamlConfiguration config, String packageName, Object price) {
+		config.createSection("packages." + packageName);
 		config.set("packages." + packageName + ".items", List.of());
 		if (price != null) {
 			config.set("packages." + packageName + ".price", price);
 		}
-	}
-
-	private static void setPackagesConfig(YamlConfiguration config) throws Exception {
-		PackagesConfig packagesConfig = mock(PackagesConfig.class);
-		when(packagesConfig.getConfig()).thenReturn(config);
-
-		Field packagesConfigField = Airdrop.class.getDeclaredField("packagesConfiguration");
-		packagesConfigField.setAccessible(true);
-		packagesConfigField.set(null, packagesConfig);
 	}
 }

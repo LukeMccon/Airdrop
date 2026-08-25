@@ -58,6 +58,7 @@ class PackageEditorInventoryIntegrityTest {
 
 	@AfterEach
 	void tearDown() {
+		PackageGui.closeOpenEditors();
 		try {
 			setPackagesGui(null);
 		} catch (ReflectiveOperationException error) {
@@ -93,6 +94,27 @@ class PackageEditorInventoryIntegrityTest {
 		Inventory editor = first.getOpenInventory().getTopInventory();
 		assertFalse(gui.openInventory(second));
 		assertSame(editor, first.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void closeOpenEditorsClosesEveryTrackedEditorOnly() {
+		PlayerMock existingViewer = operator();
+		PlayerMock createViewer = operator();
+		PlayerMock unrelatedViewer = operator();
+		PackageGui existing = new PackageGui(packageWithStone());
+		CreatePackageGui create = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(existing.openInventory(existingViewer));
+		assertTrue(create.openInventory(createViewer));
+		Inventory existingInventory = existingViewer.getOpenInventory().getTopInventory();
+		Inventory createInventory = createViewer.getOpenInventory().getTopInventory();
+		Inventory unrelated = org.bukkit.Bukkit.createInventory(null, 9, "unrelated");
+		unrelatedViewer.openInventory(unrelated);
+
+		PackageGui.closeOpenEditors();
+
+		assertNotSame(existingInventory, existingViewer.getOpenInventory().getTopInventory());
+		assertNotSame(createInventory, createViewer.getOpenInventory().getTopInventory());
+		assertSame(unrelated, unrelatedViewer.getOpenInventory().getTopInventory());
 	}
 
 	@Test

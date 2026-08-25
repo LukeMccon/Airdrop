@@ -17,6 +17,10 @@ public class AirdropTabCompleter implements TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
+        if (!Airdrop.isReady()) {
+            return args.length == 1 ? List.of(AirdropCommandNames.VERSION) : List.of();
+        }
+
         // If no arguments, return false
         if (args.length == 1) {
             Set<String> suggestions = new LinkedHashSet<>(PackageManager.getPackages());

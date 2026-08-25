@@ -1,18 +1,20 @@
 package com.airdropmc.controllers;
 
+import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.CreatePackageGui;
-import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageNamePolicy;
-import com.airdropmc.exceptions.DuplicatePackageException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -41,27 +43,66 @@ public class PackageController {
 			return;
 		}
 
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !Airdrop.isReady()) {
+			ChatHandler.sendError(sender, MessageKey.ERROR_PLUGIN_NOT_READY);
+			return;
+		}
+
 		String packageName = args[2];
 		try {
-			if (!PackageManager.deletePackage(packageName)) {
-				ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+			CompletionStage<Boolean> deletion = plugin.deletePackageAsync(packageName);
+			if (deletion == null) {
+				handleDeleteCompletion(sender, packageName, false, null);
 				return;
 			}
-			ChatHandler.send(sender, MessageKey.PACKAGES_DELETED, Map.of("name", packageName));
-		} catch (PackageNotFoundException e) {
-			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_DELETE_NOT_FOUND, Map.of("name", packageName));
+			deletion.whenComplete((deleted, failure) ->
+					handleDeleteCompletion(sender, packageName, deleted, failure));
+		} catch (RuntimeException failure) {
+			handleDeleteCompletion(sender, packageName, false, failure);
 		}
 	}
 
+	private static void handleDeleteCompletion(
+			CommandSender sender,
+			String packageName,
+			Boolean deleted,
+			Throwable failure) {
+		if (failure == null && Boolean.TRUE.equals(deleted)) {
+			ChatHandler.send(sender, MessageKey.PACKAGES_DELETED, Map.of("name", packageName));
+			return;
+		}
+
+		Throwable cause = unwrapCompletionException(failure);
+		if (cause instanceof PackageNotFoundException notFound) {
+			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_DELETE_NOT_FOUND,
+					Map.of("name", notFound.getPackageName()));
+			return;
+		}
+		ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+	}
+
+	private static Throwable unwrapCompletionException(Throwable failure) {
+		Throwable cause = failure;
+		while (cause instanceof CompletionException && cause.getCause() != null) {
+			cause = cause.getCause();
+		}
+		return cause;
+	}
+
 	/**
-	 * Deletes a package given the name
-	 * 
+	 * Deletes a package given the name.
+	 *
 	 * @param packageName name of the package to delete
-	 * @return true when the package was persisted and deleted, false when persistence failed
-	 * @throws PackageNotFoundException if the package doesn't exist
+	 * @return completion indicating whether the package was committed and deleted
 	 */
-	public static boolean deletePackage(String packageName) throws PackageNotFoundException {
-		return PackageManager.deletePackage(packageName);
+	public static CompletionStage<Boolean> deletePackage(String packageName) {
+		PackageNamePolicy.requireCanonical(packageName);
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !Airdrop.isReady()) {
+			return CompletableFuture.completedFuture(false);
+		}
+		return plugin.deletePackageAsync(packageName);
 	}
 
 	/**
@@ -121,6 +162,12 @@ public class PackageController {
 			return;
 		}
 
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !Airdrop.isReady()) {
+			ChatHandler.sendError(sender, MessageKey.ERROR_PLUGIN_NOT_READY);
+			return;
+		}
+
 		CreatePackageGui createGui = new CreatePackageGui(packageName, price);
 		if (!createGui.openInventory(player)) {
 			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
@@ -128,32 +175,32 @@ public class PackageController {
 	}
 
 	/**
-	 * Creates a new package given a name and price
-	 * 
+	 * Creates a new package given a name and price.
+	 *
 	 * @param packageName name of package to create
 	 * @param price       price of package to create
-	 * @return true when the package was persisted and created, false when persistence failed
-	 * @throws DuplicatePackageException if package already exists
+	 * @return completion indicating whether the package was committed and created
 	 */
-	public static boolean createPackage(String packageName, double price) throws DuplicatePackageException {
-		List<ItemStack> items = new ArrayList<>();
-		Package pkg = new Package(packageName, price, items);
-		return PackageManager.createPackage(pkg);
+	public static CompletionStage<Boolean> createPackage(String packageName, double price) {
+		return createPackage(packageName, price, new ArrayList<>());
 	}
 
 	/**
-	 * Creates a new package given a name, price, and items
-	 * 
+	 * Creates a new package given a name, price, and items.
+	 *
 	 * @param packageName name of package
 	 * @param price       price of package
 	 * @param items       items in package
-	 * @return true when the package was persisted and created, false when persistence failed
-	 * @throws DuplicatePackageException if package already exists
+	 * @return completion indicating whether the package was committed and created
 	 */
-	public static boolean createPackage(String packageName, double price, List<ItemStack> items)
-			throws DuplicatePackageException {
+	public static CompletionStage<Boolean> createPackage(String packageName, double price, List<ItemStack> items) {
+		PackageNamePolicy.requireCanonical(packageName);
 		Package pkg = new Package(packageName, price, items);
-		return PackageManager.createPackage(pkg);
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !Airdrop.isReady()) {
+			return CompletableFuture.completedFuture(false);
+		}
+		return plugin.createPackageAsync(pkg);
 	}
 
 }

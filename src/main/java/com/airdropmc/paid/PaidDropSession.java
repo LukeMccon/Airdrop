@@ -124,9 +124,9 @@ public final class PaidDropSession {
 
 	private void acceptWithdrawal(EconomyResult result) {
 		if (phase == Phase.CANCELLED && withdrawalTimedOut) {
-			if (result.outcome() == EconomyResult.Outcome.SUCCESS) {
-				startRefund("Timed-out withdrawal later succeeded");
-			}
+			AirdropLogger.warning("Ignoring late paid drop withdrawal result for " + player.uniqueId()
+					+ " after the request timed out: " + result.outcome()
+					+ "; no crate or refund will be created automatically");
 			return;
 		}
 		if (phase != Phase.WITHDRAWING) {
@@ -145,7 +145,8 @@ public final class PaidDropSession {
 			phase = Phase.CANCELLED;
 			lease.close();
 			if (charged) {
-				startRefund("Plugin began shutting down before spawn");
+				AirdropLogger.warning("Paid drop withdrawal completed as shutdown began for "
+						+ player.uniqueId() + "; no crate or refund will be created automatically");
 			}
 			return;
 		}
@@ -265,7 +266,10 @@ public final class PaidDropSession {
 			Bukkit.getScheduler().runTask(plugin, () -> {
 				if (!Airdrop.isShuttingDown() && plugin.isEnabled()) {
 					action.run();
+					return;
 				}
+				logger.warning("Ignoring paid drop economy result for " + player.uniqueId()
+						+ " because the plugin is stopping; no automatic recovery will run");
 			});
 		} catch (RuntimeException failure) {
 			logger.log(Level.WARNING,

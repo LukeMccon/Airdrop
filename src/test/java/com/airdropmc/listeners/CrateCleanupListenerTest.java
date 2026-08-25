@@ -1,10 +1,12 @@
 package com.airdropmc.listeners;
 
+import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -16,9 +18,12 @@ import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
+import org.bukkit.scheduler.BukkitScheduler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.util.List;
 import java.util.UUID;
@@ -40,12 +45,14 @@ class CrateCleanupListenerTest {
 	void setUp() {
 		world = mock(World.class);
 		when(world.getUID()).thenReturn(UUID.randomUUID());
+		Airdrop.setPluginInstance(null);
 		clearCrateManager();
 	}
 
 	@AfterEach
 	void tearDown() {
 		clearCrateManager();
+		Airdrop.setPluginInstance(null);
 	}
 
 	@Test
@@ -179,9 +186,14 @@ class CrateCleanupListenerTest {
 		}).when(landedCrate).destroy();
 		CrateManager.addCrate(landedLocation, landedCrate);
 
+		Airdrop.setPluginInstance(mock(Airdrop.class));
 		WorldUnloadEvent event = mock(WorldUnloadEvent.class);
 		when(event.getWorld()).thenReturn(world);
-		listener.onWorldUnload(event);
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		try (MockedStatic<Bukkit> bukkit = Mockito.mockStatic(Bukkit.class)) {
+			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+			listener.onWorldUnload(event);
+		}
 
 		assertNull(CrateManager.getCrate(fallingBlock));
 		assertNull(CrateManager.getCrate(landedLocation));

@@ -3,7 +3,10 @@ package com.airdropmc.helpers;
 import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.WorldMock;
+import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
+import com.airdropmc.limits.DropAdmissionController;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -12,10 +15,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.UUID;
 
@@ -44,28 +47,22 @@ class CrateManagerTest {
 	    void setUp() throws Exception {
 	        server = MockBukkit.mock();
 	        world = server.addSimpleWorld("test_world");
+	        CrateManager.setWorldSaverForTesting(World::save);
 	        clearCrateManager();
 	    }
 
 	    @AfterEach
 	    void tearDown() throws Exception {
 	        clearCrateManager();
+	        CrateManager.resetWorldSaverForTesting();
 	        MockBukkit.unmock();
 	    }
 
 	    /**
-	     * Clears the static maps in CrateManager between tests
+	     * Clears the static crate state between tests.
 	     */
-	    private void clearCrateManager() throws Exception {
-	        // Clear crateMap
-	        Field crateMapField = CrateManager.class.getDeclaredField("crateMap");
-	        crateMapField.setAccessible(true);
-	        ((Map<?, ?>) crateMapField.get(null)).clear();
-
-	        // Clear landedCrateMap
-	        Field landedCrateMapField = CrateManager.class.getDeclaredField("landedCrateMap");
-	        landedCrateMapField.setAccessible(true);
-	        ((Map<?, ?>) landedCrateMapField.get(null)).clear();
+	    private void clearCrateManager() {
+	        CrateManager.clearAll();
 	    }
 
     // FallingBlock-based crate operations
@@ -220,6 +217,118 @@ class CrateManagerTest {
 		assertTrue(removed);
 		assertFalse(CrateManager.hasCrate(mockFallingBlock));
 		verify(mockCrate).destroy();
+	}
+
+	@Test
+	void prepareForShutdownSavesPaidBarrelBeforeDetachingIt() {
+		World savedWorld = mock(World.class);
+		when(savedWorld.getUID()).thenReturn(UUID.randomUUID());
+		Location location = new Location(savedWorld, 10, 64, 10);
+		when(mockCrate.isPaid()).thenReturn(true);
+		when(mockCrate.getCrateId()).thenReturn(UUID.randomUUID().toString());
+		when(mockCrate.getLandedLocation()).thenReturn(location);
+		when(mockCrate.markRecoverable()).thenReturn(true);
+		CrateManager.addCrate(location, mockCrate);
+
+		CrateManager.prepareForShutdown(mock(Airdrop.class));
+
+		InOrder order = inOrder(mockCrate, savedWorld);
+		order.verify(mockCrate).markRecoverable();
+		order.verify(savedWorld).save();
+		order.verify(mockCrate).detachLandedBarrel();
+		verify(mockCrate, never()).destroy();
+		assertNull(CrateManager.getCrate(location));
+	}
+
+	@Test
+	void prepareForShutdownPurgesPaidBarrelWhenSaveFails() {
+		World savedWorld = mock(World.class);
+		when(savedWorld.getUID()).thenReturn(UUID.randomUUID());
+		when(savedWorld.getName()).thenReturn("failed_world");
+		doThrow(new IllegalStateException("save failed")).when(savedWorld).save();
+		Location location = new Location(savedWorld, 10, 64, 10);
+		when(mockCrate.isPaid()).thenReturn(true);
+		when(mockCrate.getCrateId()).thenReturn(UUID.randomUUID().toString());
+		when(mockCrate.getLandedLocation()).thenReturn(location);
+		when(mockCrate.markRecoverable()).thenReturn(true);
+		CrateManager.addCrate(location, mockCrate);
+
+		CrateManager.prepareForShutdown(mock(Airdrop.class));
+
+		verify(mockCrate).destroy();
+		verify(mockCrate, never()).detachLandedBarrel();
+		verify(savedWorld, times(2)).save();
+		assertNull(CrateManager.getCrate(location));
+	}
+
+	@Test
+	void prepareChunkForUnloadSavesLiveBaselineBeforeMarkingRecoverable() {
+		World savedWorld = mock(World.class);
+		when(savedWorld.getUID()).thenReturn(UUID.randomUUID());
+		Location location = new Location(savedWorld, 10, 64, 10);
+		Chunk chunk = mock(Chunk.class);
+		when(chunk.getWorld()).thenReturn(savedWorld);
+		when(chunk.getX()).thenReturn(0);
+		when(chunk.getZ()).thenReturn(0);
+		DropAdmissionController.Lease lease = mock(DropAdmissionController.Lease.class);
+		when(mockCrate.isPaid()).thenReturn(true);
+		when(mockCrate.getCrateId()).thenReturn(UUID.randomUUID().toString());
+		when(mockCrate.markRecoverable()).thenReturn(true);
+		when(mockCrate.suspendLandedBarrel()).thenReturn(lease);
+		CrateManager.addCrate(location, mockCrate);
+
+		assertTrue(CrateManager.prepareChunkForUnload(chunk));
+
+		InOrder order = inOrder(savedWorld, mockCrate);
+		order.verify(savedWorld).save();
+		order.verify(mockCrate).markRecoverable();
+		order.verify(mockCrate).suspendLandedBarrel();
+		assertNull(CrateManager.getCrate(location));
+	}
+
+	@Test
+	void prepareChunkForUnloadPurgesInvalidPaidIdentityWithoutMarkingItRecoverable() {
+		World savedWorld = mock(World.class);
+		when(savedWorld.getUID()).thenReturn(UUID.randomUUID());
+		Location location = new Location(savedWorld, 10, 64, 10);
+		Chunk chunk = mock(Chunk.class);
+		when(chunk.getWorld()).thenReturn(savedWorld);
+		when(chunk.getX()).thenReturn(0);
+		when(chunk.getZ()).thenReturn(0);
+		when(mockCrate.isPaid()).thenReturn(true);
+		when(mockCrate.getCrateId()).thenReturn("not-a-uuid");
+		when(mockCrate.getLandedLocation()).thenReturn(location);
+		CrateManager.addCrate(location, mockCrate);
+
+		assertTrue(CrateManager.prepareChunkForUnload(chunk));
+
+		verify(mockCrate, never()).markRecoverable();
+		verify(mockCrate).destroy();
+		verify(savedWorld).save();
+		assertNull(CrateManager.getCrate(location));
+	}
+
+	@Test
+	void prepareChunkForUnloadPurgesCrateWhenMarkerTransitionThrows() {
+		World savedWorld = mock(World.class);
+		when(savedWorld.getUID()).thenReturn(UUID.randomUUID());
+		Location location = new Location(savedWorld, 10, 64, 10);
+		Chunk chunk = mock(Chunk.class);
+		when(chunk.getWorld()).thenReturn(savedWorld);
+		when(chunk.getX()).thenReturn(0);
+		when(chunk.getZ()).thenReturn(0);
+		when(mockCrate.isPaid()).thenReturn(true);
+		when(mockCrate.getCrateId()).thenReturn(UUID.randomUUID().toString());
+		when(mockCrate.getLandedLocation()).thenReturn(location);
+		when(mockCrate.markRecoverable()).thenThrow(new IllegalStateException("marker failed"));
+		CrateManager.addCrate(location, mockCrate);
+
+		assertTrue(CrateManager.prepareChunkForUnload(chunk));
+
+		verify(mockCrate).destroy();
+		verify(mockCrate, never()).suspendLandedBarrel();
+		verify(savedWorld).save();
+		assertNull(CrateManager.getCrate(location));
 	}
 
     // Multiple crates tests

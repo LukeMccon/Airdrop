@@ -78,7 +78,8 @@ public class DropController {
 		if (!PermissionsHelper.hasPermission(player, pkg.getName())) {
 			throw new InsufficientPermissionsException(pkg.getName());
 		}
-		boolean paid = ConfigKeys.isEconomyEnabled();
+		double packagePrice = pkg.getPrice();
+		boolean paid = ConfigKeys.isEconomyEnabled() && packagePrice > 0.0;
 		EconomyProvider economy = Airdrop.getEconomyProvider();
 		if (paid && economy == null) {
 			throw new EconomyUnavailableException();
@@ -117,10 +118,10 @@ public class DropController {
 				plugin,
 				economy,
 				new EconomyPlayer(player.getUniqueId(), player.getName()),
-				BigDecimal.valueOf(pkg.getPrice()),
+				BigDecimal.valueOf(packagePrice),
 				lease,
 				paidSession -> dropPackageAtLocation(
-						items, world, target.spawnLocation(), resolvedOptions, lease,
+						items, world, target.spawnLocation(), resolvedOptions, lease, true,
 						outcome -> {
 							if (outcome == Crate.Outcome.LANDED) {
 								paidSession.landed();
@@ -150,15 +151,15 @@ public class DropController {
 
 	private static void dropPackageAtLocation(List<ItemStack> items, World world, Location spawn,
 			DropOptions options, DropAdmissionController.Lease lease) {
-		dropPackageAtLocation(items, world, spawn, options, lease, ignored -> { });
+		dropPackageAtLocation(items, world, spawn, options, lease, false, ignored -> { });
 	}
 
 	private static void dropPackageAtLocation(List<ItemStack> items, World world, Location spawn,
-			DropOptions options, DropAdmissionController.Lease lease,
+			DropOptions options, DropAdmissionController.Lease lease, boolean paid,
 			java.util.function.Consumer<Crate.Outcome> outcomeListener) {
 		Crate crate = null;
 		try {
-			crate = new Crate(spawn.clone(), world, items, options, lease, outcomeListener);
+			crate = new Crate(spawn.clone(), world, items, options, lease, paid, outcomeListener);
 			crate.dropCrate();
 			Bukkit.getPluginManager().callEvent(new PackageDropEvent(crate, world, crate.getDropLocation()));
 			lease.commitSpawn();

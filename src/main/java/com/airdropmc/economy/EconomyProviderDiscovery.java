@@ -8,7 +8,15 @@ import java.util.Optional;
 
 public final class EconomyProviderDiscovery {
 
+	private static final String MODERN_SERVICE = "net.milkbowl.vault2.economy.Economy";
+	private static final String LEGACY_SERVICE = "net.milkbowl.vault.economy.Economy";
+
 	private EconomyProviderDiscovery() {
+	}
+
+	public static boolean isSupportedService(Class<?> service) {
+		String serviceName = Objects.requireNonNull(service, "service").getName();
+		return MODERN_SERVICE.equals(serviceName) || LEGACY_SERVICE.equals(serviceName);
 	}
 
 	public static Optional<EconomyProvider> discover(ServicesManager services) {

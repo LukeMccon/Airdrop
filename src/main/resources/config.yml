@@ -30,9 +30,11 @@ drop:
     request-cooldown-seconds: 30
     # Maximum number of crates falling at once
     max-falling: 3
-    # Maximum number of landed crates plus reserved landing slots
+    # Maximum number of landed crates plus reserved landing slots for new drops
+    # Existing paid barrels recovered from disk may temporarily exceed this value
     max-landed: 10
-    # Seconds before a landed crate is removed
+    # Seconds before Airdrop stops tracking a landed crate
+    # Non-empty paid barrels become ordinary barrels instead of being removed
     landed-lifetime-seconds: 600
 
 # Economy settings

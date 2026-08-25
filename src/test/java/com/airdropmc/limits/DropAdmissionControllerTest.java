@@ -231,6 +231,20 @@ class DropAdmissionControllerTest {
 	}
 
 	@Test
+	void restoreLanded_bypassesStoppedAdmissionsAndCreatesNoCooldownOrFallingClaim() {
+		DropAdmissionController controller = new DropAdmissionController(clock::get);
+		controller.stopAccepting();
+
+		Lease restored = controller.restoreLanded(LOCATION);
+
+		assertEquals(new Snapshot(0, 1, 1, 0, 0, false), controller.snapshot());
+		assertEquals(DropAdmissionController.LeaseState.LANDED, restored.state());
+		assertThrows(IllegalStateException.class, () -> controller.restoreLanded(LOCATION));
+		restored.close();
+		assertEquals(new Snapshot(0, 0, 0, 0, 0, false), controller.snapshot());
+	}
+
+	@Test
 	void stopAccepting_rejectsNewWorkAndClearPreservesStoppedState() throws Exception {
 		DropAdmissionController controller = new DropAdmissionController(clock::get);
 		controller.stopAccepting();

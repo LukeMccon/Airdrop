@@ -6,6 +6,7 @@ import be.seeseemelk.mockbukkit.WorldMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.Config;
+import com.airdropmc.Crate;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.economy.EconomyPlayer;
@@ -35,6 +36,7 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -126,6 +128,8 @@ class DropControllerEconomyFlowTest {
 		server.getScheduler().performTicks(2L);
 
 		assertEquals(1, CrateManager.getCrateMap().size());
+		Crate crate = CrateManager.getCrateMap().values().iterator().next();
+		assertTrue(crate.isPaid());
 		assertEquals(1, admission.snapshot().falling());
 		verify(economy).withdraw(any(EconomyPlayer.class), any(BigDecimal.class));
 	}
@@ -162,6 +166,19 @@ class DropControllerEconomyFlowTest {
 		assertEquals(Reason.REQUEST_PENDING, rejection.getReason());
 		assertEquals(1, admission.snapshot().pending());
 		verify(economy, never()).withdraw(any(), any());
+	}
+
+	@Test
+	void zeroPricePackageDoesNotRequireProvider() throws Exception {
+		setStatic("economyProvider", null);
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = paidPackage();
+		when(pkg.getPrice()).thenReturn(0.0);
+
+		DropController.playerInitiatedDropPackage(pkg, player, options());
+
+		assertEquals(1, CrateManager.getCrateMap().size());
+		verify(economy, never()).canAfford(any(), any());
 	}
 
 	@Test

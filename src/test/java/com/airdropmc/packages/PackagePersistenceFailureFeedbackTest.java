@@ -5,7 +5,6 @@ import be.seeseemelk.mockbukkit.MockPlugin;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
-import com.airdropmc.PackagesConfig;
 import com.airdropmc.controllers.PackageController;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.ChatHandler;
@@ -14,8 +13,6 @@ import com.airdropmc.lang.MessageKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -25,56 +22,60 @@ import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PackagePersistenceFailureFeedbackTest {
 
 	private ServerMock server;
-	private PackagesConfig packagesConfig;
+	private Airdrop plugin;
 
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-
-		YamlConfiguration config = new YamlConfiguration();
-		config.set("packages.starter.price", 10.0);
-		config.set("packages.starter.items", List.of(new ItemStack(Material.STONE, 2)));
-
-		packagesConfig = mock(PackagesConfig.class);
-		when(packagesConfig.getConfig()).thenReturn(config);
-		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(false);
-
-		setAirdropStaticField("packagesConfiguration", packagesConfig);
 		MockPlugin eventPlugin = MockBukkit.createMockPlugin("AirdropPersistenceHarness");
-		Airdrop plugin = mock(Airdrop.class);
+		plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
 		when(plugin.getPluginLoader()).thenReturn(eventPlugin.getPluginLoader());
 		when(plugin.getName()).thenReturn("Airdrop");
 		when(plugin.getServer()).thenReturn(server);
+		when(plugin.updatePackageInventoryAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
+		when(plugin.createPackageAsync(any())).thenReturn(CompletableFuture.completedFuture(false));
+		when(plugin.deletePackageAsync(any())).thenReturn(CompletableFuture.completedFuture(false));
 		setAirdropStaticField("pluginInstance", plugin);
-		PackageManager.clear();
-		assertTrue(PackageManager.reload());
+		setAirdropStaticField("ready", true);
+		PackageManager.publishPackages(Map.of(
+				"starter", new Package("starter", 10.0, List.of(new ItemStack(Material.STONE, 2)))));
 	}
 
 	@AfterEach
 	void tearDown() throws Exception {
+		PackageGui.closeOpenEditors();
 		PackageManager.clear();
 		clearAirdropStaticFields();
 		MockBukkit.unmock();
@@ -104,7 +105,11 @@ class PackagePersistenceFailureFeedbackTest {
 		assertEquals(2, persistedItems.get(0).getAmount());
 		assertTrue(persistedItems.stream().noneMatch(item -> item.getType() == Material.DIRT));
 
-		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+		when(plugin.updatePackageInventoryAsync(any(), any())).thenAnswer(invocation -> {
+			List<ItemStack> items = invocation.getArgument(1);
+			PackageManager.publishPackages(Map.of("starter", new Package("starter", 10.0, items)));
+			return CompletableFuture.completedFuture(true);
+		});
 		gui.save(saveEvent);
 
 		assertSame(editor, player.getOpenInventory().getTopInventory());
@@ -130,8 +135,134 @@ class PackagePersistenceFailureFeedbackTest {
 	}
 
 	@Test
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	void pendingExistingSaveProtectsEditorClonesPayloadAndReportsOnlyAfterCommit() throws Exception {
+		CompletableFuture<Boolean> commit = new CompletableFuture<>();
+		when(plugin.updatePackageInventoryAsync(any(), any())).thenReturn(commit);
+		PlayerMock player = operator();
+		PackageGui gui = new PackageGui(PackageManager.get("starter"));
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+		editor.setItem(0, new ItemStack(Material.DIRT, 3));
+
+		gui.save(saveClick(player));
+		InventoryClickEvent repeatedSave = saveClick(player);
+		gui.onInventoryClick(repeatedSave);
+
+		assertTrue(repeatedSave.isCancelled());
+		verify(plugin, times(1)).updatePackageInventoryAsync(eq("starter"), any());
+		ArgumentCaptor<List<ItemStack>> payloadCaptor = (ArgumentCaptor) ArgumentCaptor.forClass(List.class);
+		verify(plugin).updatePackageInventoryAsync(eq("starter"), payloadCaptor.capture());
+		List<ItemStack> payload = payloadCaptor.getValue();
+		assertEquals(new ItemStack(Material.DIRT, 3), payload.getFirst());
+		assertNotSame(editor.getItem(0), payload.getFirst());
+		editor.getItem(0).setAmount(9);
+		assertEquals(3, payload.getFirst().getAmount());
+		assertNull(player.nextComponentMessage());
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+
+		commit.complete(true);
+
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+		assertNextMessageContains(player, "saved successfully");
+		server.getScheduler().performOneTick();
+		assertNotEquals(InventoryType.CHEST, player.getOpenInventory().getType());
+	}
+
+	@Test
+	void lateCreateCompletionAfterCloseIsInert() {
+		CompletableFuture<Boolean> commit = new CompletableFuture<>();
+		when(plugin.createPackageAsync(any())).thenReturn(commit);
+		PlayerMock player = operator();
+		CreatePackageGui gui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+
+		gui.save(saveClick(player));
+		org.bukkit.event.inventory.InventoryCloseEvent close = mock(
+				org.bukkit.event.inventory.InventoryCloseEvent.class);
+		when(close.getPlayer()).thenReturn(player);
+		when(close.getInventory()).thenReturn(editor);
+		gui.onInventoryClose(close);
+		commit.complete(true);
+
+		assertNull(player.nextComponentMessage());
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void lateCreateCompletionAfterQuitIsInert() {
+		CompletableFuture<Boolean> commit = new CompletableFuture<>();
+		when(plugin.createPackageAsync(any())).thenReturn(commit);
+		PlayerMock player = operator();
+		CreatePackageGui gui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+
+		gui.save(saveClick(player));
+		org.bukkit.event.player.PlayerQuitEvent quit = mock(org.bukkit.event.player.PlayerQuitEvent.class);
+		when(quit.getPlayer()).thenReturn(player);
+		gui.onPlayerQuit(quit);
+		commit.complete(true);
+
+		assertNull(player.nextComponentMessage());
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void lateUpdateCompletionAfterKickIsInertWhileEditorRemainsProtected() throws Exception {
+		CompletableFuture<Boolean> commit = new CompletableFuture<>();
+		when(plugin.updatePackageInventoryAsync(any(), any())).thenReturn(commit);
+		PlayerMock player = operator();
+		PackageGui gui = new PackageGui(PackageManager.get("starter"));
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+
+		gui.save(saveClick(player));
+		org.bukkit.event.player.PlayerKickEvent kick = mock(org.bukkit.event.player.PlayerKickEvent.class);
+		when(kick.getPlayer()).thenReturn(player);
+		gui.onPlayerKick(kick);
+		commit.complete(true);
+		InventoryClickEvent afterKick = saveClick(player);
+		gui.onInventoryClick(afterKick);
+
+		assertTrue(afterKick.isCancelled());
+		assertNull(player.nextComponentMessage());
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void wrappedDomainFailuresKeepEditorsOpenWithSpecificFeedback() throws Exception {
+		PlayerMock updatePlayer = operator();
+		PackageGui updateGui = new PackageGui(PackageManager.get("starter"));
+		assertTrue(updateGui.openInventory(updatePlayer));
+		Inventory updateEditor = updatePlayer.getOpenInventory().getTopInventory();
+		when(plugin.updatePackageInventoryAsync(any(), any())).thenReturn(
+				CompletableFuture.failedFuture(
+						new CompletionException(new PackageNotFoundException("starter"))));
+
+		updateGui.save(saveClick(updatePlayer));
+
+		assertSame(updateEditor, updatePlayer.getOpenInventory().getTopInventory());
+		assertNextMessageContains(updatePlayer, "not found");
+
+		PlayerMock createPlayer = operator();
+		CreatePackageGui createGui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(createGui.openInventory(createPlayer));
+		Inventory createEditor = createPlayer.getOpenInventory().getTopInventory();
+		when(plugin.createPackageAsync(any())).thenReturn(
+				CompletableFuture.failedFuture(
+						new CompletionException(new com.airdropmc.exceptions.DuplicatePackageException("newpkg"))));
+
+		createGui.save(saveClick(createPlayer));
+
+		assertSame(createEditor, createPlayer.getOpenInventory().getTopInventory());
+		assertNextMessageContains(createPlayer, "already exists");
+	}
+
+	@Test
 	void existingPackageSavePersistsOnlyEditableSlots() throws Exception {
-		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+		allowSuccessfulUpdate();
 		PlayerMock player = operator();
 		PackageGui gui = new PackageGui(PackageManager.get("starter"));
 		assertTrue(gui.openInventory(player));
@@ -152,7 +283,7 @@ class PackagePersistenceFailureFeedbackTest {
 
 	@Test
 	void createdPackageSavePersistsOnlyEditableSlots() throws Exception {
-		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
+		allowSuccessfulCreate();
 		PlayerMock player = operator();
 		CreatePackageGui gui = new CreatePackageGui("newpkg", 3.0);
 		assertTrue(gui.openInventory(player));
@@ -180,8 +311,49 @@ class PackagePersistenceFailureFeedbackTest {
 	}
 
 	@Test
+	void deleteFeedbackWaitsForAsyncCommitAndUnwrapsNotFoundFailure() {
+		PlayerMock successPlayer = operator();
+		CompletableFuture<Boolean> deletion = new CompletableFuture<>();
+		when(plugin.deletePackageAsync("starter")).thenReturn(deletion);
+
+		PackageController.deletePackageCommand(
+				successPlayer, new String[]{"package", "delete", "starter"});
+
+		assertNull(successPlayer.nextComponentMessage());
+		deletion.complete(true);
+		assertNextMessageContains(successPlayer, "successfully deleted");
+
+		PlayerMock missingPlayer = operator();
+		when(plugin.deletePackageAsync("missing")).thenReturn(CompletableFuture.failedFuture(
+				new CompletionException(new PackageNotFoundException("missing"))));
+
+		PackageController.deletePackageCommand(
+				missingPlayer, new String[]{"package", "delete", "missing"});
+
+		assertNextMessageContains(missingPlayer, "not found");
+	}
+
+	@Test
+	void createAndDeleteCommandsAreGatedWhilePluginIsNotReady() throws Exception {
+		setAirdropStaticField("ready", false);
+		PlayerMock createPlayer = operator();
+
+		PackageController.createPackageCommand(
+				createPlayer, new String[]{"package", "create", "newpkg", "3.0"});
+
+		assertNotEquals(InventoryType.CHEST, createPlayer.getOpenInventory().getType());
+		assertNextMessageContains(createPlayer, "still starting");
+
+		PlayerMock deletePlayer = operator();
+		PackageController.deletePackageCommand(
+				deletePlayer, new String[]{"package", "delete", "starter"});
+
+		assertNextMessageContains(deletePlayer, "still starting");
+		verify(plugin, never()).deletePackageAsync(any());
+	}
+
+	@Test
 	void directlyConstructedInvalidCreateGuiCannotPersistPackage() {
-		when(packagesConfig.saveConfig(any(FileConfiguration.class))).thenReturn(true);
 		PlayerMock player = operator();
 		CreatePackageGui gui = new CreatePackageGui("reload", 3.0);
 		gui.openInventory(player);
@@ -204,6 +376,29 @@ class PackagePersistenceFailureFeedbackTest {
 		} finally {
 			ChatHandler.init(null);
 		}
+	}
+
+	private void allowSuccessfulUpdate() {
+		when(plugin.updatePackageInventoryAsync(any(), any())).thenAnswer(invocation -> {
+			String packageName = invocation.getArgument(0);
+			List<ItemStack> items = invocation.getArgument(1);
+			Package current = PackageManager.get(packageName);
+			PackageManager.publishPackages(Map.of(
+					packageName.toLowerCase(Locale.ROOT),
+					new Package(current.getName(), current.getPrice(), items)));
+			return CompletableFuture.completedFuture(true);
+		});
+	}
+
+	private void allowSuccessfulCreate() {
+		when(plugin.createPackageAsync(any())).thenAnswer(invocation -> {
+			Package created = invocation.getArgument(0);
+			Package starter = PackageManager.get("starter");
+			PackageManager.publishPackages(Map.of(
+					"starter", starter,
+					created.getName().toLowerCase(Locale.ROOT), created));
+			return CompletableFuture.completedFuture(true);
+		});
 	}
 
 	private PlayerMock operator() {

@@ -65,6 +65,28 @@ public final class DropAdmissionController {
 		return acquire(null, true, location, settings);
 	}
 
+	/**
+	 * Restores an existing physical paid-crate obligation. Recovery deliberately
+	 * bypasses admission caps; subsequent new admissions remain blocked while the
+	 * restored claim keeps occupancy at or above the configured limit.
+	 */
+	public synchronized Lease restoreLanded(DropLocationKey location) {
+		if (location == null) {
+			throw new IllegalArgumentException("location is required");
+		}
+		if (locations.contains(location)) {
+			throw new IllegalStateException("Drop location is already reserved");
+		}
+
+		Lease lease = new Lease(null, true, location, Duration.ZERO);
+		lease.state = LeaseState.LANDED;
+		lease.requestCommitted = true;
+		liveLeases.add(lease);
+		landedClaims++;
+		locations.add(location);
+		return lease;
+	}
+
 	public synchronized void stopAccepting() {
 		accepting = false;
 	}

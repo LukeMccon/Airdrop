@@ -146,6 +146,7 @@ class CrateDestroyTest {
 
 		when(block.getLocation()).thenReturn(landedLocation);
 		when(block.getState()).thenReturn(barrel);
+		when(barrel.getSnapshotInventory()).thenReturn(inventory);
 		when(barrel.getInventory()).thenReturn(inventory);
 		when(barrel.getLocation()).thenReturn(landedLocation);
 		when(barrel.getPersistentDataContainer()).thenReturn(persistentData);
@@ -177,6 +178,7 @@ class CrateDestroyTest {
 		}
 
 		verify(persistentData).set(any(NamespacedKey.class), eq(PersistentDataType.STRING), anyString());
+		verify(barrel).getSnapshotInventory();
 		verify(barrel).update(true, false);
 		verify(world).dropItemNaturally(any(Location.class), any(ItemStack.class));
 	}

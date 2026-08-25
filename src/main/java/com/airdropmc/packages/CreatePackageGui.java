@@ -25,6 +25,8 @@ import org.bukkit.inventory.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 
 public class CreatePackageGui extends Gui implements Listener {
     private final Inventory inv;
@@ -195,7 +197,8 @@ public class CreatePackageGui extends Gui implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerKick(PlayerKickEvent e) {
-		if (session.viewerId() == null || !session.viewerId().equals(e.getPlayer().getUniqueId())) {
+		if (session.viewerId() == null || !session.viewerId().equals(e.getPlayer().getUniqueId())
+				|| !session.beginExitTransition()) {
 			return;
 		}
 		scheduleKickObservation(e.getPlayer());
@@ -213,7 +216,10 @@ public class CreatePackageGui extends Gui implements Listener {
 		if (!session.beginTransition()) {
 			return;
 		}
+		scheduleTransitionTask(player, viewChange);
+	}
 
+	private void scheduleTransitionTask(Player player, Runnable viewChange) {
 		Airdrop plugin = Airdrop.getPluginInstance();
 		if (plugin == null || !plugin.isEnabled()) {
 			retire();
@@ -283,21 +289,58 @@ public class CreatePackageGui extends Gui implements Listener {
             return;
         }
 
-        Package pkg = new Package(this.name, this.price, packageItems);
-        try {
-            if (!PackageManager.createPackage(pkg)) {
-                ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
-                return;
-            }
-        } catch (DuplicatePackageException error) {
-            ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_EXISTS,
-                    Map.of("name", error.getPackageName()));
-            return;
-        }
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !Airdrop.isReady()) {
+			ChatHandler.sendError(p, MessageKey.ERROR_PLUGIN_NOT_READY);
+			return;
+		}
+		if (!session.beginSave()) {
+			return;
+		}
 
-		scheduleTransition(p, p::closeInventory);
-        ChatHandler.send(p, MessageKey.PACKAGES_CREATED, Map.of("name", this.getName()));
+		try {
+			Package payload = new Package(this.name, this.price, cloneItems(packageItems));
+			CompletionStage<Boolean> save = plugin.createPackageAsync(payload);
+			if (save == null) {
+				handleSaveCompletion(p, false, null);
+				return;
+			}
+			save.whenComplete((committed, failure) -> handleSaveCompletion(p, committed, failure));
+		} catch (RuntimeException failure) {
+			handleSaveCompletion(p, false, failure);
+		}
     }
+
+	private void handleSaveCompletion(Player player, Boolean committed, Throwable failure) {
+		if (failure == null && Boolean.TRUE.equals(committed)) {
+			if (!session.completeSave()) {
+				return;
+			}
+			scheduleTransitionTask(player, player::closeInventory);
+			ChatHandler.send(player, MessageKey.PACKAGES_CREATED, Map.of("name", this.getName()));
+			return;
+		}
+
+		if (!session.failSave()) {
+			return;
+		}
+
+		Throwable cause = unwrapCompletionException(failure);
+		if (cause instanceof DuplicatePackageException duplicate) {
+			ChatHandler.sendError(player, MessageKey.ERROR_PACKAGE_EXISTS,
+					Map.of("name", duplicate.getPackageName()));
+			return;
+		}
+		ChatHandler.sendError(player, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+	}
+
+	private static Throwable unwrapCompletionException(Throwable failure) {
+		Throwable cause = failure;
+		while (cause instanceof CompletionException && cause.getCause() != null) {
+			cause = cause.getCause();
+		}
+		return cause;
+	}
 
     /**
      * When the cancel control ItemStack is clicked, create the package
@@ -323,6 +366,14 @@ public class CreatePackageGui extends Gui implements Listener {
 			}
 		}
 		return items;
+	}
+
+	private static List<ItemStack> cloneItems(List<ItemStack> items) {
+		List<ItemStack> clonedItems = new ArrayList<>(items.size());
+		for (ItemStack item : items) {
+			clonedItems.add(item.clone());
+		}
+		return clonedItems;
 	}
 
 	private boolean isEditablePackageSlot(int slot) {

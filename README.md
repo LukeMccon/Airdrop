@@ -6,10 +6,10 @@
 
 <br />
 
-![Paper SVG](https://img.shields.io/badge/Paper-1.21+-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
+![Paper SVG](https://img.shields.io/badge/Paper-1.21.8+-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21+-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.8+-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
 
 A Paper plugin for customizable care packages with parachutes, effects, economy support, and in-game package editing.
 
@@ -21,14 +21,14 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 - Landing, flare, glow, and optional smoke particle effects
 - In-game GUI package creation and editing
 - Economy support through VaultUnlocked's native async API, with original Vault compatibility
-- Refund protection when a charged drop has a known failure before landing
+- Best-effort refunds for confirmed paid-drop failures while Airdrop remains active
 - Bounded request rate, falling entities, landed crates, and landed lifetime
 - Language file support (`lang/<language>.yml`) and configurable chat theme colors
 - Runtime reload command for config, language, and packages
 
 ## Requirements
 
-- Paper `1.21+`
+- Paper `1.21.8+`
 - Java `21`
 - [LuckPerms](https://luckperms.net/) (required)
 - Economy provider when `economy.enabled: true` (default):
@@ -166,13 +166,27 @@ Validation ranges:
 Limit behavior:
 
 - Capacity and landing-location reservations happen before package items are materialized or economy funds are withdrawn.
-- `max-landed` includes landed crates and reserved slots for crates still falling, preventing in-flight overcommit.
+- `max-landed` includes landed crates and reserved slots for crates still falling, preventing in-flight overcommit. Existing paid barrels recovered from disk are restored even if they temporarily raise occupancy above the configured value; new drops remain blocked until occupancy falls below it.
 - Successful player drops start a UUID-based cooldown; rejected or failed drops do not.
-- Landed crates are removed after `landed-lifetime-seconds`, including their effects and scheduled tasks.
+- At `landed-lifetime-seconds`, unpaid crates and empty paid barrels are removed. A non-empty paid barrel keeps its contents and becomes an ordinary barrel.
 - `/airdrop reload` applies new limits to future requests without deleting active crates or resetting existing cooldown/expiry deadlines. Lowering a cap below current occupancy blocks new drops until usage falls under the cap.
 
 Packages are stored in `plugins/Airdrop/packages.yml` and can be managed in-game.
 A package can contain up to `27` item stacks (barrel capacity).
+
+## Paid Drop Failure and Recovery
+
+Paid-drop handling is fail-closed and does not provide an exactly-once transaction guarantee.
+
+- Airdrop does not keep a runtime transaction journal. If an economy operation times out ambiguously or shutdown begins after it may have committed, Airdrop does not retry it, refund it, or deliver a crate later. A player can therefore be charged without receiving a crate in this rare case. This is deliberate: replaying an ambiguous operation could duplicate money or items.
+- A confirmed withdrawal followed by a known pre-landing failure can receive one best-effort refund attempt while Airdrop remains active.
+- Paid crates that are still falling are not persisted or recovered.
+- A landed paid barrel is recovered only when a graceful chunk save, world unload, or server shutdown persists it as `RECOVERABLE`. Recovery claims that same barrel and its existing inventory; it never reconstructs or inserts items.
+- If another plugin suppresses the final chunk or world save, Airdrop rejects the stale `LIVE` disk copy instead of replaying old contents. This can cause charge-without-delivery, but prevents item duplication.
+- A hot plugin disable removes paid barrels fail-closed where their worlds are accessible instead of leaving recoverable contents available while Airdrop is inactive.
+- Untracked `LIVE` barrels, malformed metadata, and duplicate crate identities are removed fail-closed instead of being recovered.
+- At expiry, an empty paid barrel is removed. A non-empty paid barrel keeps its contents, loses its Airdrop metadata, and becomes an ordinary barrel.
+- Breaking a landed barrel remains a normal Paper block break. Airdrop releases its tracking without replacing Paper's normal block and inventory drops.
 
 ## Version 4 Integration Notes
 

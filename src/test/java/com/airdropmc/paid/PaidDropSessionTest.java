@@ -110,7 +110,7 @@ class PaidDropSessionTest {
 	}
 
 	@Test
-	void withdrawalTimeoutCancelsDropAndLateSuccessRefundsOnce() {
+	void withdrawalTimeoutCancelsDropAndLateSuccessDoesNotReplayMoneyOrItems() {
 		PaidDropSession session = session(BigDecimal.TEN);
 		session.start();
 		economy.affordability.complete(EconomyResult.ok());
@@ -124,33 +124,31 @@ class PaidDropSessionTest {
 
 		economy.withdrawal.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
-		assertEquals(1, economy.deposits);
-		economy.refund.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		assertEquals(1, economy.deposits);
-		assertTrue(nextMessage().contains("payment was refunded"));
-	}
 
-	@Test
-	void lateWithdrawalSuccessAndRejectedRefundDoesNotRepeatGenericFailure() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		session.start();
-		economy.affordability.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
-		nextMessage();
-
-		economy.withdrawal.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		economy.refund.complete(EconomyResult.rejected("refund rejected"));
-		server.getScheduler().performOneTick();
-
-		assertEquals(1, economy.deposits);
+		assertEquals(0, economy.deposits);
+		assertEquals(0, spawns.get());
 		assertNull(player.nextComponentMessage());
 	}
 
 	@Test
-	void lateWithdrawalSuccessAndRefundTimeoutDoesNotRepeatGenericFailure() {
+	void lateWithdrawalSuccessDoesNotStartRejectedRefundFlow() {
+		PaidDropSession session = session(BigDecimal.TEN);
+		session.start();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
+		nextMessage();
+
+		economy.withdrawal.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+
+		assertEquals(0, economy.deposits);
+		assertEquals(0, spawns.get());
+		assertNull(player.nextComponentMessage());
+	}
+
+	@Test
+	void lateWithdrawalSuccessDoesNotStartRefundTimeoutFlow() {
 		PaidDropSession session = session(BigDecimal.TEN);
 		session.start();
 		economy.affordability.complete(EconomyResult.ok());
@@ -162,7 +160,8 @@ class PaidDropSessionTest {
 		server.getScheduler().performOneTick();
 		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
 
-		assertEquals(1, economy.deposits);
+		assertEquals(0, economy.deposits);
+		assertEquals(0, spawns.get());
 		assertNull(player.nextComponentMessage());
 	}
 

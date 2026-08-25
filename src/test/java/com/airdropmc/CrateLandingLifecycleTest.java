@@ -11,7 +11,9 @@ import com.airdropmc.limits.DropLocationKey;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Bukkit;
+import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.junit.jupiter.api.AfterEach;
@@ -19,11 +21,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,6 +55,7 @@ class CrateLandingLifecycleTest {
 		world = server.addSimpleWorld("landing_world");
 		plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("CrateLandingLifecycleTest"));
 		Airdrop.setPluginInstance(plugin);
 		admission = new DropAdmissionController();
 		reservedBlock = world.getBlockAt(10, 64, 10);
@@ -95,6 +102,77 @@ class CrateLandingLifecycleTest {
 
 		assertNull(CrateManager.getCrate(reservedBlock.getLocation()));
 		assertEquals(Material.AIR, reservedBlock.getType());
+		assertEquals(0, admission.snapshot().landedClaims());
+	}
+
+	@Test
+	void paidLandingPersistsLiveIdentityAndAbsoluteExpiry() throws Exception {
+		Crate crate = newPaidCrate(reservedBlock, List.of(new ItemStack(Material.DIAMOND)));
+
+		crate.land(reservedBlock);
+
+		Barrel barrel = (Barrel) reservedBlock.getState();
+		Crate.PersistedBarrelData persisted = Crate.readPaidPersistence(barrel);
+		assertNotNull(persisted);
+		assertEquals(crate.getCrateId(), persisted.crateId());
+		assertEquals(Crate.RecoveryState.LIVE, persisted.recoveryState());
+		assertTrue(persisted.expiresAtMillis() > System.currentTimeMillis());
+		assertEquals(new ItemStack(Material.DIAMOND), barrel.getInventory().getItem(0));
+	}
+
+	@Test
+	void detachingPaidCratePreservesBarrelContentsForNormalBreakHandling() throws Exception {
+		ItemStack item = new ItemStack(Material.DIAMOND);
+		Crate crate = newPaidCrate(reservedBlock, List.of(item));
+		crate.land(reservedBlock);
+
+		assertTrue(CrateManager.removeCrateAndDetach(reservedBlock.getLocation()));
+
+		assertNull(CrateManager.getCrate(reservedBlock.getLocation()));
+		assertEquals(Material.BARREL, reservedBlock.getType());
+		assertEquals(item, ((Barrel) reservedBlock.getState()).getInventory().getItem(0));
+		assertEquals(0, admission.snapshot().landedClaims());
+	}
+
+	@Test
+	void paidExpiryLeavesNonEmptyBarrelAndRemovesAirdropMarkers() throws Exception {
+		Crate crate = newPaidCrate(reservedBlock, List.of(new ItemStack(Material.DIAMOND)));
+		crate.land(reservedBlock);
+
+		server.getScheduler().performTicks(12_000L);
+
+		assertNull(CrateManager.getCrate(reservedBlock.getLocation()));
+		assertEquals(Material.BARREL, reservedBlock.getType());
+		Barrel ordinaryBarrel = (Barrel) reservedBlock.getState();
+		assertEquals(new ItemStack(Material.DIAMOND), ordinaryBarrel.getInventory().getItem(0));
+		assertFalse(Crate.hasAirdropMarker(ordinaryBarrel));
+		assertEquals(0, admission.snapshot().landedClaims());
+	}
+
+	@Test
+	void paidExpiryRemovesEmptyBarrel() throws Exception {
+		Crate crate = newPaidCrate(reservedBlock, List.of());
+		crate.land(reservedBlock);
+
+		server.getScheduler().performTicks(12_000L);
+
+		assertNull(CrateManager.getCrate(reservedBlock.getLocation()));
+		assertEquals(Material.AIR, reservedBlock.getType());
+		assertEquals(0, admission.snapshot().landedClaims());
+	}
+
+	@Test
+	void paidExpiryReleasesLeaseWhenBarrelCleanupThrows() throws Exception {
+		Crate crate = newPaidCrate(reservedBlock, List.of(new ItemStack(Material.DIAMOND)));
+		crate.land(reservedBlock);
+		Block failingBlock = mock(Block.class);
+		when(failingBlock.getType()).thenReturn(Material.BARREL);
+		when(failingBlock.getState()).thenThrow(new IllegalStateException("barrel unavailable"));
+		setField(crate, "blockChest", failingBlock);
+
+		assertTrue(CrateManager.removeCrateAndExpire(crate));
+
+		assertNull(CrateManager.getCrate(reservedBlock.getLocation()));
 		assertEquals(0, admission.snapshot().landedClaims());
 	}
 
@@ -231,6 +309,20 @@ class CrateLandingLifecycleTest {
 		return new Crate(new Location(world, 10.5, 100, 10.5), world, List.of(), options, lease);
 	}
 
+	private Crate newPaidCrate(Block landingBlock, List<ItemStack> contents) throws Exception {
+		DropOptions options = DropOptions.createDefault()
+				.withLandingEffects(false)
+				.withContinuousEffects(false)
+				.withSmokeEnabled(false)
+				.withFlareEffects(false);
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				DropLocationKey.from(landingBlock.getLocation()),
+				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
+		lease.commitSpawn();
+		return new Crate(new Location(world, 10.5, 100, 10.5), world,
+				contents, options, lease, true, ignored -> { });
+	}
+
 	private Crate newCrate(Block landingBlock, List<Crate.Outcome> outcomes) throws Exception {
 		DropOptions options = DropOptions.createDefault()
 				.withLandingEffects(false)
@@ -243,5 +335,11 @@ class CrateLandingLifecycleTest {
 		lease.commitSpawn();
 		return new Crate(new Location(world, 10.5, 100, 10.5), world,
 				List.of(), options, lease, outcomes::add);
+	}
+
+	private static void setField(Object target, String fieldName, Object value) throws Exception {
+		Field field = Crate.class.getDeclaredField(fieldName);
+		field.setAccessible(true);
+		field.set(target, value);
 	}
 }

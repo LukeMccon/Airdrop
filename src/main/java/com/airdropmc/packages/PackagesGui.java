@@ -56,6 +56,18 @@ public class PackagesGui extends Gui implements Listener {
 		pkglist.forEach(inv::addItem);
 	}
 
+	public void closeAndUnregister() {
+		if (listenerRegistered) {
+			HandlerList.unregisterAll(this);
+			listenerRegistered = false;
+		}
+		for (HumanEntity viewer : List.copyOf(inv.getViewers())) {
+			if (viewer.getOpenInventory().getTopInventory() == inv) {
+				viewer.closeInventory();
+			}
+		}
+	}
+
     /**
      * Creates a ItemStack that represents one of the configured packages
      * 

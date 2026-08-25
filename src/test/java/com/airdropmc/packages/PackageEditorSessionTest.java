@@ -45,6 +45,48 @@ class PackageEditorSessionTest {
 	}
 
 	@Test
+	void savingRemainsProtectedAndGuardsAgainstRepeatedSubmits() {
+		Inventory editor = mock(Inventory.class);
+		Player owner = player(UUID.randomUUID());
+		PackageEditorSession session = activeSession(editor, owner);
+
+		assertTrue(session.beginSave());
+		assertEquals(PackageEditorSession.State.SAVING, session.state());
+		assertTrue(session.protects(owner, editor));
+		assertFalse(session.canProcess(owner, editor));
+		assertFalse(session.beginSave());
+		assertFalse(session.beginTransition());
+	}
+
+	@Test
+	void failedSaveReturnsToActiveForRetry() {
+		Inventory editor = mock(Inventory.class);
+		Player owner = player(UUID.randomUUID());
+		PackageEditorSession session = activeSession(editor, owner);
+
+		assertTrue(session.beginSave());
+		assertTrue(session.failSave());
+		assertEquals(PackageEditorSession.State.ACTIVE, session.state());
+		assertTrue(session.canProcess(owner, editor));
+		assertFalse(session.failSave());
+		assertTrue(session.beginSave());
+	}
+
+	@Test
+	void completedSaveTransitionsWithoutReopeningInteractionWindow() {
+		Inventory editor = mock(Inventory.class);
+		Player owner = player(UUID.randomUUID());
+		PackageEditorSession session = activeSession(editor, owner);
+
+		assertTrue(session.beginSave());
+		assertTrue(session.completeSave());
+		assertEquals(PackageEditorSession.State.TRANSITIONING, session.state());
+		assertTrue(session.protects(owner, editor));
+		assertFalse(session.canProcess(owner, editor));
+		assertFalse(session.completeSave());
+	}
+
+	@Test
 	void transitioningRemainsProtectedButCannotProcess() {
 		Inventory editor = mock(Inventory.class);
 		Player owner = player(UUID.randomUUID());
@@ -54,6 +96,20 @@ class PackageEditorSessionTest {
 		assertTrue(session.protects(owner, editor));
 		assertFalse(session.canProcess(owner, editor));
 		assertFalse(session.beginTransition());
+	}
+
+	@Test
+	void exitTransitionInvalidatesPendingSaveButKeepsInventoryProtected() {
+		Inventory editor = mock(Inventory.class);
+		Player owner = player(UUID.randomUUID());
+		PackageEditorSession session = activeSession(editor, owner);
+
+		assertTrue(session.beginSave());
+		assertTrue(session.beginExitTransition());
+		assertEquals(PackageEditorSession.State.TRANSITIONING, session.state());
+		assertTrue(session.protects(owner, editor));
+		assertFalse(session.completeSave());
+		assertFalse(session.failSave());
 	}
 
 	@Test

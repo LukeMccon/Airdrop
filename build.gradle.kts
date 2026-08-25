@@ -80,7 +80,7 @@ tasks {
 bukkit {
     load = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.STARTUP
     main = "com.airdropmc.Airdrop"
-    apiVersion = "1.21"
+    apiVersion = "1.21.8"
     depend = listOf("LuckPerms")
     softDepend = listOf("Vault")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")

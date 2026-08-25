@@ -4,7 +4,6 @@ import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
-import com.airdropmc.PackagesConfig;
 import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.LanguageManager;
@@ -19,17 +18,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.anyMap;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 class DropCommandPackageIdentityTest {
@@ -41,20 +39,14 @@ class DropCommandPackageIdentityTest {
 		YamlConfiguration config = new YamlConfiguration();
 		config.set("packages.Starter.price", 10.0);
 		config.set("packages.Starter.items", List.of());
-		PackagesConfig packagesConfig = mock(PackagesConfig.class);
-		when(packagesConfig.getConfig()).thenReturn(config);
 		ChatHandler.init(new LanguageManager(mock(Airdrop.class)));
-		setStaticField("packagesConfiguration", packagesConfig);
-		setStaticField("pluginInstance", null);
 		PackageManager.clear();
-		assertTrue(PackageManager.reload());
+		PackageManager.publishPackages(PackageManager.materializePackages(config));
 	}
 
 	@AfterEach
-	void tearDown() throws Exception {
+	void tearDown() {
 		PackageManager.clear();
-		setStaticField("packagesConfiguration", null);
-		setStaticField("pluginInstance", null);
 		ChatHandler.init(null);
 		MockBukkit.unmock();
 	}
@@ -103,11 +95,5 @@ class DropCommandPackageIdentityTest {
 		String text = PlainTextComponentSerializer.plainText().serialize(message);
 		assertTrue(text.contains("airdrop.package.starter"), text);
 		assertFalse(text.contains("airdrop.package.null"), text);
-	}
-
-	private static void setStaticField(String fieldName, Object value) throws Exception {
-		Field field = Airdrop.class.getDeclaredField(fieldName);
-		field.setAccessible(true);
-		field.set(null, value);
 	}
 }

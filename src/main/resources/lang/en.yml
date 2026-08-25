@@ -31,7 +31,9 @@ errors:
   cannot-afford: "{accent}{player}{error} cannot afford package price of {accent}{price}{error}"
   insufficient-permissions: "You lack permission to drop that package (requires {accent}{permission}{error})"
   economy-unavailable: "Economy provider is unavailable. Contact a server administrator."
+  plugin-not-ready: "Airdrop is still starting or is shutting down. Try again shortly."
   reload-unavailable: "Reload unavailable while plugin is shutting down"
+  reload-failed-retained: "Reload failed. The previous configuration remains active. Check the server log."
   packages-reload-failed: "Reload failed because packages configuration is unavailable"
   sky-not-clear: "Sky must be clear above your location to call an airdrop"
   package-not-found: "Package {accent}{name}{error} not found. Use {warning}/airdrop packages{error} to see available packages"
@@ -68,8 +70,10 @@ admin:
 
 system:
   config-loaded: "Config loaded successfully"
-  economy-missing: "Disabling due to missing economy provider (VaultUnlocked or Vault)"
-  reload-success: "Configuration and language reloaded"
+  reload-started: "Reloading configuration..."
+  reload-economy-active: "Configuration, language, packages, and economy reloaded. Provider: {accent}{provider}{primary}"
+  reload-economy-disabled: "Configuration, language, packages, and economy reloaded. Economy is disabled; drops will not be charged"
+  reload-economy-unavailable: "Reload completed, but no economy provider is available; paid drops are blocked"
   package-price-missing: "Could not find price for package: {accent}{name}"
   package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"
   version-info: "{text}\nAirdrop Version: {accent}{version}{text}\nSpigot API Version: {accent}{api_version}"

@@ -50,6 +50,9 @@ public final class ConfigKeys {
 	public static final String DROP_MAX_LANDED = "drop.limits.max-landed";
 	public static final String DROP_LANDED_LIFETIME_SECONDS = "drop.limits.landed-lifetime-seconds";
 
+	// General paths
+	public static final String LANGUAGE = "language";
+
     // Economy paths
     public static final String ECONOMY_ENABLED = "economy.enabled";
     public static final String LOGGING_DEBUG = "logging.debug";
@@ -107,10 +110,24 @@ public final class ConfigKeys {
 				Duration.ofSeconds(cooldown), maxFalling, maxLanded, Duration.ofSeconds(lifetime));
 	}
 
+	// General getters
+	public static String getLanguage() {
+		return getLanguage(getConfig());
+	}
+
+	static String getLanguage(FileConfiguration config) {
+		String language = config.getString(LANGUAGE, "en");
+		return language == null ? "en" : language;
+	}
+
     // Economy getters
     public static boolean isEconomyEnabled() {
-        return getConfig().getBoolean(ECONOMY_ENABLED, true);
+        return isEconomyEnabled(getConfig());
     }
+
+	static boolean isEconomyEnabled(FileConfiguration config) {
+		return config.getBoolean(ECONOMY_ENABLED, true);
+	}
 
     public static boolean isDebugLoggingEnabled() {
         return getConfig().getBoolean(LOGGING_DEBUG, false);
