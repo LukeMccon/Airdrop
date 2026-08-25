@@ -167,7 +167,8 @@ Limit behavior:
 
 - Capacity and landing-location reservations happen before package items are materialized or economy funds are withdrawn.
 - `max-landed` includes landed crates and reserved slots for crates still falling, preventing in-flight overcommit. Existing paid barrels recovered from disk are restored even if they temporarily raise occupancy above the configured value; new drops remain blocked until occupancy falls below it.
-- Successful player drops start a UUID-based cooldown; rejected or failed drops do not.
+- A UUID-based cooldown starts after the falling crate is spawned and its drop event completes. Earlier rejections or failures do not start one; later failures keep it.
+- Protection plugins can reject landing by cancelling `EntityChangeBlockEvent` at `HIGH` priority or earlier. Airdrop evaluates at `HIGHEST`, removes the rejected crate, and treats it as a known pre-landing failure.
 - At `landed-lifetime-seconds`, unpaid crates and empty paid barrels are removed. A non-empty paid barrel keeps its contents and becomes an ordinary barrel.
 - `/airdrop reload` applies new limits to future requests without deleting active crates or resetting existing cooldown/expiry deadlines. Lowering a cap below current occupancy blocks new drops until usage falls under the cap.
 

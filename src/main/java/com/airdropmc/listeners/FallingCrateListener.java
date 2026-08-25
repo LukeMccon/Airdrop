@@ -18,7 +18,7 @@ import com.airdropmc.events.PackageLandEvent;
 
 public class FallingCrateListener implements Listener {
 
-	@EventHandler(priority = EventPriority.NORMAL)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEntityChangeBlockEvent(EntityChangeBlockEvent e) {
 		Entity entity = e.getEntity();
 
@@ -29,6 +29,10 @@ public class FallingCrateListener implements Listener {
 		FallingBlock fallingBlock = (FallingBlock) entity;
 		Crate landedCrate = CrateManager.removeCrate(fallingBlock);
 		if (landedCrate == null) {
+			return;
+		}
+		if (e.isCancelled()) {
+			landedCrate.destroy();
 			return;
 		}
 		e.setCancelled(true);
