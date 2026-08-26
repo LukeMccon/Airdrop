@@ -1,11 +1,42 @@
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
+import java.util.jar.JarFile
+import org.gradle.api.tasks.bundling.Jar
+
 plugins {
     `java-library`
     id("xyz.jpenilla.run-paper") version "3.0.2" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
 
+val releaseVersionPattern = Regex(
+    """\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"""
+)
+
+fun normalizeReleaseTag(tag: String): String {
+    if (tag.isBlank()) {
+        throw GradleException("Gradle property 'releaseTag' must not be blank")
+    }
+
+    val normalized = tag.removePrefix("v")
+    if (normalized.contains("SNAPSHOT", ignoreCase = true)) {
+        throw GradleException("Gradle property 'releaseTag' must not contain SNAPSHOT")
+    }
+    if (!releaseVersionPattern.matches(normalized)) {
+        throw GradleException(
+            "Gradle property 'releaseTag' must be MAJOR.MINOR.PATCH with optional prerelease and build metadata"
+        )
+    }
+    return normalized
+}
+
+val configuredReleaseVersion = providers.gradleProperty("releaseTag").orNull?.let { normalizeReleaseTag(it) }
+
 group = "com.airdropmc"
-version = "4.0.0-SNAPSHOT"
+version = configuredReleaseVersion ?: "4.0.0-SNAPSHOT"
 description = "Airdrop - Minecraft care package plugin"
 
 java {
@@ -72,8 +103,65 @@ tasks {
 
     test {
         useJUnitPlatform()
+        systemProperty("airdrop.projectVersion", project.version.toString())
     }
 
+}
+
+val releaseJar = tasks.named<Jar>("jar")
+
+tasks.register("verifyReleaseArtifact") {
+    group = "verification"
+    description = "Verifies the release JAR filename and embedded plugin version"
+    dependsOn(releaseJar)
+
+    doLast {
+        val releaseVersion = configuredReleaseVersion
+            ?: throw GradleException("verifyReleaseArtifact requires the Gradle property 'releaseTag'")
+        val archiveFile = releaseJar.get().archiveFile.get().asFile
+        val expectedFilename = "${project.name}-$releaseVersion.jar"
+        if (archiveFile.name != expectedFilename) {
+            throw GradleException(
+                "Release artifact filename must be '$expectedFilename', but was '${archiveFile.name}'"
+            )
+        }
+
+        val pluginVersion = JarFile(archiveFile).use { archive ->
+            val pluginYml = archive.getJarEntry("plugin.yml")
+                ?: throw GradleException("Release artifact must contain a root plugin.yml")
+            archive.getInputStream(pluginYml)
+                .bufferedReader(StandardCharsets.UTF_8)
+                .useLines { lines ->
+                    lines.singleOrNull { it.startsWith("version:") }
+                        ?.substringAfter(':')
+                        ?.trim()
+                        ?.removeSurrounding("\"")
+                        ?.removeSurrounding("'")
+                        ?: throw GradleException(
+                            "Root plugin.yml must contain exactly one top-level version scalar"
+                        )
+                }
+        }
+        if (pluginVersion != releaseVersion) {
+            throw GradleException(
+                "Root plugin.yml version must be '$releaseVersion', but was '$pluginVersion'"
+            )
+        }
+
+        val relativeArchivePath = project.relativePath(archiveFile).replace(File.separatorChar, '/')
+        val githubOutput = System.getenv("GITHUB_OUTPUT")
+        if (!githubOutput.isNullOrBlank()) {
+            Files.writeString(
+                Path.of(githubOutput),
+                "artifact_name=${archiveFile.name}\nartifact_path=$relativeArchivePath\n",
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND
+            )
+        } else {
+            logger.lifecycle("Verified release artifact: $relativeArchivePath")
+        }
+    }
 }
 
 // Configure plugin.yml generation

@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GitHubActionsSecurityTest {
 	private static final Path WORKFLOWS_DIRECTORY = Path.of(".github", "workflows");
+	private static final Path RELEASE_WORKFLOW = WORKFLOWS_DIRECTORY.resolve("release.yml");
+	private static final String RELEASE_TAG = "${{ github.event.release.tag_name }}";
+	private static final String PUBLISHED_ARTIFACT = "release-jar/${{ needs.build.outputs.artifact_name }}";
 	private static final Pattern VERSION_COMMENT = Pattern.compile(
 			"^v\\d+(?:\\.\\d+)*(?:[-+][0-9A-Za-z.-]+)?$"
 	);
@@ -56,6 +59,48 @@ class GitHubActionsSecurityTest {
 				writePermissions,
 				"Only the GitHub release publisher may receive contents: write"
 		);
+	}
+
+	@Test
+	void releasePublishesOnlyTheVerifiedArtifact() throws IOException {
+		String contents = Files.readString(RELEASE_WORKFLOW);
+		Map<?, ?> workflow = requiredMap(loadYaml(contents), "release workflow");
+		Map<?, ?> build = job(workflow, "build");
+
+		Map<?, ?> release = findStep(build, "id", "release", false);
+		assertEquals(
+				RELEASE_TAG,
+				value(requiredMap(value(release, "env"), "release environment"),
+						"ORG_GRADLE_PROJECT_releaseTag")
+		);
+		assertTrue(String.valueOf(value(release, "run")).contains("verifyReleaseArtifact"));
+		assertEquals(
+				"${{ steps.release.outputs.artifact_name }}",
+				value(requiredMap(value(build, "outputs"), "build outputs"), "artifact_name")
+		);
+
+		Map<?, ?> upload = findStep(build, "uses", "actions/upload-artifact@", true);
+		assertEquals(
+				"${{ steps.release.outputs.artifact_path }}",
+				value(requiredMap(value(upload, "with"), "artifact upload inputs"), "path")
+		);
+
+		Map<?, ?> githubPublisher = job(workflow, "publish-github");
+		Map<?, ?> modrinthPublisher = job(workflow, "publish-modrinth");
+		assertEquals("build", value(githubPublisher, "needs"));
+		assertEquals("build", value(modrinthPublisher, "needs"));
+
+		Map<?, ?> githubUpload = findStep(githubPublisher, "uses", "softprops/action-gh-release@", true);
+		assertEquals(
+				PUBLISHED_ARTIFACT,
+				value(requiredMap(value(githubUpload, "with"), "GitHub release inputs"), "files")
+		);
+		Map<?, ?> modrinthUpload = findStep(modrinthPublisher, "uses", "Kira-NT/mc-publish@", true);
+		assertEquals(
+				PUBLISHED_ARTIFACT,
+				value(requiredMap(value(modrinthUpload, "with"), "Modrinth inputs"), "modrinth-files")
+		);
+		assertFalse(contents.contains("*.jar"));
 	}
 
 	@Test
@@ -154,6 +199,41 @@ class GitHubActionsSecurityTest {
 				""";
 
 		assertFalse(hasControlledGitHubActionsUpdates(duplicateConfiguration));
+	}
+
+	private Map<?, ?> job(Map<?, ?> workflow, String jobId) {
+		Map<?, ?> jobs = requiredMap(value(workflow, "jobs"), "workflow jobs");
+		return requiredMap(value(jobs, jobId), "job " + jobId);
+	}
+
+	private Map<?, ?> findStep(
+			Map<?, ?> job,
+			String key,
+			String expectedValue,
+			boolean prefixMatch
+	) {
+		for (Object value : requiredList(value(job, "steps"), "job steps")) {
+			Map<?, ?> step = requiredMap(value, "workflow step");
+			String actualValue = String.valueOf(value(step, key));
+			if (prefixMatch ? actualValue.startsWith(expectedValue) : actualValue.equals(expectedValue)) {
+				return step;
+			}
+		}
+		throw new AssertionError("Missing workflow step with " + key + ": " + expectedValue);
+	}
+
+	private Map<?, ?> requiredMap(Object value, String description) {
+		if (value instanceof Map<?, ?> map) {
+			return map;
+		}
+		throw new AssertionError("Missing or invalid YAML map: " + description);
+	}
+
+	private List<?> requiredList(Object value, String description) {
+		if (value instanceof List<?> list) {
+			return list;
+		}
+		throw new AssertionError("Missing or invalid YAML list: " + description);
 	}
 
 	private ActionScan scanExternalActions(Path workflowsDirectory) throws IOException {
