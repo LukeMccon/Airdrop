@@ -54,6 +54,13 @@ class PluginYmlPermissionsTest {
 		assertEquals(projectVersion, String.valueOf(root.get("version")));
 	}
 
+	@Test
+	void generatedPluginYml_targetsOldestSupportedPaperVersion() throws Exception {
+		Map<?, ?> root = loadPluginYml();
+
+		assertEquals("1.21.8", String.valueOf(root.get("api-version")));
+	}
+
 	private Map<?, ?> loadPluginYml() throws Exception {
 		InputStream stream = getClass().getClassLoader().getResourceAsStream("plugin.yml");
 		assertNotNull(stream, "Generated plugin.yml should be available on the test runtime classpath");
