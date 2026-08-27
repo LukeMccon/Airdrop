@@ -50,7 +50,7 @@ Use focused discovery tests to drive the change:
 - Verify a legacy enabled check throwing a runtime exception returns no provider.
 - Preserve the existing healthy-modern preference assertion.
 
-Update lifecycle test helpers so their intentionally healthy mock providers report enabled. Retain the existing controller regression proving a missing provider rejects a paid drop before payload and payment work. Add a command-level assertion only if the existing message path is not already directly covered by the relevant tests; no production command or language changes are planned.
+Update lifecycle test helpers so their intentionally healthy mock providers report enabled. Retain the existing controller regression proving a missing provider rejects a paid drop before payload and payment work. Add a command-level assertion for the configured economy-unavailable message because that mapping does not currently have direct coverage; no production command or language changes are planned.
 
 Run the focused discovery tests after the red and green phases, followed by the full `./gradlew test` suite.
 
