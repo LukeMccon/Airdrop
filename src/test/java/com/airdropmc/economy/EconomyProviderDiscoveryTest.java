@@ -34,15 +34,11 @@ class EconomyProviderDiscoveryTest {
 
 	@Test
 	void nativeVaultUnlockedIsPreferredOverLegacyVault() {
-		net.milkbowl.vault2.economy.Economy modern = mock(net.milkbowl.vault2.economy.Economy.class);
-		AsyncEconomy async = mock(AsyncEconomy.class);
-		when(modern.supportsAsync()).thenReturn(true);
-		when(modern.async()).thenReturn(Optional.of(async));
-		when(modern.getName()).thenReturn("ModernEco");
+		net.milkbowl.vault2.economy.Economy modern = healthyModern();
 		server.getServicesManager().register(
 				net.milkbowl.vault2.economy.Economy.class, modern, registrar, ServicePriority.Normal);
 
-		net.milkbowl.vault.economy.Economy legacy = mock(net.milkbowl.vault.economy.Economy.class);
+		net.milkbowl.vault.economy.Economy legacy = healthyLegacy();
 		server.getServicesManager().register(
 				net.milkbowl.vault.economy.Economy.class, legacy, registrar, ServicePriority.Normal);
 
@@ -55,12 +51,13 @@ class EconomyProviderDiscoveryTest {
 	@Test
 	void modernServiceWithoutNativeAsyncFallsBackToLegacyVault() {
 		net.milkbowl.vault2.economy.Economy modern = mock(net.milkbowl.vault2.economy.Economy.class);
+		when(modern.isEnabled()).thenReturn(true);
 		when(modern.supportsAsync()).thenReturn(false);
 		when(modern.async()).thenReturn(Optional.empty());
 		server.getServicesManager().register(
 				net.milkbowl.vault2.economy.Economy.class, modern, registrar, ServicePriority.Normal);
 
-		net.milkbowl.vault.economy.Economy legacy = mock(net.milkbowl.vault.economy.Economy.class);
+		net.milkbowl.vault.economy.Economy legacy = healthyLegacy();
 		server.getServicesManager().register(
 				net.milkbowl.vault.economy.Economy.class, legacy, registrar, ServicePriority.Normal);
 
@@ -72,5 +69,70 @@ class EconomyProviderDiscoveryTest {
 	@Test
 	void noRegisteredEconomyReturnsEmpty() {
 		assertTrue(EconomyProviderDiscovery.discover(server.getServicesManager()).isEmpty());
+	}
+
+	@Test
+	void disabledLegacyProviderIsUnavailable() {
+		net.milkbowl.vault.economy.Economy legacy = healthyLegacy();
+		when(legacy.isEnabled()).thenReturn(false);
+		server.getServicesManager().register(
+				net.milkbowl.vault.economy.Economy.class, legacy, registrar, ServicePriority.Normal);
+
+		assertTrue(EconomyProviderDiscovery.discover(server.getServicesManager()).isEmpty());
+	}
+
+	@Test
+	void disabledModernProviderFallsBackToHealthyLegacy() {
+		net.milkbowl.vault2.economy.Economy modern = healthyModern();
+		when(modern.isEnabled()).thenReturn(false);
+		server.getServicesManager().register(
+				net.milkbowl.vault2.economy.Economy.class, modern, registrar, ServicePriority.Normal);
+
+		net.milkbowl.vault.economy.Economy legacy = healthyLegacy();
+		server.getServicesManager().register(
+				net.milkbowl.vault.economy.Economy.class, legacy, registrar, ServicePriority.Normal);
+
+		assertInstanceOf(VaultEconomyProvider.class,
+				EconomyProviderDiscovery.discover(server.getServicesManager()).orElseThrow());
+	}
+
+	@Test
+	void modernEnabledLinkageFailureFallsBackToHealthyLegacy() {
+		net.milkbowl.vault2.economy.Economy modern = healthyModern();
+		when(modern.isEnabled()).thenThrow(new NoClassDefFoundError("provider dependency"));
+		server.getServicesManager().register(
+				net.milkbowl.vault2.economy.Economy.class, modern, registrar, ServicePriority.Normal);
+
+		net.milkbowl.vault.economy.Economy legacy = healthyLegacy();
+		server.getServicesManager().register(
+				net.milkbowl.vault.economy.Economy.class, legacy, registrar, ServicePriority.Normal);
+
+		assertInstanceOf(VaultEconomyProvider.class,
+				EconomyProviderDiscovery.discover(server.getServicesManager()).orElseThrow());
+	}
+
+	@Test
+	void legacyEnabledRuntimeFailureIsUnavailable() {
+		net.milkbowl.vault.economy.Economy legacy = healthyLegacy();
+		when(legacy.isEnabled()).thenThrow(new IllegalStateException("provider unavailable"));
+		server.getServicesManager().register(
+				net.milkbowl.vault.economy.Economy.class, legacy, registrar, ServicePriority.Normal);
+
+		assertTrue(EconomyProviderDiscovery.discover(server.getServicesManager()).isEmpty());
+	}
+
+	private net.milkbowl.vault.economy.Economy healthyLegacy() {
+		net.milkbowl.vault.economy.Economy economy = mock(net.milkbowl.vault.economy.Economy.class);
+		when(economy.isEnabled()).thenReturn(true);
+		return economy;
+	}
+
+	private net.milkbowl.vault2.economy.Economy healthyModern() {
+		net.milkbowl.vault2.economy.Economy economy = mock(net.milkbowl.vault2.economy.Economy.class);
+		when(economy.isEnabled()).thenReturn(true);
+		when(economy.supportsAsync()).thenReturn(true);
+		when(economy.async()).thenReturn(Optional.of(mock(AsyncEconomy.class)));
+		when(economy.getName()).thenReturn("ModernEco");
+		return economy;
 	}
 }

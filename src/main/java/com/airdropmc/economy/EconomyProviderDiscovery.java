@@ -5,6 +5,7 @@ import org.bukkit.plugin.ServicesManager;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 
 public final class EconomyProviderDiscovery {
 
@@ -33,10 +34,22 @@ public final class EconomyProviderDiscovery {
 
 		RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> registration =
 				services.getRegistration(net.milkbowl.vault.economy.Economy.class);
-		if (registration == null || registration.getProvider() == null) {
+		if (registration == null) {
 			return Optional.empty();
 		}
-		return Optional.of(new VaultEconomyProvider(registration.getProvider()));
+		net.milkbowl.vault.economy.Economy economy = registration.getProvider();
+		if (economy == null || !isEnabled(economy::isEnabled)) {
+			return Optional.empty();
+		}
+		return Optional.of(new VaultEconomyProvider(economy));
+	}
+
+	private static boolean isEnabled(BooleanSupplier enabledCheck) {
+		try {
+			return enabledCheck.getAsBoolean();
+		} catch (LinkageError | RuntimeException ignored) {
+			return false;
+		}
 	}
 
 	private static final class ModernDiscovery {
@@ -47,11 +60,14 @@ public final class EconomyProviderDiscovery {
 		private static Optional<EconomyProvider> discover(ServicesManager services) {
 			RegisteredServiceProvider<net.milkbowl.vault2.economy.Economy> registration =
 					services.getRegistration(net.milkbowl.vault2.economy.Economy.class);
-			if (registration == null || registration.getProvider() == null) {
+			if (registration == null) {
 				return Optional.empty();
 			}
 
 			net.milkbowl.vault2.economy.Economy economy = registration.getProvider();
+			if (economy == null || !isEnabled(economy::isEnabled)) {
+				return Optional.empty();
+			}
 			if (!economy.supportsAsync()) {
 				return Optional.empty();
 			}

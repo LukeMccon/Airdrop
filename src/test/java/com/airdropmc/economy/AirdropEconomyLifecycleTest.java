@@ -233,6 +233,7 @@ class AirdropEconomyLifecycleTest {
 
 	private net.milkbowl.vault.economy.Economy legacy(String name) {
 		net.milkbowl.vault.economy.Economy economy = mock(net.milkbowl.vault.economy.Economy.class);
+		when(economy.isEnabled()).thenReturn(true);
 		when(economy.getName()).thenReturn(name);
 		return economy;
 	}
@@ -240,6 +241,7 @@ class AirdropEconomyLifecycleTest {
 	private net.milkbowl.vault2.economy.Economy modern(String name) {
 		net.milkbowl.vault2.economy.Economy economy = mock(net.milkbowl.vault2.economy.Economy.class);
 		AsyncEconomy async = mock(AsyncEconomy.class);
+		when(economy.isEnabled()).thenReturn(true);
 		when(economy.supportsAsync()).thenReturn(true);
 		when(economy.async()).thenReturn(Optional.of(async));
 		when(economy.getName()).thenReturn(name);

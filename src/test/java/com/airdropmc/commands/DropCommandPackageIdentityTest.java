@@ -5,6 +5,7 @@ import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.controllers.DropController;
+import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.lang.MessageKey;
@@ -95,5 +96,23 @@ class DropCommandPackageIdentityTest {
 		String text = PlainTextComponentSerializer.plainText().serialize(message);
 		assertTrue(text.contains("airdrop.package.starter"), text);
 		assertFalse(text.contains("airdrop.package.null"), text);
+	}
+
+	@Test
+	void unavailableEconomyDisplaysConfiguredMessage() throws Exception {
+		PlayerMock player = server.addPlayer();
+		Package expected = PackageManager.get("Starter");
+
+		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
+			controller.when(() -> DropController.playerInitiatedDropPackage(expected, player))
+					.thenThrow(new EconomyUnavailableException());
+
+			DropCommand.onCommand(player, new String[]{"Starter"});
+		}
+
+		Component message = player.nextComponentMessage();
+		assertNotNull(message);
+		String text = PlainTextComponentSerializer.plainText().serialize(message);
+		assertTrue(text.contains("Economy provider is unavailable"), text);
 	}
 }
