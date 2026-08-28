@@ -34,7 +34,7 @@ class StarterDropIT {
 
 	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
-	void permittedPlayerDropsDefaultStarterPackageWithExpectedContents(ILightkeeperFramework framework) {
+	void permittedPlayerDropsZeroPricedStarterPackageWithExpectedContents(ILightkeeperFramework framework) {
 		eventually(Duration.ofSeconds(20), () ->
 				assertThat(framework.server().output())
 						.anyMatch(line -> line.contains("Economy support is disabled")));
