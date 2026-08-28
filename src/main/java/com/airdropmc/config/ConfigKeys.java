@@ -20,7 +20,7 @@ public final class ConfigKeys {
     private static final double DEFAULT_DROP_FALLING_SPEED = 0.3;
     private static final double MIN_DROP_FALLING_SPEED = 0.01;
     private static final double MAX_DROP_FALLING_SPEED = 4.0;
-    private static final int DEFAULT_DROP_HEIGHT = 20;
+    private static final int DEFAULT_DROP_HEIGHT = 40;
     private static final int MIN_DROP_HEIGHT = 1;
     private static final int MAX_DROP_HEIGHT = 320;
     private static final int DEFAULT_SMOKE_HEIGHT = 20;

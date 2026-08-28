@@ -128,7 +128,7 @@ drop:
       enabled: false
       height: 20
   falling-speed: 0.3
-  height: 20
+  height: 40
   limits:
     request-cooldown-seconds: 30
     max-falling: 3

@@ -142,6 +142,13 @@ class ConfigKeysTest {
 	}
 
 	@Test
+	void getDropHeight_usesFortyBlocksByDefault() {
+		setConfigValues(new YamlConfiguration());
+
+		assertEquals(40, ConfigKeys.getDropHeight());
+	}
+
+	@Test
 	void getDropHeight_rejectsNegativeValueAndUsesDefault() {
 		YamlConfiguration configValues = new YamlConfiguration();
 		configValues.set("drop.height", -1);
@@ -150,7 +157,7 @@ class ConfigKeysTest {
 		when(config.getConfig()).thenReturn(configValues);
 		setAirdropConfig(config);
 
-		assertEquals(20, ConfigKeys.getDropHeight());
+		assertEquals(40, ConfigKeys.getDropHeight());
 	}
 
 	@Test

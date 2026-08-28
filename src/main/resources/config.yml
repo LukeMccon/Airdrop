@@ -24,7 +24,7 @@ drop:
   # How fast the crate falls when dropped
   falling-speed: 0.3
   # Height in blocks from which to drop the crate
-  height: 20
+  height: 40
   limits:
     # Minimum time between successful player-requested drops
     request-cooldown-seconds: 30
