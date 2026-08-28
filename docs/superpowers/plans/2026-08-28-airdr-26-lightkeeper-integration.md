@@ -94,7 +94,7 @@
 - [ ] Execute `/airdrop starter`, assert exactly one drop event, then immediately teleport the bot away.
 - [ ] Await exactly one landing event and the expected barrel block.
 - [ ] Return the bot adjacent to the barrel and assert an uncancelled right-click interaction event.
-- [ ] Inspect the live barrel block entity with console-issued vanilla `/data` reads and assert slots 0-4 including bread amount 2; LightKeeper's synthetic interaction does not execute vanilla menu opening.
+- [ ] Inspect the live barrel block entity with console-issued vanilla `/data` and `/execute` commands; assert exactly five occupied slots with the expected items and bread amount 2. LightKeeper's synthetic interaction does not execute vanilla menu opening.
 - [ ] Close the inventory and clean bot/captures in `finally` blocks.
 
 ### Task 7: Make the contract GREEN and validate the real server

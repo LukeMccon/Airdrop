@@ -18,7 +18,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.eventually;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -75,12 +74,7 @@ class StarterDropIT {
 			InteractionResult interaction = player.rightClickBlock(barrelPosition, BlockFace.EAST);
 			assertThat(interaction).isEqualTo(new InteractionResult(true, false));
 
-			assertBlockData(framework, world, "Items[{Slot:0b}].id", "minecraft:iron_helmet");
-			assertBlockData(framework, world, "Items[{Slot:1b}].id", "minecraft:iron_chestplate");
-			assertBlockData(framework, world, "Items[{Slot:2b}].id", "minecraft:iron_leggings");
-			assertBlockData(framework, world, "Items[{Slot:3b}].id", "minecraft:iron_boots");
-			assertBlockData(framework, world, "Items[{Slot:4b}].id", "minecraft:bread");
-			assertBlockData(framework, world, "Items[{Slot:4b}].count", "2");
+			assertStarterContents(framework, world);
 		} finally {
 			unsetPermission(framework, player, PACKAGE_PERMISSION);
 			player.remove();
@@ -128,24 +122,33 @@ class StarterDropIT {
 				.isEqualTo(new IProtocolValue.PVec(LANDING_X, BARREL_Y, LANDING_Z));
 	}
 
-	private void assertBlockData(
-			ILightkeeperFramework framework,
-			WorldHandle world,
-			String path,
-			String expected
-	) {
+	private void assertStarterContents(ILightkeeperFramework framework, WorldHandle world) {
+		String expectedItems = "{Items:["
+				+ "{Slot:0b,id:\"minecraft:iron_helmet\",count:1},"
+				+ "{Slot:1b,id:\"minecraft:iron_chestplate\",count:1},"
+				+ "{Slot:2b,id:\"minecraft:iron_leggings\",count:1},"
+				+ "{Slot:3b,id:\"minecraft:iron_boots\",count:1},"
+				+ "{Slot:4b,id:\"minecraft:bread\",count:2}]}";
+		String marker = "AIRDR_26_STARTER_CONTENTS_" + Long.toUnsignedString(System.nanoTime(), 36);
 		int outputLineCount = framework.server().output().size();
-		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
-				"minecraft:execute in minecraft:%s run data get block %d %d %d %s"
-						.formatted(world.name(), LANDING_X, BARREL_Y, LANDING_Z, path));
-		assertThat(result.success()).as("vanilla data read for %s", path).isTrue();
 
-		Pattern output = Pattern.compile("(?s).*" + Pattern.quote(expected) + ".*");
+		CommandResult countResult = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute in minecraft:%s store result storage airdropmc:lightkeeper "
+						+ "item_count int 1 run data get block %d %d %d Items")
+						.formatted(world.name(), LANDING_X, BARREL_Y, LANDING_Z));
+		assertThat(countResult.success()).as("starter barrel item count read").isTrue();
+
+		CommandResult contentsResult = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute if data storage airdropmc:lightkeeper {item_count:5} "
+						+ "in minecraft:%s if data block %d %d %d %s run say %s")
+						.formatted(world.name(), LANDING_X, BARREL_Y, LANDING_Z, expectedItems, marker));
+		assertThat(contentsResult.success()).as("starter barrel contents assertion").isTrue();
+
 		eventually(Duration.ofSeconds(10), () -> {
 			List<String> lines = framework.server().output();
 			assertThat(lines).hasSizeGreaterThan(outputLineCount);
 			assertThat(lines.subList(outputLineCount, lines.size()))
-					.anyMatch(line -> output.matcher(line).matches());
+					.anyMatch(line -> line.endsWith("[Server] " + marker));
 		});
 	}
 }

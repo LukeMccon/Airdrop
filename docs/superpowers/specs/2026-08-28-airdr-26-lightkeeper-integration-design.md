@@ -50,7 +50,7 @@ The overlay supplies only `plugins/Airdrop/config.yml`. It disables economy inte
 
 The scenario uses a unique flat world and constructs a small landing platform. A full-login LightKeeper bot begins on the landing X/Z coordinate. LuckPerms grants the bot Airdrop's actual package gate, `airdrop.package.starter`, then the test verifies both command success and the bot's live permission before invoking `/airdrop starter`.
 
-The test captures `PackageDropEvent` and `PackageLandEvent`. Immediately after the single drop event, it teleports the bot away so later player-obstruction behavior cannot move the landing barrel. It then verifies exactly one land event, the barrel position, and a real adjacent-player right-click interaction. LightKeeper's block interaction API fires the Bukkit event but intentionally does not execute vanilla container-opening behavior, so the test reads the landed barrel's live block-entity data through console-issued vanilla `/data` commands to verify:
+The test captures `PackageDropEvent` and `PackageLandEvent`. Immediately after the single drop event, it teleports the bot away so later player-obstruction behavior cannot move the landing barrel. It then verifies exactly one land event, the barrel position, and a real adjacent-player right-click interaction. LightKeeper's block interaction API fires the Bukkit event but intentionally does not execute vanilla container-opening behavior, so the test uses console-issued vanilla `/data` and `/execute` commands against the landed barrel. It verifies that the `Items` list has exactly five entries and that those entries are:
 
 - iron helmet in slot 0;
 - iron chestplate in slot 1;
