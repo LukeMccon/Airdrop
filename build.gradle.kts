@@ -6,6 +6,9 @@ import java.nio.file.StandardOpenOption
 import java.util.jar.JarFile
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestResult
 
 plugins {
     `java-library`
@@ -105,6 +108,23 @@ tasks {
     test {
         useJUnitPlatform()
         systemProperty("airdrop.projectVersion", project.version.toString())
+        addTestListener(object : TestListener {
+            override fun beforeSuite(suite: TestDescriptor) = Unit
+
+            override fun afterSuite(suite: TestDescriptor, result: TestResult) = Unit
+
+            override fun beforeTest(testDescriptor: TestDescriptor) = Unit
+
+            override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) {
+                if (result.resultType != TestResult.ResultType.SKIPPED) {
+                    return
+                }
+
+                val testIdentifier = listOfNotNull(testDescriptor.className, testDescriptor.name)
+                    .joinToString(".")
+                throw GradleException("Skipped test '$testIdentifier' is not allowed.")
+            }
+        })
     }
 
     clean {

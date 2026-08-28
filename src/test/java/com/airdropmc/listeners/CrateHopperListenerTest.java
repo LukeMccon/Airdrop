@@ -2,7 +2,10 @@ package com.airdropmc.listeners;
 
 import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Queue;
+import java.util.logging.Logger;
 
 import be.seeseemelk.mockbukkit.MockBukkit;
 import be.seeseemelk.mockbukkit.MockPlugin;
@@ -54,6 +57,7 @@ class CrateHopperListenerTest {
 	private Location barrelLocation;
 	private Inventory barrelInventory;
 	private Inventory hopperInventory;
+	private Queue<Runnable> nextTickTasks;
 
 	@BeforeEach
 	void setUp() {
@@ -70,8 +74,9 @@ class CrateHopperListenerTest {
 		barrelLocation = barrelBlock.getLocation();
 		barrelInventory = ((Barrel) barrelBlock.getState()).getInventory();
 		hopperInventory = Bukkit.createInventory(null, InventoryType.HOPPER);
+		nextTickTasks = new ArrayDeque<>();
 
-		server.getPluginManager().registerEvents(new CrateHopperListener(plugin), plugin);
+		server.getPluginManager().registerEvents(new CrateHopperListener(nextTickTasks::add), plugin);
 	}
 
 	@AfterEach
@@ -104,8 +109,9 @@ class CrateHopperListenerTest {
 
 		assertSame(crate, CrateManager.getCrate(barrelLocation));
 		verify(crate, never()).destroy();
+		assertEquals(1, nextTickTasks.size());
 
-		server.getScheduler().performOneTick();
+		runNextTickTasks();
 
 		assertNull(CrateManager.getCrate(barrelLocation));
 		verify(crate).destroy();
@@ -122,7 +128,7 @@ class CrateHopperListenerTest {
 
 		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
 				staleEventSource, item, hopperInventory, false));
-		server.getScheduler().performOneTick();
+		runNextTickTasks();
 
 		assertTrue(barrelInventory.isEmpty());
 		assertNull(CrateManager.getCrate(barrelLocation));
@@ -138,9 +144,8 @@ class CrateHopperListenerTest {
 		assertTrue(crate.ownsLandedBarrel(landedBarrel));
 		landedInventory.clear();
 
-		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
-				landedInventory, item, hopperInventory, false));
-		server.getScheduler().performOneTick();
+		server.getPluginManager().callEvent(extractionEvent(item, landedInventory));
+		runNextTickTasks();
 
 		assertEquals(Material.AIR, barrelBlock.getType());
 		assertNull(CrateManager.getCrate(barrelLocation));
@@ -154,11 +159,10 @@ class CrateHopperListenerTest {
 		Inventory originalInventory = ((Barrel) barrelBlock.getState()).getInventory();
 		originalInventory.clear();
 
-		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
-				originalInventory, item, hopperInventory, false));
+		server.getPluginManager().callEvent(extractionEvent(item, originalInventory));
 		Barrel replacement = replaceWithFreshBarrel();
 		assertFalse(crate.ownsLandedBarrel(replacement));
-		server.getScheduler().performOneTick();
+		runNextTickTasks();
 
 		assertEquals(Material.BARREL, barrelBlock.getType());
 		assertTrue(((Barrel) barrelBlock.getState()).getInventory().isEmpty());
@@ -173,13 +177,12 @@ class CrateHopperListenerTest {
 		Inventory originalInventory = ((Barrel) barrelBlock.getState()).getInventory();
 		originalInventory.clear();
 
-		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
-				originalInventory, item, hopperInventory, false));
+		server.getPluginManager().callEvent(extractionEvent(item, originalInventory));
 		Barrel replacement = replaceWithFreshBarrel();
 		ItemStack replacementItem = new ItemStack(Material.EMERALD);
 		replacement.getInventory().setItem(0, replacementItem);
 		assertFalse(crate.ownsLandedBarrel(replacement));
-		server.getScheduler().performOneTick();
+		runNextTickTasks();
 
 		assertEquals(Material.BARREL, barrelBlock.getType());
 		assertEquals(replacementItem, ((Barrel) barrelBlock.getState()).getInventory().getItem(0));
@@ -194,10 +197,9 @@ class CrateHopperListenerTest {
 		Inventory originalInventory = ((Barrel) barrelBlock.getState()).getInventory();
 		originalInventory.clear();
 
-		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
-				originalInventory, item, hopperInventory, false));
+		server.getPluginManager().callEvent(extractionEvent(item, originalInventory));
 		barrelBlock.setType(Material.STONE);
-		server.getScheduler().performOneTick();
+		runNextTickTasks();
 
 		assertEquals(Material.STONE, barrelBlock.getType());
 		assertNull(CrateManager.getCrate(barrelLocation));
@@ -211,12 +213,10 @@ class CrateHopperListenerTest {
 		barrelInventory.setItem(0, extracted);
 		barrelInventory.setItem(1, new ItemStack(Material.EMERALD));
 		barrelInventory.setItem(0, null);
-		int pendingTasksBefore = Bukkit.getScheduler().getPendingTasks().size();
 
 		server.getPluginManager().callEvent(extractionEvent(extracted));
 
-		assertEquals(pendingTasksBefore, Bukkit.getScheduler().getPendingTasks().size());
-		server.getScheduler().performOneTick();
+		assertTrue(nextTickTasks.isEmpty());
 
 		assertSame(crate, CrateManager.getCrate(barrelLocation));
 		verify(crate, never()).destroy();
@@ -231,7 +231,7 @@ class CrateHopperListenerTest {
 
 		server.getPluginManager().callEvent(extractionEvent(item));
 		barrelInventory.setItem(0, item);
-		server.getScheduler().performOneTick();
+		runNextTickTasks();
 
 		assertFalse(barrelInventory.isEmpty());
 		assertSame(crate, CrateManager.getCrate(barrelLocation));
@@ -248,9 +248,9 @@ class CrateHopperListenerTest {
 
 		server.getPluginManager().callEvent(event);
 		barrelInventory.clear();
-		server.getScheduler().performOneTick();
 
 		assertTrue(event.isCancelled());
+		assertTrue(nextTickTasks.isEmpty());
 		assertSame(crate, CrateManager.getCrate(barrelLocation));
 		verify(crate, never()).destroy();
 	}
@@ -263,9 +263,9 @@ class CrateHopperListenerTest {
 
 		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
 				hopperInventory, item, barrelInventory, true));
-		server.getScheduler().performOneTick();
 
 		assertTrue(barrelInventory.isEmpty());
+		assertTrue(nextTickTasks.isEmpty());
 		assertSame(crate, CrateManager.getCrate(barrelLocation));
 		verify(crate, never()).destroy();
 	}
@@ -281,7 +281,8 @@ class CrateHopperListenerTest {
 
 		server.getPluginManager().callEvent(extractionEvent(first));
 		server.getPluginManager().callEvent(extractionEvent(second));
-		server.getScheduler().performOneTick();
+		assertEquals(2, nextTickTasks.size());
+		runNextTickTasks();
 
 		assertNull(CrateManager.getCrate(barrelLocation));
 		verify(crate, times(1)).destroy();
@@ -294,9 +295,9 @@ class CrateHopperListenerTest {
 
 		server.getPluginManager().callEvent(extractionEvent(item));
 		barrelInventory.clear();
-		server.getScheduler().performOneTick();
 
 		assertEquals(Material.BARREL, barrelBlock.getType());
+		assertTrue(nextTickTasks.isEmpty());
 		assertNull(CrateManager.getCrate(barrelLocation));
 	}
 
@@ -312,7 +313,7 @@ class CrateHopperListenerTest {
 		assertSame(original, CrateManager.removeCrate(barrelLocation));
 		assertTrue(CrateManager.addCrate(barrelLocation, replacement));
 		barrelInventory.clear();
-		server.getScheduler().performOneTick();
+		runNextTickTasks();
 
 		assertSame(replacement, CrateManager.getCrate(barrelLocation));
 		verify(original, never()).destroy();
@@ -322,6 +323,7 @@ class CrateHopperListenerTest {
 	private Crate landRealCrate(List<ItemStack> contents) throws Exception {
 		Airdrop airdrop = mock(Airdrop.class);
 		when(airdrop.isEnabled()).thenReturn(true);
+		when(airdrop.getLogger()).thenReturn(Logger.getLogger("CrateHopperListenerTest"));
 		Airdrop.setPluginInstance(airdrop);
 		DropAdmissionController.Lease lease = admission.acquireSystem(
 				DropLocationKey.from(barrelLocation),
@@ -352,7 +354,22 @@ class CrateHopperListenerTest {
 	}
 
 	private InventoryMoveItemEvent extractionEvent(ItemStack item) {
-		return new InventoryMoveItemEvent(barrelInventory, item, hopperInventory, false);
+		return extractionEvent(item, barrelInventory);
+	}
+
+	private InventoryMoveItemEvent extractionEvent(ItemStack item, Inventory contents) {
+		Inventory source = mock(Inventory.class);
+		when(source.getType()).thenReturn(InventoryType.BARREL);
+		when(source.getLocation()).thenReturn(barrelLocation);
+		when(source.isEmpty()).thenAnswer(ignored -> contents.isEmpty());
+		return new InventoryMoveItemEvent(source, item, hopperInventory, false);
+	}
+
+	private void runNextTickTasks() {
+		List<Runnable> tasks = List.copyOf(nextTickTasks);
+		nextTickTasks.clear();
+		tasks.forEach(Runnable::run);
+		assertTrue(nextTickTasks.isEmpty(), "Cleanup must not leave follow-up work queued");
 	}
 
 	private static class CancelMoveListener implements Listener {

@@ -1,6 +1,7 @@
 package com.airdropmc.listeners;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -22,10 +23,15 @@ import com.airdropmc.limits.DropLocationKey;
 
 public class CrateHopperListener implements Listener {
 
-	private final Plugin plugin;
+	private final Consumer<Runnable> nextTickScheduler;
 
 	public CrateHopperListener(Plugin plugin) {
-		this.plugin = Objects.requireNonNull(plugin, "plugin");
+		Plugin requiredPlugin = Objects.requireNonNull(plugin, "plugin");
+		this.nextTickScheduler = task -> Bukkit.getScheduler().runTask(requiredPlugin, task);
+	}
+
+	CrateHopperListener(Consumer<Runnable> nextTickScheduler) {
+		this.nextTickScheduler = Objects.requireNonNull(nextTickScheduler, "nextTickScheduler");
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -44,7 +50,7 @@ public class CrateHopperListener implements Listener {
 		}
 		DropLocationKey locationKey = DropLocationKey.from(barrelLocation);
 
-		Bukkit.getScheduler().runTask(plugin, () -> cleanupCrateAfterExtraction(locationKey, expectedCrate));
+		nextTickScheduler.accept(() -> cleanupCrateAfterExtraction(locationKey, expectedCrate));
 	}
 
 	private void cleanupCrateAfterExtraction(DropLocationKey locationKey, Crate expectedCrate) {

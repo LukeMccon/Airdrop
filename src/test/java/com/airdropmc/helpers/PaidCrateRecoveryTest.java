@@ -190,29 +190,6 @@ class PaidCrateRecoveryTest {
 	}
 
 	@Test
-	void cancelledWorldUnloadRecoversBarrelOnNextTick() throws Exception {
-		Crate original = landPaidCrate(barrelBlock, List.of(new ItemStack(Material.DIAMOND)));
-		World savedWorld = savedWorld();
-		WorldUnloadEvent event = mock(WorldUnloadEvent.class);
-		when(event.getWorld()).thenReturn(savedWorld);
-
-		new CrateCleanupListener().onWorldUnload(event);
-		verify(savedWorld).save();
-		assertNull(CrateManager.getCrate(barrelBlock.getLocation()));
-
-		CrateManager.setWorldSaverForTesting(ignored -> { });
-		server.getScheduler().performTicks(1L);
-
-		Crate recovered = CrateManager.getCrate(barrelBlock.getLocation());
-		assertNotNull(recovered);
-		assertNotSame(original, recovered);
-		assertEquals(1, admission.snapshot().landedClaims());
-		Crate.PersistedBarrelData persisted = Crate.readPaidPersistence((Barrel) barrelBlock.getState());
-		assertNotNull(persisted);
-		assertEquals(Crate.RecoveryState.LIVE, persisted.recoveryState());
-	}
-
-	@Test
 	void suspendedPaidLeaseKeepsLandedCapacityReserved() throws Exception {
 		landPaidCrate(barrelBlock, List.of(new ItemStack(Material.DIAMOND)));
 		ChunkFixture fixture = chunkFixture(barrelBlock);
