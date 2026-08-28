@@ -66,14 +66,67 @@ class DropAdmissionControllerTest {
 	}
 
 	@Test
-	void bypass_skipsCooldownButNeverCapacity() throws Exception {
+	void bypass_neverSkipsPendingRequestGuard() throws Exception {
 		DropAdmissionController controller = new DropAdmissionController(clock::get);
-		controller.acquirePlayer(PLAYER, true, LOCATION, LIMITS);
-		controller.acquirePlayer(PLAYER, true, OTHER_LOCATION, LIMITS);
+		Lease pending = controller.acquirePlayer(PLAYER, true, LOCATION, LIMITS);
+
+		DropLimitException rejection = assertThrows(DropLimitException.class,
+				() -> controller.acquirePlayer(PLAYER, true, OTHER_LOCATION, LIMITS));
+
+		assertEquals(Reason.REQUEST_PENDING, rejection.getReason());
+		pending.close();
+		pending.close();
+		assertEquals(0, controller.snapshot().pending());
+		assertDoesNotThrow(() -> controller.acquirePlayer(PLAYER, true, OTHER_LOCATION, LIMITS).close());
+	}
+
+	@Test
+	void bypass_clearsPendingWithoutStartingCooldownAfterSuccessfulSpawn() throws Exception {
+		DropAdmissionController controller = new DropAdmissionController(clock::get);
+		Lease successful = controller.acquirePlayer(PLAYER, true, LOCATION, LIMITS);
+
+		successful.commitSpawn();
+
+		assertEquals(0, controller.snapshot().pending());
+		assertEquals(0, controller.snapshot().cooldowns());
+		Lease immediate = controller.acquirePlayer(PLAYER, true, OTHER_LOCATION, LIMITS);
+		successful.close();
+		assertEquals(1, controller.snapshot().pending());
+		immediate.close();
+	}
+
+	@Test
+	void bypass_neverSkipsFallingCapacity() throws Exception {
+		DropAdmissionController controller = new DropAdmissionController(clock::get);
+		Lease first = controller.acquirePlayer(PLAYER, true, LOCATION, LIMITS);
+		first.commitSpawn();
+		Lease second = controller.acquirePlayer(PLAYER, true, OTHER_LOCATION, LIMITS);
+		second.commitSpawn();
 
 		DropLimitException rejection = assertThrows(DropLimitException.class,
 				() -> controller.acquirePlayer(PLAYER, true, THIRD_LOCATION, LIMITS));
+
 		assertEquals(Reason.FALLING_CAPACITY, rejection.getReason());
+		second.close();
+		first.close();
+	}
+
+	@Test
+	void bypass_neverSkipsLandedCapacity() throws Exception {
+		DropAdmissionController controller = new DropAdmissionController(clock::get);
+		DropLimitSettings twoLanded = new DropLimitSettings(
+				Duration.ofSeconds(30), 3, 2, Duration.ofSeconds(600));
+		Lease first = controller.acquirePlayer(PLAYER, true, LOCATION, twoLanded);
+		first.commitSpawn();
+		Lease second = controller.acquirePlayer(PLAYER, true, OTHER_LOCATION, twoLanded);
+		second.commitSpawn();
+
+		DropLimitException rejection = assertThrows(DropLimitException.class,
+				() -> controller.acquirePlayer(PLAYER, true, THIRD_LOCATION, twoLanded));
+
+		assertEquals(Reason.LANDED_CAPACITY, rejection.getReason());
+		second.close();
+		first.close();
 	}
 
 	@Test

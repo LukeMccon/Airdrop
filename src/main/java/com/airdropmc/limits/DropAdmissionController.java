@@ -117,7 +117,7 @@ public final class DropAdmissionController {
 			throw new DropLimitException(Reason.SHUTTING_DOWN);
 		}
 		cooldowns.entrySet().removeIf(entry -> elapsed(now, entry.getValue()) >= entry.getValue().durationNanos());
-		if (!cooldownBypass && pending.contains(playerId)) {
+		if (playerId != null && pending.contains(playerId)) {
 			throw new DropLimitException(Reason.REQUEST_PENDING);
 		}
 		Cooldown cooldown = cooldownBypass ? null : cooldowns.get(playerId);
@@ -141,7 +141,7 @@ public final class DropAdmissionController {
 		falling++;
 		landedClaims++;
 		locations.add(location);
-		if (!cooldownBypass) {
+		if (playerId != null) {
 			pending.add(playerId);
 		}
 		return lease;
@@ -157,11 +157,13 @@ public final class DropAdmissionController {
 		}
 		lease.state = LeaseState.FALLING;
 		lease.requestCommitted = true;
-		if (lease.playerId == null || lease.cooldownBypass) {
+		if (lease.playerId == null) {
 			return;
 		}
 		pending.remove(lease.playerId);
-		cooldowns.put(lease.playerId, new Cooldown(nanoTime.getAsLong(), lease.cooldown.toNanos()));
+		if (!lease.cooldownBypass) {
+			cooldowns.put(lease.playerId, new Cooldown(nanoTime.getAsLong(), lease.cooldown.toNanos()));
+		}
 	}
 
 	private synchronized void markLanded(Lease lease) {
