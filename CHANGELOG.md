@@ -9,7 +9,7 @@ These release notes cover changes since Airdrop 3.2.0, the latest stable 3.x rel
 ### Configure each drop in more detail
 
 - Configure the drop height, falling speed, and number of parachute chickens.
-- New installations drop crates from 40 blocks above the landing point by default, up from 20 blocks. Existing configured values remain unchanged.
+- Crates drop from 100 blocks above the landing point by default.
 - Toggle landing, continuous glow, flare, and smoke effects independently.
 - Set the height of the smoke trail.
 - Out-of-range numeric settings fall back to safe defaults.
