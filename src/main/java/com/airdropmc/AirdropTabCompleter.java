@@ -1,25 +1,34 @@
 package com.airdropmc;
 
 import com.airdropmc.commands.PackageTabCompletion;
+import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.packages.PackageManager;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class AirdropTabCompleter implements TabCompleter {
 
-    private static final List<String> subCommands = Arrays.asList("[packageName]", "package", "packages", "version");
     @Override
     public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
-        // If no arguments, return false
-        if (args.length == 1) {
-            return subCommands;
+        if (!Airdrop.isReady()) {
+            return args.length == 1 ? List.of(AirdropCommandNames.VERSION) : List.of();
         }
 
-        if (args[0].equals("package")) {
+        // If no arguments, return false
+        if (args.length == 1) {
+            Set<String> suggestions = new LinkedHashSet<>(PackageManager.getPackages());
+            suggestions.addAll(AirdropCommandNames.visibleTo(PermissionsHelper.isAdmin(commandSender)));
+            return new ArrayList<>(suggestions);
+        }
+
+        if (Objects.equals(args[0], AirdropCommandNames.PACKAGE)) {
             return (new PackageTabCompletion()).onTabComplete(commandSender, command, alias, args);
         }
         return new ArrayList<>();

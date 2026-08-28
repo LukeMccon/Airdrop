@@ -61,15 +61,24 @@ public class DropOptions {
 
     // Getters that fall back to config values if not set
     public int getChickenCount() {
-        return chickenCount != null ? chickenCount : ConfigKeys.getParachuteChickenCount();
+        if (chickenCount == null) {
+            return ConfigKeys.getParachuteChickenCount();
+        }
+        return ConfigKeys.sanitizeParachuteChickenCount(chickenCount);
     }
 
     public double getFallingSpeed() {
-        return fallingSpeed != null ? fallingSpeed : ConfigKeys.getDropFallingSpeed();
+        if (fallingSpeed == null) {
+            return ConfigKeys.getDropFallingSpeed();
+        }
+        return ConfigKeys.sanitizeDropFallingSpeed(fallingSpeed);
     }
 
     public int getDropHeight() {
-        return dropHeight != null ? dropHeight : ConfigKeys.getDropHeight();
+        if (dropHeight == null) {
+            return ConfigKeys.getDropHeight();
+        }
+        return ConfigKeys.sanitizeDropHeight(dropHeight);
     }
 
     public boolean shouldShowLandingEffects() {
@@ -89,6 +98,9 @@ public class DropOptions {
     }
 
     public int getSmokeHeight() {
-        return smokeHeight != null ? smokeHeight : ConfigKeys.getSmokeHeight();
+        if (smokeHeight == null) {
+            return ConfigKeys.getSmokeHeight();
+        }
+        return ConfigKeys.sanitizeSmokeHeight(smokeHeight);
     }
 }

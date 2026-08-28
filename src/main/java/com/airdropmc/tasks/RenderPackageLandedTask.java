@@ -24,7 +24,7 @@ public class RenderPackageLandedTask extends BukkitRunnable {
     public RenderPackageLandedTask(Location location, World world) {
         // Make the effects appear midway in the block
         Vector reposition = new Vector(0.5, VERTICAL_OFFSET, 0.5);
-        this.location = location.add(reposition);
+        this.location = location.clone().add(reposition);
         this.world = world;
     }
 
