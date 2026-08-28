@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.github.PimvanderLoos.LightKeeper</groupId>
+        <artifactId>lightkeeper-parent</artifactId>
+        <version>be585af08221c37bcbc8c9d7f5a40a27dbd2dff1</version>
+    </parent>
+
+    <groupId>com.airdropmc.lightkeeper-adapter</groupId>
+    <artifactId>lightkeeper-maven-plugin</artifactId>
+    <version>be585af08221c37bcbc8c9d7f5a40a27dbd2dff1-airdrop1</version>
+    <packaging>maven-plugin</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.github.PimvanderLoos.LightKeeper</groupId>
+            <artifactId>lightkeeper-runtime-core</artifactId>
+            <version>be585af08221c37bcbc8c9d7f5a40a27dbd2dff1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.PimvanderLoos.LightKeeper</groupId>
+            <artifactId>lightkeeper-agent-spigot</artifactId>
+            <version>be585af08221c37bcbc8c9d7f5a40a27dbd2dff1</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+            <version>${version.maven}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-core</artifactId>
+            <version>${version.maven}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${version.jackson-databind}</version>
+        </dependency>
+    </dependencies>
+</project>

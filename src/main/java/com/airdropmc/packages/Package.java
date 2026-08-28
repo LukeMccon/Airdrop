@@ -5,16 +5,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import com.airdropmc.exceptions.CannotAffordException;
-import com.airdropmc.exceptions.EconomyUnavailableException;
-import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.ChatTheme;
-import com.airdropmc.lang.MessageKey;
-import com.airdropmc.Airdrop;
-import com.airdropmc.config.ConfigKeys;
-import com.airdropmc.economy.EconomyProvider;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -51,31 +43,6 @@ public class Package {
 
 	public String getName() {
 		return this.name;
-	}
-
-	public boolean canAfford(Player player) {
-		if (!ConfigKeys.isEconomyEnabled()) {
-			return true;
-		}
-		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (economy == null) {
-			return false;
-		}
-		return Double.compare(economy.getBalance(player), this.price) >= 0;
-	}
-
-	public void chargeUser(Player player) throws CannotAffordException, EconomyUnavailableException {
-		if (!ConfigKeys.isEconomyEnabled()) {
-			return;
-		}
-		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (economy == null) {
-			throw new EconomyUnavailableException();
-		}
-		if (!economy.withdraw(player, this.price).success()) {
-			throw new CannotAffordException(player.getName(), this.price);
-		}
-		ChatHandler.send(player, MessageKey.DROP_CHARGED, Map.of("amount", String.valueOf(this.price)));
 	}
 
 	public String toString() {
@@ -172,15 +139,23 @@ public class Package {
 	}
 
 	public List<ItemStack> getItems() {
-		return new ArrayList<>(this.items);
+		return cloneItems(this.items);
 	}
 
 	public void setItems(List<ItemStack> items) {
 		if (items != null && !items.isEmpty()) {
-			this.items = new ArrayList<>(items);
+			this.items = cloneItems(items);
 		} else {
 			this.items = new ArrayList<>();
 		}
+	}
+
+	private static List<ItemStack> cloneItems(List<ItemStack> items) {
+		List<ItemStack> clonedItems = new ArrayList<>(items.size());
+		for (ItemStack item : items) {
+			clonedItems.add(item != null ? item.clone() : null);
+		}
+		return clonedItems;
 	}
 
 }

@@ -17,6 +17,16 @@ import static org.mockito.Mockito.when;
 
 class PermissionsHelperTest {
 
+	@Test
+	void hasCooldownBypass_checksOnlyNarrowPermission() {
+		Player player = mock(Player.class);
+		when(player.hasPermission("airdrop.cooldown.bypass")).thenReturn(true);
+
+		assertTrue(PermissionsHelper.hasCooldownBypass(player));
+		verify(player).hasPermission("airdrop.cooldown.bypass");
+		verify(player, never()).hasPermission("airdrop.admin");
+	}
+
 	private Locale defaultLocale;
 
 	@BeforeEach
@@ -60,12 +70,49 @@ class PermissionsHelperTest {
 	}
 
 	@Test
-	void hasPermission_supportsExactCasePermissionNodeAsFallback() {
+	void hasPermissionChecksOnlyCanonicalPackageNode() {
+		Player player = mock(Player.class);
+		when(player.hasPermission("airdrop.admin")).thenReturn(false);
+		when(player.isOp()).thenReturn(false);
+		when(player.hasPermission("airdrop.package.mixedcase")).thenReturn(true);
+
+		assertTrue(PermissionsHelper.hasPermission(player, "MixedCase"));
+		verify(player).hasPermission("airdrop.package.mixedcase");
+		verify(player, never()).hasPermission("airdrop.package.MixedCase");
+	}
+
+	@Test
+	void hasPermissionDoesNotAcceptExactCaseLegacyNode() {
 		Player player = mock(Player.class);
 		when(player.hasPermission("airdrop.admin")).thenReturn(false);
 		when(player.isOp()).thenReturn(false);
 		when(player.hasPermission("airdrop.package.MixedCase")).thenReturn(true);
 
-		assertTrue(PermissionsHelper.hasPermission(player, "MixedCase"));
+		assertFalse(PermissionsHelper.hasPermission(player, "MixedCase"));
+		verify(player, never()).hasPermission("airdrop.package.MixedCase");
+	}
+
+	@Test
+	void hasPermissionRejectsInvalidIdentityBeforeAdminOrGlobalBypass() {
+		Player player = mock(Player.class);
+		when(player.hasPermission("airdrop.admin")).thenReturn(true);
+
+		assertFalse(PermissionsHelper.hasPermission(player, "all"));
+		assertFalse(PermissionsHelper.hasPermission(player, "reload"));
+		assertFalse(PermissionsHelper.hasPermission(player, "bad.name"));
+		verify(player, never()).hasPermission("airdrop.package.all");
+	}
+
+	@Test
+	void hasPermissionPreservesAdminAndGlobalAccessForValidNames() {
+		Player admin = mock(Player.class);
+		when(admin.hasPermission("airdrop.admin")).thenReturn(true);
+		assertTrue(PermissionsHelper.hasPermission(admin, "starter"));
+
+		Player globallyAllowed = mock(Player.class);
+		when(globallyAllowed.hasPermission("airdrop.admin")).thenReturn(false);
+		when(globallyAllowed.isOp()).thenReturn(false);
+		when(globallyAllowed.hasPermission("airdrop.package.all")).thenReturn(true);
+		assertTrue(PermissionsHelper.hasPermission(globallyAllowed, "starter"));
 	}
 }

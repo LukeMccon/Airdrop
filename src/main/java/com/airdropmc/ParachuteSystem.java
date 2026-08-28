@@ -1,6 +1,8 @@
 package com.airdropmc;
 
 import java.util.ArrayList;
+import java.util.Objects;
+import java.util.logging.Level;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Chicken;
@@ -13,6 +15,7 @@ import org.bukkit.util.Vector;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.airdropmc.config.DropOptions;
+import com.airdropmc.helpers.AirdropLogger;
 
 /**
  * Manages the parachute system for airdrops, including chicken parachutes and
@@ -20,20 +23,28 @@ import com.airdropmc.config.DropOptions;
  */
 public class ParachuteSystem {
     private final World world;
-    private final ArrayList<Chicken> chickenParachutes;
-    private final DropOptions options;
+	private final ArrayList<Chicken> chickenParachutes;
+	private final DropOptions options;
+	private final Runnable fallingCrateLostHandler;
     private Slime parachuteLeash;
     private FallingBlock fallingCrate;
     private BukkitTask parachuteTask;
     private BukkitTask delayedCleanupTask;
-    private Airdrop plugin;
-    private boolean parachutesReleased;
+	private Airdrop plugin;
+	private boolean parachutesReleased;
+	private boolean fallingCrateLossHandled;
 
-    public ParachuteSystem(World world, DropOptions options) {
-        this.world = world;
-        this.chickenParachutes = new ArrayList<>();
-        this.options = options;
-    }
+	public ParachuteSystem(World world, DropOptions options) {
+		this(world, options, () -> {});
+	}
+
+	ParachuteSystem(World world, DropOptions options, Runnable fallingCrateLostHandler) {
+		this.world = world;
+		this.chickenParachutes = new ArrayList<>();
+		this.options = options;
+		this.fallingCrateLostHandler = Objects.requireNonNull(
+				fallingCrateLostHandler, "fallingCrateLostHandler");
+	}
 
     /**
      * Initializes the parachute system for a falling crate
@@ -43,9 +54,10 @@ public class ParachuteSystem {
      */
     public void initialize(Location dropLocation, FallingBlock fallingCrate, Airdrop plugin) {
         this.fallingCrate = fallingCrate;
-        this.plugin = plugin;
-        this.parachutesReleased = false;
-        cancelDelayedCleanupTask();
+		this.plugin = plugin;
+		this.parachutesReleased = false;
+		this.fallingCrateLossHandled = false;
+		cancelDelayedCleanupTask();
 
         // Create a tiny invisible slime to hold leashes for the crate
         Location leashLocation = dropLocation.clone().add(new Vector(0, 1, 0));
@@ -61,9 +73,9 @@ public class ParachuteSystem {
                     .add(new Vector(Math.random() * 0.25, 2 + i, Math.random() * 0.25));
             Chicken chicken = (Chicken) world.spawnEntity(
                     chickenLocation, EntityType.CHICKEN);
+			chickenParachutes.add(chicken);
             chicken.setInvulnerable(true);
             chicken.setLeashHolder(parachuteLeash);
-            chickenParachutes.add(chicken);
         }
 
         // Add the slime as a passenger on the fallingCrate
@@ -78,11 +90,12 @@ public class ParachuteSystem {
             return;
         }
         parachuteTask = Bukkit.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
-            @Override
-            public void run() {
-                if (fallingCrate == null || fallingCrate.isDead()) {
-                    releaseParachutes();
-                    return;
+			@Override
+			public void run() {
+				if (fallingCrate == null || fallingCrate.isDead()) {
+					handleFallingCrateLoss();
+					releaseParachutes();
+					return;
                 }
 
                 // Play smoke effects
@@ -97,8 +110,16 @@ public class ParachuteSystem {
                 // Maintain falling velocity
                 fallingCrate.setVelocity(new Vector(0, fallingVelocity, 0));
             }
-        }, 0, 2);
-    }
+		}, 0, 2);
+	}
+
+	private void handleFallingCrateLoss() {
+		if (fallingCrateLossHandled) {
+			return;
+		}
+		fallingCrateLossHandled = true;
+		fallingCrateLostHandler.run();
+	}
 
     /**
      * Releases the parachutes and cleans up the system.
@@ -143,39 +164,69 @@ public class ParachuteSystem {
      */
     public void cancel() {
         parachutesReleased = true;
-        if (parachuteTask != null && !parachuteTask.isCancelled()) {
-            parachuteTask.cancel();
-        }
-        parachuteTask = null;
+		cancelParachuteTask();
         cancelDelayedCleanupTask();
         // Immediately remove all entities
         cleanupParachuteEntities();
     }
 
 	private void cleanupParachuteEntities() {
+		ArrayList<Chicken> retainedChickens = new ArrayList<>();
 		for (Chicken chicken : chickenParachutes) {
-			if (chicken != null && chicken.isValid() && !chicken.isDead()) {
-				chicken.remove();
+			if (chicken != null && !cleanupResource("chicken parachute", () -> {
+				if (chicken.isValid() && !chicken.isDead()) {
+					chicken.remove();
+				}
+			})) {
+				retainedChickens.add(chicken);
 			}
 		}
 		chickenParachutes.clear();
+		chickenParachutes.addAll(retainedChickens);
 
-		if (parachuteLeash != null && parachuteLeash.isValid() && !parachuteLeash.isDead()) {
-			parachuteLeash.remove();
+		Slime leash = parachuteLeash;
+		if (leash == null || cleanupResource("parachute leash", () -> {
+			if (leash.isValid() && !leash.isDead()) {
+				leash.remove();
+			}
+		})) {
+			parachuteLeash = null;
 		}
 	}
 
     private void cancelParachuteTask() {
-        if (parachuteTask != null && !parachuteTask.isCancelled()) {
-            parachuteTask.cancel();
-        }
-        parachuteTask = null;
+		BukkitTask task = parachuteTask;
+		if (task == null || cleanupResource("parachute task", () -> {
+			if (!task.isCancelled()) {
+				task.cancel();
+			}
+		})) {
+			parachuteTask = null;
+		}
     }
 
     private void cancelDelayedCleanupTask() {
-        if (delayedCleanupTask != null && !delayedCleanupTask.isCancelled()) {
-            delayedCleanupTask.cancel();
-        }
-        delayedCleanupTask = null;
+		BukkitTask task = delayedCleanupTask;
+		if (task == null || cleanupResource("delayed parachute cleanup task", () -> {
+			if (!task.isCancelled()) {
+				task.cancel();
+			}
+		})) {
+			delayedCleanupTask = null;
+		}
     }
+
+	private boolean cleanupResource(String resource, Runnable cleanup) {
+		try {
+			cleanup.run();
+			return true;
+		} catch (RuntimeException failure) {
+			try {
+				AirdropLogger.log(Level.WARNING, "Failed to clean up " + resource, failure);
+			} catch (RuntimeException loggingFailure) {
+				failure.addSuppressed(loggingFailure);
+			}
+			return false;
+		}
+	}
 }

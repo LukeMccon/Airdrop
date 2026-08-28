@@ -15,7 +15,7 @@ public class ChatHandler {
 
 	}
 
-	private static LanguageManager lang;
+	private static volatile LanguageManager lang;
 
 	public static void init(LanguageManager langManager) {
 		lang = langManager;

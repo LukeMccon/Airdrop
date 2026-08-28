@@ -1,5 +1,6 @@
 package com.airdropmc.packages;
 
+import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
@@ -7,9 +8,9 @@ import com.airdropmc.exceptions.DuplicatePackageException;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -22,18 +23,16 @@ import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 
 public class CreatePackageGui extends Gui implements Listener {
     private final Inventory inv;
     private final String name;
     private final double price;
-    private final PlayerInventorySnapshot inventorySnapshot = new PlayerInventorySnapshot();
-    private UUID viewerId;
+    private final PackageEditorSession session;
 
 	public CreatePackageGui(String name, double price) {
 
@@ -43,6 +42,7 @@ public class CreatePackageGui extends Gui implements Listener {
         int inventorySize = 36;
 
         inv = Bukkit.createInventory(null, inventorySize, name);
+        session = new PackageEditorSession(inv);
 
         initializeItems();
     }
@@ -66,118 +66,196 @@ public class CreatePackageGui extends Gui implements Listener {
         inv.setItem(inventorySize - 1, createGuiItem(Material.RED_WOOL, ChatHandler.get(MessageKey.GUI_CANCEL), 1));
     }
 
-    public void openInventory(final HumanEntity ent) {
-        if (ent instanceof Player p) {
-            this.viewerId = p.getUniqueId();
-            this.inventorySnapshot.capture(p);
+    public boolean openInventory(final Player player) {
+        if (!session.bind(player)) {
+            return false;
         }
-        ent.openInventory(inv);
+
+        Airdrop plugin = Airdrop.getPluginInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            return retire();
+        }
+
+        try {
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+            InventoryView view = player.openInventory(inv);
+            if (view == null || view.getTopInventory() != inv || !session.activate(view.getTopInventory())) {
+                return retire();
+            }
+            return true;
+        } catch (RuntimeException error) {
+            retire();
+            throw error;
+        }
     }
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(final InventoryClickEvent e) {
-		InventoryView view = e.getView();
-		if (!view.getTopInventory().equals(inv)) {
-			return;
-		}
-		if (!(e.getWhoClicked() instanceof Player p)) {
+		Inventory top = e.getView().getTopInventory();
+		if (!(e.getWhoClicked() instanceof Player player) || !session.protects(player, top)) {
 			return;
 		}
 
-        e.setCancelled(true);
+		e.setCancelled(true);
+		if (!session.canProcess(player, top)) {
+			return;
+		}
 
 		Inventory clickedInventory = e.getClickedInventory();
 		if (clickedInventory == null) {
 			return;
 		}
 
-		final ItemStack clickedItem = e.getCurrentItem();
+		boolean controlSlot = clickedInventory == inv && isControlSlot(e.getSlot());
+		PackageEditorInteraction.VirtualAction action = PackageEditorInteraction.classify(
+				e.getClick(), e.getAction(), e.getCursor(), controlSlot);
+		if (action == PackageEditorInteraction.VirtualAction.DENY) {
+			return;
+		}
 
-        if (clickedItem == null || clickedItem.getType().isAir()) {
-            return;
-        }
+		ItemStack clickedItem = e.getCurrentItem();
+		if (clickedItem == null || clickedItem.getType().isAir()) {
+			return;
+		}
 
-        String itemStackName = getDisplayName(clickedItem);
+		if (action == PackageEditorInteraction.VirtualAction.CONTROL) {
+			handleControl(e, player);
+			return;
+		}
 
-        String saveLabel = ChatHandler.get(MessageKey.GUI_SAVE);
-        String cancelLabel = ChatHandler.get(MessageKey.GUI_CANCEL);
-        String helpLabel = ChatHandler.get(MessageKey.GUI_HELP);
+		if (!PermissionsHelper.isAdmin(player)) {
+			return;
+		}
 
-        if (clickedInventory.equals(inv) && Objects.equals(itemStackName, saveLabel)) {
-            if (PermissionsHelper.isAdmin(p)) {
-                this.save(e);
-            } else {
-                ChatHandler.sendError(p, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
-            }
-            return;
-        }
+		if (clickedInventory == inv) {
+			if (isEditablePackageSlot(e.getSlot())) {
+				removeFromPackage(e.getSlot(), clickedItem, action);
+			}
+			return;
+		}
 
-        if (clickedInventory.equals(inv) && Objects.equals(itemStackName, cancelLabel)) {
-            this.cancel(e);
-            return;
-        }
+		if (clickedInventory == player.getInventory()) {
+			addItemToPackage(
+					player,
+					clickedItem,
+					action == PackageEditorInteraction.VirtualAction.SINGLE_ITEM);
+		}
+	}
 
-        if (clickedInventory.equals(inv) && Objects.equals(itemStackName, helpLabel)) {
-            return;
-        }
+	private void handleControl(InventoryClickEvent event, Player player) {
+		int slot = event.getSlot();
+		if (slot == inv.getSize() - 2) {
+			if (PermissionsHelper.isAdmin(player)) {
+				save(event);
+			} else {
+				ChatHandler.sendError(player, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
+			}
+		} else if (slot == inv.getSize() - 1) {
+			cancel(event);
+		}
+	}
 
-        if (!PermissionsHelper.isAdmin(p)) {
-            return;
-        }
+	private void removeFromPackage(
+			int slot,
+			ItemStack clickedItem,
+			PackageEditorInteraction.VirtualAction action) {
+		if (action == PackageEditorInteraction.VirtualAction.SINGLE_ITEM && clickedItem.getAmount() > 1) {
+			ItemStack updated = clickedItem.clone();
+			updated.setAmount(clickedItem.getAmount() - 1);
+			inv.setItem(slot, updated);
+			return;
+		}
 
-        if (clickedInventory.equals(inv)) {
-            if (isEditablePackageSlot(e.getSlot())) {
-                if (e.isRightClick() && clickedItem.getAmount() > 1) {
-                    ItemStack updated = clickedItem.clone();
-                    updated.setAmount(clickedItem.getAmount() - 1);
-                    inv.setItem(e.getSlot(), updated);
-                } else {
-                    inv.setItem(e.getSlot(), null);
-                }
-            }
-            return;
-        }
-
-        if (clickedInventory.equals(p.getInventory())) {
-            addItemToPackage(p, clickedItem, e.isRightClick());
-        }
-    }
+		inv.setItem(slot, null);
+	}
 
     /**
      * Handle when a player drags an item
      * 
      * @param e drag event
      */
-	@EventHandler
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onInventoryClick(final InventoryDragEvent e) {
-		if (e.getInventory().equals(inv)) {
+		if (session.protects(e.getWhoClicked(), e.getView().getTopInventory())) {
 			e.setCancelled(true);
 		}
 	}
 
     @EventHandler
     public void onInventoryClose(final InventoryCloseEvent e) {
-        if (e.getInventory().equals(inv) && e.getPlayer() instanceof Player p) {
-            inventorySnapshot.restore(p);
-            HandlerList.unregisterAll(this);
+        if (session.protects(e.getPlayer(), e.getInventory())) {
+            retire();
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent e) {
-        if (viewerId != null && viewerId.equals(e.getPlayer().getUniqueId())) {
-            inventorySnapshot.restore(e.getPlayer());
-            HandlerList.unregisterAll(this);
+        if (session.viewerId() != null && session.viewerId().equals(e.getPlayer().getUniqueId())) {
+            retire();
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerKick(PlayerKickEvent e) {
-        if (viewerId != null && viewerId.equals(e.getPlayer().getUniqueId())) {
-            inventorySnapshot.restore(e.getPlayer());
-            HandlerList.unregisterAll(this);
-        }
+		if (session.viewerId() == null || !session.viewerId().equals(e.getPlayer().getUniqueId())
+				|| !session.beginExitTransition()) {
+			return;
+		}
+		scheduleKickObservation(e.getPlayer());
     }
+
+	private boolean retire() {
+		if (!session.retire()) {
+			return false;
+		}
+		HandlerList.unregisterAll(this);
+		return false;
+	}
+
+	private void scheduleTransition(Player player, Runnable viewChange) {
+		if (!session.beginTransition()) {
+			return;
+		}
+		scheduleTransitionTask(player, viewChange);
+	}
+
+	private void scheduleTransitionTask(Player player, Runnable viewChange) {
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !plugin.isEnabled()) {
+			retire();
+			return;
+		}
+
+		Bukkit.getScheduler().runTask(plugin, () -> {
+			if (session.state() != PackageEditorSession.State.TRANSITIONING) {
+				return;
+			}
+			if (!player.isOnline() || player.getOpenInventory().getTopInventory() != inv) {
+				retire();
+				return;
+			}
+
+			viewChange.run();
+			if (session.state() == PackageEditorSession.State.TRANSITIONING
+					&& (!player.isOnline() || player.getOpenInventory().getTopInventory() != inv)) {
+				retire();
+			}
+		});
+	}
+
+	private void scheduleKickObservation(Player player) {
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !plugin.isEnabled()) {
+			retire();
+			return;
+		}
+
+		Bukkit.getScheduler().runTask(plugin, () -> {
+			if (!player.isOnline() || player.getOpenInventory().getTopInventory() != inv) {
+				retire();
+			}
+		});
+	}
 
     public String getName() {
         return this.name;
@@ -192,8 +270,18 @@ public class CreatePackageGui extends Gui implements Listener {
 
         Player p = (Player) e.getWhoClicked();
 
-        ItemStack[] newPackageItems = inv.getContents();
-        List<ItemStack> packageItems = PackageManager.sanitizePackageItems(new ArrayList<>(Arrays.asList(newPackageItems)));
+		PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(this.name);
+		if (!nameValidation.accepted()) {
+			MessageKey message = switch (nameValidation.rejection()) {
+				case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
+				case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
+				case RESERVED -> MessageKey.PACKAGES_NAME_RESERVED;
+			};
+			ChatHandler.sendError(p, message);
+			return;
+		}
+
+		List<ItemStack> packageItems = PackageManager.sanitizePackageItems(editableItems());
         if (packageItems.size() > PackageManager.MAX_PACKAGE_ITEM_STACKS) {
             ChatHandler.sendError(p, MessageKey.PACKAGES_ITEM_LIMIT,
                     Map.of("max", String.valueOf(PackageManager.MAX_PACKAGE_ITEM_STACKS)));
@@ -201,20 +289,58 @@ public class CreatePackageGui extends Gui implements Listener {
             return;
         }
 
-        inventorySnapshot.restore(p);
-        p.closeInventory();
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !Airdrop.isReady()) {
+			ChatHandler.sendError(p, MessageKey.ERROR_PLUGIN_NOT_READY);
+			return;
+		}
+		if (!session.beginSave()) {
+			return;
+		}
 
-        Package pkg = new Package(this.name, this.price, packageItems);
-        try {
-            PackageManager.createPackage(pkg);
-        } catch (DuplicatePackageException error) {
-            ChatHandler.sendError(p, MessageKey.ERROR_PACKAGE_EXISTS,
-                    Map.of("name", error.getPackageName()));
-            return;
-        }
-
-        ChatHandler.send(p, MessageKey.PACKAGES_CREATED, Map.of("name", this.getName()));
+		try {
+			Package payload = new Package(this.name, this.price, cloneItems(packageItems));
+			CompletionStage<Boolean> save = plugin.createPackageAsync(payload);
+			if (save == null) {
+				handleSaveCompletion(p, false, null);
+				return;
+			}
+			save.whenComplete((committed, failure) -> handleSaveCompletion(p, committed, failure));
+		} catch (RuntimeException failure) {
+			handleSaveCompletion(p, false, failure);
+		}
     }
+
+	private void handleSaveCompletion(Player player, Boolean committed, Throwable failure) {
+		if (failure == null && Boolean.TRUE.equals(committed)) {
+			if (!session.completeSave()) {
+				return;
+			}
+			scheduleTransitionTask(player, player::closeInventory);
+			ChatHandler.send(player, MessageKey.PACKAGES_CREATED, Map.of("name", this.getName()));
+			return;
+		}
+
+		if (!session.failSave()) {
+			return;
+		}
+
+		Throwable cause = unwrapCompletionException(failure);
+		if (cause instanceof DuplicatePackageException duplicate) {
+			ChatHandler.sendError(player, MessageKey.ERROR_PACKAGE_EXISTS,
+					Map.of("name", duplicate.getPackageName()));
+			return;
+		}
+		ChatHandler.sendError(player, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+	}
+
+	private static Throwable unwrapCompletionException(Throwable failure) {
+		Throwable cause = failure;
+		while (cause instanceof CompletionException && cause.getCause() != null) {
+			cause = cause.getCause();
+		}
+		return cause;
+	}
 
     /**
      * When the cancel control ItemStack is clicked, create the package
@@ -223,8 +349,7 @@ public class CreatePackageGui extends Gui implements Listener {
      */
     public void cancel(final InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
-        inventorySnapshot.restore(p);
-        p.closeInventory();
+		scheduleTransition(p, p::closeInventory);
         ChatHandler.send(p, MessageKey.PACKAGES_CREATE_CANCELED);
     }
 
@@ -232,9 +357,32 @@ public class CreatePackageGui extends Gui implements Listener {
 		return PackageManager.MAX_PACKAGE_ITEM_STACKS;
 	}
 
-    private boolean isEditablePackageSlot(int slot) {
+	private List<ItemStack> editableItems() {
+		List<ItemStack> items = new ArrayList<>(PackageManager.MAX_PACKAGE_ITEM_STACKS);
+		for (int slot = 0; slot < PackageManager.MAX_PACKAGE_ITEM_STACKS; slot++) {
+			ItemStack item = inv.getItem(slot);
+			if (item != null && !item.getType().isAir()) {
+				items.add(item.clone());
+			}
+		}
+		return items;
+	}
+
+	private static List<ItemStack> cloneItems(List<ItemStack> items) {
+		List<ItemStack> clonedItems = new ArrayList<>(items.size());
+		for (ItemStack item : items) {
+			clonedItems.add(item.clone());
+		}
+		return clonedItems;
+	}
+
+	private boolean isEditablePackageSlot(int slot) {
         return slot >= 0 && slot < getFirstControlSlot();
     }
+
+	private boolean isControlSlot(int slot) {
+		return slot >= inv.getSize() - 3 && slot < inv.getSize();
+	}
 
     private void addItemToPackage(Player player, ItemStack itemToCopy, boolean singleItem) {
         int requestedAmount = singleItem ? 1 : itemToCopy.getAmount();

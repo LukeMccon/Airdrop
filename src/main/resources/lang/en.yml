@@ -21,6 +21,7 @@ packages:
   create-example: "Example: /airdrop package create starter 12.0"
   name-required: "You must provide a name for the package"
   name-invalid: "Package names may only contain letters, numbers, underscores, and dashes"
+  name-reserved: "Package names cannot use reserved names: all, *, package, packages, version, reload"
   price-required: "You must provide the package price as a double"
   price-invalid: "Package price must be a finite non-negative number"
   create-open-error: "Unable to open package editor right now"
@@ -28,17 +29,28 @@ packages:
 
 errors:
   cannot-afford: "{accent}{player}{error} cannot afford package price of {accent}{price}{error}"
-  insufficient-permissions: "You lack permission to drop that package (requires {accent}airdrop.package.{package}{error})"
-  economy-unavailable: "Economy provider is unavailable. Contact a server administrator."
+  insufficient-permissions: "You lack permission to drop that package (requires {accent}{permission}{error})"
+  economy-unavailable: "Priced packages are unavailable because economy is disabled or no provider is available. Contact a server administrator."
+  plugin-not-ready: "Airdrop is still starting or is shutting down. Try again shortly."
   reload-unavailable: "Reload unavailable while plugin is shutting down"
+  reload-failed-retained: "Reload failed. The previous configuration remains active. Check the server log."
   packages-reload-failed: "Reload failed because packages configuration is unavailable"
   sky-not-clear: "Sky must be clear above your location to call an airdrop"
   package-not-found: "Package {accent}{name}{error} not found. Use {warning}/airdrop packages{error} to see available packages"
   package-exists: "A package named {accent}{name}{error} already exists"
   package-delete-not-found: "Unable to delete package: {error-detail}{name}{error} not found"
+  package-save-failed: "Could not save package changes. No changes were made. Check the server log."
+  drop-request-pending: "A drop request is already being processed"
+  drop-cooldown: "Wait {seconds} seconds before requesting another airdrop"
+  drop-falling-limit: "Too many airdrops are currently falling; try again shortly"
+  drop-landed-limit: "Too many landed airdrops are active; try again later"
+  drop-location-reserved: "An airdrop already owns this landing location"
+  drop-shutting-down: "Airdrops are unavailable while the plugin is shutting down"
 
 drop:
   charged: "{accent}${amount}{primary} has been taken from your account"
+  failed: "Airdrop failed; no crate was created"
+  refunded: "Airdrop failed; your payment was refunded"
 
 gui:
   save: "Save"
@@ -58,9 +70,10 @@ admin:
 
 system:
   config-loaded: "Config loaded successfully"
-  economy-missing: "Disabling due to missing economy provider (Treasury or Vault)"
-  vault-missing: "Disabling due to missing Vault dependency"
-  reload-success: "Configuration and language reloaded"
+  reload-started: "Reloading configuration..."
+  reload-economy-active: "Configuration, language, packages, and economy reloaded. Provider: {accent}{provider}{primary}"
+  reload-economy-disabled: "Configuration, language, packages, and economy reloaded. Economy is disabled; priced packages are blocked"
+  reload-economy-unavailable: "Reload completed, but no economy provider is available; paid drops are blocked"
   package-price-missing: "Could not find price for package: {accent}{name}"
   package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"
   version-info: "{text}\nAirdrop Version: {accent}{version}{text}\nSpigot API Version: {accent}{api_version}"

@@ -2,6 +2,7 @@ package com.airdropmc.listeners;
 
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.event.EventHandler;
@@ -17,7 +18,7 @@ import com.airdropmc.events.PackageLandEvent;
 
 public class FallingCrateListener implements Listener {
 
-	@EventHandler(priority = EventPriority.NORMAL)
+	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEntityChangeBlockEvent(EntityChangeBlockEvent e) {
 		Entity entity = e.getEntity();
 
@@ -30,33 +31,29 @@ public class FallingCrateListener implements Listener {
 		if (landedCrate == null) {
 			return;
 		}
+		if (e.isCancelled()) {
+			landedCrate.destroy();
+			return;
+		}
 		e.setCancelled(true);
 		// Paper keeps FallingBlock entities alive after event cancellation.
 		// Explicitly remove it so it doesn't fire again and place an empty barrel.
 		fallingBlock.remove();
-		Location loc = entity.getLocation();
-		World world = loc.getWorld();
-		if (world == null) {
+		Block landingBlock = e.getBlock();
+		if (landingBlock == null) {
 			landedCrate.destroy();
 			return;
 		}
+		Location landingLocation = landingBlock.getLocation();
+		World world = landingBlock.getWorld();
 		try {
-			landedCrate.land(loc.getBlock());
+			landedCrate.land(landingBlock);
 		} catch (RuntimeException landFailure) {
-			rollbackFailedLanding(landedCrate);
+			CrateManager.removeCrateAndDestroy(landedCrate);
 			throw landFailure;
 		}
-		PackageLandEvent landEvent = new PackageLandEvent(landedCrate, world, loc, loc.getBlock());
+		PackageLandEvent landEvent = new PackageLandEvent(
+				landedCrate, world, landingLocation, landingBlock);
 		Bukkit.getPluginManager().callEvent(landEvent);
-	}
-
-	private void rollbackFailedLanding(Crate crate) {
-		Location landedLocation = crate.getLandedLocation();
-		if (landedLocation != null) {
-			if (CrateManager.removeCrateAndDestroy(landedLocation)) {
-				return;
-			}
-		}
-		crate.destroy();
 	}
 }

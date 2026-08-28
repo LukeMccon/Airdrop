@@ -6,6 +6,7 @@ build/
 # Gradle Run/Server working dirs (if using run-task or local test server)
 run/
 server/
+.worktrees/
 
 # Maven (legacy artifacts during migration)
 target/

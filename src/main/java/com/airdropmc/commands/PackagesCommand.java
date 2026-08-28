@@ -30,6 +30,11 @@ public class PackagesCommand {
             return;
         }
 
+        if (!Airdrop.isReady() || Airdrop.getPackagesGui() == null) {
+            ChatHandler.sendError(sender, MessageKey.ERROR_PLUGIN_NOT_READY);
+            return;
+        }
+
         Airdrop.getPackagesGui().openInventory((Player) sender);
     }
 }

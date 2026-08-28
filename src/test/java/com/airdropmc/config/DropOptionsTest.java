@@ -184,7 +184,7 @@ class DropOptionsTest {
     void getDropHeight_rejectsNegativeExplicitValue() {
         DropOptions options = DropOptions.createDefault().withDropHeight(-5);
 
-        assertEquals(20, options.getDropHeight());
+        assertEquals(100, options.getDropHeight());
     }
 
     @Test

@@ -1,14 +1,17 @@
 package com.airdropmc.economy;
 
-import org.bukkit.entity.Player;
+import java.math.BigDecimal;
+import java.util.concurrent.CompletionStage;
 
 public interface EconomyProvider {
 
-	double getBalance(Player player);
+	boolean nativeAsync();
 
-	EconomyResult withdraw(Player player, double amount);
+	CompletionStage<EconomyResult> canAfford(EconomyPlayer player, BigDecimal amount);
 
-	EconomyResult deposit(Player player, double amount);
+	CompletionStage<EconomyResult> withdraw(EconomyPlayer player, BigDecimal amount);
+
+	CompletionStage<EconomyResult> deposit(EconomyPlayer player, BigDecimal amount);
 
 	String getName();
 }
