@@ -51,6 +51,7 @@ class DropControllerEconomyFlowTest {
 	private DropAdmissionController admission;
 	private EconomyProvider economy;
 	private Airdrop plugin;
+	private YamlConfiguration configValues;
 
 	@BeforeEach
 	void setUp() throws Exception {
@@ -169,6 +170,19 @@ class DropControllerEconomyFlowTest {
 	}
 
 	@Test
+	void zeroPricePackageRemainsFreeWhenEconomyIsDisabled() throws Exception {
+		configValues.set(ConfigKeys.ECONOMY_ENABLED, false);
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = paidPackage();
+		when(pkg.getPrice()).thenReturn(0.0);
+
+		DropController.playerInitiatedDropPackage(pkg, player, options());
+
+		assertEquals(1, CrateManager.getCrateMap().size());
+		verify(economy, never()).canAfford(any(), any());
+	}
+
+	@Test
 	void zeroPricePackageDoesNotRequireProvider() throws Exception {
 		setStatic("economyProvider", null);
 		PlayerMock player = operatorAtClearSky();
@@ -178,6 +192,21 @@ class DropControllerEconomyFlowTest {
 		DropController.playerInitiatedDropPackage(pkg, player, options());
 
 		assertEquals(1, CrateManager.getCrateMap().size());
+		verify(economy, never()).canAfford(any(), any());
+	}
+
+	@Test
+	void disabledEconomyBlocksPricedPackageEvenWhenProviderExists() throws Exception {
+		configValues.set(ConfigKeys.ECONOMY_ENABLED, false);
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = paidPackage();
+
+		EconomyUnavailableException failure = assertThrows(EconomyUnavailableException.class,
+				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+
+		assertEquals("Economy is disabled or no economy provider is currently available", failure.getMessage());
+		assertEquals(emptyAdmission(), admission.snapshot());
+		verify(pkg, never()).getItems();
 		verify(economy, never()).canAfford(any(), any());
 	}
 
@@ -220,14 +249,14 @@ class DropControllerEconomyFlowTest {
 	}
 
 	private void installConfig() throws Exception {
-		YamlConfiguration values = new YamlConfiguration();
-		values.set(ConfigKeys.ECONOMY_ENABLED, true);
-		values.set(ConfigKeys.DROP_REQUEST_COOLDOWN_SECONDS, 30);
-		values.set(ConfigKeys.DROP_MAX_FALLING, 2);
-		values.set(ConfigKeys.DROP_MAX_LANDED, 10);
-		values.set(ConfigKeys.DROP_LANDED_LIFETIME_SECONDS, 600);
+		configValues = new YamlConfiguration();
+		configValues.set(ConfigKeys.ECONOMY_ENABLED, true);
+		configValues.set(ConfigKeys.DROP_REQUEST_COOLDOWN_SECONDS, 30);
+		configValues.set(ConfigKeys.DROP_MAX_FALLING, 2);
+		configValues.set(ConfigKeys.DROP_MAX_LANDED, 10);
+		configValues.set(ConfigKeys.DROP_LANDED_LIFETIME_SECONDS, 600);
 		Config config = mock(Config.class);
-		when(config.getConfig()).thenReturn(values);
+		when(config.getConfig()).thenReturn(configValues);
 		setStatic("configuration", config);
 	}
 

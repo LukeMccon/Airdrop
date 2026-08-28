@@ -34,7 +34,7 @@ These release notes cover changes since Airdrop 3.2.0, the latest stable 3.x rel
 ### Economy operations complete before crates spawn
 
 - Airdrop now supports VaultUnlocked's asynchronous API natively and retains original Vault as a compatibility fallback.
-- Server owners can disable economy support in `config.yml` to make every drop free.
+- Server owners can disable economy support in `config.yml`; zero-priced packages remain available, while packages priced above zero are blocked.
 - Airdrop reserves drop capacity and landing space before charging the player.
 - A crate spawns only after the economy provider confirms payment.
 - If a known failure prevents a paid crate from landing while Airdrop remains active, the plugin makes one best-effort refund attempt.
@@ -82,7 +82,7 @@ Airdrop does not automatically refund every paid-drop failure because doing so c
 - Airdrop 4.0 requires **Paper 1.21.11 or newer** and **Java 21**.
 - LuckPerms remains required, but Airdrop no longer requires EssentialsX.
 - VaultUnlocked is preferred for paid packages, while original Vault remains available as a legacy fallback. Existing Vault-based servers do not need to switch. Airdrop does not bundle either bridge, so keep VaultUnlocked or Vault installed alongside a compatible economy plugin.
-- Without an economy provider, Airdrop still starts. Free packages remain available, but packages priced above zero are blocked. Set `economy.enabled: false` to make every package free.
+- Without an economy provider, Airdrop still starts. Zero-priced packages remain available, but packages priced above zero are blocked. Setting `economy.enabled: false` blocks priced packages even when a provider is installed.
 - Back up `plugins/Airdrop/` before upgrading. The overall `packages.yml` structure has not changed, but Airdrop will reject invalid package names or prices when it loads the file.
 - Review package contents before editing or saving them in version 4. Airdrop loads only the first 27 eligible item stacks. It also excludes items whose custom display names match localized editor controls such as `Save`, `Cancel`, `Back`, or `Help`. Saving the package later persists this reduced set.
 - Stable version 3.2 did not create a `config.yml`. Version 4 creates one on first startup with a 30-second request cooldown and server-wide falling, landed, and lifetime limits. Configuration files from the 3.3 and 3.4 development builds remain compatible, and missing version 4 settings use their default values at runtime.

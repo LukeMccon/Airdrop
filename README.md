@@ -31,17 +31,17 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 - Paper `1.21.11+`
 - Java `21`
 - [LuckPerms](https://luckperms.net/) (required)
-- Economy provider when `economy.enabled: true` (default):
+- Economy provider for player-requested packages priced above zero when `economy.enabled: true` (default):
   - [VaultUnlocked](https://github.com/TheNewEconomy/VaultUnlocked) with a compatible economy plugin (preferred), or
   - [Vault](https://github.com/milkbowl/Vault) with a Vault-compatible economy plugin (legacy fallback)
 
-If no economy provider is installed, set `economy.enabled: false` in `config.yml` before starting.
+If no economy provider is installed, Airdrop still starts. Zero-priced packages remain available, but packages priced above zero are blocked. Setting `economy.enabled: false` also blocks packages priced above zero, even when a provider is installed.
 
 ## Installation
 
 1. Install plugin dependencies into your server `plugins/` directory:
    - LuckPerms
-   - Optional: VaultUnlocked or Vault, plus your economy plugin (if you keep economy enabled)
+   - Optional: VaultUnlocked or Vault, plus your economy plugin (required for player-requested packages priced above zero)
 2. Download the latest Airdrop release from [Releases](https://github.com/LukeMccon/Airdrop/releases/latest).
 3. Place the Airdrop `.jar` in `plugins/`.
 4. Start or restart the server.

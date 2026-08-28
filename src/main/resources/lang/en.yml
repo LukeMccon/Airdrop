@@ -30,7 +30,7 @@ packages:
 errors:
   cannot-afford: "{accent}{player}{error} cannot afford package price of {accent}{price}{error}"
   insufficient-permissions: "You lack permission to drop that package (requires {accent}{permission}{error})"
-  economy-unavailable: "Economy provider is unavailable. Contact a server administrator."
+  economy-unavailable: "Priced packages are unavailable because economy is disabled or no provider is available. Contact a server administrator."
   plugin-not-ready: "Airdrop is still starting or is shutting down. Try again shortly."
   reload-unavailable: "Reload unavailable while plugin is shutting down"
   reload-failed-retained: "Reload failed. The previous configuration remains active. Check the server log."
@@ -72,7 +72,7 @@ system:
   config-loaded: "Config loaded successfully"
   reload-started: "Reloading configuration..."
   reload-economy-active: "Configuration, language, packages, and economy reloaded. Provider: {accent}{provider}{primary}"
-  reload-economy-disabled: "Configuration, language, packages, and economy reloaded. Economy is disabled; drops will not be charged"
+  reload-economy-disabled: "Configuration, language, packages, and economy reloaded. Economy is disabled; priced packages are blocked"
   reload-economy-unavailable: "Reload completed, but no economy provider is available; paid drops are blocked"
   package-price-missing: "Could not find price for package: {accent}{name}"
   package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"

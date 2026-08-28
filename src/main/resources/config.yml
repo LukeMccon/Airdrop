@@ -39,7 +39,8 @@ drop:
 
 # Economy settings
 economy:
-  # Whether to enable economy features
+  # Whether to enable paid package drops
+  # When false, packages priced above zero are blocked
   enabled: true
 
 # Logging settings

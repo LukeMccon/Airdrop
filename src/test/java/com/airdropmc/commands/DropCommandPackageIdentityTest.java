@@ -113,6 +113,6 @@ class DropCommandPackageIdentityTest {
 		Component message = player.nextComponentMessage();
 		assertNotNull(message);
 		String text = PlainTextComponentSerializer.plainText().serialize(message);
-		assertTrue(text.contains("Economy provider is unavailable"), text);
+		assertTrue(text.contains("Priced packages are unavailable"), text);
 	}
 }

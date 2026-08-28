@@ -5,6 +5,7 @@ import be.seeseemelk.mockbukkit.ServerMock;
 import be.seeseemelk.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
+import com.airdropmc.config.ConfigCoordinator;
 import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.helpers.ChatHandler;
@@ -31,12 +32,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -174,6 +177,39 @@ class CmdAirdropLifecycleSafetyTest {
 		verify(scheduler).cancelTasks(plugin);
 	}
 
+	@Test
+	void onDisable_continuesCleanupWhenConfigurationCoordinatorCloseFails() throws Exception {
+		Airdrop plugin = mock(Airdrop.class, Mockito.CALLS_REAL_METHODS);
+		when(plugin.getLogger()).thenReturn(Logger.getLogger(getClass().getName()));
+		ConfigCoordinator coordinator = mock(ConfigCoordinator.class);
+		doThrow(new SecurityException("thread modification denied")).when(coordinator).close();
+		DropAdmissionController admission = new DropAdmissionController();
+		World world = mock(World.class);
+		when(world.getUID()).thenReturn(java.util.UUID.randomUUID());
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				new DropLocationKey(world.getUID(), 0, 65, 0),
+				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
+		lease.commitSpawn();
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		setField(plugin, "configurationCoordinator", coordinator);
+		setStatic("dropAdmissionController", admission);
+		setStatic("economyProvider", mock(EconomyProvider.class));
+		setStatic("pluginInstance", plugin);
+
+		try (MockedStatic<Bukkit> bukkit = Mockito.mockStatic(Bukkit.class, Mockito.CALLS_REAL_METHODS)) {
+			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+			bukkit.when(Bukkit::isStopping).thenReturn(false);
+
+			assertDoesNotThrow(plugin::onDisable);
+		}
+
+		verify(coordinator).close();
+		verify(scheduler).cancelTasks(plugin);
+		assertEquals(0, admission.snapshot().falling());
+		assertNull(Airdrop.getDropAdmissionController());
+		assertNull(Airdrop.getEconomyProvider());
+	}
+
 	private String nextMessage(PlayerMock player) {
 		Component message = player.nextComponentMessage();
 		assertNotNull(message);
@@ -184,5 +220,11 @@ class CmdAirdropLifecycleSafetyTest {
 		Field field = Airdrop.class.getDeclaredField(fieldName);
 		field.setAccessible(true);
 		field.set(null, value);
+	}
+
+	private void setField(Object target, String fieldName, Object value) throws Exception {
+		Field field = Airdrop.class.getDeclaredField(fieldName);
+		field.setAccessible(true);
+		field.set(target, value);
 	}
 }

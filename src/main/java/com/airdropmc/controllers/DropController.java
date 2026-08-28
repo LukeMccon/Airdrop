@@ -79,9 +79,10 @@ public class DropController {
 			throw new InsufficientPermissionsException(pkg.getName());
 		}
 		double packagePrice = pkg.getPrice();
-		boolean paid = ConfigKeys.isEconomyEnabled() && packagePrice > 0.0;
+		boolean priced = packagePrice > 0.0;
+		boolean economyEnabled = ConfigKeys.isEconomyEnabled();
 		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (paid && economy == null) {
+		if (priced && (!economyEnabled || economy == null)) {
 			throw new EconomyUnavailableException();
 		}
 
@@ -98,7 +99,7 @@ public class DropController {
 			throw failure;
 		}
 
-		if (!paid) {
+		if (!priced) {
 			try {
 				dropPackageAtLocation(items, world, target.spawnLocation(), resolvedOptions, lease);
 			} catch (RuntimeException failure) {

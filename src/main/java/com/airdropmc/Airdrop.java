@@ -111,9 +111,11 @@ public class Airdrop extends JavaPlugin {
 		});
 		ConfigCoordinator coordinator = configurationCoordinator;
 		configurationCoordinator = null;
-		if (coordinator != null) {
-			coordinator.close();
-		}
+		runDisableStep("close configuration coordinator", () -> {
+			if (coordinator != null) {
+				coordinator.close();
+			}
+		});
 
 		DropAdmissionController admission = dropAdmissionController;
 		try {
