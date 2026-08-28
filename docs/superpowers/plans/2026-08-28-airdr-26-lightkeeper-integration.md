@@ -56,11 +56,14 @@
 - Add: `lightkeeper/mvnw`
 - Add: `lightkeeper/mvnw.cmd`
 - Add: `lightkeeper/.mvn/wrapper/maven-wrapper.properties`
+- Add: `lightkeeper/bootstrap-lightkeeper-plugin.sh`
+- Add: `lightkeeper/lightkeeper-maven-plugin-adapter.pom.xml`
 - Add: `lightkeeper/src/test/resources/overlay/plugins/Airdrop/config.yml`
 
 - [ ] Pin Maven 3.9.16 and its verified distribution SHA-256 in the wrapper.
 - [ ] Add JitPack to dependency and plugin repositories and Paper's Maven repository to dependencies.
 - [ ] Pin both LightKeeper framework and Maven plugin to commit `be585af08221c37bcbc8c9d7f5a40a27dbd2dff1`.
+- [ ] Verify the pinned plugin JAR SHA-256 and repair JitPack's mismatched embedded Maven descriptor into a generated local adapter repository.
 - [ ] Declare Paper API 1.21.11, the compatible JUnit engine, and Failsafe explicitly.
 - [ ] Configure Paper, runtime manifest, server work root, stable plugin filenames, and Airdrop's user agent.
 - [ ] Require an absolute `airdrop.jar.path` and provision exact LuckPerms Modrinth version `b0mk8uS6`.
@@ -76,7 +79,7 @@
 - [ ] Invoke `lightkeeper/mvnw verify` from the sidecar directory and pass the built JAR as an absolute property.
 - [ ] Keep `lightkeeperTest` detached from `test`, `check`, and `build`; have `clean` remove `lightkeeper/target`.
 - [ ] Add a separate Ubuntu CI job with Java 21, Gradle and Maven caching, and `./gradlew --no-daemon lightkeeperTest`.
-- [ ] Always upload Failsafe reports, LightKeeper reports, diagnostics, and runtime manifest while tolerating missing paths.
+- [ ] Always upload Failsafe reports, LightKeeper reports, diagnostics, and a token-sanitized runtime manifest while tolerating missing paths.
 
 ### Task 6: Implement the real starter-drop scenario
 
@@ -86,11 +89,12 @@
 - [ ] Start Paper through LightKeeper and await Airdrop's economy-disabled startup log.
 - [ ] Create a unique deterministic flat world and landing platform.
 - [ ] Join a full-login bot at the landing X/Z coordinate.
-- [ ] Grant `airdrop.drop` through LuckPerms, assert command success, and poll the live permission.
+- [ ] Grant `airdrop.package.starter` through LuckPerms, assert command success, and poll the live permission.
 - [ ] Capture `PackageDropEvent` and `PackageLandEvent` across the plugin classloader.
 - [ ] Execute `/airdrop starter`, assert exactly one drop event, then immediately teleport the bot away.
 - [ ] Await exactly one landing event and the expected barrel block.
-- [ ] Return the bot adjacent to the barrel, open it through player interaction, and assert slots 0-4 including bread amount 2.
+- [ ] Return the bot adjacent to the barrel and assert an uncancelled right-click interaction event.
+- [ ] Inspect the live barrel block entity with console-issued vanilla `/data` reads and assert slots 0-4 including bread amount 2; LightKeeper's synthetic interaction does not execute vanilla menu opening.
 - [ ] Close the inventory and clean bot/captures in `finally` blocks.
 
 ### Task 7: Make the contract GREEN and validate the real server

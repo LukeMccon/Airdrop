@@ -6,10 +6,10 @@
 
 <br />
 
-![Paper SVG](https://img.shields.io/badge/Paper-1.21.8+-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
+![Paper SVG](https://img.shields.io/badge/Paper-1.21.11+-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.8+-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11+-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
 
 A Paper plugin for customizable care packages with parachutes, effects, economy support, and in-game package editing.
 
@@ -28,7 +28,7 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 
 ## Requirements
 
-- Paper `1.21.8+`
+- Paper `1.21.11+`
 - Java `21`
 - [LuckPerms](https://luckperms.net/) (required)
 - Economy provider when `economy.enabled: true` (default):
@@ -204,4 +204,5 @@ The 4.0 API intentionally includes these source and binary compatibility changes
 
 - Build plugin jar: `./gradlew clean build`
 - Run tests: `./gradlew test`
+- Run the real-Paper LightKeeper integration test: `./gradlew lightkeeperTest`
 - Start local Paper test server: `./gradlew runServer`

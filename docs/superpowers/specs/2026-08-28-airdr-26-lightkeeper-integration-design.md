@@ -22,7 +22,9 @@ This is an intentional floor bump, not a multi-version test matrix. Historical a
 
 Keep the LightKeeper project in a Maven sidecar under `lightkeeper/`. Airdrop remains a Gradle project, while the sidecar follows LightKeeper's supported Maven-plugin model. A Gradle `lightkeeperTest` task bridges the projects by building the Airdrop JAR and invoking the sidecar's checked-in Maven wrapper with an absolute `airdrop.jar.path` property.
 
-The LightKeeper dependencies and plugin are pinned to upstream commit `be585af08221c37bcbc8c9d7f5a40a27dbd2dff1`. The advertised JitPack `1.2.0` framework coordinate is not currently resolvable, while full-commit coordinates are. LuckPerms is provisioned from the exact Modrinth version ID `b0mk8uS6` so permission behavior does not float independently of the test.
+The LightKeeper dependencies and plugin source artifact are pinned to upstream commit `be585af08221c37bcbc8c9d7f5a40a27dbd2dff1`. The advertised JitPack `1.2.0` framework coordinate is not currently resolvable, while full-commit coordinates are. LuckPerms is provisioned from the exact Modrinth version ID `b0mk8uS6` so permission behavior does not float independently of the test.
+
+JitPack rewrites the Maven-plugin artifact coordinate but does not rewrite its embedded Maven plugin descriptor. Maven consequently rejects the otherwise valid full-commit plugin JAR because its descriptor still names LightKeeper's upstream group and snapshot version. A small bootstrap script downloads that exact JAR, verifies its pinned SHA-256, rewrites only the descriptor coordinates (including LightKeeper dependency coordinates), and places the result in a generated file repository under `lightkeeper/target`. The adapter POM retains the exact upstream parent and dependencies. No external binary is committed, and the framework dependency continues to resolve directly from JitPack at the full commit.
 
 The sidecar declares JitPack as both a dependency and plugin repository, declares the Paper repository, and includes explicit test-scoped Paper API and JUnit engine dependencies. Maven Failsafe owns the integration-test lifecycle. The wrapper pins Maven 3.9.16 and verifies the Maven distribution checksum.
 
@@ -40,15 +42,15 @@ Provisioned plugins are renamed to stable `Airdrop.jar` and `LuckPerms.jar` name
 
 The server work directory lives under `lightkeeper/target/lightkeeper-server`. The runtime manifest is written to `lightkeeper/target/lightkeeper/runtime-manifest.json`, preserving the exact Paper build resolved by LightKeeper even though the Paper build itself is intentionally allowed to follow the current stable 1.21.11 build. Successful runs clean the server work area; failed runs retain diagnostics.
 
-CI always uploads Failsafe reports, LightKeeper reports, LightKeeper diagnostics, and the runtime manifest when present.
+CI always uploads Failsafe reports, LightKeeper reports, LightKeeper diagnostics, and a runtime-manifest copy with the ephemeral agent authentication token removed when present.
 
 ## Runtime Configuration
 
 The overlay supplies only `plugins/Airdrop/config.yml`. It disables economy integration and particle effects, requests one chicken, and uses a short controlled fall. It intentionally omits `packages.yml`, allowing Airdrop to create its shipped default starter package.
 
-The scenario uses a unique flat world and constructs a small landing platform. A full-login LightKeeper bot begins on the landing X/Z coordinate. LuckPerms grants the bot `airdrop.drop`, then the test verifies both command success and the bot's live permission before invoking `/airdrop starter`.
+The scenario uses a unique flat world and constructs a small landing platform. A full-login LightKeeper bot begins on the landing X/Z coordinate. LuckPerms grants the bot Airdrop's actual package gate, `airdrop.package.starter`, then the test verifies both command success and the bot's live permission before invoking `/airdrop starter`.
 
-The test captures `PackageDropEvent` and `PackageLandEvent`. Immediately after the single drop event, it teleports the bot away so later player-obstruction behavior cannot move the landing barrel. It then verifies exactly one land event, the barrel position, and the default starter contents through a real adjacent-player interaction:
+The test captures `PackageDropEvent` and `PackageLandEvent`. Immediately after the single drop event, it teleports the bot away so later player-obstruction behavior cannot move the landing barrel. It then verifies exactly one land event, the barrel position, and a real adjacent-player right-click interaction. LightKeeper's block interaction API fires the Bukkit event but intentionally does not execute vanilla container-opening behavior, so the test reads the landed barrel's live block-entity data through console-issued vanilla `/data` commands to verify:
 
 - iron helmet in slot 0;
 - iron chestplate in slot 1;
@@ -56,7 +58,7 @@ The test captures `PackageDropEvent` and `PackageLandEvent`. Immediately after t
 - iron boots in slot 3; and
 - two bread in slot 4.
 
-Bot and event-capture cleanup runs even after assertion failures.
+Bot and event-capture cleanup runs even after assertion failures. Removing the bot also closes any open inventory.
 
 ## Contract Tests
 

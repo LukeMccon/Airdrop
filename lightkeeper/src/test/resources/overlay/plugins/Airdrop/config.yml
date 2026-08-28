@@ -1,0 +1,14 @@
+drop:
+  parachute:
+    chicken-count: 1
+  particles:
+    landing-effects: false
+    continuous-effects: false
+    flare-effects: false
+    smoke:
+      enabled: false
+  falling-speed: 1.0
+  height: 8
+
+economy:
+  enabled: false

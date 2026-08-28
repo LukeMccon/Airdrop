@@ -81,7 +81,7 @@ Paid-drop handling is deliberately fail-closed to prevent money or item duplicat
 
 ## Upgrading from 3.x
 
-- Airdrop 4.0 requires **Paper 1.21.8 or newer** and **Java 21**.
+- Airdrop 4.0 requires **Paper 1.21.11 or newer** and **Java 21**.
 - LuckPerms remains required.
 - EssentialsX is no longer required by Airdrop.
 - VaultUnlocked is preferred for paid packages, but original Vault remains supported as the legacy fallback. Existing Vault-based servers do not need to switch. Airdrop does not bundle either bridge, so keep VaultUnlocked or Vault installed with a compatible economy plugin. Without an economy provider, Airdrop still starts: packages priced above zero are blocked and free packages remain available. Set `economy.enabled: false` to make all packages free.

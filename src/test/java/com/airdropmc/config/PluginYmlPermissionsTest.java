@@ -58,7 +58,7 @@ class PluginYmlPermissionsTest {
 	void generatedPluginYml_targetsOldestSupportedPaperVersion() throws Exception {
 		Map<?, ?> root = loadPluginYml();
 
-		assertEquals("1.21.8", String.valueOf(root.get("api-version")));
+		assertEquals("1.21.11", String.valueOf(root.get("api-version")));
 	}
 
 	private Map<?, ?> loadPluginYml() throws Exception {

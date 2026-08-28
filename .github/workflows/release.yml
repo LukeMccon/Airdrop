@@ -94,7 +94,7 @@ jobs:
 
           GAME_VERSIONS="${{ vars.MODRINTH_GAME_VERSIONS }}"
           if [ -z "$GAME_VERSIONS" ]; then
-            GAME_VERSIONS="1.21.8"
+            GAME_VERSIONS="1.21.11"
           fi
 
           echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"

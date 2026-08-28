@@ -4,6 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.jar.JarFile
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.bundling.Jar
 
 plugins {
@@ -65,7 +66,7 @@ repositories {
 
 dependencies {
     // Paper API
-    compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     
     // Plugin dependencies
     compileOnly("net.luckperms:api:5.4")
@@ -87,7 +88,7 @@ dependencies {
 
 tasks {
     runServer {
-        minecraftVersion("1.21.8")
+        minecraftVersion("1.21.11")
     }
 
     compileJava {
@@ -106,9 +107,51 @@ tasks {
         systemProperty("airdrop.projectVersion", project.version.toString())
     }
 
+    clean {
+        delete(layout.projectDirectory.dir("lightkeeper/target"))
+    }
+
 }
 
 val releaseJar = tasks.named<Jar>("jar")
+
+val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPluginAdapter") {
+    group = "verification"
+    description = "Repairs the pinned JitPack LightKeeper plugin descriptor in a generated local repository"
+    workingDir(layout.projectDirectory.dir("lightkeeper"))
+    commandLine("./bootstrap-lightkeeper-plugin.sh")
+    inputs.files(
+        layout.projectDirectory.file("lightkeeper/bootstrap-lightkeeper-plugin.sh"),
+        layout.projectDirectory.file("lightkeeper/lightkeeper-maven-plugin-adapter.pom.xml")
+    )
+    outputs.dir(
+        layout.projectDirectory.dir(
+            "lightkeeper/target/lightkeeper-plugin-repository/com/airdropmc/lightkeeper-adapter/" +
+                "lightkeeper-maven-plugin/be585af08221c37bcbc8c9d7f5a40a27dbd2dff1-airdrop1"
+        )
+    )
+}
+
+tasks.register<Exec>("lightkeeperTest") {
+    group = "verification"
+    description = "Runs LightKeeper integration tests against a real Paper server"
+    dependsOn("jar")
+    dependsOn(prepareLightkeeperPluginAdapter)
+    workingDir(layout.projectDirectory.dir("lightkeeper"))
+    inputs.file(releaseJar.flatMap { it.archiveFile })
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        val pluginJar = releaseJar.get().archiveFile.get().asFile.absoluteFile
+        commandLine(
+            "./mvnw",
+            "--batch-mode",
+            "--no-transfer-progress",
+            "verify",
+            "-Dairdrop.jar.path=${pluginJar.path}"
+        )
+    }
+}
 
 tasks.register("verifyReleaseArtifact") {
     group = "verification"
@@ -168,7 +211,7 @@ tasks.register("verifyReleaseArtifact") {
 bukkit {
     load = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.STARTUP
     main = "com.airdropmc.Airdrop"
-    apiVersion = "1.21.8"
+    apiVersion = "1.21.11"
     depend = listOf("LuckPerms")
     softDepend = listOf("Vault")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
