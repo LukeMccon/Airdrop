@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  */
 public class PackageManager {
 
-	public static final String PACKAGES = "packages";
+	public static final String PACKAGES_SECTION = "packages";
 	public static final int MAX_PACKAGE_ITEM_STACKS = 27;
 
 	private static volatile Map<String, Package> packages = Map.of();
@@ -64,10 +64,10 @@ public class PackageManager {
 			throw new PackageMaterializationException("Packages configuration is unavailable");
 		}
 
-		if (!candidate.isSet(PACKAGES)) {
+		if (!candidate.isSet(PACKAGES_SECTION)) {
 			throw new PackageMaterializationException("Missing required 'packages' section");
 		}
-		ConfigurationSection configuredPackages = candidate.getConfigurationSection(PACKAGES);
+		ConfigurationSection configuredPackages = candidate.getConfigurationSection(PACKAGES_SECTION);
 		if (configuredPackages == null) {
 			throw new PackageMaterializationException("Root 'packages' value must be a configuration section");
 		}
@@ -196,8 +196,8 @@ public class PackageManager {
 
 		List<ItemStack> normalizedItems = limitToBarrelCapacity(pkg.getItems(), detachedControlItemNames);
 		YamlConfiguration candidate = copyConfiguration(source);
-		candidate.set(PACKAGES + "." + pkg.getName() + ".price", pkg.getPrice());
-		candidate.set(PACKAGES + "." + pkg.getName() + ".items", new ArrayList<>(normalizedItems));
+		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".price", pkg.getPrice());
+		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".items", new ArrayList<>(normalizedItems));
 		return candidate;
 	}
 
@@ -224,7 +224,7 @@ public class PackageManager {
 		List<ItemStack> normalizedItems = limitToBarrelCapacity(items, detachedControlItemNames);
 
 		YamlConfiguration candidate = copyConfiguration(source);
-		candidate.set(PACKAGES + "." + pkg.getName() + ".items", new ArrayList<>(normalizedItems));
+		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".items", new ArrayList<>(normalizedItems));
 		return candidate;
 	}
 
@@ -245,9 +245,9 @@ public class PackageManager {
 		Package pkg = findPackage(currentPackages, packageName);
 
 		YamlConfiguration candidate = copyConfiguration(source);
-		candidate.set(PACKAGES + "." + pkg.getName(), null);
-		if (candidate.getConfigurationSection(PACKAGES) == null) {
-			candidate.createSection(PACKAGES);
+		candidate.set(PACKAGES_SECTION + "." + pkg.getName(), null);
+		if (candidate.getConfigurationSection(PACKAGES_SECTION) == null) {
+			candidate.createSection(PACKAGES_SECTION);
 		}
 		return candidate;
 	}

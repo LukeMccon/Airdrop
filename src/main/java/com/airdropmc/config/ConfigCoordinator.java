@@ -218,14 +218,14 @@ public final class ConfigCoordinator implements AutoCloseable {
 
 	private static YamlConfiguration defaultPackages() {
 		YamlConfiguration configuration = new YamlConfiguration();
-		configuration.createSection(PackageManager.PACKAGES + ".starter");
-		configuration.set(PackageManager.PACKAGES + ".starter.items", List.of(
+		configuration.createSection(PackageManager.PACKAGES_SECTION + ".starter");
+		configuration.set(PackageManager.PACKAGES_SECTION + ".starter.items", List.of(
 				new ItemStack(Material.IRON_HELMET, 1),
 				new ItemStack(Material.IRON_CHESTPLATE, 1),
 				new ItemStack(Material.IRON_LEGGINGS, 1),
 				new ItemStack(Material.IRON_BOOTS, 1),
 				new ItemStack(Material.BREAD, 2)));
-		configuration.set(PackageManager.PACKAGES + ".starter.price", 10.0);
+		configuration.set(PackageManager.PACKAGES_SECTION + ".starter.price", 10.0);
 		return configuration;
 	}
 

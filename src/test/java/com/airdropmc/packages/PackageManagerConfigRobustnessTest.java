@@ -37,6 +37,19 @@ class PackageManagerConfigRobustnessTest {
 	}
 
 	@Test
+	void fields_doNotDifferOnlyByCapitalization() {
+		Field[] fields = PackageManager.class.getDeclaredFields();
+		for (int leftIndex = 0; leftIndex < fields.length; leftIndex++) {
+			for (int rightIndex = leftIndex + 1; rightIndex < fields.length; rightIndex++) {
+				String leftName = fields[leftIndex].getName();
+				String rightName = fields[rightIndex].getName();
+				assertFalse(leftName.equalsIgnoreCase(rightName),
+						() -> "Field names differ only by capitalization: " + leftName + ", " + rightName);
+			}
+		}
+	}
+
+	@Test
 	void materializePackages_requiresPackagesSectionButAcceptsExplicitEmpty() throws Exception {
 		PackageMaterializationException missing = assertThrows(PackageMaterializationException.class,
 				() -> PackageManager.materializePackages(new YamlConfiguration()));
