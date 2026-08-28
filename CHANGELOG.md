@@ -21,7 +21,7 @@ Airdrop 4.0 is a major update focused on giving server owners more control over 
 - Limit how many crates may be falling or claiming landed capacity at once. Falling crates reserve a landed slot before they spawn.
 - Prevent multiple drops from claiming the same landing location.
 - Automatically stop tracking old landed crates. Unpaid crates and empty paid barrels are removed, while non-empty paid barrels become ordinary barrels so their contents are preserved.
-- Grant `airdrop.cooldown.bypass` to let trusted players skip the cooldown and request another drop while an earlier request is still pending. Falling, landed, and location limits still apply.
+- Grant `airdrop.cooldown.bypass` to let trusted players request again immediately after the previous request finishes without waiting for the cooldown. One pending request per player plus falling, landed, and location limits still apply.
 
 ### Safer package creation and editing
 
