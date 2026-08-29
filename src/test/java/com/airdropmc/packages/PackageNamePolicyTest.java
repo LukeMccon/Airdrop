@@ -59,6 +59,9 @@ class PackageNamePolicyTest {
 			assertFalse(result.accepted(), name);
 			assertEquals(PackageNamePolicy.Rejection.RESERVED, result.rejection(), name);
 		}
+		assertTrue(PackageNamePolicy.isPackageSubcommandIdentity("CrEaTe"));
+		assertTrue(PackageNamePolicy.isPackageSubcommandIdentity("DELETE"));
+		assertFalse(PackageNamePolicy.isPackageSubcommandIdentity("reload"));
 	}
 
 	@Test

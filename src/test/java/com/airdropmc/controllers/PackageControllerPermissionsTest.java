@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -123,23 +124,31 @@ class PackageControllerPermissionsTest {
 	}
 
 	@Test
-	void reservedNameUsesDedicatedMessageWithLegacyLanguageConfiguration() {
+	void subcommandReservedNameUsesMigrationSafeMessageWithLegacyLanguageConfiguration() {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 		LanguageManager language = mock(LanguageManager.class);
-		when(language.get(MessageKey.PREFIX)).thenReturn("[Airdrop]");
-		when(language.get(MessageKey.PACKAGES_NAME_INVALID)).thenReturn("legacy character message");
-		when(language.get(MessageKey.PACKAGES_NAME_RESERVED)).thenReturn("package name is reserved");
+		when(language.get(any(MessageKey.class))).thenAnswer(invocation -> {
+			MessageKey key = invocation.getArgument(0);
+			return switch (key.getKey()) {
+				case "prefix" -> "[Airdrop]";
+				case "packages.name-reserved" -> "legacy reserved-name message";
+				case "packages.name-subcommand-reserved" -> "create and delete are package subcommands";
+				default -> key.getDefault();
+			};
+		});
 		ChatHandler.init(language);
 
 		try {
-			PackageController.createPackageCommand(player,
-					new String[]{"package", "create", "reload", "10.0"});
+			for (String name : List.of("create", "DELETE")) {
+				PackageController.createPackageCommand(player,
+						new String[]{"package", "create", name, "10.0"});
 
-			Component message = player.nextComponentMessage();
-			assertNotNull(message);
-			String text = PlainTextComponentSerializer.plainText().serialize(message);
-			assertTrue(text.contains("package name is reserved"), text);
+				Component message = player.nextComponentMessage();
+				assertNotNull(message, name);
+				String text = PlainTextComponentSerializer.plainText().serialize(message);
+				assertTrue(text.contains("package subcommands"), text);
+			}
 		} finally {
 			ChatHandler.init(null);
 		}

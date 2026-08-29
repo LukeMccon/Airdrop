@@ -146,7 +146,9 @@ public class PackageController {
 			MessageKey message = switch (nameValidation.rejection()) {
 				case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
 				case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
-				case RESERVED -> MessageKey.PACKAGES_NAME_RESERVED;
+				case RESERVED -> PackageNamePolicy.isPackageSubcommandIdentity(packageName)
+						? MessageKey.PACKAGES_NAME_SUBCOMMAND_RESERVED
+						: MessageKey.PACKAGES_NAME_RESERVED;
 			};
 			ChatHandler.sendError(sender, message);
 			return;
