@@ -1,7 +1,6 @@
 package com.airdropmc.events;
 
 import java.util.Objects;
-import java.util.UUID;
 
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -9,6 +8,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.block.Block;
 import com.airdropmc.Crate;
+import com.airdropmc.helpers.LocationHelper;
 
 /**
  * Event that is called when a package lands and transforms into a barrel
@@ -23,7 +23,7 @@ public class PackageLandEvent extends Event {
 	public PackageLandEvent(Crate crate, World world, Location landingLocation, Block landedBlock) {
 		this.crate = crate;
 		this.world = Objects.requireNonNull(world, "world");
-		this.landingLocation = copyLocationInWorld(landingLocation, this.world, "landingLocation");
+		this.landingLocation = LocationHelper.copyInWorld(landingLocation, this.world, "landingLocation");
 		this.landedBlock = landedBlock;
 	}
 
@@ -52,19 +52,6 @@ public class PackageLandEvent extends Event {
      */
 	public Location getLandingLocation() {
 		return landingLocation.clone();
-	}
-
-	private static Location copyLocationInWorld(Location location, World world, String locationName) {
-		Location requiredLocation = Objects.requireNonNull(location, locationName);
-		UUID worldId = world.getUID();
-		if (worldId == null) {
-			throw new IllegalArgumentException("world must have a UUID");
-		}
-		World locationWorld = requiredLocation.getWorld();
-		if (locationWorld == null || !worldId.equals(locationWorld.getUID())) {
-			throw new IllegalArgumentException(locationName + " must be in the supplied world");
-		}
-		return requiredLocation.clone();
 	}
 
     /**
