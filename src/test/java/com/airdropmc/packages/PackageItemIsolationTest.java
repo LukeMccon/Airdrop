@@ -2,6 +2,7 @@ package com.airdropmc.packages;
 
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -23,33 +24,33 @@ class PackageItemIsolationTest {
 
 	@Test
 	void constructorClonesItemStacks() {
-		ItemStack source = new ItemStack(Material.STONE, 2);
+		ItemStack source = namedItem(Material.STONE, 2, "original");
 		Package pkg = new Package("starter", 1.0, List.of(source));
 
-		source.setAmount(7);
+		mutate(source);
 
-		assertEquals(2, pkg.getItems().getFirst().getAmount());
+		assertOriginal(pkg.getItems().getFirst(), Material.STONE, 2);
 	}
 
 	@Test
 	void setItemsClonesItemStacks() {
 		Package pkg = new Package("starter", 1.0, List.of());
-		ItemStack source = new ItemStack(Material.DIRT, 3);
+		ItemStack source = namedItem(Material.DIRT, 3, "original");
 
 		pkg.setItems(List.of(source));
-		source.setAmount(8);
+		mutate(source);
 
-		assertEquals(3, pkg.getItems().getFirst().getAmount());
+		assertOriginal(pkg.getItems().getFirst(), Material.DIRT, 3);
 	}
 
 	@Test
 	void getItemsReturnsClonedItemStacks() {
-		Package pkg = new Package("starter", 1.0,
-				List.of(new ItemStack(Material.DIAMOND, 4)));
+		Package pkg = new Package("starter", 1.0, List.of(
+				namedItem(Material.DIAMOND, 4, "original")));
 
-		pkg.getItems().getFirst().setAmount(9);
+		mutate(pkg.getItems().getFirst());
 
-		assertEquals(4, pkg.getItems().getFirst().getAmount());
+		assertOriginal(pkg.getItems().getFirst(), Material.DIAMOND, 4);
 	}
 
 	@Test
@@ -64,5 +65,27 @@ class PackageItemIsolationTest {
 		pkg.setItems(java.util.Arrays.asList(null, new ItemStack(Material.STONE, 1)));
 		assertEquals(2, pkg.getItems().size());
 		assertNull(pkg.getItems().getFirst());
+	}
+
+	private static ItemStack namedItem(Material material, int amount, String name) {
+		ItemStack item = new ItemStack(material, amount);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(name);
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	private static void mutate(ItemStack item) {
+		item.setAmount(9);
+		item.setType(Material.GOLD_BLOCK);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName("mutated");
+		item.setItemMeta(meta);
+	}
+
+	private static void assertOriginal(ItemStack item, Material material, int amount) {
+		assertEquals(material, item.getType());
+		assertEquals(amount, item.getAmount());
+		assertEquals("original", item.getItemMeta().getDisplayName());
 	}
 }

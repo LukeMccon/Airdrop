@@ -138,10 +138,18 @@ public class Package {
 		return String.valueOf(number);
 	}
 
+	/**
+	 * Returns a detached copy of this package's items. Null entries are preserved,
+	 * while every non-null item stack is cloned.
+	 */
 	public List<ItemStack> getItems() {
 		return cloneItems(this.items);
 	}
 
+	/**
+	 * Replaces this package's items with detached copies. A null list is treated as
+	 * empty; null entries are preserved and every non-null item stack is cloned.
+	 */
 	public void setItems(List<ItemStack> items) {
 		if (items != null && !items.isEmpty()) {
 			this.items = cloneItems(items);

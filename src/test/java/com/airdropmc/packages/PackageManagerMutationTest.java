@@ -5,6 +5,7 @@ import com.airdropmc.exceptions.PackageNotFoundException;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -78,6 +79,25 @@ class PackageManagerMutationTest {
 		Package updated = PackageManager.materializePackages(candidate).get("starter");
 		assertEquals(Material.DIRT, updated.getItems().getFirst().getType());
 		assertEquals(2, updated.getItems().getFirst().getAmount());
+	}
+
+	@Test
+	void updateMaterializeAndPublishPreserveItemCopyBoundaries() throws Exception {
+		YamlConfiguration source = configurationWithStarter("starter");
+		ItemStack callerItem = namedItem(Material.STONE, 2, "original");
+
+		YamlConfiguration candidate = PackageManager.updatePackageInventoryCandidate(
+				source, "starter", List.of(callerItem));
+		mutate(callerItem);
+		assertUnchanged((ItemStack) candidate.getList("packages.starter.items").getFirst());
+
+		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
+		mutate((ItemStack) candidate.getList("packages.starter.items").getFirst());
+		assertUnchanged(materialized.get("starter").getItems().getFirst());
+
+		PackageManager.publishPackages(materialized);
+		mutate(PackageManager.get("starter").getItems().getFirst());
+		assertUnchanged(PackageManager.get("starter").getItems().getFirst());
 	}
 
 	@Test
@@ -167,5 +187,27 @@ class PackageManagerMutationTest {
 		config.set("packages." + storedName + ".price", 10.0);
 		config.set("packages." + storedName + ".items", List.of());
 		return config;
+	}
+
+	private static void mutate(ItemStack item) {
+		item.setAmount(9);
+		item.setType(Material.GOLD_BLOCK);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName("mutated");
+		item.setItemMeta(meta);
+	}
+
+	private static ItemStack namedItem(Material material, int amount, String name) {
+		ItemStack item = new ItemStack(material, amount);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(name);
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	private static void assertUnchanged(ItemStack item) {
+		assertEquals(Material.STONE, item.getType());
+		assertEquals(2, item.getAmount());
+		assertEquals("original", item.getItemMeta().getDisplayName());
 	}
 }
