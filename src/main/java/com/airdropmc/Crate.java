@@ -13,6 +13,7 @@ import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.helpers.LocationHelper;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.tasks.RenderFlareTask;
@@ -123,7 +124,7 @@ public class Crate {
 	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
 			DropAdmissionController.Lease lease, boolean paid, Consumer<Outcome> outcomeListener) {
 		this.world = Objects.requireNonNull(world, "world");
-		this.dropLocation = copyLocationInWorld(location, this.world, "location");
+		this.dropLocation = LocationHelper.copyInWorld(location, this.world, "location");
 		this.contents = cloneContents(contents);
 		this.crateId = UUID.randomUUID().toString();
 		this.state = State.FALLING;
@@ -138,7 +139,7 @@ public class Crate {
 	private Crate(World world, Barrel barrel, PersistedBarrelData persisted,
 			DropAdmissionController.Lease lease) {
 		this.world = Objects.requireNonNull(world, "world");
-		Location recoveredLocation = copyLocationInWorld(
+		Location recoveredLocation = LocationHelper.copyInWorld(
 				Objects.requireNonNull(barrel, "barrel").getLocation(), this.world, "barrel location");
 		this.contents = new ArrayList<>();
 		this.crateId = persisted.crateId();
@@ -174,19 +175,6 @@ public class Crate {
 			clonedContents.add(content.clone());
 		}
 		return clonedContents;
-	}
-
-	private static Location copyLocationInWorld(Location location, World world, String locationName) {
-		Location requiredLocation = Objects.requireNonNull(location, locationName);
-		UUID worldId = world.getUID();
-		if (worldId == null) {
-			throw new IllegalArgumentException("world must have a UUID");
-		}
-		World locationWorld = requiredLocation.getWorld();
-		if (locationWorld == null || !worldId.equals(locationWorld.getUID())) {
-			throw new IllegalArgumentException(locationName + " must be in the supplied world");
-		}
-		return requiredLocation.clone();
 	}
 
 	/**
@@ -230,7 +218,7 @@ public class Crate {
 			if (block == null) {
 				throw new IllegalArgumentException("Landing block is required");
 			}
-			Location candidate = copyLocationInWorld(block.getLocation(), world, "landing location");
+			Location candidate = LocationHelper.copyInWorld(block.getLocation(), world, "landing location");
 			DropLocationKey actualKey = DropLocationKey.from(candidate);
 			if (!lease.owns(actualKey)) {
 				throw new IllegalStateException("Landed block does not match the reserved location");

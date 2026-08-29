@@ -1,13 +1,13 @@
 package com.airdropmc.events;
 
 import java.util.Objects;
-import java.util.UUID;
 
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import com.airdropmc.Crate;
+import com.airdropmc.helpers.LocationHelper;
 
 /**
  * Event that is called when a package is dropped
@@ -21,7 +21,7 @@ public class PackageDropEvent extends Event {
 	public PackageDropEvent(Crate crate, World world, Location dropLocation) {
 		this.crate = crate;
 		this.world = Objects.requireNonNull(world, "world");
-		this.dropLocation = copyLocationInWorld(dropLocation, this.world, "dropLocation");
+		this.dropLocation = LocationHelper.copyInWorld(dropLocation, this.world, "dropLocation");
 	}
 
     /**
@@ -46,19 +46,6 @@ public class PackageDropEvent extends Event {
      */
 	public Location getDropLocation() {
 		return dropLocation.clone();
-	}
-
-	private static Location copyLocationInWorld(Location location, World world, String locationName) {
-		Location requiredLocation = Objects.requireNonNull(location, locationName);
-		UUID worldId = world.getUID();
-		if (worldId == null) {
-			throw new IllegalArgumentException("world must have a UUID");
-		}
-		World locationWorld = requiredLocation.getWorld();
-		if (locationWorld == null || !worldId.equals(locationWorld.getUID())) {
-			throw new IllegalArgumentException(locationName + " must be in the supplied world");
-		}
-		return requiredLocation.clone();
 	}
 
 	@Override
