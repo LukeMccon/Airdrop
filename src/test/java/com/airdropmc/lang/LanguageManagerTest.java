@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -53,6 +54,33 @@ class LanguageManagerTest {
 
 		assertEquals("en", manager.getCurrentLanguage());
 		assertEquals("Custom message", manager.get(MessageKey.COMMANDS_PLAYER_ONLY));
+	}
+
+	@Test
+	void preparationAddsSubcommandReservedMessageWithoutReplacingLegacyReservedMessage() throws Exception {
+		Path languageFile = languageFile("en");
+		Files.createDirectories(languageFile.getParent());
+		Files.writeString(languageFile,
+				"packages:\n  name-reserved: Legacy reserved-name message\n",
+				StandardCharsets.UTF_8);
+		LanguageManager manager = managerWithResources(Map.of(
+				"lang/en.yml", "packages:\n"
+						+ "  name-reserved: Resource reserved-name message\n"
+						+ "  name-subcommand-reserved: Resource subcommand message\n"));
+
+		LanguageManager.LanguageCandidate candidate = manager.prepareLanguage("en");
+		manager.publishLanguage(candidate);
+		MessageKey subcommandReserved = Arrays.stream(MessageKey.values())
+				.filter(key -> key.getKey().equals("packages.name-subcommand-reserved"))
+				.findFirst()
+				.orElseThrow();
+
+		assertEquals("Legacy reserved-name message", manager.get(MessageKey.PACKAGES_NAME_RESERVED));
+		assertEquals("Resource subcommand message", manager.get(subcommandReserved));
+		YamlConfiguration written = strictLoad(languageFile);
+		assertEquals("Legacy reserved-name message", written.getString("packages.name-reserved"));
+		assertEquals("Resource subcommand message",
+				written.getString("packages.name-subcommand-reserved"));
 	}
 
 	@Test

@@ -8,7 +8,8 @@ import java.util.regex.Pattern;
 
 public final class PackageNamePolicy {
 	private static final Pattern SUPPORTED_CHARACTERS = Pattern.compile("^[A-Za-z0-9_-]+$");
-	private static final Set<String> RESERVED_IDENTITIES = Set.of("all", "*", "create", "delete");
+	private static final Set<String> RESERVED_IDENTITIES = Set.of("all", "*");
+	private static final Set<String> PACKAGE_SUBCOMMAND_IDENTITIES = Set.of("create", "delete");
 
 	public enum Rejection {
 		MISSING,
@@ -43,7 +44,8 @@ public final class PackageNamePolicy {
 		}
 
 		String canonicalName = name.toLowerCase(Locale.ROOT);
-		if (RESERVED_IDENTITIES.contains(canonicalName)
+		if (isPackageSubcommandIdentity(name)
+				|| RESERVED_IDENTITIES.contains(canonicalName)
 				|| AirdropCommandNames.topLevel().contains(canonicalName)) {
 			return new Result(null, Rejection.RESERVED);
 		}
@@ -51,6 +53,10 @@ public final class PackageNamePolicy {
 			return new Result(null, Rejection.INVALID_CHARACTERS);
 		}
 		return new Result(canonicalName, null);
+	}
+
+	public static boolean isPackageSubcommandIdentity(String name) {
+		return name != null && PACKAGE_SUBCOMMAND_IDENTITIES.contains(name.toLowerCase(Locale.ROOT));
 	}
 
 	public static String requireCanonical(String name) {
