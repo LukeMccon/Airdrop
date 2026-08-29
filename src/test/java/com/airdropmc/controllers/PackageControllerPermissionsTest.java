@@ -97,7 +97,8 @@ class PackageControllerPermissionsTest {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 
-		for (String name : List.of("all", "*", "package", "packages", "version", "reload", "ReLoAd")) {
+		for (String name : List.of(
+				"all", "*", "package", "packages", "version", "reload", "create", "DELETE", "ReLoAd")) {
 			PackageController.createPackageCommand(player,
 					new String[]{"package", "create", name, "10.0"});
 
@@ -115,6 +116,10 @@ class PackageControllerPermissionsTest {
 				() -> PackageController.createPackage("all", 1.0));
 		assertThrows(IllegalArgumentException.class,
 				() -> PackageController.createPackage("reload", 1.0, List.of()));
+		assertThrows(IllegalArgumentException.class,
+				() -> PackageController.createPackage("create", 1.0));
+		assertThrows(IllegalArgumentException.class,
+				() -> PackageController.createPackage("delete", 1.0, List.of()));
 	}
 
 	@Test

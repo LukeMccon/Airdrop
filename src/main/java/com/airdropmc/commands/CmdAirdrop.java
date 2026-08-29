@@ -18,6 +18,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 
 public class CmdAirdrop implements CommandExecutor {
+	private static final String CREATE = "create";
+	private static final String DELETE = "delete";
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
@@ -25,6 +27,13 @@ public class CmdAirdrop implements CommandExecutor {
 
 		if (args.length == 0) {
 			return false;
+		}
+		if (hasInvalidGenericArgumentCount(args)) {
+			return false;
+		}
+		if (requiresPackageArgumentFeedback(args)) {
+			PackageCommand.onCommand(sender, args);
+			return true;
 		}
 
 		if (AirdropCommandNames.VERSION.equals(args[0])) {
@@ -50,6 +59,27 @@ public class CmdAirdrop implements CommandExecutor {
 			default -> DropCommand.onCommand(sender, args);
 		}
 		return true;
+	}
+
+	private static boolean hasInvalidGenericArgumentCount(String[] args) {
+		if (!AirdropCommandNames.PACKAGE.equals(args[0])) {
+			return args.length != 1;
+		}
+		if (args.length == 1 || CREATE.equals(args[1]) || DELETE.equals(args[1])) {
+			return false;
+		}
+		return args.length != 2;
+	}
+
+	private static boolean requiresPackageArgumentFeedback(String[] args) {
+		if (!AirdropCommandNames.PACKAGE.equals(args[0])) {
+			return false;
+		}
+		if (args.length == 1) {
+			return true;
+		}
+		return CREATE.equals(args[1]) && args.length != 4
+				|| DELETE.equals(args[1]) && args.length != 3;
 	}
 
 	private static void reload(CommandSender sender) {

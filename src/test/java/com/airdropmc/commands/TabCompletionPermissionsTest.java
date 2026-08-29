@@ -7,8 +7,10 @@ import com.airdropmc.Airdrop;
 import com.airdropmc.AirdropTabCompleter;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackageMaterializationException;
+import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.Command;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class TabCompletionPermissionsTest {
 
@@ -54,6 +57,7 @@ class TabCompletionPermissionsTest {
 	@Test
 	void airdropTabCompleter_suggestsConfiguredPackageNames_andNotPlaceholder() {
 		PlayerMock player = server.addPlayer();
+		player.setOp(true);
 		AirdropTabCompleter completer = new AirdropTabCompleter();
 
 		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop", new String[]{""});
@@ -63,12 +67,25 @@ class TabCompletionPermissionsTest {
 	}
 
 	@Test
+	void airdropTabCompleterShowsOnlyPackagesAndCommandsPlayerCanUse() {
+		Player player = mock(Player.class);
+		when(player.hasPermission("airdrop.package.starter")).thenReturn(true);
+		AirdropTabCompleter completer = new AirdropTabCompleter();
+
+		List<String> results = completer.onTabComplete(
+				player, mock(Command.class), "airdrop", new String[]{""});
+
+		assertEquals(List.of("package", "starter", "version"), results);
+	}
+
+	@Test
 	void airdropTabCompleter_omitsPackagesFromRejectedCandidates() {
 		YamlConfiguration invalidCandidate = validPackagesConfig();
 		invalidCandidate.set("packages.broken.price", "ten");
 		invalidCandidate.set("packages.broken.items", List.of());
 		assertThrows(PackageMaterializationException.class, () -> publishPackages(invalidCandidate));
 		PlayerMock player = server.addPlayer();
+		player.setOp(true);
 		AirdropTabCompleter completer = new AirdropTabCompleter();
 
 		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop", new String[]{""});
@@ -86,6 +103,35 @@ class TabCompletionPermissionsTest {
 		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop", new String[]{""});
 
 		assertTrue(results.contains("reload"));
+		assertTrue(results.contains("packages"));
+	}
+
+	@Test
+	void topLevelCompletionFiltersPrefixesWithoutCaseDifferences() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		AirdropTabCompleter completer = new AirdropTabCompleter();
+		Command command = mock(Command.class);
+
+		assertEquals(List.of("reload"),
+				completer.onTabComplete(player, command, "airdrop", new String[]{"r"}));
+		assertEquals(List.of("reload"),
+				completer.onTabComplete(player, command, "airdrop", new String[]{"R"}));
+		assertEquals(List.of("reload"),
+				completer.onTabComplete(player, command, "airdrop", new String[]{"ReL"}));
+	}
+
+	@Test
+	void notReadyCompletionFiltersVersionByPrefix() throws Exception {
+		PlayerMock player = server.addPlayer();
+		AirdropTabCompleter completer = new AirdropTabCompleter();
+		Command command = mock(Command.class);
+		setReady(false);
+
+		assertEquals(List.of("version"),
+				completer.onTabComplete(player, command, "airdrop", new String[]{"VeR"}));
+		assertEquals(List.of(),
+				completer.onTabComplete(player, command, "airdrop", new String[]{"re"}));
 	}
 
 	@Test
@@ -111,6 +157,40 @@ class TabCompletionPermissionsTest {
 
 		assertTrue(results.contains("create"));
 		assertTrue(results.contains("delete"));
+	}
+
+	@Test
+	void nestedCompletionFiltersPrefixesWithoutCaseDifferences() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		PackageTabCompletion completer = new PackageTabCompletion();
+
+		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop",
+				new String[]{"package", "CrE"});
+
+		assertEquals(List.of("create"), results);
+	}
+
+	@Test
+	void adminCommandBlockSeesOnlyExecutableAdminCommands() {
+		BlockCommandSender sender = mock(BlockCommandSender.class);
+		when(sender.hasPermission("airdrop.admin")).thenReturn(true);
+		Command command = mock(Command.class);
+
+		List<String> topLevel = new AirdropTabCompleter().onTabComplete(
+				sender, command, "airdrop", new String[]{""});
+		List<String> nested = new PackageTabCompletion().onTabComplete(
+				sender, command, "airdrop", new String[]{"package", ""});
+		List<String> deleteTargets = new PackageTabCompletion().onTabComplete(
+				sender, command, "airdrop", new String[]{"package", "delete", "ST"});
+		List<String> createTargets = new PackageTabCompletion().onTabComplete(
+				sender, command, "airdrop", new String[]{"package", "create", ""});
+
+		assertEquals(List.of("package", "reload", "version"), topLevel);
+		assertTrue(nested.contains("delete"));
+		assertFalse(nested.contains("create"));
+		assertEquals(List.of("starter"), deleteTargets);
+		assertEquals(List.of(), createTargets);
 	}
 
 	@Test
@@ -141,7 +221,7 @@ class TabCompletionPermissionsTest {
 	}
 
 	@Test
-	void packageTabCompletion_allowsCreateArgumentsForAdmin() {
+	void packageTabCompletionDoesNotSuggestArbitraryCreateName() {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 		PackageTabCompletion completer = new PackageTabCompletion();
@@ -149,11 +229,11 @@ class TabCompletionPermissionsTest {
 		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop",
 				new String[]{"package", "create", ""});
 
-		assertEquals(List.of("[packageName]"), results);
+		assertEquals(List.of(), results);
 	}
 
 	@Test
-	void packageTabCompletion_allowsCreatePriceForAdmin() {
+	void packageTabCompletionDoesNotSuggestArbitraryCreatePrice() {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 		PackageTabCompletion completer = new PackageTabCompletion();
@@ -161,7 +241,19 @@ class TabCompletionPermissionsTest {
 		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop",
 				new String[]{"package", "create", "starter", ""});
 
-		assertEquals(List.of("[price]"), results);
+		assertEquals(List.of(), results);
+	}
+
+	@Test
+	void packageDeleteCompletionSuggestsRealPackagesByPrefix() {
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		PackageTabCompletion completer = new PackageTabCompletion();
+
+		List<String> results = completer.onTabComplete(player, mock(Command.class), "airdrop",
+				new String[]{"package", "delete", "pR"});
+
+		assertEquals(List.of("Premium"), results);
 	}
 
 	@Test
@@ -199,6 +291,9 @@ class TabCompletionPermissionsTest {
 		for (String reserved : List.of("all", "package", "packages", "version", "reload")) {
 			assertFalse(results.contains(reserved), reserved);
 		}
+		for (String subcommand : List.of("create", "delete")) {
+			assertEquals(1, results.stream().filter(subcommand::equals).count(), subcommand);
+		}
 	}
 
 	private YamlConfiguration validPackagesConfig() {
@@ -212,7 +307,7 @@ class TabCompletionPermissionsTest {
 
 	private YamlConfiguration configWithReservedPackages() {
 		YamlConfiguration config = validPackagesConfig();
-		for (String reserved : List.of("all", "package", "packages", "version", "reload")) {
+		for (String reserved : List.of("all", "package", "packages", "version", "reload", "create", "delete")) {
 			config.set("packages." + reserved + ".price", 1.0);
 			config.set("packages." + reserved + ".items", List.of());
 		}
