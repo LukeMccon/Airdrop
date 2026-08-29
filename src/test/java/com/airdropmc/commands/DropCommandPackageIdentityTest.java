@@ -105,7 +105,8 @@ class DropCommandPackageIdentityTest {
 
 		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
 			controller.when(() -> DropController.playerInitiatedDropPackage(expected, player))
-					.thenThrow(new EconomyUnavailableException());
+					.thenThrow(new EconomyUnavailableException(
+							EconomyUnavailableException.Reason.NO_PROVIDER));
 
 			DropCommand.onCommand(player, new String[]{"Starter"});
 		}

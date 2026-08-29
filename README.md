@@ -189,7 +189,30 @@ Paid-drop handling is fail-closed and does not provide an exactly-once transacti
 - At expiry, an empty paid barrel is removed. A non-empty paid barrel keeps its contents, loses its Airdrop metadata, and becomes an ordinary barrel.
 - Breaking a landed barrel remains a normal Paper block break. Airdrop releases its tracking without replacing Paper's normal block and inventory drops.
 
-## Version 4 Integration Notes
+## Version 4.1 deliberately tightens the exception API
+
+Airdrop 4.1 accepts two source- and binary-incompatible API corrections one day
+after 4.0. The project is not currently aware of any integrations consuming the
+4.x API, so it is accepting this break in 4.1 without a major-version release.
+
+- `CannotAffordException` has been removed. No version 4 drop path threw it,
+  and insufficient funds now produce `EconomyResult.REJECTED` within the
+  asynchronous paid-drop flow. Integrations that reference the removed class
+  must remove those references and recompile.
+- The no-argument `EconomyUnavailableException` constructor has been replaced
+  by `EconomyUnavailableException(Reason)`. Its `DISABLED` and `NO_PROVIDER`
+  reasons let integrations distinguish configuration from provider discovery
+  failures. Integrations that construct this exception must supply a reason and
+  recompile.
+
+Permission, economy-availability, sky-clearance, and admission-limit failures
+remain synchronous checked rejections from `playerInitiatedDropPackage(...)`.
+For a priced package, economy outcomes are handled asynchronously; returning
+from the method confirms neither payment nor delivery.
+`PackageManager` also continues to reject missing names synchronously with
+`PackageNotFoundException`.
+
+## Version 4 integration notes
 
 The 4.0 API intentionally includes these source and binary compatibility changes:
 

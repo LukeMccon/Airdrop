@@ -38,6 +38,10 @@ public class PackageManager {
 	 * Materializes a complete, detached package snapshot using the currently
 	 * published GUI control labels. Worker-side configuration preparation should
 	 * use the explicit-control-label overload.
+	 *
+	 * @param candidate configuration to materialize
+	 * @return immutable map keyed by canonical package name
+	 * @throws PackageMaterializationException if the packages section or any package is invalid
 	 */
 	public static Map<String, Package> materializePackages(FileConfiguration candidate)
 			throws PackageMaterializationException {
@@ -170,12 +174,28 @@ public class PackageManager {
 
 	/**
 	 * Creates a detached configuration candidate containing a normalized package.
+	 *
+	 * @param source source configuration
+	 * @param pkg package to add
+	 * @return detached configuration containing the new package
+	 * @throws PackageMaterializationException if the source configuration is invalid
+	 * @throws DuplicatePackageException if the package name already exists
 	 */
 	public static YamlConfiguration createPackageCandidate(FileConfiguration source, Package pkg)
 			throws PackageMaterializationException, DuplicatePackageException {
 		return createPackageCandidate(source, pkg, Set.copyOf(Gui.getControlItemNames()));
 	}
 
+	/**
+	 * Creates a detached configuration candidate containing a normalized package.
+	 *
+	 * @param source source configuration
+	 * @param pkg package to add
+	 * @param controlItemNames exact display names reserved for GUI control items
+	 * @return detached configuration containing the new package
+	 * @throws PackageMaterializationException if the source configuration is invalid
+	 * @throws DuplicatePackageException if the package name already exists
+	 */
 	public static YamlConfiguration createPackageCandidate(
 			FileConfiguration source, Package pkg, Set<String> controlItemNames)
 			throws PackageMaterializationException, DuplicatePackageException {
@@ -203,6 +223,13 @@ public class PackageManager {
 
 	/**
 	 * Creates a detached configuration candidate with one package inventory replaced.
+	 *
+	 * @param source source configuration
+	 * @param packageName package to update
+	 * @param items replacement inventory
+	 * @return detached configuration containing the replacement inventory
+	 * @throws PackageMaterializationException if the source configuration is invalid
+	 * @throws PackageNotFoundException if the package does not exist
 	 */
 	public static YamlConfiguration updatePackageInventoryCandidate(
 			FileConfiguration source, String packageName, List<ItemStack> items)
@@ -211,6 +238,17 @@ public class PackageManager {
 				source, packageName, items, Set.copyOf(Gui.getControlItemNames()));
 	}
 
+	/**
+	 * Creates a detached configuration candidate with one package inventory replaced.
+	 *
+	 * @param source source configuration
+	 * @param packageName package to update
+	 * @param items replacement inventory
+	 * @param controlItemNames exact display names reserved for GUI control items
+	 * @return detached configuration containing the replacement inventory
+	 * @throws PackageMaterializationException if the source configuration is invalid
+	 * @throws PackageNotFoundException if the package does not exist
+	 */
 	public static YamlConfiguration updatePackageInventoryCandidate(
 			FileConfiguration source,
 			String packageName,
@@ -230,12 +268,28 @@ public class PackageManager {
 
 	/**
 	 * Creates a detached configuration candidate with one package removed.
+	 *
+	 * @param source source configuration
+	 * @param packageName package to remove
+	 * @return detached configuration without the package
+	 * @throws PackageMaterializationException if the source configuration is invalid
+	 * @throws PackageNotFoundException if the package does not exist
 	 */
 	public static YamlConfiguration deletePackageCandidate(FileConfiguration source, String packageName)
 			throws PackageMaterializationException, PackageNotFoundException {
 		return deletePackageCandidate(source, packageName, Set.copyOf(Gui.getControlItemNames()));
 	}
 
+	/**
+	 * Creates a detached configuration candidate with one package removed.
+	 *
+	 * @param source source configuration
+	 * @param packageName package to remove
+	 * @param controlItemNames exact display names reserved for GUI control items
+	 * @return detached configuration without the package
+	 * @throws PackageMaterializationException if the source configuration is invalid
+	 * @throws PackageNotFoundException if the package does not exist
+	 */
 	public static YamlConfiguration deletePackageCandidate(
 			FileConfiguration source, String packageName, Set<String> controlItemNames)
 			throws PackageMaterializationException, PackageNotFoundException {
@@ -285,6 +339,10 @@ public class PackageManager {
 
 	/**
 	 * Gets a package by name using case-insensitive package identity.
+	 *
+	 * @param packageName package name to resolve
+	 * @return matching package
+	 * @throws PackageNotFoundException if no package matches the requested name
 	 */
 	public static Package get(String packageName) throws PackageNotFoundException {
 		return findPackage(packages, packageName);
@@ -339,6 +397,13 @@ public class PackageManager {
 		return validation.accepted() && snapshot.containsKey(validation.canonicalName());
 	}
 
+	/**
+	 * Gets a package's diagnostic description by case-insensitive name.
+	 *
+	 * @param packageName package name to resolve
+	 * @return package description
+	 * @throws PackageNotFoundException if no package matches the requested name
+	 */
 	public static String getInfo(String packageName) throws PackageNotFoundException {
 		return get(packageName).toString();
 	}

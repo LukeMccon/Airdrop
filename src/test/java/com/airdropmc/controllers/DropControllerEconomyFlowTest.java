@@ -204,7 +204,8 @@ class DropControllerEconomyFlowTest {
 		EconomyUnavailableException failure = assertThrows(EconomyUnavailableException.class,
 				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
 
-		assertEquals("Economy is disabled or no economy provider is currently available", failure.getMessage());
+		assertEquals(EconomyUnavailableException.Reason.DISABLED, failure.getReason());
+		assertEquals("Economy is disabled", failure.getMessage());
 		assertEquals(emptyAdmission(), admission.snapshot());
 		verify(pkg, never()).getItems();
 		verify(economy, never()).canAfford(any(), any());
@@ -216,9 +217,26 @@ class DropControllerEconomyFlowTest {
 		PlayerMock player = operatorAtClearSky();
 		Package pkg = paidPackage();
 
-		assertThrows(EconomyUnavailableException.class,
+		EconomyUnavailableException failure = assertThrows(EconomyUnavailableException.class,
 				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
 
+		assertEquals(EconomyUnavailableException.Reason.NO_PROVIDER, failure.getReason());
+		assertEquals("No economy provider is available", failure.getMessage());
+		assertEquals(emptyAdmission(), admission.snapshot());
+		verify(pkg, never()).getItems();
+	}
+
+	@Test
+	void disabledEconomyTakesPrecedenceWhenProviderIsAlsoMissing() throws Exception {
+		configValues.set(ConfigKeys.ECONOMY_ENABLED, false);
+		setStatic("economyProvider", null);
+		PlayerMock player = operatorAtClearSky();
+		Package pkg = paidPackage();
+
+		EconomyUnavailableException failure = assertThrows(EconomyUnavailableException.class,
+				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+
+		assertEquals(EconomyUnavailableException.Reason.DISABLED, failure.getReason());
 		assertEquals(emptyAdmission(), admission.snapshot());
 		verify(pkg, never()).getItems();
 	}

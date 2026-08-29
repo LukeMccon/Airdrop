@@ -2,19 +2,29 @@ package com.airdropmc.exceptions;
 
 import org.bukkit.Location;
 
+import java.util.Objects;
+
+/**
+ * Indicates that a drop cannot start because the requested location is below
+ * the highest block in its column.
+ */
 public class SkyNotClearException extends Exception {
 
-    /**
-     * Indicates that the area above the location is not valid for an Airdrop package to be dropped
-     * @param loc attempted drop location
-     */
-    public SkyNotClearException(Location loc) {
-        this.location = loc;
-    }
+	/**
+	 * Captures a detached snapshot of the rejected location.
+	 *
+	 * @param location attempted drop location
+	 * @throws NullPointerException if {@code location} is {@code null}
+	 */
+	public SkyNotClearException(Location location) {
+		super("Sky is not clear above the requested drop location");
+		this.location = Objects.requireNonNull(location, "location").clone();
+	}
 
-    private final Location location;
+	private final Location location;
 
-    public Location getLocation() {
-        return location;
-    }
+	/** @return a detached copy of the rejected location */
+	public Location getLocation() {
+		return location.clone();
+	}
 }
