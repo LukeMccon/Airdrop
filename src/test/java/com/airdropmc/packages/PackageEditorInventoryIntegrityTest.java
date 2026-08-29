@@ -25,6 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -376,6 +378,61 @@ class PackageEditorInventoryIntegrityTest {
 				assertFalse(handler.ignoreCancelled());
 			}
 		}
+	}
+
+	@Test
+	void packageEditorsShareInheritedLifecycleHandlers() throws Exception {
+		Class<?> sharedEditor = Class.forName("com.airdropmc.packages.PackageEditorGui");
+		assertSame(sharedEditor, CreatePackageGui.class.getSuperclass());
+		assertSame(sharedEditor, PackageGui.class.getSuperclass());
+
+		List<Method> lifecycleMethods = List.of(
+				CreatePackageGui.class.getMethod("openInventory", Player.class),
+				CreatePackageGui.class.getMethod("onInventoryClick", InventoryClickEvent.class),
+				CreatePackageGui.class.getMethod("onInventoryClick", InventoryDragEvent.class),
+				CreatePackageGui.class.getMethod("onInventoryClose", InventoryCloseEvent.class),
+				CreatePackageGui.class.getMethod("onPlayerQuit", org.bukkit.event.player.PlayerQuitEvent.class),
+				CreatePackageGui.class.getMethod("onPlayerKick", PlayerKickEvent.class),
+				CreatePackageGui.class.getMethod("getName"),
+				CreatePackageGui.class.getMethod("save", InventoryClickEvent.class),
+				CreatePackageGui.class.getMethod("cancel", InventoryClickEvent.class));
+
+		for (Method method : lifecycleMethods) {
+			assertSame(sharedEditor, method.getDeclaringClass());
+			assertTrue(Modifier.isPublic(method.getModifiers()));
+			assertFalse(Modifier.isFinal(method.getModifiers()));
+		}
+	}
+
+	@Test
+	void inheritedClickHandlersAreDispatchedForBothEditors() {
+		PlayerMock createPlayer = operator();
+		CreatePackageGui createGui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(createGui.openInventory(createPlayer));
+		createPlayer.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 2));
+		InventoryClickEvent createClick = bottomClick(
+				createPlayer, ClickType.LEFT, InventoryAction.PICKUP_ALL);
+		when(createClick.getHandlers()).thenReturn(InventoryClickEvent.getHandlerList());
+
+		server.getPluginManager().callEvent(createClick);
+
+		verify(createClick).setCancelled(true);
+		assertEquals(new ItemStack(Material.DIAMOND, 2),
+				createPlayer.getOpenInventory().getTopInventory().getItem(0));
+
+		PlayerMock updatePlayer = operator();
+		PackageGui updateGui = new PackageGui(new Package("starter", 3.0, List.of()));
+		assertTrue(updateGui.openInventory(updatePlayer));
+		updatePlayer.getInventory().setItem(0, new ItemStack(Material.EMERALD, 3));
+		InventoryClickEvent updateClick = bottomClick(
+				updatePlayer, ClickType.RIGHT, InventoryAction.PICKUP_HALF);
+		when(updateClick.getHandlers()).thenReturn(InventoryClickEvent.getHandlerList());
+
+		server.getPluginManager().callEvent(updateClick);
+
+		verify(updateClick).setCancelled(true);
+		assertEquals(new ItemStack(Material.EMERALD, 1),
+				updatePlayer.getOpenInventory().getTopInventory().getItem(0));
 	}
 
 	private void assertPreservedAfterClose(PlayerMock player, java.util.function.Consumer<InventoryCloseEvent> closeHandler) {
