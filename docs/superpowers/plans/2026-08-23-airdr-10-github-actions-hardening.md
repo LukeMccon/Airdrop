@@ -344,4 +344,4 @@ Use `superpowers:receiving-code-review` before any review-driven edits. Repeat t
 
 - [ ] **Step 5: Merge only after all gates pass**
 
-Merge the approved PR into `4.0-beta`, update the local target branch without discarding its existing commits, verify the remote merge, and move AIRDR-10 to Done in Plane.
+Merge the approved PR into `4.0-beta`, update the local target branch without discarding its existing commits, and verify the remote merge.
