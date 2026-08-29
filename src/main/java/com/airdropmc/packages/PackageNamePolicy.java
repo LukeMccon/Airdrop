@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 
 public final class PackageNamePolicy {
 	private static final Pattern SUPPORTED_CHARACTERS = Pattern.compile("^[A-Za-z0-9_-]+$");
-	private static final Set<String> PERMISSION_IDENTITIES = Set.of("all", "*");
+	private static final Set<String> RESERVED_IDENTITIES = Set.of("all", "*", "create", "delete");
 
 	public enum Rejection {
 		MISSING,
@@ -43,7 +43,7 @@ public final class PackageNamePolicy {
 		}
 
 		String canonicalName = name.toLowerCase(Locale.ROOT);
-		if (PERMISSION_IDENTITIES.contains(canonicalName)
+		if (RESERVED_IDENTITIES.contains(canonicalName)
 				|| AirdropCommandNames.topLevel().contains(canonicalName)) {
 			return new Result(null, Rejection.RESERVED);
 		}

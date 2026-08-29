@@ -26,7 +26,7 @@ public enum MessageKey {
 	PACKAGES_NAME_INVALID("packages.name-invalid",
 			"Package names may only contain letters, numbers, underscores, and dashes"),
 	PACKAGES_NAME_RESERVED("packages.name-reserved",
-			"Package names cannot use reserved names: all, *, package, packages, version, reload"),
+			"Package names cannot use reserved names: all, *, package, packages, version, reload, create, delete"),
 	PACKAGES_PRICE_REQUIRED("packages.price-required", "You must provide the package price as a double"),
 	PACKAGES_PRICE_INVALID("packages.price-invalid", "Package price must be a finite non-negative number"),
 	PACKAGES_CREATE_OPEN_ERROR("packages.create-open-error", "Unable to open package editor right now"),

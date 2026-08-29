@@ -2,10 +2,8 @@ package com.airdropmc.helpers;
 
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.lang.MessageKey;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
 import java.util.Map;
 
@@ -59,11 +57,7 @@ public class ChatHandler {
 
 	public static void sendWithoutPrefix(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
 		String formattedMessage = formatMessage(get(key, placeholders));
-		if (sender instanceof Player) {
-			sender.sendMessage(formattedMessage);
-		} else {
-			Bukkit.getServer().getConsoleSender().sendMessage(formattedMessage);
-		}
+		sender.sendMessage(formattedMessage);
 	}
 
 	public static void sendError(CommandSender sender, MessageKey key) {
@@ -83,13 +77,7 @@ public class ChatHandler {
 
 		String formattedMessage = formatMessage(getChatPrefix() + ChatTheme.error() + " " + message);
 
-		if (sender instanceof Player) {
-			sender.sendMessage(formattedMessage);
-		} else {
-			Bukkit.getServer().getConsoleSender().sendMessage(formattedMessage);
-		}
-
-
+		sender.sendMessage(formattedMessage);
 	}
 
 	/**
@@ -100,11 +88,7 @@ public class ChatHandler {
 	public static void sendMessage(CommandSender sender, String message) {
 		String formattedMessage = formatMessage(getChatPrefix() + ChatTheme.primary() + " " + message);
 
-		if (sender instanceof Player) {
-			sender.sendMessage(formattedMessage);
-		} else {
-			Bukkit.getServer().getConsoleSender().sendMessage(formattedMessage);
-		}
+		sender.sendMessage(formattedMessage);
 
 	}
 

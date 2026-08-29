@@ -21,7 +21,7 @@ packages:
   create-example: "Example: /airdrop package create starter 12.0"
   name-required: "You must provide a name for the package"
   name-invalid: "Package names may only contain letters, numbers, underscores, and dashes"
-  name-reserved: "Package names cannot use reserved names: all, *, package, packages, version, reload"
+  name-reserved: "Package names cannot use reserved names: all, *, package, packages, version, reload, create, delete"
   price-required: "You must provide the package price as a double"
   price-invalid: "Package price must be a finite non-negative number"
   create-open-error: "Unable to open package editor right now"
