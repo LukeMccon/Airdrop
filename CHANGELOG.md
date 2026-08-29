@@ -1,3 +1,24 @@
+# Airdrop 4.1 release note: exception contracts become explicit
+
+Airdrop 4.1 deliberately makes two source- and binary-incompatible API changes
+one day after 4.0. The project is not currently aware of any integrations
+consuming the 4.x API, so it is accepting this break in 4.1 without a
+major-version release.
+
+- `CannotAffordException` has been removed because version 4 no longer throws
+  it. Insufficient funds use `EconomyResult.REJECTED` in the asynchronous
+  paid-drop flow. Integrations that reference the class must remove those
+  references and recompile.
+- `EconomyUnavailableException` now requires a `DISABLED` or `NO_PROVIDER`
+  reason. Integrations that construct the former no-argument exception must
+  choose a reason and recompile.
+
+The remaining checked exceptions expose stable diagnostic messages and typed
+payloads. `SkyNotClearException` now snapshots its mutable `Location` payload.
+Player drop permission, economy-availability, sky, and admission failures are
+synchronous. Economy outcomes for priced drops are handled asynchronously, so
+the controller's return does not confirm payment or delivery.
+
 # Airdrop 4.0 release notes: Safer drops and more control
 
 Airdrop 4.0 makes package editing, crate handling, and economy transactions safer while giving server owners more control over each drop.

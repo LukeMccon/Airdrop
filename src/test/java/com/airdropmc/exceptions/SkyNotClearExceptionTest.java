@@ -47,13 +47,31 @@ class SkyNotClearExceptionTest {
         assertEquals(world, result.getWorld());
     }
 
-    @Test
-    void getLocation_returnsSameLocationInstance() {
-        Location location = new Location(world, 0, 0, 0);
-        SkyNotClearException exception = new SkyNotClearException(location);
+	@Test
+	void locationPayloadIsIsolatedFromConstructorAndGetterMutations() {
+		Location location = new Location(world, 10, 20, 30);
+		SkyNotClearException exception = new SkyNotClearException(location);
 
-        assertSame(location, exception.getLocation());
-    }
+		location.setX(99);
+		Location firstResult = exception.getLocation();
+		firstResult.setY(99);
+		Location secondResult = exception.getLocation();
+
+		assertAll(
+				() -> assertNotSame(location, firstResult),
+				() -> assertNotSame(firstResult, secondResult),
+				() -> assertEquals(10, secondResult.getX()),
+				() -> assertEquals(20, secondResult.getY()),
+				() -> assertEquals(30, secondResult.getZ()));
+	}
+
+	@Test
+	void constructorRejectsNullLocation() {
+		NullPointerException failure = assertThrows(
+				NullPointerException.class, () -> new SkyNotClearException(null));
+
+		assertEquals("location", failure.getMessage());
+	}
 
     @Test
     void isException_extendsException() {

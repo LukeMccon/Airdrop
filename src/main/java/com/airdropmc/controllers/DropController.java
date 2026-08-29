@@ -26,6 +26,11 @@ import org.bukkit.inventory.ItemStack;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * Validates drop requests, reserves admission capacity, and starts crate
+ * creation. Priced player requests continue through the asynchronous economy
+ * flow after this controller returns.
+ */
 public class DropController {
 
 	private static final int ZERO_BLOCKS = 0;
@@ -34,11 +39,38 @@ public class DropController {
 	private record DropTarget(Location spawnLocation, DropLocationKey landingKey) {
 	}
 
+	/**
+	 * Starts an unpaid system drop with default options.
+	 *
+	 * @param pkg package to drop
+	 * @param world target world
+	 * @param loc requested location
+	 * @throws SkyNotClearException if {@code loc} is below the highest block in its column
+	 * @throws DropLimitException if admission rejects the request for
+	 *         {@link DropLimitException.Reason#FALLING_CAPACITY},
+	 *         {@link DropLimitException.Reason#LANDED_CAPACITY},
+	 *         {@link DropLimitException.Reason#LOCATION_RESERVED}, or
+	 *         {@link DropLimitException.Reason#SHUTTING_DOWN}
+	 */
 	public static void dropPackage(Package pkg, World world, Location loc)
 			throws SkyNotClearException, DropLimitException {
 		dropPackage(pkg, world, loc, DropOptions.createDefault());
 	}
 
+	/**
+	 * Starts an unpaid system drop.
+	 *
+	 * @param pkg package to drop
+	 * @param world target world
+	 * @param loc requested location
+	 * @param options per-drop options, or {@code null} for defaults
+	 * @throws SkyNotClearException if {@code loc} is below the highest block in its column
+	 * @throws DropLimitException if admission rejects the request for
+	 *         {@link DropLimitException.Reason#FALLING_CAPACITY},
+	 *         {@link DropLimitException.Reason#LANDED_CAPACITY},
+	 *         {@link DropLimitException.Reason#LOCATION_RESERVED}, or
+	 *         {@link DropLimitException.Reason#SHUTTING_DOWN}
+	 */
 	public static void dropPackage(Package pkg, World world, Location loc, DropOptions options)
 			throws SkyNotClearException, DropLimitException {
 		DropOptions resolvedOptions = options != null ? options : DropOptions.createDefault();
@@ -54,23 +86,77 @@ public class DropController {
 		}
 	}
 
+	/**
+	 * Starts an unpaid system drop at a player's location with default options.
+	 *
+	 * @param pkg package to drop
+	 * @param player target player
+	 * @throws SkyNotClearException if the player is below the highest block in the column
+	 * @throws DropLimitException if admission rejects the request for
+	 *         {@link DropLimitException.Reason#FALLING_CAPACITY},
+	 *         {@link DropLimitException.Reason#LANDED_CAPACITY},
+	 *         {@link DropLimitException.Reason#LOCATION_RESERVED}, or
+	 *         {@link DropLimitException.Reason#SHUTTING_DOWN}
+	 */
 	public static void dropPackageOnPlayer(Package pkg, Player player)
 			throws SkyNotClearException, DropLimitException {
 		dropPackageOnPlayer(pkg, player, DropOptions.createDefault());
 	}
 
+	/**
+	 * Starts an unpaid system drop at a player's location.
+	 *
+	 * @param pkg package to drop
+	 * @param player target player
+	 * @param options per-drop options, or {@code null} for defaults
+	 * @throws SkyNotClearException if the player is below the highest block in the column
+	 * @throws DropLimitException if admission rejects the request for
+	 *         {@link DropLimitException.Reason#FALLING_CAPACITY},
+	 *         {@link DropLimitException.Reason#LANDED_CAPACITY},
+	 *         {@link DropLimitException.Reason#LOCATION_RESERVED}, or
+	 *         {@link DropLimitException.Reason#SHUTTING_DOWN}
+	 */
 	public static void dropPackageOnPlayer(Package pkg, Player player, DropOptions options)
 			throws SkyNotClearException, DropLimitException {
 		DropOptions resolvedOptions = options != null ? options : DropOptions.createDefault();
 		dropPackage(pkg, player.getWorld(), player.getLocation(), resolvedOptions);
 	}
 
+	/**
+	 * Validates and starts a player-requested drop with default options. For a
+	 * priced package, returning means only that the asynchronous payment flow
+	 * started; it does not confirm payment or delivery.
+	 *
+	 * @param pkg package to drop
+	 * @param player requesting player
+	 * @throws EconomyUnavailableException if a priced package is requested while
+	 *         economy support is disabled or no provider is available
+	 * @throws InsufficientPermissionsException if the player cannot request the package
+	 * @throws SkyNotClearException if the player is below the highest block in the column
+	 * @throws DropLimitException if player admission rejects the request for any
+	 *         {@link DropLimitException.Reason}
+	 */
 	public static void playerInitiatedDropPackage(Package pkg, Player player)
 			throws EconomyUnavailableException,
 			InsufficientPermissionsException, SkyNotClearException, DropLimitException {
 		playerInitiatedDropPackage(pkg, player, DropOptions.createDefault());
 	}
 
+	/**
+	 * Validates and starts a player-requested drop. For a priced package,
+	 * returning means only that the asynchronous payment flow started; it does
+	 * not confirm payment or delivery.
+	 *
+	 * @param pkg package to drop
+	 * @param player requesting player
+	 * @param options per-drop options, or {@code null} for defaults
+	 * @throws EconomyUnavailableException if a priced package is requested while
+	 *         economy support is disabled or no provider is available
+	 * @throws InsufficientPermissionsException if the player cannot request the package
+	 * @throws SkyNotClearException if the player is below the highest block in the column
+	 * @throws DropLimitException if player admission rejects the request for any
+	 *         {@link DropLimitException.Reason}
+	 */
 	public static void playerInitiatedDropPackage(Package pkg, Player player, DropOptions options)
 			throws EconomyUnavailableException,
 			InsufficientPermissionsException, SkyNotClearException, DropLimitException {
@@ -82,8 +168,11 @@ public class DropController {
 		boolean priced = packagePrice > 0.0;
 		boolean economyEnabled = ConfigKeys.isEconomyEnabled();
 		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (priced && (!economyEnabled || economy == null)) {
-			throw new EconomyUnavailableException();
+		if (priced && !economyEnabled) {
+			throw new EconomyUnavailableException(EconomyUnavailableException.Reason.DISABLED);
+		}
+		if (priced && economy == null) {
+			throw new EconomyUnavailableException(EconomyUnavailableException.Reason.NO_PROVIDER);
 		}
 
 		World world = player.getWorld();
