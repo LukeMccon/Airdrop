@@ -118,12 +118,28 @@ class CrateHopperListenerTest {
 	}
 
 	@Test
+	void onInventoryMoveItem_rechecksAfterTransfer_whenSourceStillContainsLastItemDuringEvent() {
+		Crate crate = trackMockCrate();
+		ItemStack item = new ItemStack(Material.DIAMOND);
+		barrelInventory.setItem(0, item);
+
+		server.getPluginManager().callEvent(extractionEvent(item));
+
+		assertEquals(1, nextTickTasks.size());
+		barrelInventory.clear();
+		runNextTickTasks();
+
+		assertNull(CrateManager.getCrate(barrelLocation));
+		verify(crate).destroy();
+	}
+
+	@Test
 	void onInventoryMoveItem_rechecksFreshBarrelInventoryInsteadOfEventSourceReference() {
 		Crate crate = trackMockCrate();
 		Inventory staleEventSource = mock(Inventory.class);
 		when(staleEventSource.getType()).thenReturn(InventoryType.BARREL);
 		when(staleEventSource.getLocation()).thenReturn(barrelLocation);
-		when(staleEventSource.isEmpty()).thenReturn(true, false);
+		when(staleEventSource.isEmpty()).thenReturn(false);
 		ItemStack item = new ItemStack(Material.DIAMOND);
 
 		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
@@ -216,7 +232,8 @@ class CrateHopperListenerTest {
 
 		server.getPluginManager().callEvent(extractionEvent(extracted));
 
-		assertTrue(nextTickTasks.isEmpty());
+		assertEquals(1, nextTickTasks.size());
+		runNextTickTasks();
 
 		assertSame(crate, CrateManager.getCrate(barrelLocation));
 		verify(crate, never()).destroy();

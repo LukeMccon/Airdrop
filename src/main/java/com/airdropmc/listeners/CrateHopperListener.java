@@ -45,7 +45,7 @@ public class CrateHopperListener implements Listener {
 			return;
 		}
 		Crate expectedCrate = CrateManager.getCrate(barrelLocation);
-		if (expectedCrate == null || !source.isEmpty()) {
+		if (expectedCrate == null) {
 			return;
 		}
 		DropLocationKey locationKey = DropLocationKey.from(barrelLocation);
