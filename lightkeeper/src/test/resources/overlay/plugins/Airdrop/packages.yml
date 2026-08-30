@@ -27,3 +27,31 @@ packages:
       count: 2
       schema_version: 1
     price: 0.0
+  premium:
+    items:
+    - ==: org.bukkit.inventory.ItemStack
+      DataVersion: 4671
+      id: minecraft:iron_helmet
+      count: 1
+      schema_version: 1
+    - ==: org.bukkit.inventory.ItemStack
+      DataVersion: 4671
+      id: minecraft:iron_chestplate
+      count: 1
+      schema_version: 1
+    - ==: org.bukkit.inventory.ItemStack
+      DataVersion: 4671
+      id: minecraft:iron_leggings
+      count: 1
+      schema_version: 1
+    - ==: org.bukkit.inventory.ItemStack
+      DataVersion: 4671
+      id: minecraft:iron_boots
+      count: 1
+      schema_version: 1
+    - ==: org.bukkit.inventory.ItemStack
+      DataVersion: 4671
+      id: minecraft:bread
+      count: 2
+      schema_version: 1
+    price: 10.25

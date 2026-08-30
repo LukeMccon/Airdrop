@@ -11,12 +11,15 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.build.outputTimestamp>2026-08-30T00:00:00Z</project.build.outputTimestamp>
         <lightkeeper.version>be585af08221c37bcbc8c9d7f5a40a27dbd2dff1</lightkeeper.version>
         <lightkeeper.plugin-adapter.version>be585af08221c37bcbc8c9d7f5a40a27dbd2dff1-airdrop1</lightkeeper.plugin-adapter.version>
         <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
+        <vault-unlocked.version>2.20</vault-unlocked.version>
         <junit.version>6.1.3</junit.version>
         <maven.compiler.version>3.15.0</maven.compiler.version>
         <maven.failsafe.version>3.5.6</maven.failsafe.version>
+        <maven.shade.version>3.6.2</maven.shade.version>
         <lightkeeper.runtime-manifest>${project.build.directory}/lightkeeper/runtime-manifest.json</lightkeeper.runtime-manifest>
         <lightkeeper.server-work-directory>${project.build.directory}/lightkeeper-server</lightkeeper.server-work-directory>
     </properties>
@@ -29,6 +32,10 @@
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>creatorfromhell</id>
+            <url>https://repo.codemc.io/repository/creatorfromhell/</url>
         </repository>
     </repositories>
 
@@ -54,7 +61,12 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
-            <scope>test</scope>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.milkbowl.vault</groupId>
+            <artifactId>VaultUnlockedAPI</artifactId>
+            <version>${vault-unlocked.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -86,6 +98,11 @@
                     <userAgent>Airdrop/4.0 (https://github.com/LukeMccon/Airdrop)</userAgent>
                     <configOverlayPath>${project.basedir}/src/test/resources/overlay</configOverlayPath>
                     <plugins>
+                        <plugin>
+                            <sourceType>path</sourceType>
+                            <path>${project.build.directory}/${project.build.finalName}-fixture.jar</path>
+                            <renameTo>Vault.jar</renameTo>
+                        </plugin>
                         <plugin>
                             <sourceType>path</sourceType>
                             <path>${airdrop.jar.path}</path>
@@ -124,6 +141,46 @@
                             <deleteTargetServerOnSuccess>true</deleteTargetServerOnSuccess>
                             <failsafeSummaryPath>${project.build.directory}/failsafe-reports/failsafe-summary.xml</failsafeSummaryPath>
                             <serverWorkDirectoryRoot>${lightkeeper.server-work-directory}</serverWorkDirectoryRoot>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven.shade.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <artifactSet>
+                                <includes>
+                                    <include>net.milkbowl.vault:VaultUnlockedAPI</include>
+                                </includes>
+                            </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>net.milkbowl.vault:VaultUnlockedAPI</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>fixture</shadedClassifierName>
                         </configuration>
                     </execution>
                 </executions>
