@@ -1,78 +1,95 @@
 package com.airdropmc.commands;
 
-import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.DropHandle;
+import com.airdropmc.api.DropOutcome;
+import com.airdropmc.api.DropRejection;
+import com.airdropmc.api.DropRejectionReason;
+import com.airdropmc.api.DropRequestDescriptor;
+import com.airdropmc.api.DropRequestOptions;
+import com.airdropmc.api.DropSource;
+import com.airdropmc.api.DropSpawnResult;
+import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.controllers.DropController;
-import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.lang.MessageKey;
-import com.airdropmc.packages.Package;
-import com.airdropmc.packages.PackageManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Location;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
 import org.mockito.MockedStatic;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.anyMap;
-import static org.mockito.Mockito.eq;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 class DropCommandPackageIdentityTest {
+
 	private ServerMock server;
+	private WorldMock world;
 
 	@BeforeEach
-	void setUp() throws Exception {
+	void setUp() {
 		server = MockBukkit.mock();
-		YamlConfiguration config = new YamlConfiguration();
-		config.set("packages.Starter.price", 10.0);
-		config.set("packages.Starter.items", List.of());
+		world = server.addSimpleWorld("command_world");
 		ChatHandler.init(new LanguageManager(mock(Airdrop.class)));
-		PackageManager.clear();
-		PackageManager.publishPackages(PackageManager.materializePackages(config));
 	}
 
 	@AfterEach
 	void tearDown() {
-		PackageManager.clear();
 		ChatHandler.init(null);
 		MockBukkit.unmock();
 	}
 
 	@Test
-	void dropCommandResolvesAcceptedPackageWithoutCaseDifferences() throws Exception {
+	void dropCommandPassesCallerSpellingToTypedRequest() {
 		PlayerMock player = server.addPlayer();
-		Package expected = PackageManager.get("Starter");
+		DropHandle handle = rejected(
+				player, "STARTER", DropRejectionReason.UNKNOWN_PACKAGE,
+				PaymentStatus.REJECTED);
 
 		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
+			controller.when(() -> DropController.requestPlayerDrop(
+					player, "STARTER", DropRequestOptions.defaults())).thenReturn(handle);
+
 			DropCommand.onCommand(player, new String[]{"STARTER"});
 
-			controller.verify(() -> DropController.playerInitiatedDropPackage(expected, player));
+			controller.verify(() -> DropController.requestPlayerDrop(
+					player, "STARTER", DropRequestOptions.defaults()));
 		}
 	}
 
 	@Test
 	void permissionDenialDisplaysCanonicalNode() {
 		PlayerMock player = server.addPlayer();
+		DropHandle handle = rejected(
+				player, "Starter", DropRejectionReason.INSUFFICIENT_PERMISSION,
+				PaymentStatus.REJECTED);
 
-		DropCommand.onCommand(player, new String[]{"Starter"});
+		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
+			controller.when(() -> DropController.requestPlayerDrop(
+					player, "Starter", DropRequestOptions.defaults())).thenReturn(handle);
+			DropCommand.onCommand(player, new String[]{"Starter"});
+		}
 
-		Component message = player.nextComponentMessage();
-		assertNotNull(message);
-		String text = PlainTextComponentSerializer.plainText().serialize(message);
+		String text = nextMessage(player);
 		assertTrue(text.contains("airdrop.package.starter"), text);
 		assertFalse(text.contains("airdrop.package.Starter"));
 	}
@@ -88,32 +105,60 @@ class DropCommandPackageIdentityTest {
 				});
 		ChatHandler.init(language);
 		PlayerMock player = server.addPlayer();
+		DropHandle handle = rejected(
+				player, "Starter", DropRejectionReason.INSUFFICIENT_PERMISSION,
+				PaymentStatus.REJECTED);
 
-		DropCommand.onCommand(player, new String[]{"Starter"});
+		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
+			controller.when(() -> DropController.requestPlayerDrop(
+					player, "Starter", DropRequestOptions.defaults())).thenReturn(handle);
+			DropCommand.onCommand(player, new String[]{"Starter"});
+		}
 
-		Component message = player.nextComponentMessage();
-		assertNotNull(message);
-		String text = PlainTextComponentSerializer.plainText().serialize(message);
+		String text = nextMessage(player);
 		assertTrue(text.contains("airdrop.package.starter"), text);
 		assertFalse(text.contains("airdrop.package.null"), text);
 	}
 
 	@Test
-	void unavailableEconomyDisplaysConfiguredMessage() throws Exception {
+	void unavailableEconomyDisplaysConfiguredMessage() {
 		PlayerMock player = server.addPlayer();
-		Package expected = PackageManager.get("Starter");
+		DropHandle handle = rejected(
+				player, "Starter", DropRejectionReason.ECONOMY_PROVIDER_UNAVAILABLE,
+				PaymentStatus.REJECTED);
 
 		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
-			controller.when(() -> DropController.playerInitiatedDropPackage(expected, player))
-					.thenThrow(new EconomyUnavailableException(
-							EconomyUnavailableException.Reason.NO_PROVIDER));
-
+			controller.when(() -> DropController.requestPlayerDrop(
+					player, "Starter", DropRequestOptions.defaults())).thenReturn(handle);
 			DropCommand.onCommand(player, new String[]{"Starter"});
 		}
 
+		assertTrue(nextMessage(player).contains("Priced packages are unavailable"));
+	}
+
+	private DropHandle rejected(
+			PlayerMock player,
+			String packageName,
+			DropRejectionReason reason,
+			PaymentStatus payment) {
+		DropRequestDescriptor descriptor = new DropRequestDescriptor(
+				UUID.randomUUID(), DropSource.PLAYER, player.getUniqueId(), packageName,
+				new Location(world, 0, 100, 0));
+		DropOutcome.Rejected outcome = new DropOutcome.Rejected(
+				descriptor,
+				Optional.empty(),
+				DropRejection.of(reason, "test rejection"),
+				payment);
+		DropHandle handle = mock(DropHandle.class);
+		when(handle.spawn()).thenReturn(CompletableFuture.completedFuture(
+				new DropSpawnResult.NotSpawned(outcome)));
+		when(handle.outcome()).thenReturn(CompletableFuture.completedFuture(outcome));
+		return handle;
+	}
+
+	private String nextMessage(PlayerMock player) {
 		Component message = player.nextComponentMessage();
 		assertNotNull(message);
-		String text = PlainTextComponentSerializer.plainText().serialize(message);
-		assertTrue(text.contains("Priced packages are unavailable"), text);
+		return PlainTextComponentSerializer.plainText().serialize(message);
 	}
 }

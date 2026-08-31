@@ -1,13 +1,23 @@
 package com.airdropmc.commands;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.DropOutcome;
+import com.airdropmc.api.DropRejection;
+import com.airdropmc.api.DropRejectionReason;
+import com.airdropmc.api.DropRequestDescriptor;
+import com.airdropmc.api.DropRequestOptions;
+import com.airdropmc.api.DropSource;
+import com.airdropmc.api.PaymentStatus;
+import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.internal.drop.DefaultDropHandle;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.PackageManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.Command;
+import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +26,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -26,6 +37,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -102,9 +116,24 @@ class CmdAirdropHelpTest {
 	void missingPackagePointsPlayersToRootCompletionInsteadOfTheAdminBrowser() throws Exception {
 		setStatic("ready", true);
 		PlayerMock player = server.addPlayer();
+		var world = server.addSimpleWorld("help_world");
+		player.teleport(new Location(world, 0, 100, 0));
+		DropRequestDescriptor descriptor = new DropRequestDescriptor(
+				UUID.randomUUID(), DropSource.PLAYER, player.getUniqueId(), "missing",
+				player.getLocation());
+		DefaultDropHandle handle = new DefaultDropHandle(descriptor);
+		handle.completeNotSpawned(new DropOutcome.Rejected(
+				descriptor,
+				Optional.empty(),
+				DropRejection.of(DropRejectionReason.UNKNOWN_PACKAGE, "missing"),
+				PaymentStatus.REJECTED));
 
-		assertTrue(new CmdAirdrop().onCommand(
-				player, mock(Command.class), "airdrop", new String[]{"missing"}));
+		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
+			controller.when(() -> DropController.requestPlayerDrop(
+					player, "missing", DropRequestOptions.defaults())).thenReturn(handle);
+			assertTrue(new CmdAirdrop().onCommand(
+					player, mock(Command.class), "airdrop", new String[]{"missing"}));
+		}
 
 		String message = nextMessage(player);
 		assertTrue(message.contains("press Tab"), message);

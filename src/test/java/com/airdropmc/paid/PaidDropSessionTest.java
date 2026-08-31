@@ -1,75 +1,54 @@
 package com.airdropmc.paid;
 
-import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.plugin.PluginMock;
-import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.entity.PlayerMock;
-import com.airdropmc.Airdrop;
 import com.airdropmc.economy.EconomyPlayer;
 import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.economy.EconomyResult;
-import com.airdropmc.limits.DropAdmissionController;
-import com.airdropmc.limits.DropLimitSettings;
-import com.airdropmc.limits.DropLocationKey;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.plugin.Plugin;
+import org.bukkit.Bukkit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
 
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.time.Duration;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class PaidDropSessionTest {
 
 	private ServerMock server;
 	private PluginMock plugin;
 	private PlayerMock player;
-	private DropAdmissionController admission;
-	private DropAdmissionController.Lease lease;
 	private ControlledEconomyProvider economy;
-	private AtomicInteger spawns;
+	private List<Completion> completions;
 
 	@BeforeEach
-	void setUp() throws Exception {
+	void setUp() {
 		server = MockBukkit.mock();
-		plugin = MockBukkit.createMockPlugin("AirdropSessionHarness");
+		plugin = MockBukkit.createMockPlugin("PaidSessionHarness");
 		player = server.addPlayer("Luke");
-		admission = new DropAdmissionController();
-		lease = admission.acquirePlayer(player.getUniqueId(), false,
-				new DropLocationKey(UUID.randomUUID(), 0, 65, 0),
-				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofMinutes(10)));
-		economy = new ControlledEconomyProvider(true);
-		spawns = new AtomicInteger();
-		Airdrop.setPluginInstance(null);
-		setStatic("shuttingDown", false);
+		economy = new ControlledEconomyProvider();
+		completions = new ArrayList<>();
 	}
 
 	@AfterEach
-	void tearDown() throws Exception {
-		admission.clear();
-		Airdrop.setPluginInstance(null);
-		setStatic("shuttingDown", false);
+	void tearDown() {
 		MockBukkit.unmock();
 	}
 
 	@Test
-	void confirmedWithdrawalSpawnsExactlyOnce() {
-		PaidDropSession session = session(BigDecimal.TEN);
+	void confirmedAffordabilityAndWithdrawalReportOneChargeOnPrimaryThread() {
+		PaidDropSession session = session();
 
 		session.start();
 		economy.affordability.complete(EconomyResult.ok());
@@ -77,351 +56,241 @@ class PaidDropSessionTest {
 		economy.withdrawal.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
 
-		assertEquals(1, spawns.get());
+		assertEquals(PaidDropSession.State.CHARGED, session.state());
+		assertEquals(List.of(new Completion(
+				PaidDropSession.Operation.WITHDRAWAL, EconomyResult.ok())), completions);
 		assertEquals(1, economy.withdrawals);
-		assertTrue(nextMessage().contains("taken from your account"));
+		assertTrue(completions.getFirst().primaryThread());
+		assertNull(player.nextComponentMessage(), "the economy helper must never send chat");
 	}
 
 	@Test
-	void insufficientFundsStopsBeforeWithdrawalAndReleasesLease() {
-		PaidDropSession session = session(BigDecimal.TEN);
-
+	void backgroundProviderCallbacksAreMarshalledBeforeStateMutation() throws Exception {
+		PaidDropSession session = session();
 		session.start();
-		economy.affordability.complete(EconomyResult.rejected("insufficient funds"));
-		server.getScheduler().performOneTick();
 
+		Thread affordability = new Thread(
+				() -> economy.affordability.complete(EconomyResult.ok()),
+				"economy-affordability");
+		affordability.start();
+		affordability.join();
+		assertEquals(PaidDropSession.State.CHECKING, session.state());
 		assertEquals(0, economy.withdrawals);
-		assertEquals(0, spawns.get());
-		assertEquals(0, admission.snapshot().pending());
-		assertTrue(nextMessage().contains("cannot afford"));
+
+		server.getScheduler().performOneTick();
+		assertEquals(PaidDropSession.State.WITHDRAWING, session.state());
+		Thread withdrawal = new Thread(
+				() -> economy.withdrawal.complete(EconomyResult.ok()),
+				"economy-withdrawal");
+		withdrawal.start();
+		withdrawal.join();
+		assertTrue(completions.isEmpty());
+
+		server.getScheduler().performOneTick();
+		assertEquals(PaidDropSession.State.CHARGED, session.state());
+		assertTrue(completions.getFirst().primaryThread());
 	}
 
 	@Test
-	void affordabilityTimeoutCreatesNoCrateAndReleasesLease() {
-		PaidDropSession session = session(BigDecimal.TEN);
+	void insufficientFundsStopsBeforeWithdrawal() {
+		PaidDropSession session = session();
+
 		session.start();
+		economy.affordability.complete(EconomyResult.rejected("insufficient"));
+		server.getScheduler().performOneTick();
 
-		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
-
+		assertEquals(PaidDropSession.State.TERMINAL, session.state());
+		assertEquals(PaidDropSession.Operation.AFFORDABILITY, completions.getFirst().operation());
+		assertEquals(EconomyResult.Outcome.REJECTED, completions.getFirst().result().outcome());
 		assertEquals(0, economy.withdrawals);
-		assertEquals(0, spawns.get());
-		assertEquals(0, admission.snapshot().pending());
-		assertTrue(nextMessage().contains("no crate was created"));
 	}
 
 	@Test
-	void withdrawalTimeoutCancelsDropAndLateSuccessDoesNotReplayMoneyOrItems() {
-		PaidDropSession session = session(BigDecimal.TEN);
+	void withdrawalTimeoutIsAmbiguousAndLateSuccessIsIgnored() {
+		PaidDropSession session = session();
 		session.start();
 		economy.affordability.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
 
 		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
 
-		assertEquals(0, spawns.get());
-		assertEquals(0, admission.snapshot().pending());
-		assertTrue(nextMessage().contains("no crate was created"));
+		assertEquals(PaidDropSession.State.TERMINAL, session.state());
+		assertEquals(PaidDropSession.Operation.WITHDRAWAL, completions.getFirst().operation());
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
 
 		economy.withdrawal.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
 
-		assertEquals(0, economy.deposits);
-		assertEquals(0, spawns.get());
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void lateWithdrawalSuccessDoesNotStartRejectedRefundFlow() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		session.start();
-		economy.affordability.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
-		nextMessage();
-
-		economy.withdrawal.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-
-		assertEquals(0, economy.deposits);
-		assertEquals(0, spawns.get());
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void lateWithdrawalSuccessDoesNotStartRefundTimeoutFlow() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		session.start();
-		economy.affordability.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
-		nextMessage();
-
-		economy.withdrawal.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
-
-		assertEquals(0, economy.deposits);
-		assertEquals(0, spawns.get());
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void exceptionalWithdrawalCreatesNoCrateAndDoesNotGuessAtRefund() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		session.start();
-		economy.affordability.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-
-		economy.withdrawal.completeExceptionally(new IllegalStateException("database unavailable"));
-		server.getScheduler().performOneTick();
-
-		assertEquals(0, spawns.get());
-		assertEquals(0, economy.deposits);
-		assertEquals(0, admission.snapshot().pending());
-		assertTrue(nextMessage().contains("no crate was created"));
-	}
-
-	@Test
-	void rejectedWithdrawalCreatesNoCrateAndDoesNotRefund() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		session.start();
-		economy.affordability.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-
-		economy.withdrawal.complete(EconomyResult.rejected("withdrawal rejected"));
-		server.getScheduler().performOneTick();
-
-		assertEquals(0, spawns.get());
-		assertEquals(0, economy.deposits);
-		assertEquals(0, admission.snapshot().pending());
-		assertTrue(nextMessage().contains("no crate was created"));
-	}
-
-	@Test
-	void disconnectDoesNotCancelConfirmedWithdrawalOrSpawn() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		session.start();
-		economy.affordability.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		player.disconnect();
-
-		economy.withdrawal.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-
-		assertEquals(1, spawns.get());
-		assertEquals(1, economy.withdrawals);
-	}
-
-	@Test
-	void zeroPriceBypassesEconomy() {
-		PaidDropSession session = session(BigDecimal.ZERO);
-
-		session.start();
-
-		assertEquals(1, spawns.get());
-		assertEquals(0, economy.affordabilityChecks);
-		assertEquals(0, economy.withdrawals);
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void failedZeroPriceCrateDoesNotDepositOrClaimRefund() {
-		PaidDropSession session = session(BigDecimal.ZERO);
-		session.start();
-
-		session.failed();
-
-		assertEquals(0, economy.deposits);
-		assertTrue(nextMessage().contains("no crate was created"));
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void landedCrateIsNeverRefundedByLaterCleanup() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		advanceToFalling(session);
-
-		session.landed();
-		session.failed();
-
+		assertEquals(1, completions.size());
 		assertEquals(0, economy.deposits);
 	}
 
 	@Test
-	void knownCrateFailureStartsOneRefund() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		advanceToFalling(session);
-		nextMessage();
-
-		session.failed();
-		session.failed();
-
-		assertEquals(1, economy.deposits);
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void rejectedRefundEndsWithOneGenericFailureMessage() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		advanceToFalling(session);
-		nextMessage();
-		session.failed();
-		assertNull(player.nextComponentMessage());
-
-		economy.refund.complete(EconomyResult.rejected("refund rejected"));
+	void exceptionalAndNullProviderResultsBecomeUnknown() {
+		PaidDropSession exceptional = session();
+		exceptional.start();
+		economy.affordability.completeExceptionally(new IllegalStateException("offline"));
 		server.getScheduler().performOneTick();
 
-		assertTrue(nextMessage().contains("no crate was created"));
-		assertNull(player.nextComponentMessage());
-	}
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
 
-	@Test
-	void exceptionalRefundIsNotRetried() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		advanceToFalling(session);
-		nextMessage();
-		session.failed();
-
-		economy.refund.completeExceptionally(new IllegalStateException("refund unavailable"));
-		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS + 1L);
-
-		assertEquals(1, economy.deposits);
-		assertTrue(nextMessage().contains("no crate was created"));
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void refundTimeoutEndsWithOneGenericFailureMessage() {
-		PaidDropSession session = session(BigDecimal.TEN);
-		advanceToFalling(session);
-		nextMessage();
-		session.failed();
-		assertNull(player.nextComponentMessage());
-
-		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
-
-		assertTrue(nextMessage().contains("no crate was created"));
-		assertNull(player.nextComponentMessage());
-	}
-
-	@Test
-	void shutdownDoesNotStartRefundForFallingCrate() throws Exception {
-		PaidDropSession session = session(BigDecimal.TEN);
-		advanceToFalling(session);
-		setStatic("shuttingDown", true);
-
-		session.failed();
-
-		assertEquals(0, economy.deposits);
-	}
-
-	@Test
-	void crateCleanupDuringSpawnDoesNotDuplicateFailureMessageOrRefund() {
-		PaidDropSession session = new PaidDropSession(
-				plugin,
-				economy,
-				new EconomyPlayer(player.getUniqueId(), player.getName()),
-				BigDecimal.TEN,
-				lease,
-				paidSession -> {
-					paidSession.failed();
-					throw new IllegalStateException("spawn failed");
-				});
-
-		session.start();
-		economy.affordability.complete(EconomyResult.ok());
-		server.getScheduler().performOneTick();
-		economy.withdrawal.complete(EconomyResult.ok());
+		completions.clear();
+		economy = ControlledEconomyProvider.withNullAffordabilityResult();
+		PaidDropSession nullResult = session();
+		nullResult.start();
 		server.getScheduler().performOneTick();
 
-		assertEquals(1, economy.deposits);
-		assertNull(player.nextComponentMessage());
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
+	}
+
+	@Test
+	void nullStageAndProviderThrowBecomeUnknown() {
+		economy = ControlledEconomyProvider.withNullAffordabilityStage();
+		PaidDropSession nullStage = session();
+		nullStage.start();
+		server.getScheduler().performOneTick();
+
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
+
+		completions.clear();
+		economy = ControlledEconomyProvider.withThrowingAffordability();
+		PaidDropSession throwing = session();
+		throwing.start();
+		server.getScheduler().performOneTick();
+
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
+	}
+
+	@Test
+	void confirmedChargeCanStartExactlyOneRefund() {
+		PaidDropSession session = chargedSession();
+		completions.clear();
+
+		assertTrue(session.refund());
+		assertFalse(session.refund());
 		economy.refund.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
-		assertTrue(nextMessage().contains("payment was refunded"));
-		assertNull(player.nextComponentMessage());
+
+		assertEquals(1, economy.deposits);
+		assertEquals(PaidDropSession.State.TERMINAL, session.state());
+		assertEquals(List.of(new Completion(
+				PaidDropSession.Operation.REFUND, EconomyResult.ok())), completions);
 	}
 
 	@Test
-	void nativeCompletionChecksPluginStateOnlyAfterReturningToServerThread() throws Exception {
-		Plugin threadCheckedPlugin = mock(Plugin.class);
-		when(threadCheckedPlugin.getLogger()).thenReturn(Logger.getLogger("PaidDropSessionThreadTest"));
-		when(threadCheckedPlugin.isEnabled()).thenAnswer(invocation -> {
-			assertTrue(org.bukkit.Bukkit.isPrimaryThread());
-			return true;
-		});
-		PaidDropSession session = new PaidDropSession(
-				threadCheckedPlugin,
-				economy,
-				new EconomyPlayer(player.getUniqueId(), player.getName()),
-				BigDecimal.TEN,
-				lease,
-				ignored -> spawns.incrementAndGet());
-		session.start();
+	void refundTimeoutIsUnknownAndNeverRetried() {
+		PaidDropSession session = chargedSession();
+		completions.clear();
+		session.refund();
 
-		Thread completionThread = new Thread(
-				() -> economy.affordability.complete(EconomyResult.ok()),
-				"economy-completion-test");
-		completionThread.start();
-		completionThread.join();
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
+		economy.refund.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
 
-		assertEquals(1, economy.withdrawals);
+		assertEquals(1, economy.deposits);
+		assertEquals(1, completions.size());
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
 	}
 
-	private void advanceToFalling(PaidDropSession session) {
+	@Test
+	void stopCancelsOutstandingWorkAndSuppressesLateCallbacks() {
+		PaidDropSession session = session();
+		session.start();
+
+		assertEquals(PaidDropSession.State.CHECKING, session.stop());
+		assertEquals(PaidDropSession.State.STOPPED, session.state());
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS + 1L);
+
+		assertTrue(completions.isEmpty());
+		assertEquals(0, economy.withdrawals);
+	}
+
+	@Test
+	void rejectsNonPositiveAmountsAndRepeatedStart() {
+		assertThrows(IllegalArgumentException.class, () -> new PaidDropSession(
+				plugin, economy, playerIdentity(), BigDecimal.ZERO, this::record));
+		PaidDropSession session = session();
+		session.start();
+		assertThrows(IllegalStateException.class, session::start);
+	}
+
+	private PaidDropSession chargedSession() {
+		PaidDropSession session = session();
 		session.start();
 		economy.affordability.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
 		economy.withdrawal.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
+		return session;
 	}
 
-	private PaidDropSession session(BigDecimal amount) {
+	private PaidDropSession session() {
 		return new PaidDropSession(
-				plugin,
-				economy,
-				new EconomyPlayer(player.getUniqueId(), player.getName()),
-				amount,
-				lease,
-				ignored -> spawns.incrementAndGet());
+				plugin, economy, playerIdentity(), BigDecimal.TEN, this::record);
 	}
 
-	private String nextMessage() {
-		Component message = player.nextComponentMessage();
-		assertNotNull(message);
-		return PlainTextComponentSerializer.plainText().serialize(message);
+	private EconomyPlayer playerIdentity() {
+		return new EconomyPlayer(player.getUniqueId(), player.getName());
 	}
 
-	private static void setStatic(String fieldName, Object value) throws Exception {
-		Field field = Airdrop.class.getDeclaredField(fieldName);
-		field.setAccessible(true);
-		field.set(null, value);
+	private void record(PaidDropSession.Operation operation, EconomyResult result) {
+		completions.add(new Completion(operation, result, Bukkit.isPrimaryThread()));
+	}
+
+	private record Completion(
+			PaidDropSession.Operation operation,
+			EconomyResult result,
+			boolean primaryThread) {
+		private Completion(PaidDropSession.Operation operation, EconomyResult result) {
+			this(operation, result, true);
+		}
 	}
 
 	private static final class ControlledEconomyProvider implements EconomyProvider {
 
-		private final boolean nativeAsync;
-		private final CompletableFuture<EconomyResult> affordability = new CompletableFuture<>();
+		private CompletionStage<EconomyResult> affordabilityStage;
+		private RuntimeException affordabilityFailure;
+		private final CompletableFuture<EconomyResult> affordability;
 		private final CompletableFuture<EconomyResult> withdrawal = new CompletableFuture<>();
 		private final CompletableFuture<EconomyResult> refund = new CompletableFuture<>();
-		private int affordabilityChecks;
 		private int withdrawals;
 		private int deposits;
 
-		private ControlledEconomyProvider(boolean nativeAsync) {
-			this.nativeAsync = nativeAsync;
+		private ControlledEconomyProvider() {
+			affordability = new CompletableFuture<>();
+			affordabilityStage = affordability;
+		}
+
+		private static ControlledEconomyProvider withNullAffordabilityResult() {
+			ControlledEconomyProvider provider = new ControlledEconomyProvider();
+			provider.affordabilityStage = CompletableFuture.completedFuture(null);
+			return provider;
+		}
+
+		private static ControlledEconomyProvider withNullAffordabilityStage() {
+			ControlledEconomyProvider provider = new ControlledEconomyProvider();
+			provider.affordabilityStage = null;
+			return provider;
+		}
+
+		private static ControlledEconomyProvider withThrowingAffordability() {
+			ControlledEconomyProvider provider = new ControlledEconomyProvider();
+			provider.affordabilityFailure = new IllegalStateException("provider offline");
+			return provider;
 		}
 
 		@Override
 		public boolean nativeAsync() {
-			return nativeAsync;
+			return true;
 		}
 
 		@Override
 		public CompletionStage<EconomyResult> canAfford(EconomyPlayer player, BigDecimal amount) {
-			affordabilityChecks++;
-			return affordability;
+			if (affordabilityFailure != null) {
+				throw affordabilityFailure;
+			}
+			return affordabilityStage;
 		}
 
 		@Override

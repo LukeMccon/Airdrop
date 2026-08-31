@@ -32,7 +32,7 @@ public final class AirdropServiceLifecycle {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.services = plugin.getServer().getServicesManager();
 		PluginDescriptionFile description = plugin.getDescription();
-		this.api = new DefaultAirdropApi(new AirdropVersions(
+		this.api = new DefaultAirdropApi(plugin, new AirdropVersions(
 				description.getVersion(),
 				EXTENSION_API_UNAVAILABLE,
 				requireVersion(description.getAPIVersion(), "unknown"),
@@ -85,6 +85,7 @@ public final class AirdropServiceLifecycle {
 
 	public synchronized void stop() {
 		api.publishStopping();
+		api.stopRequests();
 		services.unregister(AirdropApi.class, api);
 		registered = false;
 	}

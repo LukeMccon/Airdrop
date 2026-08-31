@@ -32,7 +32,7 @@ public class FallingCrateListener implements Listener {
 			return;
 		}
 		if (e.isCancelled()) {
-			landedCrate.destroy();
+			landedCrate.cancelLanding();
 			return;
 		}
 		e.setCancelled(true);

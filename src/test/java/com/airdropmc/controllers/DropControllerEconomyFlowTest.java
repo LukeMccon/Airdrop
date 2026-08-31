@@ -1,263 +1,446 @@
 package com.airdropmc.controllers;
 
-import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.world.WorldMock;
-import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
-import com.airdropmc.Config;
 import com.airdropmc.Crate;
+import com.airdropmc.api.DeliveryStatus;
+import com.airdropmc.api.DropHandle;
+import com.airdropmc.api.DropOutcome;
+import com.airdropmc.api.DropRejectionReason;
+import com.airdropmc.api.DropRequestOptions;
+import com.airdropmc.api.DropSpawnResult;
+import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.economy.EconomyPlayer;
 import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.economy.EconomyResult;
-import com.airdropmc.exceptions.DropLimitException;
-import com.airdropmc.exceptions.DropLimitException.Reason;
-import com.airdropmc.exceptions.EconomyUnavailableException;
 import com.airdropmc.helpers.CrateManager;
-import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
+import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.Package;
+import com.airdropmc.paid.PaidDropSession;
 import org.bukkit.Location;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Material;
 import org.bukkit.entity.FallingBlock;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
+import org.mockito.MockedConstruction;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Logger;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.locks.LockSupport;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockConstruction;
 
 class DropControllerEconomyFlowTest {
 
 	private ServerMock server;
 	private WorldMock world;
-	private DropAdmissionController admission;
-	private EconomyProvider economy;
 	private Airdrop plugin;
-	private YamlConfiguration configValues;
+	private ControlledEconomyProvider economy;
+	private PlayerMock player;
 
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("test_world");
-		CrateManager.clearAll();
-		setStatic("shuttingDown", false);
-		admission = new DropAdmissionController();
-		setStatic("dropAdmissionController", admission);
-		installConfig();
-
-		economy = mock(EconomyProvider.class);
-		when(economy.nativeAsync()).thenReturn(false);
-		when(economy.canAfford(any(EconomyPlayer.class), any(BigDecimal.class)))
-				.thenReturn(CompletableFuture.completedFuture(EconomyResult.ok()));
-		when(economy.withdraw(any(EconomyPlayer.class), any(BigDecimal.class)))
-				.thenReturn(CompletableFuture.completedFuture(EconomyResult.ok()));
-		when(economy.deposit(any(EconomyPlayer.class), any(BigDecimal.class)))
-				.thenReturn(CompletableFuture.completedFuture(EconomyResult.ok()));
+		world = server.addSimpleWorld("economy_world");
+		plugin = preparedPlugin();
+		server.getPluginManager().enablePlugin(plugin);
+		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());
+		assertTrue(plugin.isEnabled());
+		economy = new ControlledEconomyProvider();
 		setStatic("economyProvider", economy);
-
-		plugin = mock(Airdrop.class);
-		when(plugin.isEnabled()).thenReturn(true);
-		when(plugin.getLogger()).thenReturn(Logger.getLogger("DropControllerEconomyFlowTest"));
-		Airdrop.setPluginInstance(plugin);
+		player = server.addPlayer("Luke");
+		player.setOp(true);
+		player.teleport(new Location(world, 0, 120, 0));
 	}
 
 	@AfterEach
-	void tearDown() throws Exception {
+	void tearDown() {
 		CrateManager.clearAll();
-		admission.clear();
-		setStatic("dropAdmissionController", null);
-		setStatic("economyProvider", null);
-		setStatic("configuration", null);
-		setStatic("shuttingDown", false);
-		Airdrop.setPluginInstance(null);
+		PackageManager.clear();
 		MockBukkit.unmock();
 	}
 
 	@Test
-	void capacityRejectionOccursBeforePaymentOrPayload() throws Exception {
-		admission.acquireSystem(new DropLocationKey(world.getUID(), 50, 65, 50),
-				ConfigKeys.getDropLimitSettings());
-		admission.acquireSystem(new DropLocationKey(world.getUID(), 51, 65, 51),
-				ConfigKeys.getDropLimitSettings());
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
+	void confirmedPaymentCreatesOneCorrelatedFallingCrate() {
+		DropHandle handle = request("paid");
+		completeCharge();
 
-		DropLimitException rejection = assertThrows(DropLimitException.class,
-				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
-
-		assertEquals(Reason.FALLING_CAPACITY, rejection.getReason());
-		verify(pkg, never()).getItems();
-		verify(economy, never()).canAfford(any(), any());
-	}
-
-	@Test
-	void payloadFailureReleasesReservationBeforePayment() throws Exception {
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
-		when(pkg.getItems()).thenThrow(new IllegalStateException("payload failed"));
-
-		assertThrows(IllegalStateException.class,
-				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
-
-		assertEquals(emptyAdmission(), admission.snapshot());
-		verify(economy, never()).canAfford(any(), any());
-	}
-
-	@Test
-	void confirmedPaymentCreatesOneFallingCrate() throws Exception {
-		PlayerMock player = operatorAtClearSky();
-
-		DropController.playerInitiatedDropPackage(paidPackage(), player, options());
-		server.getScheduler().performTicks(2L);
-
+		DropSpawnResult.Spawned spawned = assertInstanceOf(
+				DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().join());
+		assertEquals(PaymentStatus.CHARGED, spawned.payment());
+		assertEquals(handle.requestId(), spawned.requestId());
 		assertEquals(1, CrateManager.getCrateMap().size());
-		Crate crate = CrateManager.getCrateMap().values().iterator().next();
-		assertTrue(crate.isPaid());
-		assertEquals(1, admission.snapshot().falling());
-		verify(economy).withdraw(any(EconomyPlayer.class), any(BigDecimal.class));
+		assertTrue(CrateManager.getCrateMap().values().iterator().next().isPaid());
 	}
 
 	@Test
-	void fallingCrateFailureRequestsOneRefund() throws Exception {
-		PlayerMock player = operatorAtClearSky();
-		DropController.playerInitiatedDropPackage(paidPackage(), player, options());
-		server.getScheduler().performTicks(2L);
-		FallingBlock fallingBlock = CrateManager.getCrateMap().keySet().iterator().next();
+	void fallingCrateFailureRequestsOneRefundAndReportsRefunded() {
+		DropHandle handle = request("paid");
+		completeCharge();
+		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
 
-		CrateManager.removeCrateAndDestroy(fallingBlock);
+		CrateManager.removeCrateAndDestroy(falling);
+		CrateManager.removeCrateAndDestroy(falling);
+		assertEquals(1, economy.deposits);
+		economy.refund.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
 
-		verify(economy).deposit(any(EconomyPlayer.class), any(BigDecimal.class));
-		assertEquals(emptyAdmission(), admission.snapshot());
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+		assertEquals(PaymentStatus.REFUNDED, outcome.payment());
 	}
 
 	@Test
-	void pendingPaymentKeepsRequestLeaseAndRejectsSecondRequest() throws Exception {
-		CompletableFuture<EconomyResult> pending = new CompletableFuture<>();
-		when(economy.canAfford(any(EconomyPlayer.class), any(BigDecimal.class))).thenReturn(pending);
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
+	void landedPaidCrateCleanupCannotReplayOutcomeOrStartRefund() {
+		DropHandle handle = request("paid");
+		completeCharge();
+		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+		EntityChangeBlockEvent landing = new EntityChangeBlockEvent(
+				falling,
+				handle.context().orElseThrow().landingLocation().getBlock(),
+				Material.BARREL.createBlockData());
+		server.getPluginManager().callEvent(landing);
 
-		DropLimitException rejection;
-		try (MockedStatic<PermissionsHelper> permissions = mockStatic(PermissionsHelper.class)) {
-			permissions.when(() -> PermissionsHelper.hasPermission(player, "starter")).thenReturn(true);
-			permissions.when(() -> PermissionsHelper.hasCooldownBypass(player)).thenReturn(false);
-			DropController.playerInitiatedDropPackage(pkg, player, options());
-			rejection = assertThrows(DropLimitException.class,
-					() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
+		DropOutcome.Landed outcome = assertInstanceOf(
+				DropOutcome.Landed.class, handle.outcome().toCompletableFuture().join());
+		CrateManager.removeCrateAndDestroy(handle.context().orElseThrow().landingLocation());
+
+		assertTrue(handle.outcome().toCompletableFuture().join() == outcome);
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void insufficientFundsIsTypedAndReleasesAdmission() {
+		DropHandle handle = request("paid");
+		economy.affordability.complete(EconomyResult.rejected("insufficient"));
+		server.getScheduler().performOneTick();
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DropRejectionReason.INSUFFICIENT_FUNDS, outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+		assertEquals(0, economy.withdrawals);
+		assertEquals(emptyAdmission(), Airdrop.getDropAdmissionController().snapshot());
+	}
+
+	@Test
+	void ambiguousWithdrawalIsFailedUnknownAndNeverRefunded() {
+		DropHandle handle = request("paid");
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.completeExceptionally(new IllegalStateException("offline"));
+		server.getScheduler().performOneTick();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+		assertEquals(PaymentStatus.UNKNOWN, outcome.payment());
+		assertEquals(0, economy.deposits);
+		assertTrue(CrateManager.getCrateMap().isEmpty());
+	}
+
+	@Test
+	void rejectedWithdrawalIsKnownUnchargedRejection() {
+		DropHandle handle = request("paid");
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.complete(EconomyResult.rejected("declined"));
+		server.getScheduler().performOneTick();
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DropRejectionReason.PAYMENT_REJECTED, outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+		assertEquals(emptyAdmission(), Airdrop.getDropAdmissionController().snapshot());
+	}
+
+	@Test
+	void affordabilityTimeoutIsKnownUnchargedRejection() {
+		DropHandle handle = request("paid");
+
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DropRejectionReason.AFFORDABILITY_UNKNOWN, outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+		assertEquals(0, economy.withdrawals);
+	}
+
+	@Test
+	void withdrawalTimeoutIsFailedUnknownAndNeverRefunded() {
+		DropHandle handle = request("paid");
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+		assertEquals(PaymentStatus.UNKNOWN, outcome.payment());
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void pendingPaymentReservesPlayerAndRejectsDuplicateRequest() {
+		DropHandle first = request("paid");
+		DropHandle second = request("paid");
+
+		assertFalse(first.outcome().toCompletableFuture().isDone());
+		DropOutcome.Rejected rejection = assertInstanceOf(
+				DropOutcome.Rejected.class, second.outcome().toCompletableFuture().join());
+		assertEquals(DropRejectionReason.REQUEST_PENDING, rejection.rejection().reason());
+		assertEquals(1, Airdrop.getDropAdmissionController().snapshot().pending());
+	}
+
+	@Test
+	void disabledEconomyRejectsPaidButStillAllowsFreePackage() {
+		Airdrop.getConfiguration().getConfig().set(ConfigKeys.ECONOMY_ENABLED, false);
+
+		DropOutcome.Rejected paid = assertInstanceOf(
+				DropOutcome.Rejected.class, request("paid").outcome().toCompletableFuture().join());
+		DropSpawnResult.Spawned free = assertInstanceOf(
+				DropSpawnResult.Spawned.class, request("free").spawn().toCompletableFuture().join());
+
+		assertEquals(DropRejectionReason.ECONOMY_DISABLED, paid.rejection().reason());
+		assertEquals(PaymentStatus.NOT_APPLICABLE, free.payment());
+		assertEquals(0, economy.affordabilityChecks);
+	}
+
+	@Test
+	void freePlayerRequestDoesNotRequireEconomyProvider() throws Exception {
+		setStatic("economyProvider", null);
+
+		DropSpawnResult.Spawned spawned = assertInstanceOf(
+				DropSpawnResult.Spawned.class, request("free").spawn().toCompletableFuture().join());
+
+		assertEquals(PaymentStatus.NOT_APPLICABLE, spawned.payment());
+	}
+
+	@Test
+	void systemRequestForPricedPackageIsExplicitlyUnpaid() {
+		DropHandle handle = DropController.requestSystemDrop(
+				new Location(world, 20, 120, 20), "paid", options());
+
+		DropSpawnResult.Spawned spawned = assertInstanceOf(
+				DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().join());
+		assertEquals(PaymentStatus.NOT_APPLICABLE, spawned.payment());
+		assertEquals(0, economy.affordabilityChecks);
+	}
+
+	@Test
+	void missingProviderIsTypedBeforePayment() throws Exception {
+		setStatic("economyProvider", null);
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, request("paid").outcome().toCompletableFuture().join());
+
+		assertEquals(DropRejectionReason.ECONOMY_PROVIDER_UNAVAILABLE,
+				outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+	}
+
+	@Test
+	void capacityRejectionOccursBeforePayment() throws Exception {
+		DropAdmissionController admission = Airdrop.getDropAdmissionController();
+		for (int index = 0; index < ConfigKeys.getDropLimitSettings().maxFalling(); index++) {
+			admission.acquireSystem(
+					new DropLocationKey(world.getUID(), 100 + index, 65, 100 + index),
+					ConfigKeys.getDropLimitSettings());
 		}
 
-		assertEquals(Reason.REQUEST_PENDING, rejection.getReason());
-		assertEquals(1, admission.snapshot().pending());
-		verify(economy, never()).withdraw(any(), any());
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, request("paid").outcome().toCompletableFuture().join());
+
+		assertEquals(DropRejectionReason.FALLING_CAPACITY, outcome.rejection().reason());
+		assertEquals(0, economy.affordabilityChecks);
 	}
 
 	@Test
-	void zeroPricePackageRemainsFreeWhenEconomyIsDisabled() throws Exception {
-		configValues.set(ConfigKeys.ECONOMY_ENABLED, false);
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
-		when(pkg.getPrice()).thenReturn(0.0);
+	void affordabilityPendingAtShutdownIsKnownUnchargedRejection() {
+		DropHandle handle = request("paid");
 
-		DropController.playerInitiatedDropPackage(pkg, player, options());
+		plugin.onDisable();
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DropRejectionReason.SHUTTING_DOWN, outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+	}
+
+	@Test
+	void withdrawalPendingAtShutdownIsFailedUnknown() {
+		DropHandle handle = request("paid");
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+
+		plugin.onDisable();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.SHUTDOWN, outcome.delivery());
+		assertEquals(PaymentStatus.UNKNOWN, outcome.payment());
+		assertEquals(0, economy.deposits);
+
+		economy.withdrawal.complete(EconomyResult.ok());
+		assertTrue(handle.outcome().toCompletableFuture().join() == outcome);
+		assertTrue(CrateManager.getCrateMap().isEmpty());
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void queuedBackgroundAffordabilityCannotAdvanceAfterShutdown() throws Exception {
+		DropHandle handle = request("paid");
+		Thread callback = new Thread(
+				() -> economy.affordability.complete(EconomyResult.ok()),
+				"queued-affordability");
+		callback.start();
+		callback.join();
+
+		plugin.onDisable();
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DropRejectionReason.SHUTTING_DOWN, outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+		assertEquals(0, economy.withdrawals);
+		assertTrue(CrateManager.getCrateMap().isEmpty());
+	}
+
+	@Test
+	void confirmedChargeAtShutdownStaysChargedWithoutAutomaticRefund() {
+		DropHandle handle = request("paid");
+		completeCharge();
+
+		plugin.onDisable();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.SHUTDOWN, outcome.delivery());
+		assertEquals(PaymentStatus.CHARGED, outcome.payment());
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void freeFallingDropAtShutdownIsNotApplicable() {
+		DropHandle handle = request("free");
+		handle.spawn().toCompletableFuture().join();
+
+		plugin.onDisable();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.SHUTDOWN, outcome.delivery());
+		assertEquals(PaymentStatus.NOT_APPLICABLE, outcome.payment());
+	}
+
+	@Test
+	void refundPendingAtShutdownIsFailedUnknownAndNotRetried() {
+		DropHandle handle = request("paid");
+		completeCharge();
+		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+		CrateManager.removeCrateAndDestroy(falling);
+		assertEquals(1, economy.deposits);
+
+		plugin.onDisable();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+		assertEquals(PaymentStatus.UNKNOWN, outcome.payment());
+		assertEquals(1, economy.deposits);
+	}
+
+	@Test
+	void paidSpawnFailureRunsExactlyOneRefundBeforeTerminalOutcome() {
+		DropHandle handle;
+		try (MockedConstruction<Crate> crates = mockConstruction(
+				Crate.class,
+				(mock, context) -> doThrow(new IllegalStateException("spawn failed"))
+						.when(mock).dropCrate())) {
+			handle = request("paid");
+			completeCharge();
+		}
+
+		assertEquals(1, economy.deposits);
+		economy.refund.complete(EconomyResult.rejected("refund rejected"));
+		server.getScheduler().performOneTick();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(PaymentStatus.REFUND_FAILED, outcome.payment());
+		assertInstanceOf(
+				DropSpawnResult.NotSpawned.class, handle.spawn().toCompletableFuture().join());
+	}
+
+	@Test
+	void ambiguousRefundIsFailedUnknownAndNeverRetried() {
+		DropHandle handle = request("paid");
+		completeCharge();
+		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+		CrateManager.removeCrateAndDestroy(falling);
+
+		economy.refund.completeExceptionally(new IllegalStateException("provider offline"));
+		server.getScheduler().performOneTick();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+		assertEquals(PaymentStatus.UNKNOWN, outcome.payment());
+		assertEquals(1, economy.deposits);
+	}
+
+	@Test
+	void deprecatedResolvedPackageAdapterDoesNotRequireRegistryMembership() throws Exception {
+		Package detached = new Package("detached", 0.0, List.of());
+		PackageManager.clear();
+
+		DropController.playerInitiatedDropPackage(
+				detached,
+				player,
+				DropOptions.createDefault()
+						.withDropHeight(20)
+						.withChickenCount(1)
+						.withFlareEffects(false));
 
 		assertEquals(1, CrateManager.getCrateMap().size());
-		verify(economy, never()).canAfford(any(), any());
 	}
 
-	@Test
-	void zeroPricePackageDoesNotRequireProvider() throws Exception {
-		setStatic("economyProvider", null);
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
-		when(pkg.getPrice()).thenReturn(0.0);
-
-		DropController.playerInitiatedDropPackage(pkg, player, options());
-
-		assertEquals(1, CrateManager.getCrateMap().size());
-		verify(economy, never()).canAfford(any(), any());
+	private DropHandle request(String packageName) {
+		return DropController.requestPlayerDrop(player, packageName, options());
 	}
 
-	@Test
-	void disabledEconomyBlocksPricedPackageEvenWhenProviderExists() throws Exception {
-		configValues.set(ConfigKeys.ECONOMY_ENABLED, false);
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
-
-		EconomyUnavailableException failure = assertThrows(EconomyUnavailableException.class,
-				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
-
-		assertEquals(EconomyUnavailableException.Reason.DISABLED, failure.getReason());
-		assertEquals("Economy is disabled", failure.getMessage());
-		assertEquals(emptyAdmission(), admission.snapshot());
-		verify(pkg, never()).getItems();
-		verify(economy, never()).canAfford(any(), any());
+	private void completeCharge() {
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
 	}
 
-	@Test
-	void missingProviderFailsBeforeAdmissionAndPayload() throws Exception {
-		setStatic("economyProvider", null);
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
-
-		EconomyUnavailableException failure = assertThrows(EconomyUnavailableException.class,
-				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
-
-		assertEquals(EconomyUnavailableException.Reason.NO_PROVIDER, failure.getReason());
-		assertEquals("No economy provider is available", failure.getMessage());
-		assertEquals(emptyAdmission(), admission.snapshot());
-		verify(pkg, never()).getItems();
-	}
-
-	@Test
-	void disabledEconomyTakesPrecedenceWhenProviderIsAlsoMissing() throws Exception {
-		configValues.set(ConfigKeys.ECONOMY_ENABLED, false);
-		setStatic("economyProvider", null);
-		PlayerMock player = operatorAtClearSky();
-		Package pkg = paidPackage();
-
-		EconomyUnavailableException failure = assertThrows(EconomyUnavailableException.class,
-				() -> DropController.playerInitiatedDropPackage(pkg, player, options()));
-
-		assertEquals(EconomyUnavailableException.Reason.DISABLED, failure.getReason());
-		assertEquals(emptyAdmission(), admission.snapshot());
-		verify(pkg, never()).getItems();
-	}
-
-	private PlayerMock operatorAtClearSky() {
-		PlayerMock player = server.addPlayer();
-		player.setOp(true);
-		player.teleport(new Location(world, 0, 120, 0));
-		return player;
-	}
-
-	private Package paidPackage() {
-		Package pkg = mock(Package.class);
-		when(pkg.getName()).thenReturn("starter");
-		when(pkg.getPrice()).thenReturn(10.0);
-		when(pkg.getItems()).thenReturn(List.of());
-		return pkg;
-	}
-
-	private DropOptions options() {
-		return DropOptions.createDefault()
+	private DropRequestOptions options() {
+		return DropRequestOptions.defaults()
 				.withDropHeight(20)
 				.withChickenCount(1)
 				.withFlareEffects(false)
@@ -266,16 +449,18 @@ class DropControllerEconomyFlowTest {
 				.withSmokeEnabled(false);
 	}
 
-	private void installConfig() throws Exception {
-		configValues = new YamlConfiguration();
-		configValues.set(ConfigKeys.ECONOMY_ENABLED, true);
-		configValues.set(ConfigKeys.DROP_REQUEST_COOLDOWN_SECONDS, 30);
-		configValues.set(ConfigKeys.DROP_MAX_FALLING, 2);
-		configValues.set(ConfigKeys.DROP_MAX_LANDED, 10);
-		configValues.set(ConfigKeys.DROP_LANDED_LIFETIME_SECONDS, 600);
-		Config config = mock(Config.class);
-		when(config.getConfig()).thenReturn(configValues);
-		setStatic("configuration", config);
+	private Airdrop preparedPlugin() throws Exception {
+		Airdrop loaded = (Airdrop) server.getPluginManager().loadPlugin(Airdrop.class, new Object[0]);
+		Files.createDirectories(loaded.getDataFolder().toPath());
+		Files.writeString(loaded.getDataFolder().toPath().resolve("config.yml"),
+				"language: en\neconomy:\n  enabled: true\n",
+				StandardCharsets.UTF_8);
+		Files.writeString(loaded.getDataFolder().toPath().resolve("packages.yml"),
+				"packages:\n"
+						+ "  paid:\n    price: 10\n    items: []\n"
+						+ "  free:\n    price: 0\n    items: []\n",
+				StandardCharsets.UTF_8);
+		return loaded;
 	}
 
 	private DropAdmissionController.Snapshot emptyAdmission() {
@@ -286,5 +471,55 @@ class DropControllerEconomyFlowTest {
 		Field field = Airdrop.class.getDeclaredField(fieldName);
 		field.setAccessible(true);
 		field.set(null, value);
+	}
+
+	private void awaitCondition(java.util.function.BooleanSupplier condition) {
+		long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+		while (System.nanoTime() < deadline) {
+			if (condition.getAsBoolean()) {
+				return;
+			}
+			server.getScheduler().performOneTick();
+			LockSupport.parkNanos(Duration.ofMillis(1).toNanos());
+		}
+		assertTrue(condition.getAsBoolean(), "Timed out waiting for Airdrop startup");
+	}
+
+	private static final class ControlledEconomyProvider implements EconomyProvider {
+
+		private final CompletableFuture<EconomyResult> affordability = new CompletableFuture<>();
+		private final CompletableFuture<EconomyResult> withdrawal = new CompletableFuture<>();
+		private final CompletableFuture<EconomyResult> refund = new CompletableFuture<>();
+		private int affordabilityChecks;
+		private int withdrawals;
+		private int deposits;
+
+		@Override
+		public boolean nativeAsync() {
+			return true;
+		}
+
+		@Override
+		public CompletionStage<EconomyResult> canAfford(EconomyPlayer player, BigDecimal amount) {
+			affordabilityChecks++;
+			return affordability;
+		}
+
+		@Override
+		public CompletionStage<EconomyResult> withdraw(EconomyPlayer player, BigDecimal amount) {
+			withdrawals++;
+			return withdrawal;
+		}
+
+		@Override
+		public CompletionStage<EconomyResult> deposit(EconomyPlayer player, BigDecimal amount) {
+			deposits++;
+			return refund;
+		}
+
+		@Override
+		public String getName() {
+			return "Controlled";
+		}
 	}
 }

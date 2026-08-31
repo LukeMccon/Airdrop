@@ -85,7 +85,7 @@ class FallingCrateListenerTest {
 		server.getPluginManager().callEvent(event);
 
 		assertFalse(CrateManager.hasCrate(fallingBlock));
-		verify(crate).destroy();
+		verify(crate).cancelLanding();
 		verify(crate, never()).land(any());
 	}
 
@@ -106,7 +106,7 @@ class FallingCrateListenerTest {
 		assertEquals(1, protectionListener.invocations);
 		assertTrue(event.isCancelled());
 		assertFalse(CrateManager.hasCrate(fallingBlock));
-		verify(crate).destroy();
+		verify(crate).cancelLanding();
 		verify(crate, never()).land(any());
 	}
 

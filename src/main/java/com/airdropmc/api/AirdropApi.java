@@ -2,6 +2,8 @@ package com.airdropmc.api;
 
 import org.bukkit.block.Block;
 import org.bukkit.entity.FallingBlock;
+import org.bukkit.entity.Player;
+import org.bukkit.Location;
 
 import java.util.Collection;
 import java.util.List;
@@ -67,6 +69,34 @@ public interface AirdropApi {
 	 * @return detached package snapshot when present
 	 */
 	Optional<AirdropPackage> findPackage(String name);
+
+	/**
+	 * Requests a permission- and economy-aware drop for a player.
+	 *
+	 * <p>This method must be called on the primary server thread because it
+	 * inspects the supplied Bukkit player and location.</p>
+	 *
+	 * @param player requesting player
+	 * @param packageName package name
+	 * @param options immutable per-request overrides
+	 * @return correlated request handle
+	 */
+	DropHandle requestPlayerDrop(
+			Player player, String packageName, DropRequestOptions options);
+
+	/**
+	 * Requests an explicitly unpaid system drop.
+	 *
+	 * <p>This method must be called on the primary server thread because it
+	 * accepts a Bukkit location.</p>
+	 *
+	 * @param location requested target
+	 * @param packageName package name
+	 * @param options immutable per-request overrides
+	 * @return correlated request handle
+	 */
+	DropHandle requestSystemDrop(
+			Location location, String packageName, DropRequestOptions options);
 
 	/**
 	 * Returns the latest immutable aggregate active-drop snapshot.

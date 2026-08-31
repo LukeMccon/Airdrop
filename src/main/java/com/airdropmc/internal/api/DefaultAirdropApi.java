@@ -7,11 +7,19 @@ import com.airdropmc.api.AirdropVersions;
 import com.airdropmc.api.AirdropView;
 import com.airdropmc.api.EconomyState;
 import com.airdropmc.api.ReadinessState;
+import com.airdropmc.api.DropHandle;
+import com.airdropmc.api.DropRequestOptions;
+import com.airdropmc.internal.drop.DropRequestCoordinator;
+import com.airdropmc.internal.drop.InternalDropRequests;
+import com.airdropmc.packages.Package;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.packages.PackageManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.FallingBlock;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.util.Collection;
@@ -25,9 +33,10 @@ import java.util.concurrent.CompletionStage;
 
 /** Default plugin-owned implementation of the supported service. */
 @ApiStatus.Internal
-final class DefaultAirdropApi implements AirdropApi {
+final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 
 	private final AirdropVersions versions;
+	private final DropRequestCoordinator requests;
 	private final CompletableFuture<AirdropApi> readiness = new CompletableFuture<>();
 	private final CompletionStage<AirdropApi> readinessView = readiness.minimalCompletionStage();
 
@@ -38,8 +47,9 @@ final class DefaultAirdropApi implements AirdropApi {
 	private volatile AirdropStatus status = snapshot(
 			ReadinessState.STARTING, EconomyState.STARTING, null, List.of());
 
-	DefaultAirdropApi(AirdropVersions versions) {
+	DefaultAirdropApi(Plugin plugin, AirdropVersions versions) {
 		this.versions = Objects.requireNonNull(versions, "versions");
+		this.requests = new DropRequestCoordinator(Objects.requireNonNull(plugin, "plugin"));
 	}
 
 	@Override
@@ -80,6 +90,34 @@ final class DefaultAirdropApi implements AirdropApi {
 		} catch (PackageNotFoundException ignored) {
 			return Optional.empty();
 		}
+	}
+
+	@Override
+	public DropHandle requestPlayerDrop(
+			Player player, String packageName, DropRequestOptions options) {
+		requirePrimaryThread("requestPlayerDrop");
+		return requests.requestPlayerDrop(player, packageName, options);
+	}
+
+	@Override
+	public DropHandle requestSystemDrop(
+			Location location, String packageName, DropRequestOptions options) {
+		requirePrimaryThread("requestSystemDrop");
+		return requests.requestSystemDrop(location, packageName, options);
+	}
+
+	@Override
+	public DropHandle requestPlayerDrop(
+			Player player, Package pkg, DropRequestOptions options) {
+		requirePrimaryThread("requestPlayerDrop");
+		return requests.requestPlayerDrop(player, pkg, options);
+	}
+
+	@Override
+	public DropHandle requestSystemDrop(
+			Location location, Package pkg, DropRequestOptions options) {
+		requirePrimaryThread("requestSystemDrop");
+		return requests.requestSystemDrop(location, pkg, options);
 	}
 
 	@Override
@@ -132,6 +170,7 @@ final class DefaultAirdropApi implements AirdropApi {
 		if (state != ReadinessState.STARTING) {
 			return;
 		}
+		requests.startAccepting();
 		status = snapshot(ReadinessState.READY, economy, economyProviderName, degradedReasons);
 		state = ReadinessState.READY;
 		readiness.complete(this);
@@ -155,6 +194,10 @@ final class DefaultAirdropApi implements AirdropApi {
 		state = ReadinessState.STOPPING;
 		readiness.completeExceptionally(
 				new IllegalStateException("Airdrop stopped before becoming ready"));
+	}
+
+	void stopRequests() {
+		requests.stop();
 	}
 
 	private AirdropPackage requirePackageSnapshot(String name) {

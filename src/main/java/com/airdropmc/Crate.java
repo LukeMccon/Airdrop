@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 
 import com.airdropmc.api.ResolvedDropSettings;
+import com.airdropmc.api.ResolvedDropContext;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
@@ -62,7 +63,8 @@ public class Crate {
 
 	public enum Outcome {
 		LANDED,
-		FAILED
+		FAILED,
+		CANCELLED
 	}
 
 	public enum RecoveryState {
@@ -82,8 +84,10 @@ public class Crate {
 	private State state;
 	private final ResolvedDropSettings settings;
 	private final DropAdmissionController.Lease lease;
-	private final Consumer<Outcome> outcomeListener;
+	private Consumer<Outcome> outcomeListener;
 	private final boolean paid;
+	private final UUID requestId;
+	private final ResolvedDropContext resolvedContext;
 	private Outcome outcome;
 
 	// Falling state fields
@@ -126,6 +130,12 @@ public class Crate {
 
 	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease, boolean paid, Consumer<Outcome> outcomeListener) {
+		this(location, world, contents, settings, lease, paid, null, null, outcomeListener);
+	}
+
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
+			DropAdmissionController.Lease lease, boolean paid, UUID requestId,
+			ResolvedDropContext resolvedContext, Consumer<Outcome> outcomeListener) {
 		this.world = Objects.requireNonNull(world, "world");
 		this.dropLocation = LocationHelper.copyInWorld(location, this.world, "location");
 		this.contents = cloneContents(contents);
@@ -134,6 +144,14 @@ public class Crate {
 		this.settings = Objects.requireNonNull(settings, "settings");
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.paid = paid;
+		if ((requestId == null) != (resolvedContext == null)) {
+			throw new IllegalArgumentException("requestId and resolvedContext must be supplied together");
+		}
+		if (requestId != null && !requestId.equals(resolvedContext.descriptor().requestId())) {
+			throw new IllegalArgumentException("resolvedContext must belong to requestId");
+		}
+		this.requestId = requestId;
+		this.resolvedContext = resolvedContext;
 		this.outcomeListener = Objects.requireNonNull(outcomeListener, "outcomeListener");
 		this.parachuteSystem = new ParachuteSystem(
 				world, settings, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
@@ -180,6 +198,8 @@ public class Crate {
 		this.settings = DropOptions.createDefault().resolve(ConfigKeys.getDropLimitSettings());
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.paid = true;
+		this.requestId = null;
+		this.resolvedContext = null;
 		this.outcomeListener = ignored -> { };
 		this.outcome = Outcome.LANDED;
 		this.landedLocation = recoveredLocation;
@@ -523,6 +543,15 @@ public class Crate {
 	 * Cleans up resources used by this crate.
 	 */
 	public synchronized void destroy() {
+		destroyWithOutcome(Outcome.FAILED);
+	}
+
+	/** Removes a falling crate after another plugin cancels Paper landing. */
+	public synchronized void cancelLanding() {
+		destroyWithOutcome(Outcome.CANCELLED);
+	}
+
+	private void destroyWithOutcome(Outcome terminalOutcome) {
 		if (destroyed) {
 			return;
 		}
@@ -531,7 +560,7 @@ public class Crate {
 		boolean deliveryAbsent = state != State.LANDED || removeOwnedLandedBarrelConfirmed();
 		lease.close();
 		if (deliveryAbsent) {
-			reportOutcome(Outcome.FAILED);
+			reportOutcome(terminalOutcome);
 		} else {
 			AirdropLogger.warning("Could not confirm removal of crate " + crateId
 					+ "; no failure outcome will be reported automatically");
@@ -628,8 +657,13 @@ public class Crate {
 			return;
 		}
 		outcome = reported;
+		Consumer<Outcome> listener = outcomeListener;
+		outcomeListener = null;
+		if (listener == null) {
+			return;
+		}
 		try {
-			outcomeListener.accept(reported);
+			listener.accept(reported);
 		} catch (RuntimeException failure) {
 			try {
 				AirdropLogger.log(Level.WARNING, "Failed to report crate outcome " + reported, failure);
@@ -637,6 +671,11 @@ public class Crate {
 				failure.addSuppressed(loggingFailure);
 			}
 		}
+	}
+
+	/** Stops lifecycle reporting after the owning request has terminated. */
+	public synchronized void clearOutcomeListener() {
+		outcomeListener = null;
 	}
 
 	private Barrel getOwnedLandedBarrel() {
@@ -723,6 +762,14 @@ public class Crate {
 
 	public String getCrateId() {
 		return crateId;
+	}
+
+	public UUID getRequestId() {
+		return requestId;
+	}
+
+	public ResolvedDropContext getResolvedContext() {
+		return resolvedContext;
 	}
 
 	public boolean isPaid() {
