@@ -55,3 +55,10 @@ CLAUDE.md
 AGENTS.md
 .claude/
 docs/
+!docs/
+docs/*
+!docs/development/
+docs/development/*
+!docs/development/2026-08-31-airdr-31-developer-experience-design.md
+!docs/development/2026-08-31-airdr-31-implementation-plan.md
+!docs/modrinth.md
