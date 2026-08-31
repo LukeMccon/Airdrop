@@ -55,3 +55,11 @@ packages:
       count: 2
       schema_version: 1
     price: 10.25
+  paid:
+    items:
+    - ==: org.bukkit.inventory.ItemStack
+      DataVersion: 4671
+      id: minecraft:bread
+      count: 1
+      schema_version: 1
+    price: 10.0

@@ -1,12 +1,10 @@
 package com.airdropmc.integration;
 
-import nl.pim16aap2.lightkeeper.framework.CommandResult;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.InteractionResult;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
 import nl.pim16aap2.lightkeeper.framework.WorldHandle;
-import nl.pim16aap2.lightkeeper.protocol.CommandSource;
 import nl.pim16aap2.lightkeeper.protocol.IProtocolValue;
 import org.bukkit.block.BlockFace;
 import org.junit.jupiter.api.Test;
@@ -23,7 +21,6 @@ import static com.airdropmc.integration.AirdropIntegrationSupport.LANDING_X;
 import static com.airdropmc.integration.AirdropIntegrationSupport.LANDING_Z;
 import static com.airdropmc.integration.AirdropIntegrationSupport.LAND_EVENT;
 import static com.airdropmc.integration.AirdropIntegrationSupport.PACKAGE_PERMISSION;
-import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.eventually;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(LightkeeperExtension.class)
@@ -34,11 +31,10 @@ class StarterDropIT {
 		AirdropIntegrationSupport.awaitReady(framework);
 
 		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
-		PlayerHandle player = AirdropIntegrationSupport.createPlayer(framework, world);
+		PlayerHandle player = AirdropIntegrationSupport.createPlayer(
+				framework, world, PACKAGE_PERMISSION);
 
 		try {
-			grantPermission(framework, player, PACKAGE_PERMISSION);
-
 			try (var dropCapture = framework.events().capture(DROP_EVENT);
 				 var landCapture = framework.events().capture(LAND_EVENT)) {
 				player.executeCommand("airdrop starter");
@@ -65,22 +61,8 @@ class StarterDropIT {
 			AirdropIntegrationSupport.awaitNoDropEntities(world);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			unsetPermission(framework, player, PACKAGE_PERMISSION);
 			player.remove();
 		}
-	}
-
-	private void grantPermission(ILightkeeperFramework framework, PlayerHandle player, String permission) {
-		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
-				"lp user %s permission set %s true".formatted(player.name(), permission));
-		assertThat(result.success()).as("LuckPerms grant for %s", permission).isTrue();
-		eventually(Duration.ofSeconds(20), () ->
-				assertThat(player.permissions().has(permission)).as(permission).isTrue());
-	}
-
-	private void unsetPermission(ILightkeeperFramework framework, PlayerHandle player, String permission) {
-		framework.server().executeCommand(CommandSource.CONSOLE,
-				"lp user %s permission unset %s".formatted(player.name(), permission));
 	}
 
 	private void assertLandingEvent(

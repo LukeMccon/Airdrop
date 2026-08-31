@@ -23,6 +23,8 @@ class LightkeeperIntegrationConfigurationTest {
 	private static final Path LIGHTKEEPER_PACKAGES = Path.of(
 			"lightkeeper", "src", "test", "resources", "overlay", "plugins", "Airdrop", "packages.yml");
 	private static final Path README = Path.of("README.md");
+	private static final Path INTEGRATION_TESTS = Path.of(
+			"lightkeeper", "src", "test", "java", "com", "airdropmc", "integration");
 	private static final String LIGHTKEEPER_COMMIT = "be585af08221c37bcbc8c9d7f5a40a27dbd2dff1";
 
 	@Test
@@ -35,7 +37,7 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(pom, "https://repo.papermc.io/repository/maven-public/");
 		assertContains(pom, "maven-failsafe-plugin");
 		assertContains(pom, "airdrop.jar.path");
-		assertContains(pom, "b0mk8uS6");
+		assertContains(pom, "airdrop.consumer.jar.path");
 		assertContains(pom, "runtime-manifest.json");
 		assertContains(pom, "lightkeeper-server");
 	}
@@ -130,6 +132,52 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(build, "-Dairdrop.jar.path=");
 		assertFalse(Pattern.compile("(?s)(named|register).*\\(\"(test|check|build)\"\\).*dependsOn\\(.*lightkeeperTest")
 				.matcher(build).find(), "Fast Gradle verification must not depend on the real-server lane");
+	}
+
+	@Test
+	void sidecarLoadsThePackagedRuntimeAndConsumerWithoutLuckPerms() throws IOException {
+		String pom = requiredContents(LIGHTKEEPER_POM);
+
+		assertContains(pom, "${airdrop.jar.path}");
+		assertContains(pom, "${airdrop.consumer.jar.path}");
+		assertContains(pom, "<renameTo>Airdrop.jar</renameTo>");
+		assertContains(pom, "<renameTo>AirdropConsumerFixture.jar</renameTo>");
+		assertFalse(pom.contains("LuckPerms"), "The default real-server lane must exercise optional LuckPerms absence");
+		assertFalse(pom.contains("<sourceType>modrinth</sourceType>"),
+				"Every plugin under test must come from an exact packaged path");
+	}
+
+	@Test
+	void sidecarEnablesEconomyWithoutAProviderAndDefinesFreeAndPaidPackages() throws IOException {
+		String config = requiredContents(LIGHTKEEPER_CONFIG);
+		String packages = requiredContents(LIGHTKEEPER_PACKAGES);
+
+		assertTrue(Pattern.compile("(?m)^economy:\\R  enabled: true$").matcher(config).find(),
+				"Economy must be enabled so provider absence is observable");
+		assertTrue(Pattern.compile("(?m)^  starter:\\R(?s:.*?\\R)    price: 0\\.0$").matcher(packages).find(),
+				"The starter package must remain free");
+		assertTrue(Pattern.compile("(?m)^  paid:\\R(?s:.*?\\R)    price: (?!0(?:\\.0+)?$)[0-9]+(?:\\.[0-9]+)?$")
+				.matcher(packages).find(), "A priced package is required for the no-provider scenario");
+	}
+
+	@Test
+	void realServerScenariosAssertTheSupportedConsumerMarkerContract() throws IOException {
+		String support = requiredContents(INTEGRATION_TESTS.resolve("AirdropIntegrationSupport.java"));
+		String free = requiredContents(INTEGRATION_TESTS.resolve("ApiConsumerIT.java"));
+		String paid = requiredContents(INTEGRATION_TESTS.resolve("EconomyNoProviderIT.java"));
+
+		for (String marker : new String[]{
+				"READY", "REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME"}) {
+			assertContains(support, "AIRDR_CONSUMER_" + marker);
+		}
+		for (String field : new String[]{
+				"requestId", "sequence", "primaryThread", "delivery", "payment", "reason"}) {
+			assertContains(support, field);
+		}
+		assertContains(free, "READY, REQUEST, SPAWNED, LANDING_ATTEMPT, LANDED, OUTCOME");
+		assertContains(paid, "REQUEST, OUTCOME");
+		assertContains(paid, "ECONOMY_PROVIDER_UNAVAILABLE");
+		assertContains(paid, "Priced packages are unavailable");
 	}
 
 	@Test

@@ -109,11 +109,9 @@
                             <renameTo>Airdrop.jar</renameTo>
                         </plugin>
                         <plugin>
-                            <sourceType>modrinth</sourceType>
-                            <modrinthVersionId>b0mk8uS6</modrinthVersionId>
-                            <modrinthLoader>bukkit</modrinthLoader>
-                            <modrinthGameVersion>1.21.11</modrinthGameVersion>
-                            <renameTo>LuckPerms.jar</renameTo>
+                            <sourceType>path</sourceType>
+                            <path>${airdrop.consumer.jar.path}</path>
+                            <renameTo>AirdropConsumerFixture.jar</renameTo>
                         </plugin>
                     </plugins>
                 </configuration>
