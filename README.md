@@ -49,6 +49,13 @@ and developer integration guide:
 ./gradlew lightkeeperTest
 ```
 
+A bare `lightkeeperTest` rerun archives the previous generated server's `logs`
+and `crash-reports` under
+`lightkeeper/target/lightkeeper-reports/previous-server`, then resets only the
+generated server and runtime manifest. It retains Failsafe reports, LightKeeper
+reports, and the pinned adapter repository for diagnosis and reuse. Use
+`./gradlew clean lightkeeperTest` for a full reset of `lightkeeper/target`.
+
 The canonical Modrinth body is repository-owned. Validate it without network
 access with:
 

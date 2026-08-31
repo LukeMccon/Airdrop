@@ -22,6 +22,7 @@ class LightkeeperIntegrationConfigurationTest {
 			"lightkeeper", "src", "test", "resources", "overlay", "plugins", "Airdrop", "config.yml");
 	private static final Path LIGHTKEEPER_PACKAGES = Path.of(
 			"lightkeeper", "src", "test", "resources", "overlay", "plugins", "Airdrop", "packages.yml");
+	private static final Path README = Path.of("README.md");
 	private static final String LIGHTKEEPER_COMMIT = "be585af08221c37bcbc8c9d7f5a40a27dbd2dff1";
 
 	@Test
@@ -77,6 +78,47 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(bootstrap, "defff158d56b215c9756e0042dc456fc09b76e1f13cfc23d6a3941aefac444e7");
 		assertContains(bootstrap, "META-INF/maven/plugin.xml");
 		assertContains(bootstrap, "sha256sum");
+		assertContains(bootstrap, "adapter_is_valid");
+		assertContains(bootstrap, "cmp -s");
+		assertTrue(bootstrap.indexOf("adapter_is_valid") < bootstrap.indexOf("curl -fsSL"),
+				"The existing adapter must be validated before a replacement is downloaded");
+	}
+
+	@Test
+	void bareLightkeeperRunsArchiveDiagnosticsAndResetOnlyRuntimeState() throws IOException {
+		String build = requiredContents(Path.of("build.gradle.kts"));
+
+		assertContains(build, "register<Copy>(\"archiveLightkeeperDiagnostics\")");
+		assertContains(build, "lightkeeper-server/logs");
+		assertContains(build, "lightkeeper-server/crash-reports");
+		assertContains(build, "lightkeeper-reports/previous-server");
+		assertFalse(build.contains("register<Sync>(\"archiveLightkeeperDiagnostics\")"),
+				"Copy must retain diagnostics from earlier runs");
+
+		assertContains(build, "register<Delete>(\"resetLightkeeperRuntime\")");
+		assertContains(build, "lightkeeper/target/lightkeeper-server");
+		assertContains(build, "lightkeeper/target/lightkeeper/runtime-manifest.json");
+		assertContains(build, "dependsOn(archiveLightkeeperDiagnostics)");
+		assertContains(build, "dependsOn(resetLightkeeperRuntime)");
+	}
+
+	@Test
+	void adapterValidationRunsForEveryLightkeeperInvocation() throws IOException {
+		String build = requiredContents(Path.of("build.gradle.kts"));
+
+		assertContains(build, "outputs.upToDateWhen { false }");
+		assertContains(build, "dependsOn(prepareLightkeeperPluginAdapter)");
+	}
+
+	@Test
+	void readmeDistinguishesFullCleanupFromDiagnosticPreservingReruns() throws IOException {
+		String readme = requiredContents(README);
+
+		assertContains(readme, "./gradlew clean lightkeeperTest");
+		assertContains(readme, "./gradlew lightkeeperTest");
+		assertContains(readme, "Failsafe reports");
+		assertContains(readme, "previous-server");
+		assertContains(readme, "adapter repository");
 	}
 
 	@Test

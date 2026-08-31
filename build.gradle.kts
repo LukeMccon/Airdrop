@@ -12,6 +12,7 @@ import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
 import org.gradle.api.artifacts.verification.DependencyVerificationMode
+import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.GradleBuild
@@ -692,6 +693,29 @@ val verifyReproducibleRuntimeJar = tasks.register("verifyReproducibleRuntimeJar"
     }
 }
 
+val archiveLightkeeperDiagnostics = tasks.register<Copy>("archiveLightkeeperDiagnostics") {
+    group = "verification"
+    description = "Archives the previous LightKeeper server logs before resetting runtime state"
+    from("lightkeeper/target/lightkeeper-server/logs") {
+        into("logs")
+    }
+    from("lightkeeper/target/lightkeeper-server/crash-reports") {
+        into("crash-reports")
+    }
+    into("lightkeeper/target/lightkeeper-reports/previous-server")
+    includeEmptyDirs = false
+}
+
+val resetLightkeeperRuntime = tasks.register<Delete>("resetLightkeeperRuntime") {
+    group = "verification"
+    description = "Removes only generated LightKeeper server and runtime-manifest state"
+    dependsOn(archiveLightkeeperDiagnostics)
+    delete(
+        "lightkeeper/target/lightkeeper-server",
+        "lightkeeper/target/lightkeeper/runtime-manifest.json"
+    )
+}
+
 val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPluginAdapter") {
     group = "verification"
     description = "Repairs the pinned JitPack LightKeeper plugin descriptor in a generated local repository"
@@ -707,12 +731,15 @@ val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPl
                 "lightkeeper-maven-plugin/be585af08221c37bcbc8c9d7f5a40a27dbd2dff1-airdrop1"
         )
     )
+    // The bootstrap is cheap when valid and repairs partial/corrupt prior output.
+    outputs.upToDateWhen { false }
 }
 
 tasks.register<Exec>("lightkeeperTest") {
     group = "verification"
     description = "Runs LightKeeper integration tests against a real Paper server"
     dependsOn("jar")
+    dependsOn(resetLightkeeperRuntime)
     dependsOn(prepareLightkeeperPluginAdapter)
     workingDir(layout.projectDirectory.dir("lightkeeper"))
     inputs.file(releaseJar.flatMap { it.archiveFile })
