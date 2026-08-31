@@ -696,11 +696,8 @@ val verifyReproducibleRuntimeJar = tasks.register("verifyReproducibleRuntimeJar"
 val archiveLightkeeperDiagnostics = tasks.register<Copy>("archiveLightkeeperDiagnostics") {
     group = "verification"
     description = "Archives the previous LightKeeper server logs before resetting runtime state"
-    from("lightkeeper/target/lightkeeper-server/logs") {
-        into("logs")
-    }
-    from("lightkeeper/target/lightkeeper-server/crash-reports") {
-        into("crash-reports")
+    from("lightkeeper/target/lightkeeper-server") {
+        include("**/logs/**", "**/crash-reports/**")
     }
     into("lightkeeper/target/lightkeeper-reports/previous-server")
     includeEmptyDirs = false
@@ -739,20 +736,24 @@ tasks.register<Exec>("lightkeeperTest") {
     group = "verification"
     description = "Runs LightKeeper integration tests against a real Paper server"
     dependsOn("jar")
+    dependsOn(consumerFixtureTest)
     dependsOn(resetLightkeeperRuntime)
     dependsOn(prepareLightkeeperPluginAdapter)
     workingDir(layout.projectDirectory.dir("lightkeeper"))
     inputs.file(releaseJar.flatMap { it.archiveFile })
+    inputs.file(consumerFixtureJar)
     outputs.upToDateWhen { false }
 
     doFirst {
         val pluginJar = releaseJar.get().archiveFile.get().asFile.absoluteFile
+        val consumerJar = consumerFixtureJar.asFile.absoluteFile
         commandLine(
             "./mvnw",
             "--batch-mode",
             "--no-transfer-progress",
             "verify",
-            "-Dairdrop.jar.path=${pluginJar.path}"
+            "-Dairdrop.jar.path=${pluginJar.path}",
+            "-Dairdrop.consumer.jar.path=${consumerJar.path}"
         )
     }
 }

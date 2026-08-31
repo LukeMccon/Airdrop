@@ -86,6 +86,20 @@ final class AirdropIntegrationSupport {
 		awaitConsumerMarkers(framework, 0, List.of("READY"));
 	}
 
+	static void enableEconomyProvider(ILightkeeperFramework framework) {
+		int outputLineCount = framework.server().output().size();
+		CommandResult enable = framework.server().executeCommand(
+				CommandSource.CONSOLE, "lkeconomy enable");
+		assertThat(enable.success()).as("enable fixture economy provider").isTrue();
+		CommandResult reload = framework.server().executeCommand(
+				CommandSource.CONSOLE, "airdrop reload");
+		assertThat(reload.success()).as("reload Airdrop economy provider").isTrue();
+		eventually(Duration.ofSeconds(20), () ->
+				assertThat(newOutput(framework, outputLineCount))
+						.anyMatch(line -> line.contains(
+								"Using economy provider: LightKeeper Economy")));
+	}
+
 	static WorldHandle createLandingWorld(ILightkeeperFramework framework) {
 		WorldHandle world = framework.worlds().builder()
 				.withRandomName()
@@ -99,6 +113,13 @@ final class AirdropIntegrationSupport {
 			}
 		}
 		return world;
+	}
+
+	static void keepLandingChunkLoaded(ILightkeeperFramework framework, WorldHandle world) {
+		CommandResult result = framework.server().executeCommand(
+				CommandSource.CONSOLE,
+				"minecraft:execute in minecraft:%s run forceload add 0 0".formatted(world.name()));
+		assertThat(result.success()).as("force-load consumer lifecycle landing chunk").isTrue();
 	}
 
 	static PlayerHandle createPlayer(
@@ -183,10 +204,18 @@ final class AirdropIntegrationSupport {
 
 	static void assertNoUnexpectedServerErrors(ILightkeeperFramework framework) {
 		nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.assertThat(framework)
-				.hasNoServerErrors(error ->
-						// Paper emits this while LightKeeper creates a valid flat test world.
-						"net.minecraft.server.dedicated.DedicatedServerProperties".equals(error.loggerName())
-								&& "No key layers in MapLike[{}]".equals(error.message()));
+				.hasNoServerErrors(error -> isExpectedServerError(error.loggerName(), error.message()));
+	}
+
+	static boolean isExpectedServerError(String loggerName, String message) {
+		// Paper emits this while LightKeeper creates a valid flat test world.
+		if ("net.minecraft.server.dedicated.DedicatedServerProperties".equals(loggerName)
+				&& "No key layers in MapLike[{}]".equals(message)) {
+			return true;
+		}
+		// Offline-mode integration tests do not use Paper's background Mojang key fetch.
+		return "com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo".equals(loggerName)
+				&& "Failed to request yggdrasil public key".equals(message);
 	}
 
 	static List<ConsumerMarker> awaitConsumerMarkers(

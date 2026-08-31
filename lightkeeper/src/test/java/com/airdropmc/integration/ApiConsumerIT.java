@@ -28,12 +28,14 @@ class ApiConsumerIT {
 	void packagedConsumerObservesOneCorrelatedPrimaryThreadLifecycle(ILightkeeperFramework framework) {
 		AirdropIntegrationSupport.awaitReady(framework);
 		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
+		AirdropIntegrationSupport.keepLandingChunkLoaded(framework, world);
 		PlayerHandle player = AirdropIntegrationSupport.createPlayer(
 				framework, world, PACKAGE_PERMISSION);
 
 		try {
 			player.executeCommand("airdrop starter");
-			AirdropIntegrationSupport.moveAway(player, world);
+			AirdropIntegrationSupport.awaitConsumerMarkers(
+					framework, 0, FREE_MARKER_TYPES.subList(0, 3));
 
 			List<AirdropIntegrationSupport.ConsumerMarker> markers =
 					AirdropIntegrationSupport.awaitConsumerMarkers(

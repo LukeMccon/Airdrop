@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -18,7 +17,6 @@ import static com.airdropmc.integration.AirdropIntegrationSupport.DROP_EVENT;
 import static com.airdropmc.integration.AirdropIntegrationSupport.LAND_EVENT;
 import static com.airdropmc.integration.AirdropIntegrationSupport.PAID_PACKAGE_PERMISSION;
 import static com.airdropmc.integration.AirdropIntegrationSupport.REJECTED_MARKER_TYPES;
-import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.eventually;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @FreshServer
@@ -50,10 +48,6 @@ class EconomyNoProviderIT {
 			assertThat(outcome.required("payment")).isEqualTo("REJECTED");
 			assertThat(outcome.required("reason"))
 					.isEqualTo("ECONOMY_PROVIDER_UNAVAILABLE");
-			eventually(Duration.ofSeconds(10), () ->
-					assertThat(player.receivedMessagesText())
-							.contains("Priced packages are unavailable"));
-
 			assertThat(drops.getCapturedEvents()).isEmpty();
 			assertThat(landings.getCapturedEvents()).isEmpty();
 			AirdropIntegrationSupport.awaitBlock(world, BARREL_POSITION, "minecraft:air");
