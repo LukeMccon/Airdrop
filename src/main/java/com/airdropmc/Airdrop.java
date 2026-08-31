@@ -17,6 +17,7 @@ import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.integrations.OptionalIntegrations;
 import com.airdropmc.internal.api.AirdropServiceLifecycle;
+import com.airdropmc.internal.api.AirdropVersionMetadata;
 import com.airdropmc.internal.diagnostics.AirdropDiagnostics;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.listeners.CrateDestroyListener;
@@ -50,7 +51,7 @@ public class Airdrop extends JavaPlugin {
 	public static final String AIRDROP_COMMAND = "airdrop";
 	private static Airdrop pluginInstance;
 	private static String pluginVersion;
-	private static String pluginApiVersion;
+	private static String paperCompatibilityVersion;
 	private static PackagesGui packagesGui;
 	private static volatile EconomyProvider economyProvider;
 	private static volatile Config configuration;
@@ -70,7 +71,7 @@ public class Airdrop extends JavaPlugin {
 
 		pluginInstance = this;
 		pluginVersion = pdf.getVersion();
-		pluginApiVersion = pdf.getAPIVersion();
+		paperCompatibilityVersion = pdf.getAPIVersion();
 		dropAdmissionController = new DropAdmissionController();
 
 		try {
@@ -164,7 +165,7 @@ public class Airdrop extends JavaPlugin {
 			packagesGui = null;
 			pluginInstance = null;
 			pluginVersion = null;
-			pluginApiVersion = null;
+			paperCompatibilityVersion = null;
 			economyProvider = null;
 			configuration = null;
 			packagesConfiguration = null;
@@ -439,7 +440,17 @@ public class Airdrop extends JavaPlugin {
 	 * @return declared Paper API compatibility, or {@code null} while disabled
 	 */
 	public static String getPaperApiVersion() {
-		return pluginApiVersion;
+		return paperCompatibilityVersion;
+	}
+
+	/** Returns the independently versioned supported extension API contract. */
+	public static String getExtensionApiVersion() {
+		return AirdropVersionMetadata.versions().extensionApiVersion();
+	}
+
+	/** Returns the Java feature version required by this build. */
+	public static String getJavaCompatibilityVersion() {
+		return AirdropVersionMetadata.versions().javaVersion();
 	}
 
 	public static PackagesGui getPackagesGui() {

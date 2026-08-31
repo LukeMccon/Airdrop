@@ -40,7 +40,7 @@ jobs:
         id: release
         env:
           ORG_GRADLE_PROJECT_releaseTag: ${{ github.event.release.tag_name }}
-        run: ./gradlew --no-daemon clean test build verifyReleaseArtifact
+        run: ./gradlew --no-daemon clean test build verifyApiCompatibility verifyReleaseArtifact
 
       - name: Upload Release JAR
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

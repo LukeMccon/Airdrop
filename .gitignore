@@ -63,4 +63,6 @@ docs/*
 docs/development/*
 !docs/development/2026-08-31-airdr-31-developer-experience-design.md
 !docs/development/2026-08-31-airdr-31-implementation-plan.md
+!docs/development/api-versioning.md
+!docs/migration-5.md
 !docs/modrinth.md

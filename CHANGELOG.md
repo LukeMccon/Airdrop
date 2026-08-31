@@ -1,3 +1,20 @@
+# Airdrop 5.0.0 establishes a supported extension API
+
+Airdrop 5.0.0 introduces the independently versioned `com.airdropmc.api`
+boundary at API `1.0.0`. Consumers can discover `AirdropApi` through Bukkit,
+await readiness, submit typed drop requests, observe lifecycle events and
+outcomes, and query immutable package and active-drop snapshots.
+
+- Plugin, extension API, Paper, and Java versions now have distinct generated
+  metadata and command labels.
+- Deterministic API signatures and optional explicit JApiCmp comparisons guard
+  binary and source compatibility.
+- Controllers, managers, `Crate`, raw configuration wrappers, and
+  `com.airdropmc.events` are implementation details. The two legacy package
+  events remain deprecated adapters for the Airdrop 5 major line.
+
+See `docs/migration-5.md` before rebuilding an existing integration.
+
 # Airdrop 4.1 release note: exception contracts become explicit
 
 Airdrop 4.1 deliberately makes two source- and binary-incompatible API changes

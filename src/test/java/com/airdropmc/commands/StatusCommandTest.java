@@ -85,7 +85,7 @@ class StatusCommandTest {
 				"Plugin: 5.0.0-test",
 				"Extension API: 1.0.0-test",
 				"Paper compatibility: 1.21.11",
-				"Java runtime: 21",
+				"Java compatibility: 21",
 				"Readiness: READY",
 				"Economy: ACTIVE",
 				"Vault Economy",

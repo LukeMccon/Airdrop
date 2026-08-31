@@ -79,13 +79,15 @@ class LightkeeperIntegrationConfigurationTest {
 	@Test
 	void activePaperCompatibilityMetadataTargets12111() throws IOException {
 		String build = requiredContents(Path.of("build.gradle.kts"));
+		String properties = requiredContents(Path.of("gradle.properties"));
 		String release = requiredContents(Path.of(".github", "workflows", "release.yml"));
 
 		assertFalse(build.contains("1.21.8"), "Gradle must not retain the old Paper floor");
-		assertContains(build, "supportedPaperApiVersion = \"1.21.11-R0.1-SNAPSHOT\"");
+		assertContains(properties, "airdropPaperVersion=1.21.11");
+		assertContains(build, "supportedPaperApiVersion = \"$supportedPaperVersion-R0.1-SNAPSHOT\"");
 		assertContains(build, "paper-api:$supportedPaperApiVersion");
-		assertContains(build, "minecraftVersion(\"1.21.11\")");
-		assertContains(build, "apiVersion = \"1.21.11\"");
+		assertContains(build, "minecraftVersion(supportedPaperVersion)");
+		assertContains(build, "apiVersion = supportedPaperVersion");
 		assertContains(release, "GAME_VERSIONS=\"1.21.11\"");
 	}
 

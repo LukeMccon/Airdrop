@@ -62,7 +62,7 @@ class CmdAirdropHelpTest {
 		PackageManager.clear();
 		setStatic("ready", false);
 		setStatic("pluginVersion", null);
-		setStatic("pluginApiVersion", null);
+		setStatic("paperCompatibilityVersion", null);
 	}
 
 	@AfterEach
@@ -71,7 +71,7 @@ class CmdAirdropHelpTest {
 		ChatHandler.init(null);
 		setStatic("ready", false);
 		setStatic("pluginVersion", null);
-		setStatic("pluginApiVersion", null);
+		setStatic("paperCompatibilityVersion", null);
 		MockBukkit.unmock();
 	}
 
@@ -146,8 +146,7 @@ class CmdAirdropHelpTest {
 	@Test
 	void versionOutputLabelsEveryCompatibilitySignalAndCanonicalDocs() throws Exception {
 		setStatic("pluginVersion", "5.0.0-test");
-		setStatic("pluginApiVersion", "1.21.11");
-		String javaRuntime = System.getProperty("java.version");
+		setStatic("paperCompatibilityVersion", "1.21.11");
 		PlayerMock player = server.addPlayer();
 
 		assertTrue(new CmdAirdrop().onCommand(
@@ -155,16 +154,16 @@ class CmdAirdropHelpTest {
 
 		String message = nextMessage(player);
 		assertTrue(message.contains("Plugin: 5.0.0-test"), message);
-		assertTrue(message.contains("Extension API: unavailable"), message);
+		assertTrue(message.contains("Extension API: 1.0.0"), message);
 		assertTrue(message.contains("Paper compatibility: 1.21.11"), message);
-		assertTrue(message.contains("Java runtime: " + javaRuntime), message);
+		assertTrue(message.contains("Java compatibility: 21"), message);
 		assertTrue(message.contains("https://modrinth.com/plugin/airdrop"), message);
 	}
 
 	@Test
 	void versionOutputUsesStableNamedPlaceholders() throws Exception {
 		setStatic("pluginVersion", "5.0.0-test");
-		setStatic("pluginApiVersion", "1.21.11");
+		setStatic("paperCompatibilityVersion", "1.21.11");
 		LanguageManager language = mock(LanguageManager.class);
 		when(language.get(eq(MessageKey.SYSTEM_VERSION_INFO), anyMap())).thenReturn("version details");
 		ChatHandler.init(language);

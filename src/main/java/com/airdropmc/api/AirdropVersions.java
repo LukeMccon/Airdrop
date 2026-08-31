@@ -8,7 +8,7 @@ import java.util.Objects;
  * @param pluginVersion Airdrop plugin version
  * @param extensionApiVersion supported extension API version signal
  * @param paperApiVersion exact Paper API compatibility declared by the plugin
- * @param javaVersion Java runtime contract
+ * @param javaVersion Java compatibility contract
  */
 public record AirdropVersions(
 		String pluginVersion,

@@ -19,7 +19,11 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 
 | Airdrop | Extension API | Paper | Java | Automated lanes |
 | --- | --- | --- | --- | --- |
-| Current source (`4.0.0-SNAPSHOT`) | unavailable | `1.21.11` | `21` | unit + LightKeeper |
+| Current source (`5.0.0-SNAPSHOT`) | `1.0.0` | `1.21.11` | `21` | unit + LightKeeper |
+
+Plugin developers should use only `com.airdropmc.api`. See the
+[Airdrop 5 migration guide](docs/migration-5.md) and
+[extension API version policy](docs/development/api-versioning.md).
 
 ## Features
 
@@ -108,8 +112,8 @@ All commands start with `/airdrop` (aliases: `/drop`, `/ad`).
   - Admin-only
   - Reloads main config, language, and packages
 - `/airdrop version`
-  - Shows the plugin version, extension API availability, Paper compatibility,
-    Java runtime, and canonical Modrinth documentation link
+  - Shows the plugin version, extension API, Paper compatibility, Java
+    compatibility, and canonical Modrinth documentation link
 
 ## Permissions
 

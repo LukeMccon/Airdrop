@@ -25,8 +25,6 @@ import com.airdropmc.packages.Package;
 @ApiStatus.Internal
 public final class AirdropServiceLifecycle {
 
-	private static final String EXTENSION_API_UNAVAILABLE = "unavailable";
-
 	private final Airdrop plugin;
 	private final ServicesManager services;
 	private final DefaultAirdropApi api;
@@ -37,11 +35,12 @@ public final class AirdropServiceLifecycle {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.services = plugin.getServer().getServicesManager();
 		PluginDescriptionFile description = plugin.getDescription();
+		AirdropVersions buildVersions = AirdropVersionMetadata.versions();
 		this.api = new DefaultAirdropApi(plugin, new AirdropVersions(
 				description.getVersion(),
-				EXTENSION_API_UNAVAILABLE,
+				buildVersions.extensionApiVersion(),
 				requireVersion(description.getAPIVersion(), "unknown"),
-				Integer.toString(Runtime.version().feature())));
+				buildVersions.javaVersion()));
 	}
 
 	public synchronized void register() {

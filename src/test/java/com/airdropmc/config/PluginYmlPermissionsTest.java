@@ -73,6 +73,8 @@ class PluginYmlPermissionsTest {
 		Map<?, ?> root = loadPluginYml();
 
 		assertEquals("1.21.11", String.valueOf(root.get("api-version")));
+		assertFalse("1.0.0".equals(String.valueOf(root.get("api-version"))),
+				"plugin.yml api-version is Paper compatibility, not the extension API version");
 	}
 
 	private Map<?, ?> loadPluginYml() throws Exception {

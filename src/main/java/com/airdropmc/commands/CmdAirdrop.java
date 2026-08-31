@@ -21,7 +21,6 @@ import java.util.logging.Level;
 public class CmdAirdrop implements CommandExecutor {
 	private static final String CREATE = "create";
 	private static final String DELETE = "delete";
-	private static final String EXTENSION_API_UNAVAILABLE = "unavailable";
 	private static final String MODRINTH_URL = "https://modrinth.com/plugin/airdrop";
 
 	@Override
@@ -42,15 +41,11 @@ public class CmdAirdrop implements CommandExecutor {
 		}
 
 		if (AirdropCommandNames.VERSION.equals(args[0])) {
-			String version = Airdrop.getVersion() != null ? Airdrop.getVersion() : "unknown";
-			String paperVersion = Airdrop.getPaperApiVersion() != null
-					? Airdrop.getPaperApiVersion()
-					: "unknown";
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.SYSTEM_VERSION_INFO, Map.of(
-					"plugin_version", version,
-					"extension_api_version", EXTENSION_API_UNAVAILABLE,
-					"paper_version", paperVersion,
-					"java_version", System.getProperty("java.version", "unknown"),
+					"plugin_version", known(Airdrop.getVersion()),
+					"extension_api_version", known(Airdrop.getExtensionApiVersion()),
+					"paper_version", known(Airdrop.getPaperApiVersion()),
+					"java_version", known(Airdrop.getJavaCompatibilityVersion()),
 					"docs_url", MODRINTH_URL));
 			return true;
 		}
@@ -159,5 +154,9 @@ public class CmdAirdrop implements CommandExecutor {
 			current = current.getCause();
 		}
 		return current;
+	}
+
+	private static String known(String value) {
+		return value == null || value.isBlank() ? "unknown" : value;
 	}
 }

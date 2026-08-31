@@ -26,11 +26,16 @@ class CompatibilityMatrixTest {
 	void readmePublishesTheExactAutomatedCompatibilityMatrix() throws IOException {
 		String readme = Files.readString(Path.of("README.md"));
 		String sourceVersion = System.getProperty("airdrop.sourceDevelopmentVersion");
+		String extensionApiVersion = System.getProperty("airdrop.extensionApiVersion");
 
 		assertNotNull(sourceVersion, "Gradle must expose the source development version to tests");
+		assertNotNull(extensionApiVersion, "Gradle must expose the extension API version to tests");
+		assertEquals("5.0.0-SNAPSHOT", sourceVersion);
+		assertEquals("1.0.0", extensionApiVersion);
 		assertTrue(
 			readme.contains(
-				"| Current source (`" + sourceVersion + "`) | unavailable | `1.21.11` | `21` | unit + LightKeeper |"
+				"| Current source (`" + sourceVersion + "`) | `" + extensionApiVersion
+						+ "` | `1.21.11` | `21` | unit + LightKeeper |"
 			),
 			"README must describe the exact compatibility matrix for the current source"
 		);
