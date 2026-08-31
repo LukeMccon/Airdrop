@@ -13,6 +13,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -49,9 +50,7 @@ class PackageManagerCapacityTest {
 	@Test
 	void materializePackages_sanitizesAndTruncatesItemsToBarrelCapacity() throws Exception {
 		YamlConfiguration candidate = baseConfiguration();
-		List<Object> rawItems = new ArrayList<>(itemStacks(PackageManager.MAX_PACKAGE_ITEM_STACKS + 3));
-		rawItems.add("not-an-item");
-		rawItems.add(null);
+		List<ItemStack> rawItems = itemStacks(PackageManager.MAX_PACKAGE_ITEM_STACKS + 3);
 		candidate.set("packages.starter.items", rawItems);
 
 		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
@@ -59,6 +58,20 @@ class PackageManagerCapacityTest {
 		List<ItemStack> items = materialized.get("starter").getItems();
 		assertEquals(PackageManager.MAX_PACKAGE_ITEM_STACKS, items.size());
 		assertTrue(items.stream().allMatch(item -> item.getType() == Material.DIRT));
+	}
+
+	@Test
+	void materializePackages_rejectsInvalidItemAfterBarrelCapacity() {
+		YamlConfiguration candidate = baseConfiguration();
+		List<Object> rawItems = new ArrayList<>(itemStacks(PackageManager.MAX_PACKAGE_ITEM_STACKS));
+		rawItems.add("not-an-item");
+		candidate.set("packages.starter.items", rawItems);
+
+		PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(candidate));
+
+		assertTrue(failure.getMessage().contains("starter"), failure::getMessage);
+		assertTrue(failure.getMessage().contains("index 27"), failure::getMessage);
 	}
 
 	@Test
@@ -110,7 +123,7 @@ class PackageManagerCapacityTest {
 	private static YamlConfiguration baseConfiguration() {
 		YamlConfiguration config = new YamlConfiguration();
 		config.createSection("packages.starter");
-		config.set("packages.starter.price", 10.0);
+		config.set("packages.starter.price", 0.0);
 		config.set("packages.starter.items", List.of());
 		return config;
 	}

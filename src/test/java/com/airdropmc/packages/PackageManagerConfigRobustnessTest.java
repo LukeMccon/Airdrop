@@ -4,12 +4,14 @@ import com.airdropmc.exceptions.PackageNotFoundException;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class PackageManagerConfigRobustnessTest {
 
@@ -185,6 +189,119 @@ class PackageManagerConfigRobustnessTest {
 	}
 
 	@Test
+	void materializePackages_requiresItemsToBeAList() throws Exception {
+		List<Object> invalidShapes = List.of(
+				"not-a-list",
+				42,
+				Map.of("==", "org.bukkit.inventory.ItemStack"));
+		for (int index = 0; index < invalidShapes.size(); index++) {
+			String packageName = "invalid_shape_" + index;
+			YamlConfiguration candidate = configurationWithPackage(packageName, 0.0);
+			candidate.set("packages." + packageName + ".items", invalidShapes.get(index));
+
+			PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+					() -> PackageManager.materializePackages(candidate), packageName);
+
+			assertTrue(failure.getMessage().contains(packageName), failure::getMessage);
+			assertTrue(failure.getMessage().contains("items"), failure::getMessage);
+			assertTrue(failure.getMessage().contains("list"), failure::getMessage);
+		}
+
+		YamlConfiguration missingItems = new YamlConfiguration();
+		missingItems.set("packages.missing_items.price", 0.0);
+		PackageMaterializationException missingFailure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(missingItems));
+		assertTrue(missingFailure.getMessage().contains("missing_items"), missingFailure::getMessage);
+		assertTrue(missingFailure.getMessage().contains("list"), missingFailure::getMessage);
+
+		YamlConfiguration nullItems = new YamlConfiguration();
+		nullItems.loadFromString("""
+				packages:
+				  null_items:
+				    price: 0.0
+				    items: null
+				""");
+		PackageMaterializationException nullFailure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(nullItems));
+		assertTrue(nullFailure.getMessage().contains("null_items"), nullFailure::getMessage);
+		assertTrue(nullFailure.getMessage().contains("list"), nullFailure::getMessage);
+	}
+
+	@Test
+	void materializePackages_rejectsEveryNonItemStackMemberWithItsZeroBasedIndex() throws Exception {
+		YamlConfiguration initial = configurationWithPackage("starter", 10.0);
+		PackageManager.publishPackages(PackageManager.materializePackages(initial));
+		Package livePackage = PackageManager.get("starter");
+
+		List<Object> invalidMembers = new ArrayList<>();
+		invalidMembers.add(null);
+		invalidMembers.add("not-an-item");
+		invalidMembers.add(42);
+		invalidMembers.add(Map.of("==", "incompatible.ItemStack"));
+		for (int index = 0; index < invalidMembers.size(); index++) {
+			String packageName = "invalid_member_" + index;
+			YamlConfiguration candidate = configurationWithPackage(packageName, 0.0);
+			List<Object> rawItems = new ArrayList<>();
+			rawItems.add(new ItemStack(Material.STONE));
+			rawItems.add(invalidMembers.get(index));
+			candidate.set("packages." + packageName + ".items", rawItems);
+
+			PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+					() -> PackageManager.materializePackages(candidate), packageName);
+
+			assertTrue(failure.getMessage().contains(packageName), failure::getMessage);
+			assertTrue(failure.getMessage().contains("index 1"), failure::getMessage);
+			assertSame(livePackage, PackageManager.get("starter"));
+		}
+	}
+
+	@Test
+	void materializePackages_rejectsPaidPackagesWithNoDeliverableStacksButAllowsFreeEmptyAndNamedStacks()
+			throws Exception {
+		YamlConfiguration freeEmpty = configurationWithPackage("free_empty", 0.0);
+		freeEmpty.set("packages.free_empty.items", List.of());
+		assertTrue(PackageManager.materializePackages(freeEmpty).get("free_empty").getItems().isEmpty());
+
+		YamlConfiguration paidEmpty = configurationWithPackage("paid_empty", 1.0);
+		paidEmpty.set("packages.paid_empty.items", List.of());
+		assertPaidEmptyFailure(paidEmpty, "paid_empty", Set.of());
+
+		ItemStack airStack = mock(ItemStack.class);
+		when(airStack.getType()).thenReturn(Material.AIR);
+		YamlConfiguration paidAir = configurationWithPackage("paid_air", 1.0);
+		paidAir.set("packages.paid_air.items", List.of(airStack));
+		assertPaidEmptyFailure(paidAir, "paid_air", Set.of());
+
+		YamlConfiguration paidNamed = configurationWithPackage("paid_named", 1.0);
+		paidNamed.set("packages.paid_named.items", List.of(namedItem("Save")));
+		List<ItemStack> paidNamedItems = PackageManager.materializePackages(
+				paidNamed, Set.of("Save")).get("paid_named").getItems();
+		assertEquals(1, paidNamedItems.size());
+		assertEquals("Save", paidNamedItems.getFirst().getItemMeta().getDisplayName());
+	}
+
+	@Test
+	void materializePackages_preservesValidItemMetadataAndOrder() throws Exception {
+		ItemStack namedItem = namedItem("First");
+		ItemMeta sourceMeta = namedItem.getItemMeta();
+		sourceMeta.setLore(List.of("metadata survives"));
+		namedItem.setItemMeta(sourceMeta);
+		ItemStack secondItem = new ItemStack(Material.BREAD, 3);
+		YamlConfiguration candidate = configurationWithPackage("ordered", 2.0);
+		candidate.set("packages.ordered.items", List.of(namedItem, secondItem));
+
+		List<ItemStack> items = PackageManager.materializePackages(candidate, Set.of())
+				.get("ordered").getItems();
+
+		assertEquals(List.of(Material.PAPER, Material.BREAD),
+				items.stream().map(ItemStack::getType).toList());
+		assertEquals("First", items.getFirst().getItemMeta().getDisplayName());
+		assertEquals(List.of("metadata survives"), items.getFirst().getItemMeta().getLore());
+		assertEquals(3, items.get(1).getAmount());
+		assertNotSame(namedItem, items.getFirst());
+	}
+
+	@Test
 	void materializeAndPublish_detachConfigurationCandidateAndLiveSnapshot() throws Exception {
 		ItemStack sourceItem = new ItemStack(Material.DIRT, 2);
 		YamlConfiguration candidate = configurationWithPackage("Starter", 10.0);
@@ -211,6 +328,25 @@ class PackageManagerConfigRobustnessTest {
 		assertEquals(Set.of("Starter"), PackageManager.getPackages());
 	}
 
+	private static void assertPaidEmptyFailure(
+			YamlConfiguration candidate,
+			String packageName,
+			Set<String> controlItemNames) {
+		PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(candidate, controlItemNames));
+		assertTrue(failure.getMessage().contains(packageName), failure::getMessage);
+		assertTrue(failure.getMessage().contains("positive price"), failure::getMessage);
+		assertTrue(failure.getMessage().contains("deliverable"), failure::getMessage);
+	}
+
+	private static ItemStack namedItem(String displayName) {
+		ItemStack item = new ItemStack(Material.PAPER);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(displayName);
+		item.setItemMeta(meta);
+		return item;
+	}
+
 	private static YamlConfiguration configurationWithPackage(String packageName, Object price) {
 		YamlConfiguration config = new YamlConfiguration();
 		config.createSection("packages");
@@ -220,7 +356,7 @@ class PackageManagerConfigRobustnessTest {
 
 	private static void addPackage(YamlConfiguration config, String packageName, Object price) {
 		config.createSection("packages." + packageName);
-		config.set("packages." + packageName + ".items", List.of());
+		config.set("packages." + packageName + ".items", List.of(new ItemStack(Material.STONE)));
 		if (price != null) {
 			config.set("packages." + packageName + ".price", price);
 		}

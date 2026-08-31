@@ -204,7 +204,7 @@ class ConfigCoordinatorTest {
 		Files.writeString(packagesPath(), """
 				packages:
 				  starter:
-				    price: 10.0
+				    price: 0.0
 				    items: []
 				""", StandardCharsets.UTF_8);
 
@@ -314,7 +314,7 @@ class ConfigCoordinatorTest {
 		Files.writeString(packagesPath(), """
 				packages:
 				  starter:
-				    price: 10.0
+				    price: 0.0
 				    items: []
 				""", StandardCharsets.UTF_8);
 
@@ -369,13 +369,13 @@ class ConfigCoordinatorTest {
 		for (int index = 0; index < count; index++) {
 			String path = PackageManager.PACKAGES_SECTION + ".pkg" + index;
 			configuration.createSection(path);
-			configuration.set(path + ".price", 1.0);
+			configuration.set(path + ".price", 0.0);
 			configuration.set(path + ".items", List.of());
 		}
 		return configuration;
 	}
 
 	private static Package pkg(String name) {
-		return new Package(name, 1.0, List.of());
+		return new Package(name, 0.0, List.of());
 	}
 }

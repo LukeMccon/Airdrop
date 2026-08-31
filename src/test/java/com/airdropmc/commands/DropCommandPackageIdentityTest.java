@@ -13,7 +13,9 @@ import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +41,7 @@ class DropCommandPackageIdentityTest {
 		server = MockBukkit.mock();
 		YamlConfiguration config = new YamlConfiguration();
 		config.set("packages.Starter.price", 10.0);
-		config.set("packages.Starter.items", List.of());
+		config.set("packages.Starter.items", List.of(new ItemStack(Material.STONE)));
 		ChatHandler.init(new LanguageManager(mock(Airdrop.class)));
 		PackageManager.clear();
 		PackageManager.publishPackages(PackageManager.materializePackages(config));

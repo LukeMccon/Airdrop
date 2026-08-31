@@ -92,12 +92,15 @@ public class PackageManager {
 				throw invalidPrice(configuredName, rawPrice);
 			}
 
-			List<ItemStack> items = readPackageItems(packageSection);
+			List<ItemStack> items = readPackageItems(packageSection, configuredName);
+			List<ItemStack> deliverableItems = limitToBarrelCapacity(items);
+			if (price > 0.0 && deliverableItems.isEmpty()) {
+				throw new PackageMaterializationException(
+						"Package '" + configuredName
+								+ "' has a positive price but no deliverable item stacks");
+			}
 			materialized.put(entry.getKey(),
-					new Package(
-							configuredName,
-							price,
-							limitToBarrelCapacity(items)));
+					new Package(configuredName, price, deliverableItems));
 		}
 
 		return Collections.unmodifiableMap(materialized);
@@ -138,17 +141,26 @@ public class PackageManager {
 		return namesByCanonical;
 	}
 
-	private static List<ItemStack> readPackageItems(ConfigurationSection packageSection) {
-		List<?> rawItems = packageSection.getList("items");
-		if (rawItems == null || rawItems.isEmpty()) {
-			return List.of();
+	private static List<ItemStack> readPackageItems(
+			ConfigurationSection packageSection,
+			String packageName)
+			throws PackageMaterializationException {
+		Object configuredItems = packageSection.get("items");
+		if (!(configuredItems instanceof List<?> rawItems)) {
+			throw new PackageMaterializationException(
+					"Package '" + packageName + "' items must be a list");
 		}
 
-		List<ItemStack> items = new ArrayList<>();
-		for (Object rawItem : rawItems) {
-			if (rawItem instanceof ItemStack itemStack) {
-				items.add(itemStack);
+		List<ItemStack> items = new ArrayList<>(rawItems.size());
+		for (int index = 0; index < rawItems.size(); index++) {
+			Object rawItem = rawItems.get(index);
+			if (!(rawItem instanceof ItemStack itemStack)) {
+				String rawType = rawItem == null ? "null" : rawItem.getClass().getName();
+				throw new PackageMaterializationException(
+						"Package '" + packageName + "' has invalid item at index " + index
+								+ ": expected ItemStack but found " + rawType);
 			}
+			items.add(itemStack);
 		}
 		return items;
 	}

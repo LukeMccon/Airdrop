@@ -226,7 +226,7 @@ class PackageManagerMutationTest {
 	private static YamlConfiguration configurationWithStarter(String storedName) {
 		YamlConfiguration config = emptyConfiguration();
 		config.createSection("packages." + storedName);
-		config.set("packages." + storedName + ".price", 10.0);
+		config.set("packages." + storedName + ".price", 0.0);
 		config.set("packages." + storedName + ".items", List.of());
 		return config;
 	}
@@ -236,7 +236,7 @@ class PackageManagerMutationTest {
 		for (int index = 0; index < count; index++) {
 			String path = "packages.pkg" + index;
 			config.createSection(path);
-			config.set(path + ".price", 1.0);
+			config.set(path + ".price", 0.0);
 			config.set(path + ".items", List.of());
 		}
 		return config;
