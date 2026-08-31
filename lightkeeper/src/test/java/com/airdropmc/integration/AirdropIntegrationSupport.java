@@ -46,12 +46,14 @@ final class AirdropIntegrationSupport {
 	static void awaitReady(ILightkeeperFramework framework) {
 		eventually(Duration.ofSeconds(20), () ->
 				assertThat(framework.server().output())
-						.anyMatch(line -> line.contains("Economy support is disabled")));
+						.anyMatch(line -> line.contains("Using economy provider: LightKeeper Economy")));
 		nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.assertThat(framework)
 				.isPaper();
 		assertThat(framework.server().plugin("Airdrop"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
 		assertThat(framework.server().plugin("LuckPerms"))
+				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
+		assertThat(framework.server().plugin("Vault"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
 	}
 

@@ -11,4 +11,4 @@ drop:
   height: 8
 
 economy:
-  enabled: false
+  enabled: true

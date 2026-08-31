@@ -16,6 +16,12 @@ class LightkeeperIntegrationConfigurationTest {
 			"lightkeeper", ".mvn", "wrapper", "maven-wrapper.properties");
 	private static final Path LIGHTKEEPER_PLUGIN_BOOTSTRAP = Path.of(
 			"lightkeeper", "bootstrap-lightkeeper-plugin.sh");
+	private static final Path ECONOMY_FIXTURE_PLUGIN = Path.of(
+			"lightkeeper", "src", "main", "resources", "plugin.yml");
+	private static final Path LIGHTKEEPER_CONFIG = Path.of(
+			"lightkeeper", "src", "test", "resources", "overlay", "plugins", "Airdrop", "config.yml");
+	private static final Path LIGHTKEEPER_PACKAGES = Path.of(
+			"lightkeeper", "src", "test", "resources", "overlay", "plugins", "Airdrop", "packages.yml");
 	private static final String LIGHTKEEPER_COMMIT = "be585af08221c37bcbc8c9d7f5a40a27dbd2dff1";
 
 	@Test
@@ -40,6 +46,27 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(wrapper, "apache-maven-3.9.16-bin.zip");
 		assertTrue(Pattern.compile("(?m)^distributionSha256Sum=[0-9a-f]{64}$").matcher(wrapper).find(),
 				"Maven wrapper must verify the pinned distribution with SHA-256");
+	}
+
+	@Test
+	void sidecarBuildsAndProvisionsAnExactDecimalEconomyFixture() throws IOException {
+		String pom = requiredContents(LIGHTKEEPER_POM);
+		String plugin = requiredContents(ECONOMY_FIXTURE_PLUGIN);
+		String config = requiredContents(LIGHTKEEPER_CONFIG);
+		String packages = requiredContents(LIGHTKEEPER_PACKAGES);
+
+		assertContains(pom, "VaultUnlockedAPI");
+		assertContains(pom, "<vault-unlocked.version>2.20</vault-unlocked.version>");
+		assertContains(pom, "maven-shade-plugin");
+		assertContains(pom, "<project.build.outputTimestamp>");
+		assertContains(pom, "${project.build.finalName}-fixture.jar");
+		assertContains(pom, "<shadedArtifactAttached>true</shadedArtifactAttached>");
+		assertContains(pom, "<renameTo>Vault.jar</renameTo>");
+		assertContains(plugin, "name: Vault");
+		assertContains(plugin, "main: com.airdropmc.lightkeeper.economy.LightkeeperEconomyPlugin");
+		assertContains(config, "economy:\n  enabled: true");
+		assertTrue(Pattern.compile("(?s)premium:.*price: 10\\.25").matcher(packages).find(),
+				"LightKeeper must expose a separately priced integration package");
 	}
 
 	@Test
