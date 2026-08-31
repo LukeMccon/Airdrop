@@ -5,6 +5,8 @@ import org.mockbukkit.mockbukkit.plugin.PluginMock;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.AirdropApi;
+import com.airdropmc.api.EconomyState;
 import com.airdropmc.commands.CmdAirdrop;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -51,6 +53,8 @@ class AirdropEconomyLifecycleTest {
 		Airdrop plugin = loadPlugin(true);
 		assertTrue(plugin.isEnabled());
 		assertNull(Airdrop.getEconomyProvider());
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		assertEquals(EconomyState.UNAVAILABLE, api.status().economy());
 
 		net.milkbowl.vault.economy.Economy legacyA = legacy("Legacy A");
 		net.milkbowl.vault.economy.Economy legacyB = legacy("Legacy B");
@@ -59,6 +63,8 @@ class AirdropEconomyLifecycleTest {
 
 		register(net.milkbowl.vault.economy.Economy.class, legacyA, ServicePriority.Normal);
 		assertProvider(VaultEconomyProvider.class, "Legacy A");
+		assertEquals(EconomyState.ACTIVE, api.status().economy());
+		assertEquals("Legacy A", api.status().economyProviderName().orElseThrow());
 
 		register(net.milkbowl.vault.economy.Economy.class, legacyB, ServicePriority.High);
 		assertProvider(VaultEconomyProvider.class, "Legacy B");
@@ -77,6 +83,7 @@ class AirdropEconomyLifecycleTest {
 		assertProvider(VaultEconomyProvider.class, "Legacy A");
 		server.getServicesManager().unregister(net.milkbowl.vault.economy.Economy.class, legacyA);
 		assertNull(Airdrop.getEconomyProvider());
+		assertEquals(EconomyState.UNAVAILABLE, api.status().economy());
 
 		register(net.milkbowl.vault.economy.Economy.class, legacyC, ServicePriority.Normal);
 		assertProvider(VaultEconomyProvider.class, "Legacy C");

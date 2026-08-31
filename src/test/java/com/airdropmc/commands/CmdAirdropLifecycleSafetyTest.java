@@ -10,6 +10,7 @@ import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.internal.api.AirdropServiceLifecycle;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
@@ -145,7 +146,14 @@ class CmdAirdropLifecycleSafetyTest {
 		FallingBlock fallingBlock = mock(FallingBlock.class);
 		Crate crate = mock(Crate.class);
 		AtomicBoolean crateDestroyed = new AtomicBoolean();
+		AtomicBoolean serviceStopped = new AtomicBoolean();
+		AirdropServiceLifecycle serviceLifecycle = mock(AirdropServiceLifecycle.class);
 		doAnswer(invocation -> {
+			serviceStopped.set(true);
+			return null;
+		}).when(serviceLifecycle).stop();
+		doAnswer(invocation -> {
+			assertTrue(serviceStopped.get(), "extension service must unregister before crate cleanup");
 			assertFalse(admission.snapshot().accepting(), "admission must stop before crate cleanup");
 			assertTrue(Airdrop.isShuttingDown(), "shutdown flag must be visible before crate cleanup");
 			crateDestroyed.set(true);
@@ -160,6 +168,7 @@ class CmdAirdropLifecycleSafetyTest {
 		setStatic("dropAdmissionController", admission);
 		setStatic("economyProvider", mock(EconomyProvider.class));
 		setStatic("pluginInstance", plugin);
+		setField(plugin, "airdropServiceLifecycle", serviceLifecycle);
 
 		try (MockedStatic<Bukkit> bukkit = Mockito.mockStatic(Bukkit.class, Mockito.CALLS_REAL_METHODS)) {
 			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
@@ -174,6 +183,7 @@ class CmdAirdropLifecycleSafetyTest {
 		assertNull(Airdrop.getEconomyProvider());
 		assertTrue(Airdrop.isShuttingDown());
 		verify(crate).destroy();
+		verify(serviceLifecycle).stop();
 		verify(scheduler).cancelTasks(plugin);
 	}
 

@@ -126,7 +126,7 @@ class ConfigCoordinatorTest {
 	}
 
 	@Test
-	void dispatchFailureLeavesOperationPendingUntilClose() throws Exception {
+	void dispatchFailureTerminatesQueueAndRejectsLaterOperations() throws Exception {
 		AtomicInteger reads = new AtomicInteger();
 		CountDownLatch firstRead = new CountDownLatch(1);
 		CountDownLatch secondRead = new CountDownLatch(1);
@@ -163,17 +163,12 @@ class ConfigCoordinatorTest {
 
 		assertTrue(firstRead.await(5, TimeUnit.SECONDS));
 		assertTrue(dispatchAttempt.await(5, TimeUnit.SECONDS));
-		assertFalse(first.toCompletableFuture().isDone());
+		assertThrows(CompletionException.class, () -> first.toCompletableFuture().join());
+		assertThrows(CompletionException.class, () -> second.toCompletableFuture().join());
 		assertFalse(secondRead.await(100, TimeUnit.MILLISECONDS));
-
-		String closingThread = Thread.currentThread().getName();
-		coordinator.close();
-
+		assertEquals("config-test-worker", completionThread.get());
 		assertThrows(java.util.concurrent.CancellationException.class,
-				() -> first.toCompletableFuture().join());
-		assertThrows(java.util.concurrent.CancellationException.class,
-				() -> second.toCompletableFuture().join());
-		assertEquals(closingThread, completionThread.get());
+				() -> coordinator.createPackage(pkg("late")).toCompletableFuture().join());
 	}
 
 	@Test

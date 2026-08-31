@@ -302,11 +302,34 @@ public final class ConfigCoordinator implements AutoCloseable {
 		try {
 			mainThread.dispatch(() -> finish(operation, operationGeneration, commit, failure));
 		} catch (RuntimeException schedulingFailure) {
+			failAndClose(schedulingFailure);
 			plugin.getLogger().log(Level.SEVERE,
 					"Could not schedule configuration completion on the server thread; "
-							+ "the operation will remain pending until shutdown",
+							+ "the configuration coordinator is now closed",
 					schedulingFailure);
 		}
+	}
+
+	private void failAndClose(Throwable failure) {
+		List<CompletableFuture<?>> failed = new ArrayList<>();
+		synchronized (queueLock) {
+			if (closed) {
+				return;
+			}
+			closed = true;
+			generation++;
+			if (active != null) {
+				failed.add(active.future);
+				active = null;
+			}
+			while (!queue.isEmpty()) {
+				failed.add(queue.removeFirst().future);
+			}
+		}
+		for (CompletableFuture<?> future : failed) {
+			future.completeExceptionally(failure);
+		}
+		executor.shutdownNow();
 	}
 
 	private <T> void finish(

@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.time.Duration;
 import java.util.concurrent.locks.LockSupport;
 
+import com.airdropmc.api.AirdropApi;
 import com.airdropmc.listeners.CrateHopperListener;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,6 +52,8 @@ class AirdropListenerRegistrationTest {
 		awaitReady(plugin);
 
 		assertTrue(plugin.isEnabled());
+		assertTrue(server.getServicesManager().getRegistrations(plugin).stream()
+				.anyMatch(registration -> registration.getService() == AirdropApi.class));
 		assertEquals(1, HandlerList.getRegisteredListeners(plugin).stream()
 				.filter(listener -> listener.getListener() instanceof CrateHopperListener)
 				.count());

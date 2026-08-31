@@ -48,13 +48,18 @@ class SupportedApiBoundaryTest {
 		Set<Class<?>> apiTypes = discoverPublicApiTypes();
 
 		assertTrue(apiTypes.containsAll(Set.of(
+				AirdropApi.class,
 				AirdropPackage.class,
+				AirdropStatus.class,
+				AirdropVersions.class,
 				AirdropView.class,
 				DropRequestOptions.class,
 				ResolvedDropSettings.class,
 				DropRequestDescriptor.class,
 				ResolvedDropContext.class,
 				WorldPosition.class,
+				ReadinessState.class,
+				EconomyState.class,
 				DropSource.class,
 				DropState.class,
 				FallingAirdropView.class,
