@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.jar.JarFile;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,6 +31,13 @@ class BuildProvenanceTest {
 	private static final Path DEPENDABOT_FILE = Path.of(".github", "dependabot.yml");
 	private static final Path WRAPPER_PROPERTIES = Path.of("gradle", "wrapper", "gradle-wrapper.properties");
 	private static final Path WRAPPER_JAR = Path.of("gradle", "wrapper", "gradle-wrapper.jar");
+	private static final Path ROOT_VERIFICATION_METADATA =
+			Path.of("gradle", "verification-metadata.xml");
+	private static final Path CONSUMER_VERIFICATION_METADATA =
+			Path.of("consumer-fixture", "gradle", "verification-metadata.xml");
+	private static final Path CONSUMER_BUILD_FILE = Path.of("consumer-fixture", "build.gradle.kts");
+	private static final Path CI_WORKFLOW = Path.of(".github", "workflows", "ci.yml");
+	private static final Path RELEASE_WORKFLOW = Path.of(".github", "workflows", "release.yml");
 	private static final String DISTRIBUTION_SHA256 =
 			"8fad3d78296ca518113f3d29016617c7f9367dc005f932bd9d93bf45ba46072b";
 	private static final String WRAPPER_JAR_SHA256 =
@@ -114,6 +123,63 @@ class BuildProvenanceTest {
 		assertFalse(build.contains("fileTree(layout.buildDirectory.dir(\"libs\"))"));
 	}
 
+	@Test
+	void strictSha256MetadataCoversRootAndExternalConsumerGraphs() throws IOException {
+		String rootMetadata = verifiedSha256Metadata(ROOT_VERIFICATION_METADATA);
+		String consumerMetadata = verifiedSha256Metadata(CONSUMER_VERIFICATION_METADATA);
+
+		assertFalse(rootMetadata.contains("<trusted-artifacts>"),
+				"The root graph must verify every resolved external artifact");
+		assertTrue(consumerMetadata.contains("<trusted-artifacts>"));
+		assertTrue(consumerMetadata.contains("group=\"maven.modrinth\""));
+		assertTrue(consumerMetadata.contains("name=\"airdrop\""));
+		assertTrue(consumerMetadata.contains("locally staged changing Airdrop artifact"));
+		assertFalse(consumerMetadata.contains("<component group=\"maven.modrinth\""),
+				"The local staged artifact must be trusted by identity, not pinned to one build hash");
+	}
+
+	@Test
+	void strictVerificationIsExplicitForRootConsumerAndIsolatedBuilds() throws IOException {
+		String build = Files.readString(BUILD_FILE);
+		String ci = Files.readString(CI_WORKFLOW);
+		String release = Files.readString(RELEASE_WORKFLOW);
+
+		assertTrue(build.contains("DependencyVerificationMode.STRICT"));
+		assertTrue(build.contains("\"--dependency-verification=strict\""));
+		assertTrue(ci.contains("./gradlew --no-daemon --dependency-verification=strict"));
+		assertTrue(release.contains("./gradlew --no-daemon --dependency-verification=strict"));
+	}
+
+	@Test
+	void consumerAndPublicationChecksCoverTheFinalArtifactGraph() throws IOException {
+		String build = Files.readString(BUILD_FILE);
+		String consumerBuild = Files.readString(CONSUMER_BUILD_FILE);
+
+		assertTrue(count(build, "dependsOn(verifyApiPublication)") >= 2,
+				"Release verification and the consumer fixture must both depend on staged publication checks");
+		assertTrue(build.contains("checksumAlgorithms"));
+		assertTrue(build.contains("MessageDigest.getInstance(algorithm)"));
+		assertTrue(build.contains("Staged POM must be dependency-free"));
+		assertTrue(build.contains("Staged API publication must not contain Gradle module metadata"));
+		assertTrue(consumerBuild.contains("exclusiveContent"));
+		assertTrue(consumerBuild.contains("includeModule(\"com.mojang\", \"brigadier\")"));
+		assertTrue(consumerBuild.contains("includeModule(\"net.md-5\", \"bungeecord-chat\")"));
+		assertTrue(consumerBuild.contains("isPreserveFileTimestamps = false"));
+		assertTrue(consumerBuild.contains("isReproducibleFileOrder = true"));
+	}
+
+	@Test
+	void ciUploadsAProviderSelectedRuntimeArtifactWithoutVersionCouplingOrGlobs() throws IOException {
+		String build = Files.readString(BUILD_FILE);
+		String ci = Files.readString(CI_WORKFLOW);
+
+		assertTrue(build.contains("register<Sync>(\"prepareCiRuntimeArtifact\")"));
+		assertTrue(build.contains("from(releaseJar.flatMap { it.archiveFile })"));
+		assertTrue(ci.contains("prepareCiRuntimeArtifact"));
+		assertTrue(ci.contains("build/ci-artifacts/Airdrop.jar"));
+		assertFalse(ci.contains("build/libs/*.jar"));
+	}
+
 	private void assertControlledUpdater(List<?> updates, String ecosystem, String directory) {
 		Map<?, ?> updater = updates.stream()
 				.map(BuildProvenanceTest::yamlMap)
@@ -147,5 +213,29 @@ class BuildProvenanceTest {
 	private static String sha256(Path path) throws IOException, NoSuchAlgorithmException {
 		MessageDigest digest = MessageDigest.getInstance("SHA-256");
 		return HexFormat.of().formatHex(digest.digest(Files.readAllBytes(path)));
+	}
+
+	private static String verifiedSha256Metadata(Path path) throws IOException {
+		assertTrue(Files.isRegularFile(path), () -> "Missing strict verification metadata: " + path);
+		String metadata = Files.readString(path);
+		assertTrue(metadata.contains("<verify-metadata>true</verify-metadata>"));
+		assertFalse(Pattern.compile("<(md5|sha1|sha512)\\s").matcher(metadata).find(),
+				"Verification metadata must contain only SHA-256 checksums");
+
+		Matcher artifacts = Pattern.compile("<artifact name=\"[^\"]+\">(.*?)</artifact>", Pattern.DOTALL)
+				.matcher(metadata);
+		int artifactCount = 0;
+		while (artifacts.find()) {
+			artifactCount++;
+			assertTrue(Pattern.compile("<sha256\\s+[^>]*value=\"[0-9a-f]{64}\"")
+					.matcher(artifacts.group(1)).find(),
+					() -> "Artifact lacks SHA-256 verification in " + path);
+		}
+		assertTrue(artifactCount > 0, () -> "No verified external artifacts in " + path);
+		return metadata;
+	}
+
+	private static int count(String haystack, String needle) {
+		return (haystack.length() - haystack.replace(needle, "").length()) / needle.length();
 	}
 }

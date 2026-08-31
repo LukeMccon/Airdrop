@@ -26,30 +26,34 @@ java {
 }
 
 repositories {
-	maven {
-		name = "airdrop-staging"
-		url = uri(airdropRepository)
-		content {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "airdrop-staging"
+				url = uri(airdropRepository)
+				metadataSources {
+					mavenPom()
+					ignoreGradleMetadataRedirection()
+				}
+			}
+		}
+		filter {
 			includeModule("maven.modrinth", "airdrop")
 		}
-		metadataSources {
-			mavenPom()
-			ignoreGradleMetadataRedirection()
-		}
 	}
-	maven("https://repo.papermc.io/repository/maven-public/") {
-		name = "papermc"
-		content {
+	exclusiveContent {
+		forRepository {
+			maven("https://repo.papermc.io/repository/maven-public/") {
+				name = "papermc"
+			}
+		}
+		filter {
 			includeGroup("io.papermc.paper")
-			includeGroup("com.mojang")
-			includeGroup("net.md-5")
+			includeModule("com.mojang", "brigadier")
+			includeModule("net.md-5", "bungeecord-chat")
 		}
 	}
-	mavenCentral {
-		content {
-			excludeGroup("maven.modrinth")
-		}
-	}
+	mavenCentral()
 }
 
 dependencies {
@@ -110,4 +114,6 @@ tasks.test {
 
 tasks.jar {
 	archiveFileName.set("airdrop-consumer-fixture.jar")
+	isPreserveFileTimestamps = false
+	isReproducibleFileOrder = true
 }

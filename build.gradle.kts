@@ -11,10 +11,12 @@ import java.util.jar.JarFile
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
+import org.gradle.api.artifacts.verification.DependencyVerificationMode
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.GradleBuild
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.javadoc.Javadoc
@@ -385,6 +387,14 @@ val verifyApiCompatibility = tasks.register("verifyApiCompatibility") {
 }
 
 val releaseJar = tasks.named<Jar>("jar")
+val prepareCiRuntimeArtifact = tasks.register<Sync>("prepareCiRuntimeArtifact") {
+    group = "build"
+    description = "Copies the provider-selected runtime JAR to a stable CI artifact path"
+    dependsOn(releaseJar)
+    from(releaseJar.flatMap { it.archiveFile })
+    into(layout.buildDirectory.dir("ci-artifacts"))
+    rename { "Airdrop.jar" }
+}
 val sourcesJar = tasks.named<Jar>("sourcesJar") {
     dependsOn(generateAirdropApiMetadata)
 }
@@ -470,7 +480,13 @@ val verifyApiPublication = tasks.register("verifyApiPublication") {
         val files = Files.walk(repository).use { paths ->
             paths.filter(Files::isRegularFile).sorted().toList()
         }
-        val checksumSuffixes = setOf(".md5", ".sha1", ".sha256", ".sha512")
+        val checksumAlgorithms = mapOf(
+            ".md5" to "MD5",
+            ".sha1" to "SHA-1",
+            ".sha256" to "SHA-256",
+            ".sha512" to "SHA-512"
+        )
+        val checksumSuffixes = checksumAlgorithms.keys
         val primaryFiles = files.filter { path ->
             checksumSuffixes.none { suffix -> path.fileName.toString().endsWith(suffix) }
         }
@@ -487,10 +503,16 @@ val verifyApiPublication = tasks.register("verifyApiPublication") {
             throw GradleException("Staged API publication must not contain Gradle module metadata")
         }
         primaryFiles.forEach { publishedFile ->
-            checksumSuffixes.forEach { suffix ->
+            checksumAlgorithms.forEach { (suffix, algorithm) ->
                 val checksum = publishedFile.resolveSibling(publishedFile.fileName.toString() + suffix)
                 if (!Files.isRegularFile(checksum)) {
                     throw GradleException("Missing checksum $checksum")
+                }
+                val digest = MessageDigest.getInstance(algorithm)
+                val expected = HexFormat.of().formatHex(digest.digest(Files.readAllBytes(publishedFile)))
+                val actual = Files.readString(checksum, StandardCharsets.US_ASCII).trim()
+                if (actual != expected) {
+                    throw GradleException("Invalid $algorithm checksum for $publishedFile")
                 }
             }
         }
@@ -562,6 +584,7 @@ val consumerFixtureTest = tasks.register<GradleBuild>("consumerFixtureTest") {
         "airdropVersion" to project.version.toString(),
         "paperVersion" to supportedPaperApiVersion
     )
+    startParameter.dependencyVerificationMode = DependencyVerificationMode.STRICT
     inputs.files(
         fileTree(layout.projectDirectory.dir("consumer-fixture")) {
             exclude("build/**")
@@ -638,6 +661,7 @@ val verifyReproducibleRuntimeJar = tasks.register("verifyReproducibleRuntimeJar"
                 "./gradlew",
                 "--no-daemon",
                 "--console=plain",
+                "--dependency-verification=strict",
                 "clean",
                 "jar"
             )
@@ -711,6 +735,7 @@ tasks.register("verifyReleaseArtifact") {
     description = "Cross-checks runtime, sources, API Javadocs, and every published compatibility version"
     dependsOn(releaseJar)
     dependsOn(verifyApiCompatibility)
+    dependsOn(verifyApiPublication)
     dependsOn(sourcesJar)
     dependsOn(apiJavadocJar)
     dependsOn(verifyRuntimeClasspathEmpty)

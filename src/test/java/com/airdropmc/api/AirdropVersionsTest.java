@@ -15,8 +15,10 @@ class AirdropVersionsTest {
 	@Test
 	void generatedMetadataPublishesEveryVersionSignalFromTheBuild() throws IOException {
 		Properties metadata = loadMetadata();
+		String projectVersion = System.getProperty("airdrop.projectVersion");
+		assertNotNull(projectVersion, "Gradle must provide the active project version");
 
-		assertEquals("5.0.0-SNAPSHOT", metadata.getProperty("plugin-version"));
+		assertEquals(projectVersion, metadata.getProperty("plugin-version"));
 		assertEquals("1.0.0", metadata.getProperty("extension-api-version"));
 		assertEquals("1.21.11", metadata.getProperty("paper-compatibility-version"));
 		assertEquals("21", metadata.getProperty("java-version"));

@@ -65,7 +65,7 @@ class SupportedImportsTest {
 		assertTrue(build.contains("mavenPom()"));
 		assertTrue(build.contains("ignoreGradleMetadataRedirection()"));
 		assertFalse(build.contains("artifact()"));
-		assertTrue(build.contains("excludeGroup(\"maven.modrinth\")"));
+		assertTrue(build.contains("exclusiveContent"));
 	}
 
 	@Test
