@@ -42,8 +42,10 @@ public record WorldPosition(
 	 *
 	 * @param location source Bukkit location
 	 * @return detached position
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public static WorldPosition from(Location location) {
+		ApiThreadGuard.requirePrimaryThread("WorldPosition.from");
 		Location copy = Objects.requireNonNull(location, "location").clone();
 		World world = copy.getWorld();
 		if (world == null) {
@@ -65,8 +67,10 @@ public record WorldPosition(
 	 *
 	 * @param world matching Bukkit world
 	 * @return a new Bukkit location
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public Location toLocation(World world) {
+		ApiThreadGuard.requirePrimaryThread("WorldPosition.toLocation");
 		World requiredWorld = Objects.requireNonNull(world, "world");
 		if (!worldId.equals(requiredWorld.getUID())) {
 			throw new IllegalArgumentException("World does not match this position");

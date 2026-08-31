@@ -31,6 +31,7 @@ public final class DropRequestDescriptor {
 	 * @param playerId requesting player UUID, or {@code null} for a system request
 	 * @param requestedPackageName package name supplied by the caller
 	 * @param requestedLocation target location supplied by the caller
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public DropRequestDescriptor(
 			UUID requestId,
@@ -38,6 +39,7 @@ public final class DropRequestDescriptor {
 			UUID playerId,
 			String requestedPackageName,
 			Location requestedLocation) {
+		ApiThreadGuard.requirePrimaryThread("DropRequestDescriptor.<init>");
 		this.requestId = Objects.requireNonNull(requestId, "requestId");
 		this.source = Objects.requireNonNull(source, "source");
 		this.playerId = validatePlayer(source, playerId);
@@ -90,8 +92,10 @@ public final class DropRequestDescriptor {
 	 * off-thread reads.</p>
 	 *
 	 * @return detached requested location copy
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public Location requestedLocation() {
+		ApiThreadGuard.requirePrimaryThread("DropRequestDescriptor.requestedLocation");
 		return requestedLocation.clone();
 	}
 

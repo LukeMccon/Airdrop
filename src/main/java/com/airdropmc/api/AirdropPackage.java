@@ -24,8 +24,10 @@ public final class AirdropPackage {
 	 * @param name configured package name
 	 * @param price non-negative exact price
 	 * @param items package item stacks to copy
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public AirdropPackage(String name, BigDecimal price, List<ItemStack> items) {
+		ApiThreadGuard.requirePrimaryThread("AirdropPackage.<init>");
 		this.name = requireName(name);
 		this.price = Objects.requireNonNull(price, "price");
 		if (price.signum() < 0) {
@@ -59,8 +61,10 @@ public final class AirdropPackage {
 	 * returns Bukkit {@link ItemStack} values.</p>
 	 *
 	 * @return unmodifiable detached item copies
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public List<ItemStack> items() {
+		ApiThreadGuard.requirePrimaryThread("AirdropPackage.items");
 		return Collections.unmodifiableList(cloneItems(items));
 	}
 

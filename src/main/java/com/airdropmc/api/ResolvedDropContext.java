@@ -29,6 +29,7 @@ public final class ResolvedDropContext {
 	 * @param spawnLocation resolved falling spawn location
 	 * @param landingLocation resolved intended landing location
 	 * @param settings complete resolved settings snapshot
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public ResolvedDropContext(
 			DropRequestDescriptor descriptor,
@@ -36,6 +37,7 @@ public final class ResolvedDropContext {
 			Location spawnLocation,
 			Location landingLocation,
 			ResolvedDropSettings settings) {
+		ApiThreadGuard.requirePrimaryThread("ResolvedDropContext.<init>");
 		this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
 		this.airdropPackage = Objects.requireNonNull(airdropPackage, "airdropPackage");
 		this.spawnLocation = Objects.requireNonNull(spawnLocation, "spawnLocation").clone();
@@ -76,8 +78,10 @@ public final class ResolvedDropContext {
 	 * returns a Bukkit value. Use {@link #spawnPosition()} off-thread.</p>
 	 *
 	 * @return detached spawn location copy
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public Location spawnLocation() {
+		ApiThreadGuard.requirePrimaryThread("ResolvedDropContext.spawnLocation");
 		return spawnLocation.clone();
 	}
 
@@ -88,8 +92,10 @@ public final class ResolvedDropContext {
 	 * returns a Bukkit value. Use {@link #landingPosition()} off-thread.</p>
 	 *
 	 * @return detached intended landing location copy
+	 * @throws IllegalStateException if called off the primary server thread
 	 */
 	public Location landingLocation() {
+		ApiThreadGuard.requirePrimaryThread("ResolvedDropContext.landingLocation");
 		return landingLocation.clone();
 	}
 
