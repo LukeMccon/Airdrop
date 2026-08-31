@@ -18,8 +18,11 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,40 +32,45 @@ class CrateCloseListenerTest {
 	private Location barrelLocation;
 	private InventoryCloseEvent event;
 	private Inventory eventInventory;
-	private Inventory barrelInventory;
-	private Barrel barrel;
+	private Inventory currentInventory;
+	private Barrel eventBarrel;
+	private Barrel currentBarrel;
 	private Block block;
 	private World world;
 
 	@BeforeEach
 	void setUp() {
-		clearCrateManager();
+		CrateManager.clearAll();
 
 		world = mock(World.class);
 		when(world.getUID()).thenReturn(UUID.randomUUID());
 		block = mock(Block.class);
-		barrel = mock(Barrel.class);
+		eventBarrel = mock(Barrel.class);
+		currentBarrel = mock(Barrel.class);
 		event = mock(InventoryCloseEvent.class);
 		eventInventory = mock(Inventory.class);
-		barrelInventory = mock(Inventory.class);
+		currentInventory = mock(Inventory.class);
 		barrelLocation = new Location(world, 24, 64, 24);
 
 		when(event.getInventory()).thenReturn(eventInventory);
 		when(eventInventory.getType()).thenReturn(InventoryType.BARREL);
-		when(eventInventory.getHolder()).thenReturn(barrel);
+		when(eventInventory.getHolder()).thenReturn(eventBarrel);
 
-		when(barrel.getBlock()).thenReturn(block);
-		when(barrel.getInventory()).thenReturn(barrelInventory);
-		when(barrel.getWorld()).thenReturn(world);
-		when(barrel.getLocation()).thenReturn(barrelLocation);
+		when(eventBarrel.getBlock()).thenReturn(block);
+		when(eventBarrel.getWorld()).thenReturn(world);
+		when(eventBarrel.getLocation()).thenReturn(barrelLocation);
 
+		when(world.getBlockAt(24, 64, 24)).thenReturn(block);
 		when(block.getLocation()).thenReturn(barrelLocation);
-		when(barrelInventory.isEmpty()).thenReturn(true);
+		when(block.getType()).thenReturn(Material.BARREL);
+		when(block.getState()).thenReturn(currentBarrel);
+		when(currentBarrel.getInventory()).thenReturn(currentInventory);
+		when(currentInventory.isEmpty()).thenReturn(true);
 	}
 
 	@AfterEach
 	void tearDown() {
-		clearCrateManager();
+		CrateManager.clearAll();
 	}
 
 	@Test
@@ -70,23 +78,96 @@ class CrateCloseListenerTest {
 		listener.onInventoryClose(event);
 
 		verify(world, never()).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
-		verify(block, never()).setType(Material.AIR);
+		verify(currentInventory, never()).isEmpty();
 	}
 
 	@Test
-	void onInventoryClose_removesEmptyBarrel_whenTrackedCrate() {
-		Crate crate = mock(Crate.class);
-		CrateManager.addCrate(barrelLocation, crate);
+	void onInventoryClose_removesCurrentOwnedBarrel_whenFreshInventoryIsEmpty() {
+		Crate crate = trackOwnedCrate();
+		when(eventInventory.isEmpty()).thenReturn(false);
 
 		listener.onInventoryClose(event);
 
 		verify(world).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
-		verify(block, never()).setType(Material.AIR);
+		verify(eventInventory, never()).isEmpty();
 		assertNull(CrateManager.getCrate(barrelLocation));
 		verify(crate).destroy();
 	}
 
-	private void clearCrateManager() {
-		CrateManager.clearAll();
+	@Test
+	void onInventoryClose_keepsCurrentOwnedBarrel_whenFreshInventoryHasItems() {
+		Crate crate = trackOwnedCrate();
+		when(currentInventory.isEmpty()).thenReturn(false);
+
+		listener.onInventoryClose(event);
+
+		assertSame(crate, CrateManager.getCrate(barrelLocation));
+		verify(crate, never()).destroy();
+		verify(world, never()).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
+	}
+
+	@Test
+	void onInventoryClose_ignoresUnownedEventBarrel_withoutReadingCurrentInventory() {
+		Crate crate = mock(Crate.class);
+		when(crate.ownsLandedBarrel(eventBarrel)).thenReturn(false);
+		when(crate.ownsLandedBarrel(currentBarrel)).thenReturn(true);
+		assertTrue(CrateManager.addCrate(barrelLocation, crate));
+
+		listener.onInventoryClose(event);
+
+		assertSame(crate, CrateManager.getCrate(barrelLocation));
+		verify(currentInventory, never()).isEmpty();
+		verify(crate, never()).destroy();
+	}
+
+	@Test
+	void onInventoryClose_ignoresReplacedCurrentBarrel_withoutReadingItsInventory() {
+		Crate crate = mock(Crate.class);
+		when(crate.ownsLandedBarrel(eventBarrel)).thenReturn(true);
+		when(crate.ownsLandedBarrel(currentBarrel)).thenReturn(false);
+		assertTrue(CrateManager.addCrate(barrelLocation, crate));
+
+		listener.onInventoryClose(event);
+
+		assertSame(crate, CrateManager.getCrate(barrelLocation));
+		verify(currentInventory, never()).isEmpty();
+		verify(crate, never()).destroy();
+	}
+
+	@Test
+	void onInventoryClose_staleEventDoesNotRemoveReboundCrate() {
+		Crate original = trackOwnedCrate();
+		assertSame(original, CrateManager.removeCrate(barrelLocation));
+		Crate replacement = mock(Crate.class);
+		when(replacement.ownsLandedBarrel(eventBarrel)).thenReturn(false);
+		when(replacement.ownsLandedBarrel(currentBarrel)).thenReturn(true);
+		assertTrue(CrateManager.addCrate(barrelLocation, replacement));
+
+		listener.onInventoryClose(event);
+
+		assertSame(replacement, CrateManager.getCrate(barrelLocation));
+		verify(currentInventory, never()).isEmpty();
+		verify(original, never()).destroy();
+		verify(replacement, never()).destroy();
+	}
+
+	@Test
+	void onInventoryClose_emptyCleanupIsIdempotent() {
+		Crate crate = trackOwnedCrate();
+
+		listener.onInventoryClose(event);
+		listener.onInventoryClose(event);
+
+		assertNull(CrateManager.getCrate(barrelLocation));
+		verify(crate, times(1)).destroy();
+		verify(world, times(1)).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
+	}
+
+	private Crate trackOwnedCrate() {
+		Crate crate = mock(Crate.class);
+		when(crate.ownsLandedBarrel(eventBarrel)).thenReturn(true);
+		when(crate.ownsLandedBarrel(currentBarrel)).thenReturn(true);
+		assertTrue(CrateManager.addCrate(barrelLocation, crate));
+		return crate;
 	}
 }

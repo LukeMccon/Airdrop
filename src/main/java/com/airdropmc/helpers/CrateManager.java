@@ -125,6 +125,16 @@ public class CrateManager {
 		return true;
 	}
 
+	public static synchronized boolean removeCrateAndDestroy(Location location, Crate expectedCrate) {
+		DropLocationKey key = toDropLocationKey(location);
+		if (key == null || expectedCrate == null || !landedCrateMap.remove(key, expectedCrate)) {
+			return false;
+		}
+		retireIdentity(expectedCrate, key);
+		expectedCrate.destroy();
+		return true;
+	}
+
 	public static synchronized boolean removeCrateAndDetach(Location location) {
 		Crate removedCrate = removeCrate(location);
 		if (removedCrate == null) {

@@ -138,6 +138,7 @@ class CrateHopperListenerTest {
 		Crate crate = trackMockCrate();
 		Inventory staleEventSource = mock(Inventory.class);
 		when(staleEventSource.getType()).thenReturn(InventoryType.BARREL);
+		when(staleEventSource.getHolder()).thenReturn((Barrel) barrelBlock.getState());
 		when(staleEventSource.getLocation()).thenReturn(barrelLocation);
 		when(staleEventSource.isEmpty()).thenReturn(false);
 		ItemStack item = new ItemStack(Material.DIAMOND);
@@ -273,6 +274,42 @@ class CrateHopperListenerTest {
 	}
 
 	@Test
+	void onInventoryMoveItem_ignoresBarrelInventoryWithoutBarrelHolder() {
+		Crate crate = trackMockCrate();
+		Inventory source = mock(Inventory.class);
+		when(source.getType()).thenReturn(InventoryType.BARREL);
+		when(source.getLocation()).thenReturn(barrelLocation);
+		ItemStack item = new ItemStack(Material.DIAMOND);
+
+		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
+				source, item, hopperInventory, false));
+
+		assertTrue(nextTickTasks.isEmpty());
+		assertSame(crate, CrateManager.getCrate(barrelLocation));
+		verify(crate, never()).destroy();
+	}
+
+	@Test
+	void onInventoryMoveItem_delayedCleanupRechecksPreservedSourceBarrelIdentity() {
+		Crate crate = trackMockCrate();
+		Barrel sourceBarrel = (Barrel) barrelBlock.getState();
+		Inventory source = mock(Inventory.class);
+		when(source.getType()).thenReturn(InventoryType.BARREL);
+		when(source.getHolder()).thenReturn(sourceBarrel);
+		when(source.getLocation()).thenReturn(barrelLocation);
+		ItemStack item = new ItemStack(Material.DIAMOND);
+		barrelInventory.clear();
+
+		server.getPluginManager().callEvent(new InventoryMoveItemEvent(
+				source, item, hopperInventory, false));
+		when(crate.ownsLandedBarrel(sourceBarrel)).thenReturn(false);
+		runNextTickTasks();
+
+		assertSame(crate, CrateManager.getCrate(barrelLocation));
+		verify(crate, never()).destroy();
+	}
+
+	@Test
 	void onInventoryMoveItem_ignoresInsertionIntoTrackedCrate() {
 		Crate crate = trackMockCrate();
 		ItemStack item = new ItemStack(Material.DIAMOND);
@@ -377,6 +414,7 @@ class CrateHopperListenerTest {
 	private InventoryMoveItemEvent extractionEvent(ItemStack item, Inventory contents) {
 		Inventory source = mock(Inventory.class);
 		when(source.getType()).thenReturn(InventoryType.BARREL);
+		when(source.getHolder()).thenReturn((Barrel) barrelBlock.getState());
 		when(source.getLocation()).thenReturn(barrelLocation);
 		when(source.isEmpty()).thenAnswer(ignored -> contents.isEmpty());
 		return new InventoryMoveItemEvent(source, item, hopperInventory, false);
