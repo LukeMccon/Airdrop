@@ -174,6 +174,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 				packagesConfig,
 				language.controlItemNames());
 		boolean economyEnabled = ConfigKeys.isEconomyEnabled(mainConfig);
+		mainConfig.set(ConfigKeys.DROP_SMOKE_ENABLED, ConfigKeys.isSmokeEnabled(mainConfig));
 		ConfigurationCandidate candidate = new ConfigurationCandidate(
 				mainConfig, packagesConfig, packages, language, economyEnabled, startup);
 		return () -> configurationCommit.apply(candidate);

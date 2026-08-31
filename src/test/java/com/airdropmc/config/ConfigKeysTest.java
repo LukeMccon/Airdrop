@@ -9,11 +9,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -170,6 +174,82 @@ class ConfigKeysTest {
 		setAirdropConfig(config);
 
 		assertEquals(20, ConfigKeys.getSmokeHeight());
+	}
+
+	@Test
+	void isSmokeEnabled_disablesMissingValue() {
+		setConfigValues(new YamlConfiguration());
+
+		assertFalse(ConfigKeys.isSmokeEnabled());
+	}
+
+	@Test
+	void isSmokeEnabled_disablesNullValue() throws Exception {
+		YamlConfiguration values = new YamlConfiguration();
+		values.loadFromString("""
+				drop:
+				  particles:
+				    smoke:
+				      enabled: null
+				""");
+
+		setConfigValues(values);
+
+		assertFalse(ConfigKeys.isSmokeEnabled());
+	}
+
+	@Test
+	void isSmokeEnabled_rejectsAndWarnsForMalformedScalar() {
+		YamlConfiguration values = new YamlConfiguration();
+		values.set(ConfigKeys.DROP_SMOKE_ENABLED, "sometimes");
+		setConfigValues(values);
+
+		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
+			assertFalse(ConfigKeys.isSmokeEnabled());
+			logger.verify(() -> AirdropLogger.warning(
+					"Invalid drop.particles.smoke.enabled value; expected Boolean but found String; using false"));
+		}
+	}
+
+	@Test
+	void isSmokeEnabled_rejectsAndWarnsForMalformedSection() {
+		YamlConfiguration values = new YamlConfiguration();
+		values.createSection(ConfigKeys.DROP_SMOKE_ENABLED).set("unexpected", true);
+		setConfigValues(values);
+
+		try (MockedStatic<AirdropLogger> logger = mockStatic(AirdropLogger.class)) {
+			assertFalse(ConfigKeys.isSmokeEnabled());
+			logger.verify(() -> AirdropLogger.warning(
+					"Invalid drop.particles.smoke.enabled value; expected Boolean but found configuration section; using false"));
+		}
+	}
+
+	@Test
+	void isSmokeEnabled_supportsExplicitBooleanValues() {
+		YamlConfiguration values = new YamlConfiguration();
+		setConfigValues(values);
+
+		values.set(ConfigKeys.DROP_SMOKE_ENABLED, false);
+		assertFalse(ConfigKeys.isSmokeEnabled());
+
+		values.set(ConfigKeys.DROP_SMOKE_ENABLED, true);
+		assertTrue(ConfigKeys.isSmokeEnabled());
+	}
+
+	@Test
+	void shippedSmokeDefaultMatchesRuntimeFallback() throws Exception {
+		YamlConfiguration shipped = new YamlConfiguration();
+		try (InputStream resource = ConfigKeysTest.class.getResourceAsStream("/config.yml")) {
+			assertNotNull(resource);
+			shipped.load(new InputStreamReader(resource, StandardCharsets.UTF_8));
+		}
+
+		assertEquals(ConfigKeys.DEFAULT_SMOKE_ENABLED, shipped.get(ConfigKeys.DROP_SMOKE_ENABLED));
+		setConfigValues(shipped);
+		assertEquals(ConfigKeys.DEFAULT_SMOKE_ENABLED, ConfigKeys.isSmokeEnabled());
+
+		setConfigValues(new YamlConfiguration());
+		assertEquals(ConfigKeys.DEFAULT_SMOKE_ENABLED, ConfigKeys.isSmokeEnabled());
 	}
 
 	@Test
