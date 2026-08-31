@@ -5,6 +5,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.Properties
+import java.security.MessageDigest
+import java.util.HexFormat
 import java.util.jar.JarFile
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
@@ -82,20 +84,29 @@ val japicmp by configurations.creating {
 
 repositories {
     mavenCentral()
-    maven("https://repo.papermc.io/repository/maven-public/") {
-        name = "papermc-repo"
+
+    exclusiveContent {
+        forRepository {
+            maven("https://repo.papermc.io/repository/maven-public/") {
+                name = "papermc"
+            }
+        }
+        filter {
+            includeGroup("io.papermc.paper")
+            includeModule("com.mojang", "brigadier")
+            includeModule("net.md-5", "bungeecord-chat")
+        }
     }
-    maven("https://repo.codemc.io/repository/maven-public/") {
-        name = "codemc"
-    }
-    maven("https://repo.codemc.io/repository/creatorfromhell/") {
-        name = "creatorfromhell"
-    }
-    maven("https://oss.sonatype.org/content/groups/public/") {
-        name = "sonatype"
-    }
-    maven("https://jitpack.io") {
-        name = "jitpack"
+
+    exclusiveContent {
+        forRepository {
+            maven("https://repo.codemc.io/repository/creatorfromhell/") {
+                name = "creatorfromhell"
+            }
+        }
+        filter {
+            includeGroup("net.milkbowl.vault")
+        }
     }
 }
 
@@ -561,6 +572,102 @@ val consumerFixtureTest = tasks.register<GradleBuild>("consumerFixtureTest") {
     outputs.upToDateWhen { false }
 }
 
+tasks.withType<Jar>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+    from(layout.projectDirectory.file("LICENSE")) {
+        into("META-INF")
+        rename { "LICENSE-Airdrop.txt" }
+    }
+}
+
+tasks.test {
+    dependsOn(releaseJar)
+    doFirst {
+        systemProperty(
+            "airdrop.runtimeJar",
+            releaseJar.get().archiveFile.get().asFile.absolutePath
+        )
+    }
+}
+
+val runtimeClasspath = configurations.named("runtimeClasspath")
+val verifyRuntimeClasspathEmpty = tasks.register("verifyRuntimeClasspathEmpty") {
+    group = "verification"
+    description = "Verifies that the packaged plugin has no runtime dependencies"
+
+    doLast {
+        val runtimeArtifacts = runtimeClasspath.get().incoming.artifacts.artifacts
+        if (runtimeArtifacts.isNotEmpty()) {
+            val coordinates = runtimeArtifacts
+                .map { it.id.componentIdentifier.displayName }
+                .sorted()
+            throw GradleException("runtimeClasspath must be empty, but resolved $coordinates")
+        }
+    }
+}
+
+val verifyReproducibleRuntimeJar = tasks.register("verifyReproducibleRuntimeJar") {
+    group = "verification"
+    description = "Builds the runtime JAR twice from isolated clean inputs and compares SHA-256"
+
+    doLast {
+        val verificationRoot = temporaryDir.resolve("isolated-builds")
+        delete(verificationRoot)
+        val sourceRoot = layout.projectDirectory.asFile
+        val builds = listOf("first", "second").map { verificationRoot.resolve(it) }
+        val archiveName = releaseJar.get().archiveFileName.get()
+
+        builds.forEach { isolatedProject ->
+            copy {
+                from(sourceRoot)
+                into(isolatedProject)
+                exclude(
+                    ".git/**",
+                    ".gradle/**",
+                    ".gradle-tmp/**",
+                    ".worktrees/**",
+                    "build/**",
+                    "target/**",
+                    "lightkeeper/target/**"
+                )
+            }
+
+            val command = mutableListOf(
+                "sh",
+                "./gradlew",
+                "--no-daemon",
+                "--console=plain",
+                "clean",
+                "jar"
+            )
+            configuredReleaseVersion?.let { command.add("-PreleaseTag=$it") }
+            val process = ProcessBuilder(command)
+                .directory(isolatedProject)
+                .inheritIO()
+                .start()
+            if (process.waitFor() != 0) {
+                throw GradleException("Isolated reproducibility build failed in $isolatedProject")
+            }
+        }
+
+        val archives = builds.map { it.resolve("build/libs/$archiveName") }
+        archives.forEach { archive ->
+            if (!archive.isFile) {
+                throw GradleException("Isolated build did not create exact runtime artifact $archive")
+            }
+        }
+        val hashes = archives.map { archive ->
+            val digest = MessageDigest.getInstance("SHA-256")
+            HexFormat.of().formatHex(digest.digest(archive.readBytes()))
+        }
+        if (hashes.distinct().size != 1) {
+            throw GradleException("Runtime JAR is not reproducible: ${hashes.zip(archives)}")
+        }
+        logger.lifecycle("Verified reproducible runtime JAR $archiveName: ${hashes.first()}")
+    }
+}
+
 val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPluginAdapter") {
     group = "verification"
     description = "Repairs the pinned JitPack LightKeeper plugin descriptor in a generated local repository"
@@ -606,6 +713,8 @@ tasks.register("verifyReleaseArtifact") {
     dependsOn(verifyApiCompatibility)
     dependsOn(sourcesJar)
     dependsOn(apiJavadocJar)
+    dependsOn(verifyRuntimeClasspathEmpty)
+    dependsOn(verifyReproducibleRuntimeJar)
 
     doLast {
         val releaseVersion = configuredReleaseVersion
@@ -650,11 +759,25 @@ tasks.register("verifyReleaseArtifact") {
                 }
             }
 
+            val license = archive.getJarEntry("META-INF/LICENSE-Airdrop.txt")
+                ?: throw GradleException("Release artifact must contain META-INF/LICENSE-Airdrop.txt")
+            val packagedLicense = archive.getInputStream(license).use { it.readBytes() }
+            val projectLicense = layout.projectDirectory.file("LICENSE").asFile.readBytes()
+            if (!packagedLicense.contentEquals(projectLicense)) {
+                throw GradleException("Packaged Airdrop license must match the project LICENSE")
+            }
+
             val pluginYml = textEntry("plugin.yml")
             val pluginVersion = yamlScalar(pluginYml, "version")
             val pluginPaperVersion = yamlScalar(pluginYml, "api-version")
+            val pluginWebsite = yamlScalar(pluginYml, "website")
             requireValue("Root plugin.yml version", pluginVersion, releaseVersion)
             requireValue("Root plugin.yml api-version", pluginPaperVersion, supportedPaperVersion)
+            requireValue(
+                "Root plugin.yml website",
+                pluginWebsite,
+                "https://modrinth.com/plugin/airdrop"
+            )
             if (pluginPaperVersion == extensionApiVersion) {
                 throw GradleException(
                     "Root plugin.yml api-version must describe Paper, not extension API $extensionApiVersion"
@@ -811,6 +934,7 @@ tasks.named("check") {
     dependsOn(verifyApiCompatibility)
     dependsOn(verifyModrinthDocs)
     dependsOn(verifyApiPublication)
+    dependsOn(verifyRuntimeClasspathEmpty)
 }
 
 tasks.named<Test>("test") {

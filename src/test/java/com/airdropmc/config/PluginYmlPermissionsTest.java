@@ -77,6 +77,13 @@ class PluginYmlPermissionsTest {
 				"plugin.yml api-version is Paper compatibility, not the extension API version");
 	}
 
+	@Test
+	void generatedPluginYmlUsesCanonicalModrinthWebsite() throws Exception {
+		Map<?, ?> root = loadPluginYml();
+
+		assertEquals("https://modrinth.com/plugin/airdrop", String.valueOf(root.get("website")));
+	}
+
 	private Map<?, ?> loadPluginYml() throws Exception {
 		InputStream stream = getClass().getClassLoader().getResourceAsStream("plugin.yml");
 		assertNotNull(stream, "Generated plugin.yml should be available on the test runtime classpath");
