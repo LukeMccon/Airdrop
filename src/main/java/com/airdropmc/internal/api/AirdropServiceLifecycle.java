@@ -4,6 +4,7 @@ import com.airdropmc.Airdrop;
 import com.airdropmc.api.AirdropApi;
 import com.airdropmc.api.AirdropVersions;
 import com.airdropmc.api.EconomyState;
+import com.airdropmc.api.PackageRegistryCause;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.integrations.OptionalIntegrations;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -15,6 +16,8 @@ import org.jetbrains.annotations.ApiStatus;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
+import com.airdropmc.packages.Package;
 
 /** Owns registration and lifecycle transitions for one Airdrop service provider. */
 @ApiStatus.Internal
@@ -77,6 +80,11 @@ public final class AirdropServiceLifecycle {
 
 	public void refreshPackageCount() {
 		api.refreshPackageCount();
+	}
+
+	/** Publishes the supported package snapshot after the raw registry commit. */
+	public void publishPackages(Map<String, Package> packages, PackageRegistryCause cause) {
+		api.publishPackages(packages, cause);
 	}
 
 	public void publishFailure(Throwable failure) {

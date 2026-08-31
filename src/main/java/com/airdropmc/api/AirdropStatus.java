@@ -16,6 +16,7 @@ public final class AirdropStatus {
 	private final ReadinessState readiness;
 	private final EconomyState economy;
 	private final String economyProviderName;
+	private final long packageRevision;
 	private final int packageCount;
 	private final int fallingCount;
 	private final int landedCount;
@@ -40,9 +41,38 @@ public final class AirdropStatus {
 			int fallingCount,
 			int landedCount,
 			List<String> degradedReasons) {
+		this(readiness, economy, economyProviderName, 0L, packageCount,
+				fallingCount, landedCount, degradedReasons);
+	}
+
+	/**
+	 * Creates a detached status snapshot including package publication identity.
+	 *
+	 * @param readiness service lifecycle state
+	 * @param economy economy integration state
+	 * @param economyProviderName provider name when economy is active
+	 * @param packageRevision latest successful package publication revision
+	 * @param packageCount published package count
+	 * @param fallingCount active falling-drop count
+	 * @param landedCount active landed-drop count
+	 * @param degradedReasons stable degraded-state identifiers
+	 */
+	public AirdropStatus(
+			ReadinessState readiness,
+			EconomyState economy,
+			String economyProviderName,
+			long packageRevision,
+			int packageCount,
+			int fallingCount,
+			int landedCount,
+			List<String> degradedReasons) {
 		this.readiness = Objects.requireNonNull(readiness, "readiness");
 		this.economy = Objects.requireNonNull(economy, "economy");
 		this.economyProviderName = normalizeProvider(economy, economyProviderName);
+		if (packageRevision < 0L) {
+			throw new IllegalArgumentException("packageRevision must be non-negative");
+		}
+		this.packageRevision = packageRevision;
 		this.packageCount = requireNonNegative(packageCount, "packageCount");
 		this.fallingCount = requireNonNegative(fallingCount, "fallingCount");
 		this.landedCount = requireNonNegative(landedCount, "landedCount");
@@ -51,6 +81,15 @@ public final class AirdropStatus {
 		if (this.degradedReasons.stream().anyMatch(reason -> reason == null || reason.isBlank())) {
 			throw new IllegalArgumentException("degradedReasons must contain non-blank values");
 		}
+	}
+
+	/**
+	 * Returns the latest successful package publication revision.
+	 *
+	 * @return monotonic in-memory package registry revision
+	 */
+	public long packageRevision() {
+		return packageRevision;
 	}
 
 	/**

@@ -7,13 +7,12 @@ import com.airdropmc.api.AirdropVersions;
 import com.airdropmc.api.AirdropView;
 import com.airdropmc.api.EconomyState;
 import com.airdropmc.api.ReadinessState;
+import com.airdropmc.api.PackageRegistryCause;
 import com.airdropmc.api.DropHandle;
 import com.airdropmc.api.DropRequestOptions;
 import com.airdropmc.internal.drop.DropRequestCoordinator;
 import com.airdropmc.internal.drop.InternalDropRequests;
 import com.airdropmc.packages.Package;
-import com.airdropmc.exceptions.PackageNotFoundException;
-import com.airdropmc.packages.PackageManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -23,8 +22,8 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,6 +36,7 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 
 	private final AirdropVersions versions;
 	private final DropRequestCoordinator requests;
+	private final PackageRegistryPublisher packageRegistry = new PackageRegistryPublisher();
 	private final CompletableFuture<AirdropApi> readiness = new CompletableFuture<>();
 	private final CompletionStage<AirdropApi> readinessView = readiness.minimalCompletionStage();
 
@@ -75,21 +75,21 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 	@Override
 	public List<AirdropPackage> listPackages() {
 		requirePrimaryThread("listPackages");
-		return PackageManager.getPackages().stream()
-				.sorted(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder()))
-				.map(this::requirePackageSnapshot)
-				.toList();
+		return List.copyOf(packageRegistry.packages().values());
 	}
 
 	@Override
 	public Optional<AirdropPackage> findPackage(String name) {
 		requirePrimaryThread("findPackage");
 		String requiredName = Objects.requireNonNull(name, "name");
-		try {
-			return Optional.of(ApiModelMapper.packageSnapshot(PackageManager.get(requiredName)));
-		} catch (PackageNotFoundException ignored) {
-			return Optional.empty();
-		}
+		return packageRegistry.packages().values().stream()
+				.filter(pkg -> pkg.name().equalsIgnoreCase(requiredName))
+				.findFirst();
+	}
+
+	@Override
+	public long packageRevision() {
+		return packageRegistry.revision();
 	}
 
 	@Override
@@ -166,6 +166,17 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 		status = snapshot(state, economy, economyProviderName, degradedReasons);
 	}
 
+	void publishPackages(Map<String, Package> packages, PackageRegistryCause cause) {
+		Map<String, AirdropPackage> snapshots = packages.entrySet().stream()
+				.collect(java.util.stream.Collectors.toMap(
+						Map.Entry::getKey,
+						entry -> ApiModelMapper.packageSnapshot(entry.getValue()),
+						(first, ignored) -> first,
+						java.util.LinkedHashMap::new));
+		packageRegistry.publish(snapshots, cause);
+		refreshPackageCount();
+	}
+
 	synchronized void publishReady() {
 		if (state != ReadinessState.STARTING) {
 			return;
@@ -200,15 +211,7 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 		requests.stop();
 	}
 
-	private AirdropPackage requirePackageSnapshot(String name) {
-		try {
-			return ApiModelMapper.packageSnapshot(PackageManager.get(name));
-		} catch (PackageNotFoundException failure) {
-			throw new IllegalStateException("Published package disappeared during primary-thread lookup", failure);
-		}
-	}
-
-	private static AirdropStatus snapshot(
+	private AirdropStatus snapshot(
 			ReadinessState state,
 			EconomyState economy,
 			String providerName,
@@ -217,7 +220,8 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 				state,
 				economy,
 				providerName,
-				PackageManager.getPackages().size(),
+				packageRegistry.revision(),
+				packageRegistry.packages().size(),
 				0,
 				0,
 				degradedReasons);

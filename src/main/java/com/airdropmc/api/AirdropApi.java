@@ -71,6 +71,13 @@ public interface AirdropApi {
 	Optional<AirdropPackage> findPackage(String name);
 
 	/**
+	 * Returns the latest successful package publication revision.
+	 *
+	 * @return monotonic in-memory package registry revision, initially zero
+	 */
+	long packageRevision();
+
+	/**
 	 * Requests a permission- and economy-aware drop for a player.
 	 *
 	 * <p>This method must be called on the primary server thread because it

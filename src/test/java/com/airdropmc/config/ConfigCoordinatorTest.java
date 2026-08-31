@@ -1,6 +1,7 @@
 package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.PackageRegistryCause;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.packages.Package;
@@ -179,10 +180,14 @@ class ConfigCoordinatorTest {
 		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
 		AtomicReference<String> readThread = new AtomicReference<>();
 		AtomicReference<String> publishThread = new AtomicReference<>();
+		AtomicReference<PackageRegistryCause> publishCause = new AtomicReference<>();
 		AtomicReference<Boolean> publishedBeforeCompletion = new AtomicReference<>(false);
 
 		ConfigFileStore store = store(reads, firstRead, secondRead, readThread);
-		coordinator = coordinator(store, mainTasks, ignored -> publishThread.set(Thread.currentThread().getName()));
+		coordinator = coordinator(store, mainTasks, candidate -> {
+			publishThread.set(Thread.currentThread().getName());
+			publishCause.set(candidate.cause());
+		});
 		CompletionStage<Boolean> stage = coordinator.createPackage(pkg("threaded"));
 		stage.whenComplete((result, failure) -> publishedBeforeCompletion.set(publishThread.get() != null));
 
@@ -195,6 +200,7 @@ class ConfigCoordinatorTest {
 		assertNotNull(readThread.get());
 		assertFalse(commitThread.equals(readThread.get()));
 		assertEquals(commitThread, publishThread.get());
+		assertEquals(PackageRegistryCause.CREATE, publishCause.get());
 		assertTrue(publishedBeforeCompletion.get());
 	}
 

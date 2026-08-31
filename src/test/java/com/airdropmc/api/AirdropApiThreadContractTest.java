@@ -98,11 +98,13 @@ class AirdropApiThreadContractTest {
 				ReadinessState.READY,
 				EconomyState.UNAVAILABLE,
 				null,
+				7L,
 				1,
 				0,
 				0,
 				reasons);
 		reasons.clear();
+		assertEquals(7L, status.packageRevision());
 		assertEquals(List.of("economy-provider-unavailable"), status.degradedReasons());
 		assertThrows(UnsupportedOperationException.class,
 				() -> status.degradedReasons().add("mutated"));

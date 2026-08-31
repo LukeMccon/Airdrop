@@ -1,6 +1,7 @@
 package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.PackageRegistryCause;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.packages.Package;
@@ -109,7 +110,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 			Map<String, Package> materialized = PackageManager.materializePackages(
 					candidate, controlItemNames);
 			store.write(packagesPath(), candidate);
-			PackageCandidate prepared = new PackageCandidate(candidate, materialized, true);
+			PackageCandidate prepared = new PackageCandidate(
+					candidate, materialized, true, PackageRegistryCause.CREATE);
 			return () -> {
 				packageCommit.accept(prepared);
 				return true;
@@ -127,7 +129,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 			Map<String, Package> materialized = PackageManager.materializePackages(
 					candidate, controlItemNames);
 			store.write(packagesPath(), candidate);
-			PackageCandidate prepared = new PackageCandidate(candidate, materialized, false);
+			PackageCandidate prepared = new PackageCandidate(
+					candidate, materialized, false, PackageRegistryCause.UPDATE);
 			return () -> {
 				packageCommit.accept(prepared);
 				return true;
@@ -144,7 +147,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 			Map<String, Package> materialized = PackageManager.materializePackages(
 					candidate, controlItemNames);
 			store.write(packagesPath(), candidate);
-			PackageCandidate prepared = new PackageCandidate(candidate, materialized, true);
+			PackageCandidate prepared = new PackageCandidate(
+					candidate, materialized, true, PackageRegistryCause.DELETE);
 			return () -> {
 				packageCommit.accept(prepared);
 				return true;
@@ -175,7 +179,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 				language.controlItemNames());
 		boolean economyEnabled = ConfigKeys.isEconomyEnabled(mainConfig);
 		ConfigurationCandidate candidate = new ConfigurationCandidate(
-				mainConfig, packagesConfig, packages, language, economyEnabled, startup);
+				mainConfig, packagesConfig, packages, language, economyEnabled, startup,
+				startup ? PackageRegistryCause.STARTUP : PackageRegistryCause.RELOAD);
 		return () -> configurationCommit.apply(candidate);
 	}
 
@@ -398,22 +403,32 @@ public final class ConfigCoordinator implements AutoCloseable {
 			Map<String, Package> packages,
 			LanguageManager.LanguageCandidate language,
 			boolean economyEnabled,
-			boolean startup) {
+			boolean startup,
+			PackageRegistryCause cause) {
 		public ConfigurationCandidate {
 			Objects.requireNonNull(configuration, "configuration");
 			Objects.requireNonNull(packagesConfiguration, "packagesConfiguration");
 			packages = Map.copyOf(Objects.requireNonNull(packages, "packages"));
 			Objects.requireNonNull(language, "language");
+			Objects.requireNonNull(cause, "cause");
+			if (startup != (cause == PackageRegistryCause.STARTUP)) {
+				throw new IllegalArgumentException("startup and package publication cause disagree");
+			}
 		}
 	}
 
 	public record PackageCandidate(
 			FileConfiguration configuration,
 			Map<String, Package> packages,
-			boolean refreshBrowser) {
+			boolean refreshBrowser,
+			PackageRegistryCause cause) {
 		public PackageCandidate {
 			Objects.requireNonNull(configuration, "configuration");
 			packages = Map.copyOf(Objects.requireNonNull(packages, "packages"));
+			Objects.requireNonNull(cause, "cause");
+			if (cause == PackageRegistryCause.STARTUP || cause == PackageRegistryCause.RELOAD) {
+				throw new IllegalArgumentException("Package mutation requires a mutation cause");
+			}
 		}
 	}
 
