@@ -98,4 +98,9 @@ public final class FallingAirdropView implements AirdropView {
 	public boolean recovered() {
 		return false;
 	}
+
+	@Override
+	public Optional<RecoveredDropDescriptor> recoveryDescriptor() {
+		return Optional.empty();
+	}
 }

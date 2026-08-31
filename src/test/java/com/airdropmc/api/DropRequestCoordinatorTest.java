@@ -23,6 +23,7 @@ import org.mockbukkit.mockbukkit.world.WorldMock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.LockSupport;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,17 @@ class DropRequestCoordinatorTest {
 		assertFalse(handle.outcome().toCompletableFuture().isDone());
 
 		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+		AirdropView fallingView = api.findByFallingEntity(falling).orElseThrow();
+		assertEquals(handle.requestId(), fallingView.requestId().orElseThrow());
+		assertEquals(fallingView, api.findByRequestId(handle.requestId()).orElseThrow());
+		assertEquals(fallingView, api.findByCrateId(fallingView.crateId()).orElseThrow());
+		assertEquals(1, api.activeDrops().size());
+		assertEquals(1, api.status().fallingCount());
+		CompletableFuture.runAsync(() -> {
+			assertEquals(fallingView, api.findByRequestId(handle.requestId()).orElseThrow());
+			assertEquals(fallingView, api.findByCrateId(fallingView.crateId()).orElseThrow());
+			assertEquals(List.of(fallingView), api.activeDrops().stream().toList());
+		}).join();
 		EntityChangeBlockEvent landing = new EntityChangeBlockEvent(
 				falling,
 				handle.context().orElseThrow().landingLocation().getBlock(),
@@ -110,6 +122,14 @@ class DropRequestCoordinatorTest {
 				DropOutcome.Landed.class, handle.outcome().toCompletableFuture().join());
 		assertEquals(DeliveryStatus.LANDED, outcome.delivery());
 		assertEquals(handle.requestId(), outcome.requestId());
+		assertTrue(api.findByFallingEntity(falling).isEmpty());
+		AirdropView indexedLanded = api.findByLandedBlock(
+				handle.context().orElseThrow().landingLocation().getBlock()).orElseThrow();
+		assertEquals(outcome.airdrop().crateId(), indexedLanded.crateId());
+		assertEquals(outcome.airdrop().requestId(), indexedLanded.requestId());
+		assertEquals(1, api.activeDrops().size());
+		assertEquals(0, api.status().fallingCount());
+		assertEquals(1, api.status().landedCount());
 	}
 
 	@Test

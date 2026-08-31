@@ -21,6 +21,7 @@ import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.RetirementReason;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.limits.DropAdmissionController;
@@ -29,18 +30,19 @@ public class CrateCleanupListener implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onBlockExplode(BlockExplodeEvent e) {
-		removeCrates(e.blockList());
+		removeCrates(e.blockList(), RetirementReason.EXPLODED);
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onEntityExplode(EntityExplodeEvent e) {
-		removeCrates(e.blockList());
+		removeCrates(e.blockList(), RetirementReason.EXPLODED);
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onBlockBurn(BlockBurnEvent e) {
 		if (e.getBlock().getType() == Material.BARREL) {
-			CrateManager.removeCrateAndDestroy(e.getBlock().getLocation());
+			CrateManager.removeCrateAndDestroy(
+					e.getBlock().getLocation(), RetirementReason.BURNED);
 		}
 	}
 
@@ -104,10 +106,10 @@ public class CrateCleanupListener implements Listener {
 		}
 	}
 
-	private void removeCrates(List<Block> blocks) {
+	private void removeCrates(List<Block> blocks, RetirementReason reason) {
 		for (Block block : blocks) {
 			if (block.getType() == Material.BARREL) {
-				CrateManager.removeCrateAndDestroy(block.getLocation());
+				CrateManager.removeCrateAndDestroy(block.getLocation(), reason);
 			}
 		}
 	}

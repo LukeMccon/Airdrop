@@ -192,6 +192,9 @@ public class Airdrop extends JavaPlugin {
 		packagesConfiguration = replacementPackagesConfiguration;
 		languageManager.publishLanguage(candidate.language());
 		ChatHandler.init(languageManager);
+		OptionalIntegrations.State optionalIntegrations = candidate.startup()
+				? initializeStartupIntegrations()
+				: null;
 		PackageManager.publishPackages(candidate.packages());
 		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
 		if (serviceLifecycle != null) {
@@ -201,7 +204,6 @@ public class Airdrop extends JavaPlugin {
 
 		refreshPackageBrowser();
 		if (candidate.startup()) {
-			OptionalIntegrations.State optionalIntegrations = initializeStartupIntegrations();
 			ready = true;
 			serviceLifecycle = airdropServiceLifecycle;
 			if (serviceLifecycle != null) {

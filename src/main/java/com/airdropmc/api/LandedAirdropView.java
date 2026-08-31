@@ -18,6 +18,7 @@ public final class LandedAirdropView implements AirdropView {
 	private final long expiresAtMillis;
 	private final boolean opened;
 	private final boolean recovered;
+	private final RecoveredDropDescriptor recoveryDescriptor;
 
 	/**
 	 * Creates a landed view from a resolved request.
@@ -44,7 +45,8 @@ public final class LandedAirdropView implements AirdropView {
 				context.descriptor().playerId().orElse(null),
 				expiresAtMillis,
 				opened,
-				false);
+				false,
+				null);
 		if (!position.isSameWorld(context.landingPosition())) {
 			throw new IllegalArgumentException("Landed position must match the request world");
 		}
@@ -60,7 +62,8 @@ public final class LandedAirdropView implements AirdropView {
 			UUID playerId,
 			long expiresAtMillis,
 			boolean opened,
-			boolean recovered) {
+			boolean recovered,
+			RecoveredDropDescriptor recoveryDescriptor) {
 		if (expiresAtMillis <= 0L) {
 			throw new IllegalArgumentException("expiresAtMillis must be positive");
 		}
@@ -74,6 +77,7 @@ public final class LandedAirdropView implements AirdropView {
 		this.expiresAtMillis = expiresAtMillis;
 		this.opened = opened;
 		this.recovered = recovered;
+		this.recoveryDescriptor = recoveryDescriptor;
 	}
 
 	/**
@@ -91,7 +95,39 @@ public final class LandedAirdropView implements AirdropView {
 		return new LandedAirdropView(
 				Objects.requireNonNull(crateId, "crateId"),
 				Objects.requireNonNull(position, "position"),
-				null, null, null, null, null, expiresAtMillis, opened, true);
+				null, null, null, null, null, expiresAtMillis, opened, true, null);
+	}
+
+	/**
+	 * Creates a recovered view with validated schema-v1 request details.
+	 *
+	 * @param crateId stable crate UUID
+	 * @param position current pure landed position
+	 * @param expiresAtMillis absolute expiry time in Unix epoch milliseconds
+	 * @param opened whether a player has opened the crate
+	 * @param recoveryDescriptor persistence-safe original request details
+	 * @return recovered schema-aware view
+	 */
+	public static LandedAirdropView recovered(
+			UUID crateId,
+			WorldPosition position,
+			long expiresAtMillis,
+			boolean opened,
+			RecoveredDropDescriptor recoveryDescriptor) {
+		RecoveredDropDescriptor descriptor = Objects.requireNonNull(
+				recoveryDescriptor, "recoveryDescriptor");
+		return new LandedAirdropView(
+				Objects.requireNonNull(crateId, "crateId"),
+				Objects.requireNonNull(position, "position"),
+				descriptor.requestId(),
+				descriptor.packageName(),
+				descriptor.packagePrice(),
+				descriptor.source(),
+				descriptor.playerId().orElse(null),
+				expiresAtMillis,
+				opened,
+				true,
+				descriptor);
 	}
 
 	@Override
@@ -155,5 +191,10 @@ public final class LandedAirdropView implements AirdropView {
 	@Override
 	public boolean recovered() {
 		return recovered;
+	}
+
+	@Override
+	public Optional<RecoveredDropDescriptor> recoveryDescriptor() {
+		return Optional.ofNullable(recoveryDescriptor);
 	}
 }

@@ -71,4 +71,12 @@ public sealed interface AirdropView permits FallingAirdropView, LandedAirdropVie
 	 * @return {@code true} for a recovered landed crate
 	 */
 	boolean recovered();
+
+	/**
+	 * Returns the persistence-safe request details for a schema-aware recovered
+	 * crate. Normal live views and legacy recovered crates return empty.
+	 *
+	 * @return optional recovery descriptor
+	 */
+	Optional<RecoveredDropDescriptor> recoveryDescriptor();
 }

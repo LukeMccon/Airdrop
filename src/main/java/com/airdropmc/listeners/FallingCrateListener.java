@@ -9,6 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 
 import com.airdropmc.Crate;
+import com.airdropmc.api.RetirementReason;
 import com.airdropmc.api.WorldPosition;
 import com.airdropmc.helpers.CrateManager;
 
@@ -28,7 +29,7 @@ public class FallingCrateListener implements Listener {
 			return;
 		}
 		if (e.isCancelled()) {
-			CrateManager.removeCrate(fallingBlock);
+			CrateManager.removeCrate(fallingBlock, RetirementReason.CANCELLED);
 			fallingBlock.remove();
 			landedCrate.cancelLanding();
 			return;
@@ -36,7 +37,7 @@ public class FallingCrateListener implements Listener {
 		Block landingBlock = e.getBlock();
 		if (landingBlock == null) {
 			e.setCancelled(true);
-			CrateManager.removeCrate(fallingBlock);
+			CrateManager.removeCrate(fallingBlock, RetirementReason.FAILED);
 			fallingBlock.remove();
 			landedCrate.destroy();
 			return;
@@ -44,11 +45,12 @@ public class FallingCrateListener implements Listener {
 		boolean landingAllowed = landedCrate.beginLanding(
 				WorldPosition.from(landingBlock.getLocation()));
 		e.setCancelled(true);
-		CrateManager.removeCrate(fallingBlock);
+		CrateManager.detachFallingForLanding(fallingBlock);
 		// Paper keeps FallingBlock entities alive after event cancellation.
 		// Explicitly remove it so it cannot fire again or place an empty barrel.
 		fallingBlock.remove();
 		if (!landingAllowed) {
+			CrateManager.removeCrate(landedCrate, RetirementReason.CANCELLED);
 			landedCrate.cancelLanding();
 			return;
 		}
@@ -56,7 +58,7 @@ public class FallingCrateListener implements Listener {
 			landedCrate.land(landingBlock);
 			landedCrate.completeLanding();
 		} catch (RuntimeException landFailure) {
-			CrateManager.removeCrate(landedCrate);
+			CrateManager.removeCrate(landedCrate, RetirementReason.FAILED);
 			landedCrate.destroy();
 			throw landFailure;
 		}

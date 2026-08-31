@@ -1,12 +1,15 @@
 package com.airdropmc.api.event;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.Crate;
 import com.airdropmc.api.AirdropApi;
 import com.airdropmc.api.DeliveryStatus;
 import com.airdropmc.api.DropHandle;
 import com.airdropmc.api.DropOutcome;
 import com.airdropmc.api.DropRejectionReason;
 import com.airdropmc.api.DropRequestOptions;
+import com.airdropmc.api.LandedAirdropView;
+import com.airdropmc.api.RetirementReason;
 import com.airdropmc.events.PackageDropEvent;
 import com.airdropmc.events.PackageLandEvent;
 import com.airdropmc.helpers.CrateManager;
@@ -141,6 +144,9 @@ class AirdropEventOrderTest {
 		DropOutcome.Failed outcome = assertInstanceOf(
 				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
 		assertEquals(DeliveryStatus.CANCELLED, outcome.delivery());
+		assertEquals(List.of(RetirementReason.CANCELLED), recorder.retirementReasons);
+		assertTrue(recorder.retiredObservedPostRemoval);
+		assertTrue(!recorder.retiredObservedInsideManagerMonitor);
 	}
 
 	@Test
@@ -164,6 +170,37 @@ class AirdropEventOrderTest {
 		DropOutcome.Failed outcome = assertInstanceOf(
 				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
 		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+		assertEquals(List.of(RetirementReason.FAILED), recorder.retirementReasons);
+		assertTrue(recorder.retiredObservedPostRemoval);
+	}
+
+	@Test
+	void openingReplacesTheLandedViewWithoutRetiringAndRemovalRetiresExactlyOnce() {
+		DropHandle handle = api.requestSystemDrop(
+				new Location(world, 22, 100, 22), "starter", quietOptions());
+		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+		server.getPluginManager().callEvent(new EntityChangeBlockEvent(
+				falling,
+				handle.context().orElseThrow().landingLocation().getBlock(),
+				Material.BARREL.createBlockData()));
+		LandedAirdropView closed = assertInstanceOf(
+				LandedAirdropView.class, api.findByRequestId(handle.requestId()).orElseThrow());
+		Crate landed = CrateManager.getCrate(handle.context().orElseThrow().landingLocation());
+
+		landed.setOpened(true);
+
+		LandedAirdropView opened = assertInstanceOf(
+				LandedAirdropView.class, api.findByRequestId(handle.requestId()).orElseThrow());
+		assertTrue(!closed.opened());
+		assertTrue(opened.opened());
+		assertTrue(recorder.retirementReasons.isEmpty());
+
+		assertTrue(CrateManager.removeCrate(landed, RetirementReason.BROKEN));
+		assertTrue(!CrateManager.removeCrate(landed, RetirementReason.BROKEN));
+
+		assertEquals(List.of(RetirementReason.BROKEN), recorder.retirementReasons);
+		assertTrue(recorder.retiredObservedPostRemoval);
+		assertTrue(!recorder.retiredObservedInsideManagerMonitor);
 	}
 
 	@Test
@@ -241,6 +278,9 @@ class AirdropEventOrderTest {
 		private final List<UUID> supportedRequestIds = new ArrayList<>();
 		private boolean primaryThreadOnly = true;
 		private boolean outcomeObservedInsideManagerMonitor;
+		private boolean retiredObservedInsideManagerMonitor;
+		private boolean retiredObservedPostRemoval = true;
+		private final List<RetirementReason> retirementReasons = new ArrayList<>();
 
 		private void record(String name, AbstractAirdropEvent event) {
 			names.add(name);
@@ -282,6 +322,14 @@ class AirdropEventOrderTest {
 		public void onOutcome(AirdropOutcomeEvent event) {
 			record("outcome", event);
 			outcomeObservedInsideManagerMonitor |= Thread.holdsLock(CrateManager.class);
+		}
+
+		@EventHandler
+		public void onRetired(AirdropRetiredEvent event) {
+			retirementReasons.add(event.reason());
+			retiredObservedInsideManagerMonitor |= Thread.holdsLock(CrateManager.class);
+			retiredObservedPostRemoval &= CrateManager.findByCrateId(
+					event.airdrop().crateId()).isEmpty();
 		}
 	}
 }

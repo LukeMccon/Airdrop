@@ -10,6 +10,7 @@ import com.airdropmc.api.LandedAirdropView;
 import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.api.ResolvedDropContext;
 import com.airdropmc.api.ResolvedDropSettings;
+import com.airdropmc.api.RetirementReason;
 import com.airdropmc.api.WorldPosition;
 import org.bukkit.Location;
 import org.bukkit.event.HandlerList;
@@ -151,7 +152,9 @@ class AirdropEventImmutabilityTest {
 				AirdropSpawnedEvent.class,
 				AirdropLandingAttemptEvent.class,
 				AirdropLandedEvent.class,
-				AirdropOutcomeEvent.class)) {
+				AirdropOutcomeEvent.class,
+				AirdropRecoveredEvent.class,
+				AirdropRetiredEvent.class)) {
 			for (Constructor<?> constructor : eventType.getConstructors()) {
 				assertNoForbiddenSignature(constructor.toGenericString(), forbidden);
 			}
@@ -161,6 +164,23 @@ class AirdropEventImmutabilityTest {
 				}
 			}
 		}
+	}
+
+	@Test
+	void recoveryAndRetirementEventsUseTheRecoverySpecificViewContract() {
+		LandedAirdropView recovered = LandedAirdropView.recovered(
+				UUID.randomUUID(), context.landingPosition(),
+				System.currentTimeMillis() + 60_000L, false);
+		AirdropRecoveredEvent recoveredEvent = new AirdropRecoveredEvent(recovered);
+		AirdropRetiredEvent retiredEvent = new AirdropRetiredEvent(
+				recovered, RetirementReason.EXPIRED);
+
+		assertFalse(recoveredEvent.isAsynchronous());
+		assertFalse(retiredEvent.isAsynchronous());
+		assertSame(recovered, recoveredEvent.airdrop());
+		assertSame(recovered, retiredEvent.airdrop());
+		assertEquals(RetirementReason.EXPIRED, retiredEvent.reason());
+		assertThrows(IllegalArgumentException.class, () -> new AirdropRecoveredEvent(landed));
 	}
 
 	private static void assertNoForbiddenSignature(String signature, List<String> forbidden) {

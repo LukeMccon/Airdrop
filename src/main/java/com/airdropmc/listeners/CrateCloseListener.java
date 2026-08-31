@@ -11,6 +11,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
 
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.api.RetirementReason;
 
 public class CrateCloseListener implements Listener {
 
@@ -32,7 +33,7 @@ public class CrateCloseListener implements Listener {
 
 		if (barrelInventoryIsEmpty) {
 			barrel.getWorld().playEffect(barrel.getLocation(), Effect.STEP_SOUND, Material.BARREL);
-			CrateManager.removeCrateAndDestroy(barrelLocation);
+			CrateManager.removeCrateAndDestroy(barrelLocation, RetirementReason.CLOSED_EMPTY);
 		}
 	}
 }

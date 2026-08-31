@@ -12,6 +12,8 @@ import com.airdropmc.api.DropHandle;
 import com.airdropmc.api.DropRequestOptions;
 import com.airdropmc.internal.drop.DropRequestCoordinator;
 import com.airdropmc.internal.drop.InternalDropRequests;
+import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.packages.Package;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -21,6 +23,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +72,7 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 
 	@Override
 	public AirdropStatus status() {
-		return status;
+		return snapshot(state, economy, economyProviderName, degradedReasons);
 	}
 
 	@Override
@@ -122,33 +125,33 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 
 	@Override
 	public Collection<AirdropView> activeDrops() {
-		return List.of();
+		return CrateManager.activeDrops();
 	}
 
 	@Override
 	public Optional<AirdropView> findByRequestId(UUID requestId) {
 		Objects.requireNonNull(requestId, "requestId");
-		return Optional.empty();
+		return CrateManager.findByRequestId(requestId);
 	}
 
 	@Override
 	public Optional<AirdropView> findByCrateId(UUID crateId) {
 		Objects.requireNonNull(crateId, "crateId");
-		return Optional.empty();
+		return CrateManager.findByCrateId(crateId);
 	}
 
 	@Override
 	public Optional<AirdropView> findByFallingEntity(FallingBlock entity) {
 		requirePrimaryThread("findByFallingEntity");
 		Objects.requireNonNull(entity, "entity");
-		return Optional.empty();
+		return CrateManager.findByFallingEntityId(entity.getUniqueId());
 	}
 
 	@Override
 	public Optional<AirdropView> findByLandedBlock(Block block) {
 		requirePrimaryThread("findByLandedBlock");
 		Objects.requireNonNull(block, "block");
-		return Optional.empty();
+		return CrateManager.findByLandedLocation(DropLocationKey.from(block.getLocation()));
 	}
 
 	synchronized void publishEconomy(
@@ -216,15 +219,20 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 			EconomyState economy,
 			String providerName,
 			List<String> degradedReasons) {
+		List<String> effectiveReasons = new ArrayList<>(degradedReasons);
+		if (CrateManager.recoveryReport().degraded()
+				&& !effectiveReasons.contains("crate-recovery-degraded")) {
+			effectiveReasons.add("crate-recovery-degraded");
+		}
 		return new AirdropStatus(
 				state,
 				economy,
 				providerName,
 				packageRegistry.revision(),
 				packageRegistry.packages().size(),
-				0,
-				0,
-				degradedReasons);
+				CrateManager.fallingCount(),
+				CrateManager.landedCount(),
+				effectiveReasons);
 	}
 
 	private static void requirePrimaryThread(String method) {

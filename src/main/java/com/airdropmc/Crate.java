@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -13,11 +14,15 @@ import java.util.logging.Level;
 import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.api.ResolvedDropContext;
 import com.airdropmc.api.WorldPosition;
+import com.airdropmc.api.FallingAirdropView;
+import com.airdropmc.api.LandedAirdropView;
+import com.airdropmc.api.RecoveredDropDescriptor;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.LocationHelper;
+import com.airdropmc.internal.recovery.DropContextPersistence;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.tasks.RenderFlareTask;
@@ -77,7 +82,17 @@ public class Crate {
 	public record PersistedBarrelData(
 			String crateId,
 			long expiresAtMillis,
-			RecoveryState recoveryState) {
+			RecoveryState recoveryState,
+			Optional<RecoveredDropDescriptor> recoveryDescriptor) {
+
+		public PersistedBarrelData {
+			recoveryDescriptor = Objects.requireNonNull(recoveryDescriptor, "recoveryDescriptor");
+		}
+
+		public PersistedBarrelData(
+				String crateId, long expiresAtMillis, RecoveryState recoveryState) {
+			this(crateId, expiresAtMillis, recoveryState, Optional.empty());
+		}
 	}
 
 	private final World world;
@@ -92,6 +107,8 @@ public class Crate {
 	private final boolean paid;
 	private final UUID requestId;
 	private final ResolvedDropContext resolvedContext;
+	private final boolean recoveredFromPersistence;
+	private final RecoveredDropDescriptor persistedDescriptor;
 	private Outcome outcome;
 
 	// Falling state fields
@@ -166,6 +183,10 @@ public class Crate {
 		}
 		this.requestId = requestId;
 		this.resolvedContext = resolvedContext;
+		this.recoveredFromPersistence = false;
+		this.persistedDescriptor = resolvedContext == null
+				? null
+				: RecoveredDropDescriptor.from(resolvedContext);
 		this.landingAttemptListener = Objects.requireNonNull(
 				landingAttemptListener, "landingAttemptListener");
 		this.landedCommitListener = landedCommitListener;
@@ -212,11 +233,17 @@ public class Crate {
 		this.contents = new ArrayList<>();
 		this.crateId = persisted.crateId();
 		this.state = State.LANDED;
-		this.settings = DropOptions.createDefault().resolve(ConfigKeys.getDropLimitSettings());
+		this.settings = persisted.recoveryDescriptor()
+				.map(RecoveredDropDescriptor::settings)
+				.orElseGet(() -> DropOptions.createDefault().resolve(ConfigKeys.getDropLimitSettings()));
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.paid = true;
-		this.requestId = null;
+		this.requestId = persisted.recoveryDescriptor()
+				.map(RecoveredDropDescriptor::requestId)
+				.orElse(null);
 		this.resolvedContext = null;
+		this.recoveredFromPersistence = true;
+		this.persistedDescriptor = persisted.recoveryDescriptor().orElse(null);
 		this.landingAttemptListener = ignored -> true;
 		this.landedCommitListener = null;
 		this.outcomeListener = ignored -> { };
@@ -276,7 +303,11 @@ public class Crate {
 		});
 		parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
 
-		if (!CrateManager.addCrate(fallingCrate, this)) {
+		FallingAirdropView activeView = snapshotFallingView(fallingCrate);
+		boolean registered = activeView == null
+				? CrateManager.addCrate(fallingCrate, this)
+				: CrateManager.addActiveCrate(fallingCrate, this, activeView);
+		if (!registered) {
 			throw new IllegalStateException("Falling crate entity is already tracked");
 		}
 	}
@@ -303,7 +334,7 @@ public class Crate {
 			if (plugin == null) {
 				throw new IllegalStateException("Cannot land crate while plugin is unavailable");
 			}
-			if (!CrateManager.addLandedCrate(candidate, this)) {
+			if (!CrateManager.canAddLandedCrate(candidate, this)) {
 				throw new IllegalStateException("Another crate already owns the landed location");
 			}
 
@@ -318,6 +349,9 @@ public class Crate {
 				throw new IllegalStateException("Failed to create barrel at landed location");
 			}
 			initializeLandedBarrel(barrel);
+			if (!CrateManager.addLandedCrate(candidate, this)) {
+				throw new IllegalStateException("Another crate already owns the landed location");
+			}
 			lease.markLanded();
 			scheduleExpiry(plugin);
 			startLandedEffects(plugin);
@@ -384,6 +418,9 @@ public class Crate {
 			data.set(PAID_KEY, PersistentDataType.BYTE, PAID_VALUE);
 			data.set(EXPIRES_AT_KEY, PersistentDataType.LONG, expiresAtMillis);
 			data.set(RECOVERY_STATE_KEY, PersistentDataType.STRING, RecoveryState.LIVE.name());
+			if (persistedDescriptor != null) {
+				DropContextPersistence.write(data, persistedDescriptor);
+			}
 		}
 		Inventory snapshotInventory = barrel.getSnapshotInventory();
 		if (paid) {
@@ -445,7 +482,7 @@ public class Crate {
 			Barrel barrel = getOwnedLandedBarrel();
 			return barrel != null && transitionRecoveryState(
 					barrel,
-					new PersistedBarrelData(crateId, expiresAtMillis, RecoveryState.LIVE),
+					persistedData(RecoveryState.LIVE),
 					RecoveryState.RECOVERABLE);
 		} catch (RuntimeException failure) {
 			AirdropLogger.log(Level.WARNING,
@@ -462,7 +499,7 @@ public class Crate {
 			Barrel barrel = getOwnedLandedBarrel();
 			return barrel != null && transitionRecoveryState(
 					barrel,
-					new PersistedBarrelData(crateId, expiresAtMillis, RecoveryState.RECOVERABLE),
+					persistedData(RecoveryState.RECOVERABLE),
 					RecoveryState.LIVE);
 		} catch (RuntimeException failure) {
 			AirdropLogger.log(Level.WARNING,
@@ -497,7 +534,8 @@ public class Crate {
 		return keys.contains(CRATE_ID_KEY)
 				|| keys.contains(PAID_KEY)
 				|| keys.contains(EXPIRES_AT_KEY)
-				|| keys.contains(RECOVERY_STATE_KEY);
+				|| keys.contains(RECOVERY_STATE_KEY)
+				|| DropContextPersistence.hasAny(barrel.getPersistentDataContainer());
 	}
 
 	public static PersistedBarrelData readPaidPersistence(Barrel barrel) {
@@ -515,8 +553,15 @@ public class Crate {
 		}
 		try {
 			UUID.fromString(crateId);
+			DropContextPersistence.ReadResult context = DropContextPersistence.read(data);
+			if (context instanceof DropContextPersistence.Invalid) {
+				return null;
+			}
+			Optional<RecoveredDropDescriptor> descriptor = context instanceof DropContextPersistence.Complete complete
+					? Optional.of(complete.descriptor())
+					: Optional.empty();
 			return new PersistedBarrelData(
-					crateId, expiresAt, RecoveryState.valueOf(stateName));
+					crateId, expiresAt, RecoveryState.valueOf(stateName), descriptor);
 		} catch (IllegalArgumentException invalid) {
 			return null;
 		}
@@ -552,7 +597,16 @@ public class Crate {
 		data.remove(PAID_KEY);
 		data.remove(EXPIRES_AT_KEY);
 		data.remove(RECOVERY_STATE_KEY);
+		DropContextPersistence.clear(data);
 		return barrel.update(true, false);
+	}
+
+	private PersistedBarrelData persistedData(RecoveryState recoveryState) {
+		return new PersistedBarrelData(
+				crateId,
+				expiresAtMillis,
+				recoveryState,
+				Optional.ofNullable(persistedDescriptor));
 	}
 
 	private void scheduleExpiry(Airdrop plugin) {
@@ -835,6 +889,37 @@ public class Crate {
 		return resolvedContext;
 	}
 
+	/** Returns a detached supported falling view when request context is known. */
+	public synchronized FallingAirdropView snapshotFallingView(FallingBlock entity) {
+		if (resolvedContext == null || state != State.FALLING || entity == null) {
+			return null;
+		}
+		return new FallingAirdropView(
+				UUID.fromString(crateId),
+				entity.getUniqueId(),
+				WorldPosition.from(entity.getLocation()),
+				resolvedContext);
+	}
+
+	/** Returns a detached supported landed view when request or recovery data is known. */
+	public synchronized LandedAirdropView snapshotLandedView() {
+		if (state != State.LANDED || landedLocation == null || expiresAtMillis <= 0L) {
+			return null;
+		}
+		UUID id = UUID.fromString(crateId);
+		WorldPosition position = WorldPosition.from(landedLocation);
+		if (resolvedContext != null) {
+			return new LandedAirdropView(
+					id, position, resolvedContext, expiresAtMillis, opened);
+		}
+		return recoveredFromPersistence
+				? persistedDescriptor == null
+						? LandedAirdropView.recovered(id, position, expiresAtMillis, opened)
+						: LandedAirdropView.recovered(
+								id, position, expiresAtMillis, opened, persistedDescriptor)
+				: null;
+	}
+
 	public boolean isPaid() {
 		return paid;
 	}
@@ -860,5 +945,6 @@ public class Crate {
 		if (opened) {
 			this.stopEffects();
 		}
+		CrateManager.refreshLandedView(this);
 	}
 }
