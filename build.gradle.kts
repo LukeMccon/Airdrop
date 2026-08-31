@@ -581,9 +581,21 @@ val verifyDependencyMatrix = tasks.register("verifyDependencyMatrix") {
     }
 }
 
+val verifyModrinthDocs = tasks.register<Exec>("verifyModrinthDocs") {
+    group = "verification"
+    description = "Validates the canonical Modrinth project description without network access"
+    workingDir(layout.projectDirectory)
+    commandLine("./scripts/modrinth-docs", "check-local")
+    inputs.files(
+        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("scripts/modrinth-docs")
+    )
+}
+
 tasks.named("check") {
     dependsOn(verifyDependencyMatrix)
     dependsOn(verifyApiCompatibility)
+    dependsOn(verifyModrinthDocs)
 }
 
 // Configure plugin.yml generation
@@ -594,6 +606,7 @@ bukkit {
     softDepend = listOf("LuckPerms", "Vault")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
     description = "Call in customizable care packages that fall from the sky"
+    website = "https://modrinth.com/plugin/airdrop"
 
     commands {
         register("airdrop") {

@@ -108,7 +108,7 @@ public enum MessageKey {
 	SYSTEM_PACKAGE_PRICE_INVALID("system.package-price-invalid",
 			"Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"),
 	SYSTEM_VERSION_INFO("system.version-info",
-			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java compatibility: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}"),
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java compatibility: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs and support: {accent}{docs_url}"),
 	SYSTEM_STATUS_VALUE_NONE("system.status-values.none", "none"),
 	SYSTEM_STATUS_VALUE_NOT_PUBLISHED("system.status-values.not-published", "not published"),
 	SYSTEM_STATUS_INFO("system.status-info",

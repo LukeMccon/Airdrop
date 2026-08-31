@@ -123,3 +123,26 @@ jobs:
           modrinth-loaders: ${{ steps.meta.outputs.loaders }}
           modrinth-game-versions: ${{ steps.meta.outputs.game_versions }}
           modrinth-files: release-jar/${{ needs.build.outputs.artifact_name }}
+
+  publish-modrinth-docs:
+    runs-on: ubuntu-latest
+    needs: publish-modrinth
+
+    steps:
+      - name: Checkout Tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Validate Documentation Tools
+        run: |
+          command -v curl
+          command -v jq
+
+      - name: Publish and Verify Modrinth Documentation
+        env:
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          ./scripts/modrinth-docs publish
+          ./scripts/modrinth-docs check-remote
