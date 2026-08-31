@@ -46,32 +46,56 @@ public final class PackageRegistryChange {
 		this.deleted = isolate(deleted);
 	}
 
-	/** @return new monotonic in-memory registry revision */
+	/**
+	 * Returns the newly published registry revision.
+	 *
+	 * @return new monotonic in-memory registry revision
+	 */
 	public long revision() {
 		return revision;
 	}
 
-	/** @return operation that published this revision */
+	/**
+	 * Returns the operation which published this revision.
+	 *
+	 * @return operation that published this revision
+	 */
 	public PackageRegistryCause cause() {
 		return cause;
 	}
 
-	/** @return complete immutable registry snapshot in deterministic name order */
+	/**
+	 * Returns every package in the newly published registry.
+	 *
+	 * @return complete immutable registry snapshot in deterministic name order
+	 */
 	public Map<String, AirdropPackage> packages() {
 		return packages;
 	}
 
-	/** @return immutable packages introduced by this revision */
+	/**
+	 * Returns packages introduced by this revision.
+	 *
+	 * @return immutable packages introduced by this revision
+	 */
 	public Map<String, AirdropPackage> created() {
 		return created;
 	}
 
-	/** @return immutable replacement snapshots for changed packages */
+	/**
+	 * Returns replacement snapshots for packages changed by this revision.
+	 *
+	 * @return immutable replacement snapshots for changed packages
+	 */
 	public Map<String, AirdropPackage> updated() {
 		return updated;
 	}
 
-	/** @return immutable previous snapshots for removed packages */
+	/**
+	 * Returns the previous snapshots for packages removed by this revision.
+	 *
+	 * @return immutable previous snapshots for removed packages
+	 */
 	public Map<String, AirdropPackage> deleted() {
 		return deleted;
 	}

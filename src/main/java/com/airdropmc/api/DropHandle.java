@@ -7,13 +7,25 @@ import java.util.concurrent.CompletionStage;
 /** A correlated, read-only view of one asynchronous drop request. */
 public interface DropHandle {
 
-	/** @return request correlation UUID */
+	/**
+	 * Returns the stable identity of this request.
+	 *
+	 * @return request correlation UUID
+	 */
 	UUID requestId();
 
-	/** @return immutable descriptor allocated before operational validation */
+	/**
+	 * Returns the descriptor allocated before operational validation.
+	 *
+	 * @return immutable request descriptor
+	 */
 	DropRequestDescriptor descriptor();
 
-	/** @return resolved context after package, target, and settings resolution */
+	/**
+	 * Returns the context after package, target, and settings resolution.
+	 *
+	 * @return resolved context when resolution succeeded
+	 */
 	Optional<ResolvedDropContext> context();
 
 	/**

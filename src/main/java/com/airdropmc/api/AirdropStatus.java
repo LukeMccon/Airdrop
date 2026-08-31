@@ -237,12 +237,20 @@ public final class AirdropStatus {
 		return landedCount;
 	}
 
-	/** @return configured falling limit, absent before configuration publication */
+	/**
+	 * Returns the configured maximum number of falling drops.
+	 *
+	 * @return configured falling limit, absent before configuration publication
+	 */
 	public OptionalInt maxFalling() {
 		return maxFalling;
 	}
 
-	/** @return configured landed limit, absent before configuration publication */
+	/**
+	 * Returns the configured maximum number of landed drops.
+	 *
+	 * @return configured landed limit, absent before configuration publication
+	 */
 	public OptionalInt maxLanded() {
 		return maxLanded;
 	}
@@ -256,7 +264,11 @@ public final class AirdropStatus {
 		return Optional.ofNullable(lastDiagnosticCategory);
 	}
 
-	/** @return bounded sanitized last operator diagnostic */
+	/**
+	 * Returns the latest bounded and sanitized operator diagnostic.
+	 *
+	 * @return bounded sanitized last operator diagnostic
+	 */
 	public Optional<String> lastDiagnostic() {
 		return Optional.ofNullable(lastDiagnostic);
 	}

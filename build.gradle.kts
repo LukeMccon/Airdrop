@@ -6,18 +6,25 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.Properties
 import java.util.jar.JarFile
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.publish.tasks.GenerateModuleMetadata
+import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
+import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.api.tasks.javadoc.Javadoc
 import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
 import org.gradle.api.tasks.testing.Test
 import org.gradle.process.CommandLineArgumentProvider
+import org.gradle.external.javadoc.StandardJavadocDocletOptions
 
 plugins {
     `java-library`
+    `maven-publish`
     id("xyz.jpenilla.run-paper") version "3.0.2" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
@@ -63,6 +70,7 @@ description = "Airdrop - Minecraft care package plugin"
 java {
     // Configure the java toolchain. Use Java 21 per Paper recommendations.
     toolchain.languageVersion.set(JavaLanguageVersion.of(supportedJavaVersion.toInt()))
+    withSourcesJar()
 }
 
 val japicmp by configurations.creating {
@@ -365,6 +373,155 @@ val verifyApiCompatibility = tasks.register("verifyApiCompatibility") {
 }
 
 val releaseJar = tasks.named<Jar>("jar")
+val sourcesJar = tasks.named<Jar>("sourcesJar")
+val apiPublicationRepository = layout.buildDirectory.dir("api-publication/repository")
+val apiJavadocOutput = layout.buildDirectory.dir("docs/api-javadoc")
+
+val apiJavadoc = tasks.register<Javadoc>("apiJavadoc") {
+    group = "documentation"
+    description = "Generates warning-free Javadocs for the supported extension API"
+    source = sourceSets.main.get().allJava.matching {
+        include("com/airdropmc/api/**")
+    }
+    classpath = sourceSets.main.get().compileClasspath
+    destinationDir = apiJavadocOutput.get().asFile
+    isFailOnError = true
+    (options as StandardJavadocDocletOptions).apply {
+        encoding = Charsets.UTF_8.name()
+        charSet = Charsets.UTF_8.name()
+        docEncoding = Charsets.UTF_8.name()
+        addBooleanOption("Werror", true)
+    }
+}
+
+val apiJavadocJar = tasks.register<Jar>("apiJavadocJar") {
+    group = "build"
+    description = "Packages Javadocs for only the supported extension API"
+    dependsOn(apiJavadoc)
+    archiveClassifier.set("javadoc")
+    from(apiJavadocOutput)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("modrinth") {
+            groupId = "maven.modrinth"
+            artifactId = "airdrop"
+            version = project.version.toString()
+
+            artifact(releaseJar)
+            artifact(sourcesJar)
+            artifact(apiJavadocJar)
+
+            pom {
+                name.set("Airdrop")
+                description.set(project.description)
+                url.set("https://modrinth.com/plugin/airdrop")
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "staging"
+            url = uri(apiPublicationRepository)
+        }
+    }
+}
+
+tasks.withType<GenerateModuleMetadata>().configureEach {
+    enabled = false
+}
+
+val cleanApiPublicationStaging = tasks.register<Delete>("cleanApiPublicationStaging") {
+    group = "build"
+    description = "Removes the deterministic local API publication staging repository"
+    delete(apiPublicationRepository)
+}
+
+tasks.withType<PublishToMavenRepository>().configureEach {
+    if (repository.name == "staging") {
+        dependsOn(cleanApiPublicationStaging)
+    }
+}
+
+val publishApiPublication = tasks.named("publishModrinthPublicationToStagingRepository")
+
+val verifyApiPublication = tasks.register("verifyApiPublication") {
+    group = "verification"
+    description = "Verifies the staged Modrinth Maven artifact set and dependency-free POM"
+    dependsOn(publishApiPublication)
+
+    doLast {
+        val repository = apiPublicationRepository.get().asFile.toPath()
+        val files = Files.walk(repository).use { paths ->
+            paths.filter(Files::isRegularFile).sorted().toList()
+        }
+        val checksumSuffixes = setOf(".md5", ".sha1", ".sha256", ".sha512")
+        val primaryFiles = files.filter { path ->
+            checksumSuffixes.none { suffix -> path.fileName.toString().endsWith(suffix) }
+        }
+        val jars = primaryFiles.filter { it.fileName.toString().endsWith(".jar") }
+        val poms = primaryFiles.filter { it.fileName.toString().endsWith(".pom") }
+        val metadata = primaryFiles.filter { it.fileName.toString() == "maven-metadata.xml" }
+        val expectedMetadataCount = if (project.version.toString().endsWith("-SNAPSHOT")) 2 else 1
+
+        if (primaryFiles.size != 4 + expectedMetadataCount
+            || jars.size != 3 || poms.size != 1 || metadata.size != expectedMetadataCount) {
+            throw GradleException("Unexpected staged API publication files: $primaryFiles")
+        }
+        if (primaryFiles.any { it.fileName.toString().endsWith(".module") }) {
+            throw GradleException("Staged API publication must not contain Gradle module metadata")
+        }
+        primaryFiles.forEach { publishedFile ->
+            checksumSuffixes.forEach { suffix ->
+                val checksum = publishedFile.resolveSibling(publishedFile.fileName.toString() + suffix)
+                if (!Files.isRegularFile(checksum)) {
+                    throw GradleException("Missing checksum $checksum")
+                }
+            }
+        }
+
+        val pomText = Files.readString(poms.single(), StandardCharsets.UTF_8)
+        listOf(
+            "<groupId>maven.modrinth</groupId>",
+            "<artifactId>airdrop</artifactId>",
+            "<version>${project.version}</version>"
+        ).forEach { required ->
+            if (!pomText.contains(required)) {
+                throw GradleException("Staged POM is missing $required")
+            }
+        }
+        if (pomText.contains("<dependencies>")
+            || pomText.contains("do_not_remove: published-with-gradle-metadata")) {
+            throw GradleException("Staged POM must be dependency-free and must not redirect to module metadata")
+        }
+
+        val runtimeJar = jars.single { path ->
+            !path.fileName.toString().endsWith("-sources.jar")
+                && !path.fileName.toString().endsWith("-javadoc.jar")
+        }
+        val sourcesArchive = jars.single { it.fileName.toString().endsWith("-sources.jar") }
+        val javadocArchive = jars.single { it.fileName.toString().endsWith("-javadoc.jar") }
+        fun requireEntry(archivePath: Path, entryName: String) {
+            JarFile(archivePath.toFile()).use { archive ->
+                if (archive.getJarEntry(entryName) == null) {
+                    throw GradleException("$archivePath is missing $entryName")
+                }
+            }
+        }
+        requireEntry(runtimeJar, "com/airdropmc/api/AirdropApi.class")
+        requireEntry(sourcesArchive, "com/airdropmc/api/AirdropApi.java")
+        requireEntry(javadocArchive, "com/airdropmc/api/AirdropApi.html")
+        JarFile(javadocArchive.toFile()).use { archive ->
+            if (archive.entries().asSequence().any {
+                    it.name.startsWith("com/airdropmc/internal/")
+                        || it.name.startsWith("com/airdropmc/events/")
+                }) {
+                throw GradleException("API Javadocs must not publish internal or legacy event documentation")
+            }
+        }
+    }
+}
 
 releaseJar.configure {
     manifest.attributes(
@@ -416,9 +573,11 @@ tasks.register<Exec>("lightkeeperTest") {
 
 tasks.register("verifyReleaseArtifact") {
     group = "verification"
-    description = "Cross-checks the release artifact and every published compatibility version"
+    description = "Cross-checks runtime, sources, API Javadocs, and every published compatibility version"
     dependsOn(releaseJar)
     dependsOn(verifyApiCompatibility)
+    dependsOn(sourcesJar)
+    dependsOn(apiJavadocJar)
 
     doLast {
         val releaseVersion = configuredReleaseVersion
@@ -526,18 +685,45 @@ tasks.register("verifyReleaseArtifact") {
             )
         }
 
+        val sourcesArchive = sourcesJar.get().archiveFile.get().asFile
+        val javadocArchive = apiJavadocJar.get().archiveFile.get().asFile
+        val expectedSourcesFilename = "${project.name}-$releaseVersion-sources.jar"
+        val expectedJavadocFilename = "${project.name}-$releaseVersion-javadoc.jar"
+        if (sourcesArchive.name != expectedSourcesFilename) {
+            throw GradleException(
+                "Sources artifact filename must be '$expectedSourcesFilename', " +
+                    "but was '${sourcesArchive.name}'"
+            )
+        }
+        if (javadocArchive.name != expectedJavadocFilename) {
+            throw GradleException(
+                "Javadoc artifact filename must be '$expectedJavadocFilename', " +
+                    "but was '${javadocArchive.name}'"
+            )
+        }
+
         val relativeArchivePath = project.relativePath(archiveFile).replace(File.separatorChar, '/')
+        val relativeSourcesPath = project.relativePath(sourcesArchive).replace(File.separatorChar, '/')
+        val relativeJavadocPath = project.relativePath(javadocArchive).replace(File.separatorChar, '/')
         val githubOutput = System.getenv("GITHUB_OUTPUT")
         if (!githubOutput.isNullOrBlank()) {
             Files.writeString(
                 Path.of(githubOutput),
-                "artifact_name=${archiveFile.name}\nartifact_path=$relativeArchivePath\n",
+                "artifact_name=${archiveFile.name}\n" +
+                    "artifact_path=$relativeArchivePath\n" +
+                    "sources_artifact_name=${sourcesArchive.name}\n" +
+                    "sources_artifact_path=$relativeSourcesPath\n" +
+                    "javadoc_artifact_name=${javadocArchive.name}\n" +
+                    "javadoc_artifact_path=$relativeJavadocPath\n",
                 StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND
             )
         } else {
-            logger.lifecycle("Verified release artifact: $relativeArchivePath")
+            logger.lifecycle(
+                "Verified release artifacts: " +
+                    listOf(relativeArchivePath, relativeSourcesPath, relativeJavadocPath)
+            )
         }
     }
 }
@@ -596,6 +782,16 @@ tasks.named("check") {
     dependsOn(verifyDependencyMatrix)
     dependsOn(verifyApiCompatibility)
     dependsOn(verifyModrinthDocs)
+    dependsOn(verifyApiPublication)
+}
+
+tasks.named<Test>("test") {
+    dependsOn(publishApiPublication)
+    systemProperty(
+        "airdrop.apiPublicationRepository",
+        apiPublicationRepository.get().asFile.absolutePath
+    )
+    systemProperty("airdrop.pluginVersion", project.version.toString())
 }
 
 // Configure plugin.yml generation

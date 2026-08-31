@@ -8,10 +8,18 @@ import java.util.UUID;
 public sealed interface DropSpawnResult
 		permits DropSpawnResult.Spawned, DropSpawnResult.NotSpawned {
 
-	/** @return request correlation UUID */
+	/**
+	 * Returns the stable identity of this request.
+	 *
+	 * @return request correlation UUID
+	 */
 	UUID requestId();
 
-	/** @return resolved context when resolution succeeded */
+	/**
+	 * Returns the resolved request context when one was produced.
+	 *
+	 * @return resolved context when resolution succeeded
+	 */
 	Optional<ResolvedDropContext> context();
 
 	/**
@@ -26,6 +34,7 @@ public sealed interface DropSpawnResult
 			FallingAirdropView airdrop,
 			PaymentStatus payment) implements DropSpawnResult {
 
+		/** Validates a spawned result and its correlated falling view. */
 		public Spawned {
 			resolvedContext = Objects.requireNonNull(resolvedContext, "resolvedContext");
 			airdrop = Objects.requireNonNull(airdrop, "airdrop");
@@ -57,6 +66,7 @@ public sealed interface DropSpawnResult
 	 */
 	record NotSpawned(DropOutcome outcome) implements DropSpawnResult {
 
+		/** Validates a result that terminated before a crate was committed. */
 		public NotSpawned {
 			outcome = Objects.requireNonNull(outcome, "outcome");
 			if (outcome instanceof DropOutcome.Landed) {

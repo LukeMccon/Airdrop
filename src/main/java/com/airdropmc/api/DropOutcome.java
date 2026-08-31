@@ -13,21 +13,41 @@ import java.util.UUID;
 public sealed interface DropOutcome
 		permits DropOutcome.Rejected, DropOutcome.Landed, DropOutcome.Failed {
 
-	/** @return request correlation UUID */
+	/**
+	 * Returns the stable identity of this request.
+	 *
+	 * @return request correlation UUID
+	 */
 	default UUID requestId() {
 		return descriptor().requestId();
 	}
 
-	/** @return immutable descriptor allocated before operational validation */
+	/**
+	 * Returns the descriptor allocated before operational validation.
+	 *
+	 * @return immutable request descriptor
+	 */
 	DropRequestDescriptor descriptor();
 
-	/** @return resolved request context when resolution succeeded */
+	/**
+	 * Returns the resolved request context when one was produced.
+	 *
+	 * @return resolved request context when resolution succeeded
+	 */
 	Optional<ResolvedDropContext> context();
 
-	/** @return terminal delivery status */
+	/**
+	 * Returns the final delivery state.
+	 *
+	 * @return terminal delivery status
+	 */
 	DeliveryStatus delivery();
 
-	/** @return terminal payment status */
+	/**
+	 * Returns the final payment state independently of delivery.
+	 *
+	 * @return terminal payment status
+	 */
 	PaymentStatus payment();
 
 	/**
@@ -44,6 +64,7 @@ public sealed interface DropOutcome
 			DropRejection rejection,
 			PaymentStatus payment) implements DropOutcome {
 
+		/** Validates a rejected outcome and its payment state. */
 		public Rejected {
 			descriptor = Objects.requireNonNull(descriptor, "descriptor");
 			resolvedContext = Objects.requireNonNull(resolvedContext, "resolvedContext");
@@ -82,6 +103,7 @@ public sealed interface DropOutcome
 			LandedAirdropView airdrop,
 			PaymentStatus payment) implements DropOutcome {
 
+		/** Validates a landed outcome and its correlated view. */
 		public Landed {
 			resolvedContext = Objects.requireNonNull(resolvedContext, "resolvedContext");
 			airdrop = Objects.requireNonNull(airdrop, "airdrop");
@@ -123,6 +145,7 @@ public sealed interface DropOutcome
 			DeliveryStatus delivery,
 			PaymentStatus payment) implements DropOutcome {
 
+		/** Validates a failed outcome and its delivery/payment combination. */
 		public Failed {
 			resolvedContext = Objects.requireNonNull(resolvedContext, "resolvedContext");
 			delivery = Objects.requireNonNull(delivery, "delivery");

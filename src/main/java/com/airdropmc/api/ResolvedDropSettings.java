@@ -45,6 +45,7 @@ public record ResolvedDropSettings(
 	private static final int MIN_SMOKE_HEIGHT = 0;
 	private static final int MAX_SMOKE_HEIGHT = 128;
 
+	/** Validates a complete resolved settings snapshot. */
 	public ResolvedDropSettings {
 		requestCooldown = Objects.requireNonNull(requestCooldown, "requestCooldown");
 		landedLifetime = Objects.requireNonNull(landedLifetime, "landedLifetime");

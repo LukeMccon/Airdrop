@@ -16,6 +16,7 @@ public record DropRejection(
 		String diagnostic,
 		Optional<Duration> retryAfter) {
 
+	/** Validates stable rejection details and optional retry guidance. */
 	public DropRejection {
 		reason = Objects.requireNonNull(reason, "reason");
 		diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
@@ -37,12 +38,23 @@ public record DropRejection(
 		}
 	}
 
-	/** Creates a rejection without retry guidance. */
+	/**
+	 * Creates a rejection without retry guidance.
+	 *
+	 * @param reason machine-readable rejection reason
+	 * @param diagnostic non-blank diagnostic intended for logs and debugging
+	 * @return rejection without a retry delay
+	 */
 	public static DropRejection of(DropRejectionReason reason, String diagnostic) {
 		return new DropRejection(reason, diagnostic, Optional.empty());
 	}
 
-	/** Creates a cooldown rejection with positive retry guidance. */
+	/**
+	 * Creates a cooldown rejection with positive retry guidance.
+	 *
+	 * @param retryAfter positive duration until another request may be attempted
+	 * @return cooldown rejection with retry guidance
+	 */
 	public static DropRejection cooldown(Duration retryAfter) {
 		return new DropRejection(
 				DropRejectionReason.COOLDOWN,

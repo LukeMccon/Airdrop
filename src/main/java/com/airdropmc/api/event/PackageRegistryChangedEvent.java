@@ -23,17 +23,29 @@ public final class PackageRegistryChangedEvent extends Event {
 		this.change = Objects.requireNonNull(change, "change");
 	}
 
-	/** @return immutable complete snapshot and diff */
+	/**
+	 * Returns the complete registry snapshot and deterministic diff.
+	 *
+	 * @return immutable complete snapshot and diff
+	 */
 	public PackageRegistryChange change() {
 		return change;
 	}
 
-	/** @return new registry revision */
+	/**
+	 * Returns the newly published registry revision.
+	 *
+	 * @return new registry revision
+	 */
 	public long revision() {
 		return change.revision();
 	}
 
-	/** @return operation that published the revision */
+	/**
+	 * Returns the operation which published this revision.
+	 *
+	 * @return operation that published the revision
+	 */
 	public PackageRegistryCause cause() {
 		return change.cause();
 	}
@@ -43,7 +55,11 @@ public final class PackageRegistryChangedEvent extends Event {
 		return HANDLERS;
 	}
 
-	/** @return this event type's shared handler list */
+	/**
+	 * Returns the shared package-registry event handler list.
+	 *
+	 * @return this event type's shared handler list
+	 */
 	public static HandlerList getHandlerList() {
 		return HANDLERS;
 	}

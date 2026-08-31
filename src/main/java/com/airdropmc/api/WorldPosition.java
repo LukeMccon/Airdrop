@@ -25,6 +25,7 @@ public record WorldPosition(
 		float yaw,
 		float pitch) {
 
+	/** Validates a finite detached world position. */
 	public WorldPosition {
 		worldId = Objects.requireNonNull(worldId, "worldId");
 		if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
