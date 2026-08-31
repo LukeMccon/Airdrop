@@ -1,14 +1,19 @@
 package com.airdropmc.listeners;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -19,22 +24,30 @@ import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
+import org.bukkit.plugin.Plugin;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.Crate;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.limits.DropAdmissionController;
 
 public class CrateCleanupListener implements Listener {
 
+	private final Plugin plugin;
+
+	public CrateCleanupListener(Plugin plugin) {
+		this.plugin = Objects.requireNonNull(plugin, "plugin");
+	}
+
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onBlockExplode(BlockExplodeEvent e) {
-		removeCrates(e.blockList());
+		reconcileExplodedCrates(e.blockList());
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onEntityExplode(EntityExplodeEvent e) {
-		removeCrates(e.blockList());
+		reconcileExplodedCrates(e.blockList());
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -104,11 +117,34 @@ public class CrateCleanupListener implements Listener {
 		}
 	}
 
-	private void removeCrates(List<Block> blocks) {
+	private void reconcileExplodedCrates(List<Block> blocks) {
+		List<PendingCrateRemoval> pending = new ArrayList<>();
 		for (Block block : blocks) {
-			if (block.getType() == Material.BARREL) {
-				CrateManager.removeCrateAndDestroy(block.getLocation());
+			if (block.getType() != Material.BARREL) {
+				continue;
+			}
+			Location location = block.getLocation();
+			Crate crate = CrateManager.getCrate(location);
+			BlockState state = block.getState();
+			if (crate != null && state instanceof Barrel barrel && crate.ownsLandedBarrel(barrel)) {
+				pending.add(new PendingCrateRemoval(location, crate));
 			}
 		}
+		if (pending.isEmpty()) {
+			return;
+		}
+		try {
+			Bukkit.getScheduler().runTask(plugin, () -> {
+				for (PendingCrateRemoval removal : pending) {
+					CrateManager.finalizeCrateRemoval(removal.location(), removal.crate());
+				}
+			});
+		} catch (RuntimeException failure) {
+			AirdropLogger.log(Level.WARNING,
+					"Could not schedule landed crate explosion reconciliation", failure);
+		}
+	}
+
+	private record PendingCrateRemoval(Location location, Crate crate) {
 	}
 }

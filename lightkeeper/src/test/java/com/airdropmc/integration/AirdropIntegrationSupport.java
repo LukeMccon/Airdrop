@@ -111,6 +111,56 @@ final class AirdropIntegrationSupport {
 		});
 	}
 
+	static void placeStarterBarrel(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			BlockPos position
+	) {
+		CommandResult blockResult = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute in minecraft:%s run setblock %d %d %d minecraft:barrel")
+						.formatted(world.name(), position.x(), position.y(), position.z()));
+		assertThat(blockResult.success()).as("starter barrel block at %s", position).isTrue();
+		CommandResult contentsResult = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute in minecraft:%s run data merge block %d %d %d %s")
+						.formatted(world.name(), position.x(), position.y(), position.z(),
+								STARTER_ITEMS_EXACT));
+		assertThat(contentsResult.success()).as("starter barrel contents at %s", position).isTrue();
+	}
+
+	static void isolateExplosionTarget(WorldHandle world, BlockPos position) {
+		int supportY = position.y() - 1;
+		for (int x = position.x() - 2; x <= position.x() + 2; x++) {
+			for (int z = position.z() - 2; z <= position.z() + 2; z++) {
+				world.setBlockAt(new BlockPos(x, supportY, z), "minecraft:air");
+			}
+		}
+		world.setBlockAt(new BlockPos(position.x(), supportY, position.z()), "minecraft:bedrock");
+	}
+
+	static void setExplosionDropDecay(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			String gameRule
+	) {
+		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
+				"minecraft:execute in minecraft:%s run gamerule %s false"
+						.formatted(world.name(), gameRule));
+		assertThat(result.success()).as("%s gamerule", gameRule).isTrue();
+	}
+
+	static void awaitEquivalentExplosionDrops(
+			WorldHandle world,
+			BlockPos trackedPosition,
+			BlockPos baselinePosition
+	) {
+		eventually(Duration.ofSeconds(10), () -> {
+			int trackedDrops = itemEntitiesNear(world, trackedPosition);
+			int baselineDrops = itemEntitiesNear(world, baselinePosition);
+			assertThat(trackedDrops).as("tracked barrel drops").isEqualTo(6);
+			assertThat(baselineDrops).as("unmanaged barrel drops").isEqualTo(trackedDrops);
+		});
+	}
+
 	static void assertStarterContents(ILightkeeperFramework framework, WorldHandle world, BlockPos position) {
 		String marker = uniqueMarker("STARTER_CONTENTS");
 		int outputLineCount = framework.server().output().size();
@@ -156,6 +206,12 @@ final class AirdropIntegrationSupport {
 						// Paper emits this while LightKeeper creates a valid flat test world.
 						"net.minecraft.server.dedicated.DedicatedServerProperties".equals(error.loggerName())
 								&& "No key layers in MapLike[{}]".equals(error.message()));
+	}
+
+	private static int itemEntitiesNear(WorldHandle world, BlockPos position) {
+		BlockPos minimum = new BlockPos(position.x() - 6, position.y() - 6, position.z() - 6);
+		BlockPos maximum = new BlockPos(position.x() + 6, position.y() + 6, position.z() + 6);
+		return world.entities().ofType("minecraft:item").within(minimum, maximum).count();
 	}
 
 	private static void storeContainerItemCount(

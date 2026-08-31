@@ -82,7 +82,7 @@ public class Airdrop extends JavaPlugin {
 		Bukkit.getPluginManager().registerEvents(new CrateHopperListener(this), this);
 		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
 		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(this), this);
-		Bukkit.getPluginManager().registerEvents(new CrateCleanupListener(), this);
+		Bukkit.getPluginManager().registerEvents(new CrateCleanupListener(this), this);
 
 		configurationCoordinator = new ConfigCoordinator(
 				this,

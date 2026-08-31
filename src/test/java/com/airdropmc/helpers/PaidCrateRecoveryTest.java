@@ -142,7 +142,7 @@ class PaidCrateRecoveryTest {
 		ChunkUnloadEvent event = mock(ChunkUnloadEvent.class);
 		when(event.getChunk()).thenReturn(fixture.chunk());
 
-		new CrateCleanupListener().onChunkUnload(event);
+		new CrateCleanupListener(plugin).onChunkUnload(event);
 
 		verify(event, never()).setSaveChunk(true);
 		assertNull(CrateManager.getCrate(barrelBlock.getLocation()));
@@ -159,7 +159,7 @@ class PaidCrateRecoveryTest {
 		WorldUnloadEvent event = mock(WorldUnloadEvent.class);
 		when(event.getWorld()).thenReturn(savedWorld);
 
-		new CrateCleanupListener().onWorldUnload(event);
+		new CrateCleanupListener(plugin).onWorldUnload(event);
 
 		verify(savedWorld).save();
 		verify(event, never()).setCancelled(true);
@@ -178,7 +178,7 @@ class PaidCrateRecoveryTest {
 		WorldUnloadEvent event = mock(WorldUnloadEvent.class);
 		when(event.getWorld()).thenReturn(savedWorld);
 
-		new CrateCleanupListener().onWorldUnload(event);
+		new CrateCleanupListener(plugin).onWorldUnload(event);
 
 		verify(savedWorld).save();
 		verify(event).setCancelled(true);

@@ -127,10 +127,9 @@ public class CrateManager {
 
 	public static synchronized boolean removeCrateAndDestroy(Location location, Crate expectedCrate) {
 		DropLocationKey key = toDropLocationKey(location);
-		if (key == null || expectedCrate == null || !landedCrateMap.remove(key, expectedCrate)) {
+		if (!removeExpectedLandedCrate(key, expectedCrate)) {
 			return false;
 		}
-		retireIdentity(expectedCrate, key);
 		expectedCrate.destroy();
 		return true;
 	}
@@ -144,19 +143,27 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean finalizeCrateBreak(Location location) {
+	public static synchronized boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
 		DropLocationKey key = toDropLocationKey(location);
-		Crate crate = key == null ? null : landedCrateMap.get(key);
-		if (crate == null) {
+		if (key == null || expectedCrate == null || landedCrateMap.get(key) != expectedCrate) {
 			return false;
 		}
 		BlockState current = location.getBlock().getState();
-		if (current instanceof Barrel barrel && crate.ownsLandedBarrel(barrel)) {
+		if (current instanceof Barrel barrel && expectedCrate.ownsLandedBarrel(barrel)) {
 			return false;
 		}
-		landedCrateMap.remove(key, crate);
-		retireIdentity(crate, key);
-		crate.detachLandedBarrel();
+		if (!removeExpectedLandedCrate(key, expectedCrate)) {
+			return false;
+		}
+		expectedCrate.detachLandedBarrel();
+		return true;
+	}
+
+	private static boolean removeExpectedLandedCrate(DropLocationKey key, Crate expectedCrate) {
+		if (key == null || expectedCrate == null || !landedCrateMap.remove(key, expectedCrate)) {
+			return false;
+		}
+		retireIdentity(expectedCrate, key);
 		return true;
 	}
 
