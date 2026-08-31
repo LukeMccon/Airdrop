@@ -317,39 +317,217 @@ or economy database.
 
 ## Developer integration
 
-Do not shade Airdrop into a consumer plugin. Declare Airdrop as `depend` or
-`softdepend`, compile against the matching Airdrop artifact, and discover
-`com.airdropmc.api.AirdropApi` through Bukkit's `ServicesManager`:
+The supported compatibility boundary is `com.airdropmc.api` and its
+`com.airdropmc.api.event` package. Controllers, managers, configuration
+wrappers, `Crate`, and `com.airdropmc.events` are implementation details.
+
+### Compile against Airdrop without shading it
+
+Do not shade Airdrop into a consumer plugin. Use the released plugin as a
+compile-only dependency, and declare Paper explicitly because Airdrop's Maven
+POM deliberately has no transitive dependencies. For Gradle:
+
+```kotlin
+repositories {
+    maven("https://api.modrinth.com/maven")
+    maven("https://repo.papermc.io/repository/maven-public/")
+}
+
+dependencies {
+    compileOnly("maven.modrinth:airdrop:5.0.0")
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+}
+```
+
+For Maven, use the same Modrinth coordinate and mark both plugins as provided:
+
+```xml
+<repositories>
+  <repository>
+    <id>modrinth</id>
+    <url>https://api.modrinth.com/maven</url>
+  </repository>
+  <repository>
+    <id>papermc</id>
+    <url>https://repo.papermc.io/repository/maven-public/</url>
+  </repository>
+</repositories>
+<dependencies>
+  <dependency>
+    <groupId>maven.modrinth</groupId>
+    <artifactId>airdrop</artifactId>
+    <version>5.0.0</version>
+    <scope>provided</scope>
+  </dependency>
+  <dependency>
+    <groupId>io.papermc.paper</groupId>
+    <artifactId>paper-api</artifactId>
+    <version>1.21.11-R0.1-SNAPSHOT</version>
+    <scope>provided</scope>
+  </dependency>
+</dependencies>
+```
+
+Use a hard dependency when your plugin cannot run without Airdrop:
+
+```yaml
+depend: [Airdrop]
+```
+
+If the integration is optional, use `softdepend: [Airdrop]`, handle a missing
+service, and disable only the integration:
+
+```yaml
+softdepend: [Airdrop]
+```
+
+Match the plugin release to the documented extension API version. The plugin
+and extension API have independent versions; see the
+[API version policy](https://github.com/LukeMccon/Airdrop/blob/main/docs/development/api-versioning.md)
+and [Airdrop 5 migration guide](https://github.com/LukeMccon/Airdrop/blob/main/docs/migration-5.md).
+
+### Discover the service, then schedule Bukkit work
+
+Airdrop registers `AirdropApi` before asynchronous startup begins. Load it
+through Bukkit's `ServicesManager`, inspect its `ReadinessState`, and attach to
+the readiness stage:
 
 ```java
 AirdropApi api = getServer().getServicesManager().load(AirdropApi.class);
 if (api == null) {
-    return;
+    return; // Expected only for a soft dependency or a failed plugin load.
 }
-api.readiness().thenAccept(ready -> getLogger().info(
-        "Airdrop API " + ready.versions().extensionApiVersion() + " is ready"));
+
+api.readiness().whenComplete((ready, failure) -> {
+    getServer().getScheduler().runTask(this, () -> {
+        if (failure != null) {
+            getLogger().warning("Airdrop did not become ready");
+            return;
+        }
+        getLogger().info("Airdrop API "
+                + ready.versions().extensionApiVersion() + " is ready");
+    });
+});
 ```
 
-The supported compatibility boundary is `com.airdropmc.api`. Controllers,
-managers, configuration wrappers, `Crate`, and legacy events are implementation
-details. The API exposes immutable package and status snapshots, typed
-asynchronous request handles and outcomes, active-drop queries, and synchronous
-lifecycle events under `com.airdropmc.api.event`.
+Airdrop completes its backing readiness transition on the primary server
+thread. A continuation attached after completion can still run on the thread
+that attached it, so a continuation is not a Bukkit scheduler. Schedule Bukkit
+work explicitly, as the example does. Airdrop unregisters the service during
+disable; do not retain a provider across plugin reloads.
 
-Calls involving Bukkit `Player`, `Location`, `Entity`, `Block`, or copied item
-values require the primary server thread. Pure version, readiness state, UUID,
-and detached aggregate fields may be read off-thread. A stage continuation is
-not an implicit Bukkit scheduler; schedule Bukkit work on the primary thread.
+Calls involving Bukkit `Player`, `Location`, `FallingBlock`, `Block`, or copied
+`ItemStack` values require the primary server thread. This includes package
+item snapshots and requests. Lifecycle state, versions, UUID lookups, status
+primitive fields, `WorldPosition`, and the aggregate active-drop snapshot can
+be read off-thread where their Javadocs say so.
 
-Normal event order is request, spawned, landing attempt, landed, then terminal
-outcome. Request and landing-attempt events are cancellable before their
-respective side effects. Treat delivery and payment as separate states, retain
-the request UUID for correlation, and do not retry an outcome whose payment is
-unknown.
+### Requests return typed spawn and terminal stages
 
-Protection plugins should cancel Paper's `EntityChangeBlockEvent` before
-Airdrop commits the landing. Query the supported API for correlation instead of
-depending on mutable internal classes.
+Player requests enforce permissions, admission limits, and economy rules.
+System requests are explicitly unpaid:
+
+```java
+DropHandle playerDrop = api.requestPlayerDrop(
+        player, "starter", DropRequestOptions.defaults());
+DropHandle systemDrop = api.requestSystemDrop(
+        targetLocation, "starter", DropRequestOptions.defaults());
+
+UUID requestId = playerDrop.descriptor().requestId();
+playerDrop.spawn().thenAccept(spawn -> {
+    if (spawn instanceof DropSpawnResult.NotSpawned notSpawned) {
+        getLogger().info("Did not spawn: " + notSpawned.outcome().delivery());
+    }
+});
+playerDrop.outcome().thenAccept(outcome -> {
+    switch (outcome) {
+        case DropOutcome.Rejected rejected -> getLogger().info(
+                rejected.rejection().reason().name());
+        case DropOutcome.Landed landed -> getLogger().info(
+                landed.airdrop().crateId().toString());
+        case DropOutcome.Failed failed -> getLogger().info(
+                failed.delivery() + "/" + failed.payment());
+    }
+});
+```
+
+`descriptor()` and its request UUID always exist. `context()` is empty until
+package, target, and settings resolution succeeds. `spawn()` completes when a
+falling crate commits or can no longer spawn; `outcome()` completes once with
+the final `DeliveryStatus` and `PaymentStatus`.
+
+Expected pre-spawn rejections are `DropOutcome.Rejected` values with a
+`DropRejectionReason`. Later failures use `DropOutcome.Failed` with delivery
+status `FAILED`, `CANCELLED`, or `SHUTDOWN` and a final payment status. Neither
+path relies on exceptions. Null arguments, off-thread Bukkit access, and other
+programmer errors fail immediately. Stage callbacks have the same scheduler
+warning as readiness:
+schedule any Bukkit work yourself.
+
+### Queries return immutable active-drop snapshots
+
+`activeDrops()` returns the latest immutable aggregate snapshot. Pure UUID
+lookups use `findByRequestId(requestId)` and `findByCrateId(crateId)`.
+`findByFallingEntity(entity)` and `findByLandedBlock(block)` inspect Bukkit
+objects and therefore require the primary server thread.
+
+Views expose correlation IDs, phase, package identity, detached positions,
+source, and optional recovery data. They never expose a live crate, mutable
+registry, controller, or lease. Package snapshots are also immutable, but
+their copied item values keep `listPackages()` and `findPackage(name)` on the
+primary thread. The supported API intentionally has no package-mutation method.
+
+### Events expose ordering and cancellation boundaries
+
+All supported events are synchronous on the primary thread and carry immutable
+snapshots. A resolved successful request has this order:
+
+1. `AirdropRequestEvent` — cancellable before admission, cooldown, payment, or entity side effects.
+2. `AirdropSpawnedEvent` — after the falling crate and admission state commit.
+3. Deprecated `PackageDropEvent` — retained only as a 5.x post-state adapter.
+4. `AirdropLandingAttemptEvent` — cancellable before block, inventory, index, lease, or delivery mutation.
+5. `AirdropLandedEvent` — after the barrel and landed index commit.
+6. Deprecated `PackageLandEvent` — retained only as a 5.x post-state adapter.
+7. `AirdropOutcomeEvent` — exactly once after delivery and payment are final.
+
+Resolution failures fire no request event. Cancelling a request event leaves
+no admission, payment, entity, task, or cooldown side effect. Cancelling a
+landing attempt removes the falling crate, releases admission, and makes at
+most the single documented refund attempt after a confirmed charge.
+
+Protection plugins can cancel `AirdropLandingAttemptEvent` for an Airdrop-only
+rule. They can also cancel Paper's `EntityChangeBlockEvent`; Airdrop continues
+to honor that independent native protection boundary. Use
+`findByFallingEntity` or another supported query for correlation. Inventory
+open, close, break, burn, explosion, and hopper behavior stays observable
+through Paper events plus an API lookup; Airdrop does not duplicate those
+native events.
+
+`PackageRegistryChangedEvent` fires after a successful complete registry
+publication. Its immutable change has a monotonic `revision`, a
+`PackageRegistryCause`, the complete package map, and `created`, `updated`, and
+`deleted` diffs. Failed writes or reloads publish no revision or event.
+
+`AirdropRecoveredEvent` fires after a persisted landed crate enters the active
+index. Recovery data and the original request UUID are optional, and recovery
+does not synthesize request, spawn, landing, or outcome events.
+`AirdropRetiredEvent` fires after a view leaves every active index and includes
+a `RetirementReason`. These events let consumers track registry and active-drop
+state without depending on mutable implementation maps.
+
+### Treat delivery and payment as separate results
+
+Delivery can be `REJECTED`, `FAILED`, `CANCELLED`, `SHUTDOWN`, or `LANDED`.
+Payment can be `NOT_APPLICABLE`, `REJECTED`, `CHARGED`, `REFUNDED`,
+`REFUND_FAILED`, or `UNKNOWN`. Free and system requests use `NOT_APPLICABLE`.
+A landed paid request can be `CHARGED`; a failed paid request can report a
+known refund result.
+
+`UNKNOWN` means Airdrop cannot prove whether an economy callback applied the
+operation, often after a timeout or shutdown. Correlate the request UUID with
+the provider's ledger, and never retry an `UNKNOWN` payment automatically.
+An automatic retry could duplicate money or items. Late or duplicate provider
+callbacks cannot produce a second outcome or repeat a withdrawal/refund.
 
 ## Project and support
 

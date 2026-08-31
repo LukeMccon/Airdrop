@@ -91,6 +91,92 @@ class ModrinthDocsContractTest {
 	}
 
 	@Test
+	void developerGuidePinsConsumerDependenciesAndLifecycleDiscovery() throws IOException {
+		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
+		String script = Files.readString(SCRIPT, StandardCharsets.UTF_8);
+
+		for (String heading : List.of(
+				"### Compile against Airdrop without shading it",
+				"### Discover the service, then schedule Bukkit work",
+				"### Requests return typed spawn and terminal stages",
+				"### Queries return immutable active-drop snapshots",
+				"### Events expose ordering and cancellation boundaries",
+				"### Treat delivery and payment as separate results")) {
+			assertTrue(body.contains(heading), () -> "Missing integration heading: " + heading);
+			assertTrue(script.contains("require_line \"" + heading + "\""),
+					() -> "Local documentation verifier must require: " + heading);
+		}
+
+		for (String dependency : List.of(
+				"maven.modrinth:airdrop:5.0.0",
+				"<id>papermc</id>",
+				"maven.modrinth</groupId>",
+				"airdrop</artifactId>",
+				"5.0.0</version>",
+				"io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT",
+				"<scope>provided</scope>",
+				"depend: [Airdrop]",
+				"softdepend: [Airdrop]")) {
+			assertTrue(body.contains(dependency), () -> "Missing consumer dependency contract: " + dependency);
+		}
+		assertTrue(body.contains("Do not shade Airdrop"));
+		assertTrue(body.contains("getServicesManager().load(AirdropApi.class)"));
+		assertTrue(body.contains("api.readiness().whenComplete"));
+		assertTrue(body.contains("getScheduler().runTask"));
+		assertTrue(body.contains("ReadinessState"));
+	}
+
+	@Test
+	void developerGuideCoversRequestsOutcomesAndEveryQueryBoundary() throws IOException {
+		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
+
+		for (String apiMethod : List.of(
+				"requestPlayerDrop", "requestSystemDrop", "descriptor()", "context()",
+				"spawn()", "outcome()", "activeDrops()", "findByRequestId",
+				"findByCrateId", "findByFallingEntity", "findByLandedBlock")) {
+			assertTrue(body.contains(apiMethod), () -> "Missing request/query contract: " + apiMethod);
+		}
+		for (String outcomeType : List.of(
+				"DropOutcome.Rejected", "DropOutcome.Landed", "DropOutcome.Failed",
+				"DropSpawnResult.NotSpawned", "DropRejectionReason", "DeliveryStatus",
+				"PaymentStatus")) {
+			assertTrue(body.contains(outcomeType), () -> "Missing typed result contract: " + outcomeType);
+		}
+		assertTrue(body.contains("programmer errors"));
+		assertTrue(body.contains("Expected pre-spawn rejections are `DropOutcome.Rejected`"));
+		assertTrue(body.contains("Later failures use `DropOutcome.Failed`"));
+		assertTrue(body.contains("`FAILED`, `CANCELLED`, or `SHUTDOWN`"));
+		assertTrue(body.contains("primary server thread"));
+		assertTrue(body.contains("latest immutable aggregate snapshot"));
+	}
+
+	@Test
+	void developerGuideCoversCompleteEventProtectionAndPaymentContracts() throws IOException {
+		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
+
+		for (String eventType : List.of(
+				"AirdropRequestEvent", "AirdropSpawnedEvent", "PackageDropEvent",
+				"AirdropLandingAttemptEvent", "AirdropLandedEvent", "PackageLandEvent",
+				"AirdropOutcomeEvent", "PackageRegistryChangedEvent",
+				"AirdropRecoveredEvent", "AirdropRetiredEvent", "EntityChangeBlockEvent")) {
+			assertTrue(body.contains(eventType), () -> "Missing integration event contract: " + eventType);
+		}
+		for (String registryTerm : List.of(
+				"revision", "created", "updated", "deleted", "PackageRegistryCause",
+				"RetirementReason")) {
+			assertTrue(body.contains(registryTerm), () -> "Missing registry contract: " + registryTerm);
+		}
+		for (String paymentState : List.of(
+				"NOT_APPLICABLE", "REJECTED", "CHARGED", "REFUNDED", "REFUND_FAILED",
+				"UNKNOWN")) {
+			assertTrue(body.contains(paymentState), () -> "Missing payment state: " + paymentState);
+		}
+		assertTrue(body.contains("Resolution failures fire no request event"));
+		assertTrue(body.contains("exactly once"));
+		assertTrue(body.contains("never retry an `UNKNOWN` payment automatically"));
+	}
+
+	@Test
 	void configurationReferenceCoversEveryShippedLeafWithItsOperatingContract() throws Exception {
 		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
 		YamlConfiguration shipped = loadBukkitYamlResource("config.yml");

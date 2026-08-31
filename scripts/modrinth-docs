@@ -47,6 +47,12 @@ check_local() {
 	require_line "## Package files"
 	require_line "## Troubleshooting"
 	require_line "## Developer integration"
+	require_line "### Compile against Airdrop without shading it"
+	require_line "### Discover the service, then schedule Bukkit work"
+	require_line "### Requests return typed spawn and terminal stages"
+	require_line "### Queries return immutable active-drop snapshots"
+	require_line "### Events expose ordering and cancellation boundaries"
+	require_line "### Treat delivery and payment as separate results"
 	require_line "## Project and support"
 
 	require_text "https://modrinth.com/plugin/airdrop#installation"
@@ -57,6 +63,12 @@ check_local() {
 	require_text "https://modrinth.com/plugin/airdrop/versions"
 	require_text "https://github.com/LukeMccon/Airdrop/issues/new?labels=bug"
 	require_text "https://github.com/LukeMccon/Airdrop/issues/new?labels=enhancement"
+	require_text "maven.modrinth:airdrop:5.0.0"
+	require_text "getServicesManager().load(AirdropApi.class)"
+	require_text "requestPlayerDrop"
+	require_text "AirdropOutcomeEvent"
+	require_text "PackageRegistryChangedEvent"
+	require_text 'never retry an `UNKNOWN` payment automatically'
 
 	if grep -Fqi -- "github.com/LukeMccon/Airdrop/wiki" "$DOCUMENT"; then
 		fail "canonical body must not link to the obsolete GitHub wiki"
