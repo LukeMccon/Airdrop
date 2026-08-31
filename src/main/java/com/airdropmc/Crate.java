@@ -452,7 +452,7 @@ public class Crate {
 	private void startLandedEffects(Airdrop plugin) {
 		if (options.shouldShowLandingEffects()) {
 			RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(landedLocation.clone(), world);
-			landingEffectTask = landedEffect.runTask(plugin);
+			landingEffectTask = landedEffect.runTaskTimer(plugin, 0L, 1L);
 		}
 		if (options.shouldShowContinuousEffects()) {
 			glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
@@ -468,6 +468,11 @@ public class Crate {
 	 * Stop particle effects
 	 */
 	public synchronized void stopEffects() {
+		cleanupResource("landing effect", () -> {
+			if (landingEffectTask != null && !landingEffectTask.isCancelled()) {
+				landingEffectTask.cancel();
+			}
+		});
 		cleanupResource("glow task", () -> {
 			if (glowTask != null && !glowTask.isCancelled()) {
 				glowTask.cancel();
@@ -478,6 +483,7 @@ public class Crate {
 				smokeTask.cancel();
 			}
 		});
+		landingEffectTask = null;
 		glowTask = null;
 		smokeTask = null;
 	}
@@ -578,12 +584,6 @@ public class Crate {
 			}
 		});
 		expiryTask = null;
-		cleanupResource("landing effect", () -> {
-			if (landingEffectTask != null && !landingEffectTask.isCancelled()) {
-				landingEffectTask.cancel();
-			}
-		});
-		landingEffectTask = null;
 	}
 
 	private void reportOutcome(Outcome reported) {

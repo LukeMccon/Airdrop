@@ -10,10 +10,14 @@ import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.World;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.junit.jupiter.api.AfterEach;
@@ -25,8 +29,10 @@ import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Logger;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -34,8 +40,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -233,30 +242,59 @@ class CrateLandingLifecycleTest {
 	}
 
 	@Test
-	void destroy_cancelsPendingExpiryAndLandingEffectTasks() throws Exception {
-		BukkitScheduler scheduler = mock(BukkitScheduler.class);
-		BukkitTask expiryTask = mock(BukkitTask.class);
-		BukkitTask landingTask = mock(BukkitTask.class);
-		when(scheduler.runTaskLater(org.mockito.ArgumentMatchers.eq(plugin),
-				org.mockito.ArgumentMatchers.any(Runnable.class), org.mockito.ArgumentMatchers.anyLong()))
-				.thenReturn(expiryTask);
-		when(scheduler.runTask(org.mockito.ArgumentMatchers.eq(plugin),
-				org.mockito.ArgumentMatchers.any(Runnable.class))).thenReturn(landingTask);
-		DropOptions options = DropOptions.createDefault()
-				.withLandingEffects(true)
-				.withContinuousEffects(false)
-				.withSmokeEnabled(false)
-				.withFlareEffects(false);
-		Crate crate = newCrate(reservedBlock, options);
+	void landingAnimation_rendersTwentyFramesThenStops() throws Exception {
+		AnimatedCrate animated = newAnimatedCrate();
 
-		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class, CALLS_REAL_METHODS)) {
-			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
-			crate.land(reservedBlock);
-			CrateManager.removeCrateAndDestroy(crate);
-		}
+		server.getScheduler().performOneTick();
+		verifyAnimationFrames(animated.world(), 1);
 
-		verify(expiryTask).cancel();
-		verify(landingTask).cancel();
+		server.getScheduler().performTicks(19L);
+		verifyAnimationFrames(animated.world(), 20);
+
+		server.getScheduler().performTicks(5L);
+		verifyAnimationFrames(animated.world(), 20);
+	}
+
+	@Test
+	void openingCrate_cancelsLandingAnimationBeforeAnotherFrame() throws Exception {
+		AnimatedCrate animated = newAnimatedCrate();
+		server.getScheduler().performOneTick();
+		verifyAnimationFrames(animated.world(), 1);
+
+		assertDoesNotThrow(() -> {
+			animated.crate().setOpened(true);
+			animated.crate().setOpened(true);
+		});
+		server.getScheduler().performTicks(5L);
+
+		verifyAnimationFrames(animated.world(), 1);
+	}
+
+	@Test
+	void destroyingCrate_cancelsLandingAnimationBeforeAnotherFrame() throws Exception {
+		AnimatedCrate animated = newAnimatedCrate();
+		server.getScheduler().performOneTick();
+		verifyAnimationFrames(animated.world(), 1);
+
+		assertTrue(CrateManager.removeCrateAndDestroy(animated.crate()));
+		assertDoesNotThrow(animated.crate()::destroy);
+		server.getScheduler().performTicks(5L);
+
+		verifyAnimationFrames(animated.world(), 1);
+	}
+
+	@Test
+	void hotDisableCleanup_cancelsLandingAnimationBeforeAnotherFrame() throws Exception {
+		AnimatedCrate animated = newAnimatedCrate();
+		server.getScheduler().performOneTick();
+		verifyAnimationFrames(animated.world(), 1);
+		when(plugin.getServer()).thenReturn(server);
+
+		CrateManager.purgeForHotDisable(plugin);
+		CrateManager.purgeForHotDisable(plugin);
+		server.getScheduler().performTicks(5L);
+
+		verifyAnimationFrames(animated.world(), 1);
 	}
 
 	@Test
@@ -290,6 +328,48 @@ class CrateLandingLifecycleTest {
 		verify(expiryTask).cancel();
 		verify(glowTask).cancel();
 		verify(smokeTask).cancel();
+	}
+
+	private AnimatedCrate newAnimatedCrate() throws Exception {
+		World animationWorld = mock(World.class);
+		when(animationWorld.getUID()).thenReturn(UUID.randomUUID());
+		Location landingLocation = new Location(animationWorld, 10, 64, 10);
+		Block landingBlock = mock(Block.class);
+		Barrel barrel = mock(Barrel.class);
+		Inventory snapshotInventory = mock(Inventory.class);
+		Inventory liveInventory = mock(Inventory.class);
+		PersistentDataContainer persistentData = mock(PersistentDataContainer.class);
+		when(landingBlock.getLocation()).thenReturn(landingLocation);
+		when(landingBlock.getState()).thenReturn(barrel);
+		when(landingBlock.getType()).thenReturn(Material.AIR);
+		when(barrel.getSnapshotInventory()).thenReturn(snapshotInventory);
+		when(barrel.getInventory()).thenReturn(liveInventory);
+		when(barrel.getPersistentDataContainer()).thenReturn(persistentData);
+		when(barrel.update(true, false)).thenReturn(true);
+		when(snapshotInventory.getStorageContents()).thenReturn(new ItemStack[27]);
+
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				DropLocationKey.from(landingLocation),
+				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
+		lease.commitSpawn();
+		DropOptions options = DropOptions.createDefault()
+				.withLandingEffects(true)
+				.withContinuousEffects(false)
+				.withSmokeEnabled(false)
+				.withFlareEffects(false);
+		Crate crate = new Crate(new Location(animationWorld, 10.5, 100, 10.5),
+				animationWorld, List.of(), options, lease);
+		crate.land(landingBlock);
+		return new AnimatedCrate(crate, animationWorld);
+	}
+
+	private static void verifyAnimationFrames(World animationWorld, int frameCount) {
+		verify(animationWorld, times(frameCount)).spawnParticle(
+				eq(Particle.GLOW), any(Location.class), eq(15),
+				eq(0.3), eq(0.1), eq(0.3), eq(0.05));
+		verify(animationWorld, times(frameCount * 20)).spawnParticle(
+				eq(Particle.END_ROD), any(Location.class), eq(1),
+				eq(0.0), eq(0.0), eq(0.0), eq(0.0));
 	}
 
 	private Crate newCrate(Block landingBlock) throws Exception {
@@ -341,5 +421,8 @@ class CrateLandingLifecycleTest {
 		Field field = Crate.class.getDeclaredField(fieldName);
 		field.setAccessible(true);
 		field.set(target, value);
+	}
+
+	private record AnimatedCrate(Crate crate, World world) {
 	}
 }
