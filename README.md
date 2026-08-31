@@ -173,7 +173,8 @@ Limit behavior:
 - `/airdrop reload` applies new limits to future requests without deleting active crates or resetting existing cooldown/expiry deadlines. Lowering a cap below current occupancy blocks new drops until usage falls under the cap.
 
 Packages are stored in `plugins/Airdrop/packages.yml` and can be managed in-game.
-A package can contain up to `27` item stacks (barrel capacity).
+Airdrop supports up to `27` configured packages, matching the package browser's capacity; pagination is not supported.
+Each package can contain up to `27` item stacks (barrel capacity).
 
 ## Paid Drop Failure and Recovery
 

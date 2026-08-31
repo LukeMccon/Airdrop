@@ -2,14 +2,17 @@ package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
+import com.airdropmc.exceptions.PackageCapacityException;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
+import com.airdropmc.packages.PackageMaterializationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -101,6 +104,71 @@ class ConfigCoordinatorTest {
 		assertNotNull(successCommit);
 		successCommit.run();
 		assertTrue(valid.toCompletableFuture().get(5, TimeUnit.SECONDS));
+	}
+
+	@Test
+	void packageTwentyEightIsRejectedBeforeDiskWriteOrPublication() throws Exception {
+		Files.createDirectories(temporaryDirectory);
+		YamlConfiguration full = configurationWithPackages(PackageManager.MAX_PACKAGES);
+		String originalYaml = full.saveToString();
+		Files.writeString(packagesPath(), originalYaml, StandardCharsets.UTF_8);
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger publications = new AtomicInteger();
+		coordinator = fileCoordinator(
+				mock(LanguageManager.class),
+				mainTasks,
+				ignored -> EconomyProviderRefreshResult.disabled(),
+				ignored -> publications.incrementAndGet());
+
+		CompletionStage<Boolean> rejected = coordinator.createPackage(pkg("overflow"));
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+
+		CompletionException failure = assertThrows(
+				CompletionException.class, () -> rejected.toCompletableFuture().join());
+		assertTrue(failure.getCause() instanceof PackageCapacityException);
+		assertEquals(originalYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
+		assertEquals(0, publications.get());
+	}
+
+	@Test
+	void reloadOverPackageLimitPreservesLastKnownGoodRegistryAndSkipsCommit() throws Exception {
+		Files.createDirectories(temporaryDirectory);
+		Files.writeString(temporaryDirectory.resolve("config.yml"), "language: en\neconomy:\n  enabled: false\n",
+				StandardCharsets.UTF_8);
+		YamlConfiguration overCapacity = configurationWithPackages(PackageManager.MAX_PACKAGES + 1);
+		String rejectedYaml = overCapacity.saveToString();
+		Files.writeString(packagesPath(), rejectedYaml, StandardCharsets.UTF_8);
+		YamlConfiguration liveConfiguration = configurationWithPackages(1);
+		PackageManager.publishPackages(PackageManager.materializePackages(liveConfiguration));
+		Package livePackage = PackageManager.get("pkg0");
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger configurationCommits = new AtomicInteger();
+		LanguageManager languageManager = mock(LanguageManager.class);
+		coordinator = fileCoordinator(
+				languageManager,
+				mainTasks,
+				ignored -> {
+					configurationCommits.incrementAndGet();
+					return EconomyProviderRefreshResult.disabled();
+				},
+				ignored -> { });
+
+		CompletionStage<EconomyProviderRefreshResult> rejected = coordinator.reload();
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+
+		CompletionException failure = assertThrows(
+				CompletionException.class, () -> rejected.toCompletableFuture().join());
+		assertTrue(failure.getCause() instanceof PackageMaterializationException);
+		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES + 1)));
+		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES)));
+		assertEquals(0, configurationCommits.get());
+		assertEquals(rejectedYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
+		assertTrue(livePackage == PackageManager.get("pkg0"));
+		assertEquals(1, PackageManager.getPackageCount());
 	}
 
 	@Test
@@ -203,6 +271,29 @@ class ConfigCoordinatorTest {
 		assertTrue(publishedBeforeCompletion.get());
 	}
 
+	private ConfigCoordinator fileCoordinator(
+			LanguageManager languageManager,
+			BlockingQueue<Runnable> mainTasks,
+			java.util.function.Function<ConfigCoordinator.ConfigurationCandidate, EconomyProviderRefreshResult>
+					configurationCommit,
+			java.util.function.Consumer<ConfigCoordinator.PackageCandidate> packageCommit) {
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ConfigCoordinatorTest"));
+		when(plugin.getResource("config.yml")).thenReturn(new ByteArrayInputStream(
+				"language: en\neconomy:\n  enabled: false\n".getBytes(StandardCharsets.UTF_8)));
+		ExecutorService executor = Executors.newSingleThreadExecutor(
+				task -> new Thread(task, "config-test-worker"));
+		return new ConfigCoordinator(
+				plugin,
+				languageManager,
+				new ConfigFileStore(),
+				executor,
+				mainTasks::add,
+				configurationCommit,
+				packageCommit);
+	}
+
 	private ConfigCoordinator coordinator(
 			AtomicInteger reads,
 			CountDownLatch firstRead,
@@ -270,6 +361,18 @@ class ConfigCoordinatorTest {
 
 	private Path packagesPath() {
 		return temporaryDirectory.resolve("packages.yml");
+	}
+
+	private static YamlConfiguration configurationWithPackages(int count) {
+		YamlConfiguration configuration = new YamlConfiguration();
+		configuration.createSection(PackageManager.PACKAGES_SECTION);
+		for (int index = 0; index < count; index++) {
+			String path = PackageManager.PACKAGES_SECTION + ".pkg" + index;
+			configuration.createSection(path);
+			configuration.set(path + ".price", 1.0);
+			configuration.set(path + ".items", List.of());
+		}
+		return configuration;
 	}
 
 	private static Package pkg(String name) {

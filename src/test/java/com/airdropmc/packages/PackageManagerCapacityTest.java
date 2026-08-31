@@ -62,19 +62,30 @@ class PackageManagerCapacityTest {
 	}
 
 	@Test
-	void materializePackages_usesCandidateLanguageControlLabels() throws Exception {
+	void materializePackages_preservesItemsNamedLikeControlsAcrossLanguages() throws Exception {
 		YamlConfiguration candidate = baseConfiguration();
-		ItemStack oldLanguageLabel = namedItem("Save");
-		ItemStack candidateLanguageLabel = namedItem("Enregistrer");
-		candidate.set("packages.starter.items", List.of(oldLanguageLabel, candidateLanguageLabel));
+		List<ItemStack> namedItems = List.of(
+				namedItem("Save"),
+				namedItem("Cancel"),
+				namedItem("Back"),
+				namedItem("Help"),
+				namedItem("Enregistrer"));
+		candidate.set("packages.starter.items", namedItems);
 
-		Map<String, Package> materialized = PackageManager.materializePackages(
-				candidate,
-				Set.of("Enregistrer"));
+		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
+		Map<String, Package> compatibilityMaterialized = PackageManager.materializePackages(
+				candidate, Set.of("Save", "Cancel", "Back", "Help", "Enregistrer"));
 
-		List<ItemStack> items = materialized.get("starter").getItems();
-		assertEquals(1, items.size());
-		assertEquals("Save", items.getFirst().getItemMeta().getDisplayName());
+		List<String> displayNames = materialized.get("starter").getItems().stream()
+				.map(ItemStack::getItemMeta)
+				.map(ItemMeta::getDisplayName)
+				.toList();
+		List<String> compatibilityDisplayNames = compatibilityMaterialized.get("starter").getItems().stream()
+				.map(ItemStack::getItemMeta)
+				.map(ItemMeta::getDisplayName)
+				.toList();
+		assertEquals(List.of("Save", "Cancel", "Back", "Help", "Enregistrer"), displayNames);
+		assertEquals(displayNames, compatibilityDisplayNames);
 	}
 
 	@Test

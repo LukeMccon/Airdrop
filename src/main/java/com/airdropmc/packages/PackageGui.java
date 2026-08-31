@@ -22,7 +22,7 @@ public class PackageGui extends PackageEditorGui {
 	}
 
 	public static void closeOpenEditors() {
-		PackageEditorSession.closeOpenEditors();
+		PackageEditorGui.closeOpenEditors();
 	}
 
 	public void initializeItems() {

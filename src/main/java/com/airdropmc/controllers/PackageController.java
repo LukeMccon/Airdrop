@@ -6,6 +6,7 @@ import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.Package;
+import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackageNamePolicy;
 import com.airdropmc.exceptions.PackageNotFoundException;
 
@@ -173,6 +174,13 @@ public class PackageController {
 		Airdrop plugin = Airdrop.getPluginInstance();
 		if (plugin == null || !Airdrop.isReady()) {
 			ChatHandler.sendError(sender, MessageKey.ERROR_PLUGIN_NOT_READY);
+			return;
+		}
+		if (!PackageManager.has(packageName)
+				&& PackageManager.getPackageCount() >= PackageManager.MAX_PACKAGES) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CAPACITY_LIMIT, Map.of(
+					"count", String.valueOf(PackageManager.getPackageCount() + 1),
+					"limit", String.valueOf(PackageManager.MAX_PACKAGES)));
 			return;
 		}
 

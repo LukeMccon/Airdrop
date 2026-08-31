@@ -91,6 +91,26 @@ class PackageManagerConfigRobustnessTest {
 	}
 
 	@Test
+	void materializePackages_rejectsOverCapacityCandidateAndPreservesLiveSnapshot() throws Exception {
+		YamlConfiguration initial = configurationWithPackage("starter", 10.0);
+		PackageManager.publishPackages(PackageManager.materializePackages(initial));
+		Package livePackage = PackageManager.get("starter");
+		YamlConfiguration candidate = new YamlConfiguration();
+		candidate.createSection("packages");
+		for (int index = 0; index < PackageManager.MAX_PACKAGES + 1; index++) {
+			addPackage(candidate, "pkg" + index, 1.0);
+		}
+
+		PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(candidate));
+
+		assertTrue(failure.getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES + 1)));
+		assertTrue(failure.getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES)));
+		assertSame(livePackage, PackageManager.get("starter"));
+		assertThrows(PackageNotFoundException.class, () -> PackageManager.get("pkg0"));
+	}
+
+	@Test
 	void materializePackages_rejectsWholeCandidateOnInvalidOrReservedName() {
 		for (String invalidName : List.of(
 				"all", "*", "package", "packages", "version", "reload", "bad name")) {

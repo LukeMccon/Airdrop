@@ -328,6 +328,7 @@ public class Airdrop extends JavaPlugin {
 	}
 
 	public void setupPackageGuis() {
+		PackageGui.closeOpenEditors();
 		if (packagesGui != null) {
 			packagesGui.closeAndUnregister();
 		}
