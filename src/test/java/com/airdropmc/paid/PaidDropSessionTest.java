@@ -4,9 +4,12 @@ import com.airdropmc.economy.EconomyPlayer;
 import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.economy.EconomyResult;
 import org.bukkit.Bukkit;
+import org.bukkit.scheduler.BukkitScheduler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -19,10 +22,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class PaidDropSessionTest {
 
@@ -123,6 +132,26 @@ class PaidDropSessionTest {
 
 		assertEquals(1, completions.size());
 		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void timeoutSchedulerRejectionTerminatesBeforeProviderInvocation() {
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(scheduler.runTaskLater(eq(plugin), any(Runnable.class), anyLong()))
+				.thenThrow(new IllegalStateException("scheduler rejected task"));
+		PaidDropSession session = session();
+
+		try (MockedStatic<Bukkit> bukkit = Mockito.mockStatic(Bukkit.class, Mockito.CALLS_REAL_METHODS)) {
+			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+			assertDoesNotThrow(session::start);
+			economy.affordability.complete(EconomyResult.ok());
+		}
+
+		assertEquals(PaidDropSession.State.TERMINAL, session.state());
+		assertEquals(0, economy.withdrawals);
+		assertEquals(1, completions.size());
+		assertEquals(PaidDropSession.Operation.AFFORDABILITY, completions.getFirst().operation());
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
 	}
 
 	@Test

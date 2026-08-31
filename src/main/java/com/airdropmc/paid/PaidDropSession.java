@@ -124,6 +124,16 @@ public final class PaidDropSession {
 			Operation operation,
 			State expectedState,
 			Supplier<CompletionStage<EconomyResult>> invocation) {
+		try {
+			timeoutTask = Bukkit.getScheduler().runTaskLater(
+					plugin,
+					() -> acceptTimeout(operation, expectedState),
+					PAYMENT_TIMEOUT_TICKS);
+		} catch (RuntimeException schedulingFailure) {
+			accept(operation, notStarted(operation, schedulingFailure));
+			return;
+		}
+
 		CompletionStage<EconomyResult> stage;
 		try {
 			stage = invocation.get();
@@ -137,10 +147,6 @@ public final class PaidDropSession {
 		}
 
 		stage.whenComplete((result, failure) -> post(operation, normalize(result, failure)));
-		timeoutTask = Bukkit.getScheduler().runTaskLater(
-				plugin,
-				() -> acceptTimeout(operation, expectedState),
-				PAYMENT_TIMEOUT_TICKS);
 	}
 
 	private void post(Operation operation, EconomyResult result) {
@@ -223,6 +229,14 @@ public final class PaidDropSession {
 		return result != null
 				? result
 				: EconomyResult.unknown("Economy provider returned no result");
+	}
+
+	private static EconomyResult notStarted(Operation operation, Throwable failure) {
+		String diagnostic = "Could not schedule economy "
+				+ operation.name().toLowerCase() + " operation: " + message(failure);
+		return operation == Operation.AFFORDABILITY
+				? EconomyResult.unknown(diagnostic)
+				: EconomyResult.rejected(diagnostic);
 	}
 
 	private static String message(Throwable failure) {
