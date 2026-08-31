@@ -14,6 +14,7 @@ commands:
     admin-delete: "{text}/airdrop package delete <name>{primary} — delete a package"
     admin-packages: "{text}/airdrop packages{primary} — open package management"
     admin-reload: "{text}/airdrop reload{primary} — reload configuration"
+    admin-status: "{text}/airdrop status{primary} — show operational status"
 
 packages:
   info: "{text}\nPackage info for: {accent}{name}{text}\n================\n{text}{info}"
@@ -30,7 +31,7 @@ packages:
   create-example: "Example: /airdrop package create starter 12.0"
   name-required: "You must provide a name for the package"
   name-invalid: "Package names may only contain letters, numbers, underscores, and dashes"
-  name-reserved: "Package names cannot use reserved names: all, *, package, packages, version, reload"
+  name-reserved: "Package names cannot use reserved names: all, *, package, packages, version, status, reload"
   name-subcommand-reserved: "The package names create and delete are reserved because they are package subcommands"
   price-required: "You must provide the package price as a double"
   price-invalid: "Package price must be a finite non-negative number"
@@ -43,6 +44,7 @@ errors:
   economy-unavailable: "Priced packages are unavailable because economy is disabled or no provider is available. Contact a server administrator."
   plugin-not-ready: "Airdrop is still starting or is shutting down. Try again shortly."
   reload-unavailable: "Reload unavailable while plugin is shutting down"
+  status-unavailable: "Airdrop status is unavailable"
   reload-failed-retained: "Reload failed. The previous configuration remains active. Check the server log."
   packages-reload-failed: "Reload failed because packages configuration is unavailable"
   sky-not-clear: "Sky must be clear above your location to call an airdrop"
@@ -87,3 +89,7 @@ system:
   package-price-missing: "Could not find price for package: {accent}{name}"
   package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"
   version-info: "{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java runtime: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}"
+  status-values:
+    none: "none"
+    not-published: "not published"
+  status-info: "{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java runtime: {accent}{java_version}\n{text}  Readiness: {accent}{readiness}\n{text}  Economy: {accent}{economy}{text} (provider: {accent}{economy_provider}{text})\n{text}  Packages: {accent}{package_count}{text} (revision {accent}{package_revision}{text})\n{text}  Pending requests: {accent}{pending_count}\n{text}  Falling drops: {accent}{falling_count}{text} / {accent}{max_falling}\n{text}  Landed drops: {accent}{landed_count}{text} / {accent}{max_landed}\n{text}  Diagnostic: {accent}{diagnostic_category}{diagnostic}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}"

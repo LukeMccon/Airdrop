@@ -21,6 +21,9 @@ import java.util.UUID;
  */
 @ApiStatus.Internal
 public final class ActiveDropRegistry {
+	/** Atomic falling/landed counts from one immutable registry publication. */
+	public record Counts(int falling, int landed) {
+	}
 
 	private record Snapshot(
 			List<AirdropView> ordered,
@@ -160,6 +163,12 @@ public final class ActiveDropRegistry {
 	/** @return active landed view count */
 	public int landedCount() {
 		return snapshot.landedCount();
+	}
+
+	/** @return falling and landed counts from one immutable registry publication */
+	public Counts counts() {
+		Snapshot current = snapshot;
+		return new Counts(current.fallingCount(), current.landedCount());
 	}
 
 	private List<AirdropView> replace(UUID crateId, AirdropView replacement) {

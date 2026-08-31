@@ -18,6 +18,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -116,6 +118,42 @@ class AirdropApiThreadContractTest {
 				0,
 				0,
 				List.of("economy-provider-unavailable")));
+	}
+
+	@Test
+	void completeStatusRejectsInvalidPublishedLimitsAndDiagnosticPairs() {
+		assertThrows(IllegalArgumentException.class, () -> status(
+				OptionalInt.of(0), OptionalInt.of(10), Optional.empty(), Optional.empty()));
+		assertThrows(IllegalArgumentException.class, () -> status(
+				OptionalInt.of(3), OptionalInt.of(10),
+				Optional.of("CONFIGURATION"), Optional.empty()));
+		assertThrows(IllegalArgumentException.class, () -> status(
+				OptionalInt.of(3), OptionalInt.of(10),
+				Optional.of("NOT_STABLE"), Optional.of("failed")));
+		assertThrows(IllegalArgumentException.class, () -> status(
+				OptionalInt.of(3), OptionalInt.of(10),
+				Optional.of("CONFIGURATION"), Optional.of("line one\nline two")));
+	}
+
+	private static AirdropStatus status(
+			OptionalInt maxFalling,
+			OptionalInt maxLanded,
+			Optional<String> diagnosticCategory,
+			Optional<String> diagnostic) {
+		return new AirdropStatus(
+				ReadinessState.READY,
+				EconomyState.DISABLED,
+				null,
+				1L,
+				2,
+				0,
+				0,
+				0,
+				maxFalling,
+				maxLanded,
+				diagnosticCategory,
+				diagnostic,
+				List.of());
 	}
 
 	private Airdrop loadReadyPlugin() throws Exception {

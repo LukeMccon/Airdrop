@@ -12,7 +12,10 @@ import com.airdropmc.api.DropHandle;
 import com.airdropmc.api.DropRequestOptions;
 import com.airdropmc.internal.drop.DropRequestCoordinator;
 import com.airdropmc.internal.drop.InternalDropRequests;
+import com.airdropmc.internal.diagnostics.AirdropDiagnostics;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.helpers.AirdropLogger;
+import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.packages.Package;
 import org.bukkit.Bukkit;
@@ -29,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -40,15 +44,21 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 	private final AirdropVersions versions;
 	private final DropRequestCoordinator requests;
 	private final PackageRegistryPublisher packageRegistry = new PackageRegistryPublisher();
+	private final AirdropDiagnostics diagnostics = new AirdropDiagnostics();
 	private final CompletableFuture<AirdropApi> readiness = new CompletableFuture<>();
 	private final CompletionStage<AirdropApi> readinessView = readiness.minimalCompletionStage();
 
 	private volatile ReadinessState state = ReadinessState.STARTING;
-	private volatile EconomyState economy = EconomyState.STARTING;
-	private volatile String economyProviderName;
-	private volatile List<String> degradedReasons = List.of();
-	private volatile AirdropStatus status = snapshot(
-			ReadinessState.STARTING, EconomyState.STARTING, null, List.of());
+	private volatile EconomySnapshot economy = new EconomySnapshot(
+			EconomyState.STARTING, null, List.of());
+	private volatile PublishedLimits limits;
+
+	private record EconomySnapshot(
+			EconomyState state, String providerName, List<String> degradedReasons) {
+	}
+
+	private record PublishedLimits(int maxFalling, int maxLanded) {
+	}
 
 	DefaultAirdropApi(Plugin plugin, AirdropVersions versions) {
 		this.versions = Objects.requireNonNull(versions, "versions");
@@ -72,7 +82,7 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 
 	@Override
 	public AirdropStatus status() {
-		return snapshot(state, economy, economyProviderName, degradedReasons);
+		return snapshot(state, economy);
 	}
 
 	@Override
@@ -154,22 +164,34 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 		return CrateManager.findByLandedLocation(DropLocationKey.from(block.getLocation()));
 	}
 
-	synchronized void publishEconomy(
+	void publishEconomy(
 			EconomyState economy,
 			String providerName,
 			List<String> degradedReasons) {
-		this.economy = Objects.requireNonNull(economy, "economy");
-		this.economyProviderName = providerName;
-		this.degradedReasons = List.copyOf(Objects.requireNonNull(
-				degradedReasons, "degradedReasons"));
-		status = snapshot(state, this.economy, this.economyProviderName, this.degradedReasons);
+		EconomyState requiredEconomy = Objects.requireNonNull(economy, "economy");
+		String safeProviderName = providerName == null
+				? null
+				: AirdropDiagnostics.sanitizeLabel(providerName);
+		this.economy = new EconomySnapshot(
+				requiredEconomy,
+				safeProviderName,
+				List.copyOf(Objects.requireNonNull(degradedReasons, "degradedReasons")));
 	}
 
-	synchronized void refreshPackageCount() {
-		status = snapshot(state, economy, economyProviderName, degradedReasons);
+	void publishLimits(DropLimitSettings settings) {
+		DropLimitSettings required = Objects.requireNonNull(settings, "settings");
+		limits = new PublishedLimits(required.maxFalling(), required.maxLanded());
 	}
 
-	void publishPackages(Map<String, Package> packages, PackageRegistryCause cause) {
+	void recordDiagnostic(AirdropDiagnostics.Category category, Throwable failure) {
+		diagnostics.record(category, failure);
+	}
+
+	void clearDiagnostic(AirdropDiagnostics.Category category) {
+		diagnostics.clear(category);
+	}
+
+	long publishPackages(Map<String, Package> packages, PackageRegistryCause cause) {
 		Map<String, AirdropPackage> snapshots = packages.entrySet().stream()
 				.collect(java.util.stream.Collectors.toMap(
 						Map.Entry::getKey,
@@ -177,7 +199,13 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 						(first, ignored) -> first,
 						java.util.LinkedHashMap::new));
 		packageRegistry.publish(snapshots, cause);
-		refreshPackageCount();
+		PackageRegistryPublisher.Summary summary = packageRegistry.summary();
+		AirdropLogger.debugPublication(
+				AirdropLogger.Publication.PACKAGE_REGISTRY,
+				cause,
+				summary.revision(),
+				summary.packageCount());
+		return summary.revision();
 	}
 
 	synchronized void publishReady() {
@@ -185,8 +213,9 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 			return;
 		}
 		requests.startAccepting();
-		status = snapshot(ReadinessState.READY, economy, economyProviderName, degradedReasons);
 		state = ReadinessState.READY;
+		AirdropLogger.debugReadiness(ReadinessState.STARTING, ReadinessState.READY);
+		diagnostics.clear(AirdropDiagnostics.Category.STARTUP);
 		readiness.complete(this);
 	}
 
@@ -195,8 +224,9 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 		if (state != ReadinessState.STARTING) {
 			return;
 		}
-		status = snapshot(ReadinessState.FAILED, economy, economyProviderName, degradedReasons);
+		diagnostics.record(AirdropDiagnostics.Category.STARTUP, failure);
 		state = ReadinessState.FAILED;
+		AirdropLogger.debugReadiness(ReadinessState.STARTING, ReadinessState.FAILED);
 		readiness.completeExceptionally(failure);
 	}
 
@@ -204,8 +234,9 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 		if (state == ReadinessState.STOPPING) {
 			return;
 		}
-		status = snapshot(ReadinessState.STOPPING, economy, economyProviderName, degradedReasons);
+		ReadinessState previous = state;
 		state = ReadinessState.STOPPING;
+		AirdropLogger.debugReadiness(previous, ReadinessState.STOPPING);
 		readiness.completeExceptionally(
 				new IllegalStateException("Airdrop stopped before becoming ready"));
 	}
@@ -216,22 +247,34 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 
 	private AirdropStatus snapshot(
 			ReadinessState state,
-			EconomyState economy,
-			String providerName,
-			List<String> degradedReasons) {
-		List<String> effectiveReasons = new ArrayList<>(degradedReasons);
+			EconomySnapshot economy) {
+		List<String> effectiveReasons = new ArrayList<>(economy.degradedReasons());
 		if (CrateManager.recoveryReport().degraded()
 				&& !effectiveReasons.contains("crate-recovery-degraded")) {
 			effectiveReasons.add("crate-recovery-degraded");
 		}
+		PublishedLimits publishedLimits = limits;
+		Optional<AirdropDiagnostics.Snapshot> diagnostic = diagnostics.snapshot();
+		PackageRegistryPublisher.Summary packageSummary = packageRegistry.summary();
+		com.airdropmc.internal.drop.ActiveDropRegistry.Counts activeCounts =
+				CrateManager.activeCounts();
 		return new AirdropStatus(
 				state,
-				economy,
-				providerName,
-				packageRegistry.revision(),
-				packageRegistry.packages().size(),
-				CrateManager.fallingCount(),
-				CrateManager.landedCount(),
+				economy.state(),
+				economy.providerName(),
+				packageSummary.revision(),
+				packageSummary.packageCount(),
+				requests.pendingCount(),
+				activeCounts.falling(),
+				activeCounts.landed(),
+				publishedLimits == null
+						? OptionalInt.empty()
+						: OptionalInt.of(publishedLimits.maxFalling()),
+				publishedLimits == null
+						? OptionalInt.empty()
+						: OptionalInt.of(publishedLimits.maxLanded()),
+				diagnostic.map(snapshot -> snapshot.category().name()),
+				diagnostic.map(AirdropDiagnostics.Snapshot::message),
 				effectiveReasons);
 	}
 

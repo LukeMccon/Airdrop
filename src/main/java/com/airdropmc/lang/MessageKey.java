@@ -16,6 +16,7 @@ public enum MessageKey {
 	COMMANDS_HELP_ADMIN_DELETE("commands.help.admin-delete", "{text}/airdrop package delete <name>{primary} — delete a package"),
 	COMMANDS_HELP_ADMIN_PACKAGES("commands.help.admin-packages", "{text}/airdrop packages{primary} — open package management"),
 	COMMANDS_HELP_ADMIN_RELOAD("commands.help.admin-reload", "{text}/airdrop reload{primary} — reload configuration"),
+	COMMANDS_HELP_ADMIN_STATUS("commands.help.admin-status", "{text}/airdrop status{primary} — show operational status"),
 
 	PACKAGES_INFO("packages.info",
 			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Package: {accent}{name}\n{text}  Price: {accent}${price}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{info}"),
@@ -34,7 +35,7 @@ public enum MessageKey {
 		PACKAGES_NAME_INVALID("packages.name-invalid",
 				"Package names may only contain letters, numbers, underscores, and dashes"),
 		PACKAGES_NAME_RESERVED("packages.name-reserved",
-				"Package names cannot use reserved names: all, *, package, packages, version, reload"),
+				"Package names cannot use reserved names: all, *, package, packages, version, status, reload"),
 		PACKAGES_NAME_SUBCOMMAND_RESERVED("packages.name-subcommand-reserved",
 				"The package names create and delete are reserved because they are package subcommands"),
 	PACKAGES_PRICE_REQUIRED("packages.price-required", "You must provide the package price as a double"),
@@ -52,6 +53,7 @@ public enum MessageKey {
 	ERROR_PLUGIN_NOT_READY("errors.plugin-not-ready",
 			"Airdrop is still starting or is shutting down. Try again shortly."),
 	ERROR_RELOAD_UNAVAILABLE("errors.reload-unavailable", "Reload unavailable while plugin is shutting down"),
+	ERROR_STATUS_UNAVAILABLE("errors.status-unavailable", "Airdrop status is unavailable"),
 	ERROR_RELOAD_FAILED_RETAINED("errors.reload-failed-retained",
 			"Reload failed. The previous configuration remains active. Check the server log."),
 	ERROR_PACKAGES_RELOAD_FAILED("errors.packages-reload-failed",
@@ -106,7 +108,24 @@ public enum MessageKey {
 	SYSTEM_PACKAGE_PRICE_INVALID("system.package-price-invalid",
 			"Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"),
 	SYSTEM_VERSION_INFO("system.version-info",
-			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java runtime: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}");
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java runtime: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}"),
+	SYSTEM_STATUS_VALUE_NONE("system.status-values.none", "none"),
+	SYSTEM_STATUS_VALUE_NOT_PUBLISHED("system.status-values.not-published", "not published"),
+	SYSTEM_STATUS_INFO("system.status-info",
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n"
+					+ "{text}  Plugin: {accent}{plugin_version}\n"
+					+ "{text}  Extension API: {accent}{extension_api_version}\n"
+					+ "{text}  Paper compatibility: {accent}{paper_version}\n"
+					+ "{text}  Java runtime: {accent}{java_version}\n"
+					+ "{text}  Readiness: {accent}{readiness}\n"
+					+ "{text}  Economy: {accent}{economy}{text} (provider: {accent}{economy_provider}{text})\n"
+					+ "{text}  Packages: {accent}{package_count}{text} (revision {accent}{package_revision}{text})\n"
+					+ "{text}  Pending requests: {accent}{pending_count}\n"
+					+ "{text}  Falling drops: {accent}{falling_count}{text} / {accent}{max_falling}\n"
+					+ "{text}  Landed drops: {accent}{landed_count}{text} / {accent}{max_landed}\n"
+					+ "{text}  Diagnostic: {accent}{diagnostic_category}{diagnostic}\n"
+					+ "{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n"
+					+ "{text}  Docs: {accent}{docs_url}");
 
 	private final String key;
 	private final String defaultValue;

@@ -17,6 +17,7 @@ import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.integrations.OptionalIntegrations;
 import com.airdropmc.internal.api.AirdropServiceLifecycle;
+import com.airdropmc.internal.diagnostics.AirdropDiagnostics;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.listeners.CrateDestroyListener;
 import com.airdropmc.listeners.CrateCloseListener;
@@ -198,7 +199,14 @@ public class Airdrop extends JavaPlugin {
 		PackageManager.publishPackages(candidate.packages());
 		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
 		if (serviceLifecycle != null) {
-			serviceLifecycle.publishPackages(candidate.packages(), candidate.cause());
+			serviceLifecycle.publishLimits(ConfigKeys.getDropLimitSettings());
+			long revision = serviceLifecycle.publishPackages(
+					candidate.packages(), candidate.cause());
+			AirdropLogger.debugPublication(
+					AirdropLogger.Publication.CONFIGURATION,
+					candidate.cause(),
+					revision,
+					candidate.packages().size());
 		}
 		publishEconomyProvider(selection);
 
@@ -247,7 +255,11 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.reload();
+		return observeOperation(
+				coordinator.reload(),
+				AirdropDiagnostics.Category.CONFIGURATION,
+				AirdropDiagnostics.Category.CONFIGURATION,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}
 
 	public CompletionStage<Boolean> createPackageAsync(Package pkg) {
@@ -255,7 +267,10 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.createPackage(pkg);
+		return observeOperation(
+				coordinator.createPackage(pkg),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}
 
 	public CompletionStage<Boolean> updatePackageInventoryAsync(String packageName, List<ItemStack> items) {
@@ -263,7 +278,10 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.updatePackageInventory(packageName, items);
+		return observeOperation(
+				coordinator.updatePackageInventory(packageName, items),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}
 
 	public CompletionStage<Boolean> deletePackageAsync(String packageName) {
@@ -271,7 +289,29 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.deletePackage(packageName);
+		return observeOperation(
+				coordinator.deletePackage(packageName),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
+	}
+
+	private <T> CompletionStage<T> observeOperation(
+			CompletionStage<T> operation,
+			AirdropDiagnostics.Category failureCategory,
+			AirdropDiagnostics.Category... successfulPublications) {
+		return operation.whenComplete((result, failure) -> {
+			AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
+			if (serviceLifecycle == null) {
+				return;
+			}
+			if (failure == null) {
+				for (AirdropDiagnostics.Category category : successfulPublications) {
+					serviceLifecycle.clearDiagnostic(category);
+				}
+			} else {
+				serviceLifecycle.recordDiagnostic(failureCategory, unwrap(failure));
+			}
+		});
 	}
 
 	private static <T> CompletionStage<T> unavailableStage() {
@@ -296,7 +336,8 @@ public class Airdrop extends JavaPlugin {
 				replacement = EconomyProviderDiscovery.discover(getServer().getServicesManager()).orElse(null);
 				result = replacement == null
 						? EconomyProviderRefreshResult.unavailable()
-						: EconomyProviderRefreshResult.active(providerName(replacement));
+						: EconomyProviderRefreshResult.active(
+								AirdropDiagnostics.sanitizeLabel(providerName(replacement)));
 			}
 		} catch (LinkageError | RuntimeException exception) {
 			replacement = null;
@@ -312,6 +353,12 @@ public class Airdrop extends JavaPlugin {
 		if (serviceLifecycle != null) {
 			serviceLifecycle.publishEconomy(selection.result());
 		}
+		com.airdropmc.api.EconomyState economyState = switch (selection.result().outcome()) {
+			case ACTIVE -> com.airdropmc.api.EconomyState.ACTIVE;
+			case DISABLED -> com.airdropmc.api.EconomyState.DISABLED;
+			case UNAVAILABLE -> com.airdropmc.api.EconomyState.UNAVAILABLE;
+		};
+		AirdropLogger.debugEconomy(economyState, selection.result().providerName());
 		switch (selection.result().outcome()) {
 			case ACTIVE -> AirdropLogger.info("Using economy provider: " + selection.result().providerName());
 			case DISABLED -> AirdropLogger.info("Economy support is disabled");

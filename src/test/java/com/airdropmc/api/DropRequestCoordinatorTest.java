@@ -107,6 +107,7 @@ class DropRequestCoordinatorTest {
 		assertEquals(fallingView, api.findByCrateId(fallingView.crateId()).orElseThrow());
 		assertEquals(1, api.activeDrops().size());
 		assertEquals(1, api.status().fallingCount());
+		assertEquals(1, api.status().pendingCount());
 		CompletableFuture.runAsync(() -> {
 			assertEquals(fallingView, api.findByRequestId(handle.requestId()).orElseThrow());
 			assertEquals(fallingView, api.findByCrateId(fallingView.crateId()).orElseThrow());
@@ -130,6 +131,7 @@ class DropRequestCoordinatorTest {
 		assertEquals(1, api.activeDrops().size());
 		assertEquals(0, api.status().fallingCount());
 		assertEquals(1, api.status().landedCount());
+		assertEquals(0, api.status().pendingCount());
 	}
 
 	@Test

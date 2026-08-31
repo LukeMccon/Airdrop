@@ -89,6 +89,7 @@ class CmdAirdropArgumentCountTest {
 		return Stream.of(
 				Arguments.of("missing command", new String[]{}),
 				Arguments.of("version with extra argument", new String[]{"version", "extra"}),
+				Arguments.of("status with extra argument", new String[]{"status", "extra"}),
 				Arguments.of("packages with extra argument", new String[]{"packages", "extra"}),
 				Arguments.of("reload with extra argument", new String[]{"reload", "extra"}),
 				Arguments.of("direct drop with extra argument", new String[]{"starter", "extra"}),
@@ -99,6 +100,7 @@ class CmdAirdropArgumentCountTest {
 	private static Stream<Arguments> validCommandForms() {
 		return Stream.of(
 				Arguments.of("version", new String[]{"version"}),
+				Arguments.of("status", new String[]{"status"}),
 				Arguments.of("packages", new String[]{"packages"}),
 				Arguments.of("reload", new String[]{"reload"}),
 				Arguments.of("direct drop", new String[]{"starter"}),

@@ -54,6 +54,10 @@ public class CmdAirdrop implements CommandExecutor {
 					"docs_url", MODRINTH_URL));
 			return true;
 		}
+		if (AirdropCommandNames.STATUS.equals(args[0])) {
+			StatusCommand.onCommand(sender);
+			return true;
+		}
 
 		if (!Airdrop.isReady()) {
 			ChatHandler.sendError(sender, MessageKey.ERROR_PLUGIN_NOT_READY);
@@ -86,6 +90,7 @@ public class CmdAirdrop implements CommandExecutor {
 		}
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_DELETE, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_RELOAD, Map.of());
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_STATUS, Map.of());
 	}
 
 	private static boolean hasInvalidGenericArgumentCount(String[] args) {

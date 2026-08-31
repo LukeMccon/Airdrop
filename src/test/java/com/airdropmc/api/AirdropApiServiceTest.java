@@ -76,6 +76,10 @@ class AirdropApiServiceTest {
 		assertSame(api, server.getServicesManager().load(AirdropApi.class));
 		assertEquals(ReadinessState.STARTING, api.state());
 		assertEquals(EconomyState.STARTING, api.status().economy());
+		assertEquals(0, api.status().pendingCount());
+		assertTrue(api.status().maxFalling().isEmpty());
+		assertTrue(api.status().maxLanded().isEmpty());
+		assertTrue(api.status().lastDiagnostic().isEmpty());
 		assertFalse(api.readiness().toCompletableFuture().isDone());
 		assertTrue(serviceEventOnPrimaryThread.get());
 
@@ -85,6 +89,9 @@ class AirdropApiServiceTest {
 		assertEquals(ReadinessState.READY, api.state());
 		assertEquals(ReadinessState.READY, api.status().readiness());
 		assertEquals(EconomyState.DISABLED, api.status().economy());
+		assertEquals(3, api.status().maxFalling().orElseThrow());
+		assertEquals(10, api.status().maxLanded().orElseThrow());
+		assertEquals(0, api.status().pendingCount());
 	}
 
 	@Test

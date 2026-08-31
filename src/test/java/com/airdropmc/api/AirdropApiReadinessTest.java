@@ -85,6 +85,11 @@ class AirdropApiReadinessTest {
 		assertEquals(ReadinessState.FAILED, stateAtFailure.get());
 		assertTrue(completionOnPrimaryThread.get());
 		assertEquals(ReadinessState.STOPPING, api.state());
+		assertEquals("STARTUP", api.status().lastDiagnosticCategory().orElseThrow());
+		String diagnostic = api.status().lastDiagnostic().orElseThrow();
+		assertFalse(diagnostic.contains("InvalidConfigurationException"), diagnostic);
+		assertFalse(diagnostic.contains(plugin.getDataFolder().getAbsolutePath()), diagnostic);
+		assertTrue(diagnostic.codePointCount(0, diagnostic.length()) <= 160, diagnostic);
 		assertTrue(server.getServicesManager().getRegistrations(AirdropApi.class).stream()
 				.noneMatch(candidate -> candidate.getProvider() == api));
 	}

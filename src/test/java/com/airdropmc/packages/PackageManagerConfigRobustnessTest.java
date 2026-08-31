@@ -96,7 +96,7 @@ class PackageManagerConfigRobustnessTest {
 	@Test
 	void materializePackages_rejectsWholeCandidateOnInvalidOrReservedName() {
 		for (String invalidName : List.of(
-				"all", "*", "package", "packages", "version", "reload", "bad name")) {
+				"all", "*", "package", "packages", "version", "status", "reload", "bad name")) {
 			YamlConfiguration candidate = configurationWithPackage("valid_name", 1.0);
 			addPackage(candidate, invalidName, 2.0);
 

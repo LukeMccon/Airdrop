@@ -17,8 +17,13 @@ public class AirdropTabCompleter implements TabCompleter {
 	@Override
 	public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
 		if (!Airdrop.isReady()) {
+			boolean admin = PermissionsHelper.isAdmin(commandSender);
 			return args.length == 1
-					? TabCompletionFilter.filter(List.of(AirdropCommandNames.VERSION), args[0])
+					? TabCompletionFilter.filter(
+							admin
+									? List.of(AirdropCommandNames.STATUS, AirdropCommandNames.VERSION)
+									: List.of(AirdropCommandNames.VERSION),
+							args[0])
 					: List.of();
 		}
 

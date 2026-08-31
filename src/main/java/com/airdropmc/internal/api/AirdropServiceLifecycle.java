@@ -7,6 +7,8 @@ import com.airdropmc.api.EconomyState;
 import com.airdropmc.api.PackageRegistryCause;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.integrations.OptionalIntegrations;
+import com.airdropmc.internal.diagnostics.AirdropDiagnostics;
+import com.airdropmc.limits.DropLimitSettings;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
@@ -78,13 +80,24 @@ public final class AirdropServiceLifecycle {
 		api.publishEconomy(state, providerName, degradedReasons(economy, optionalIntegrationsState));
 	}
 
-	public void refreshPackageCount() {
-		api.refreshPackageCount();
+	/** Publishes configured admission limits after a successful configuration commit. */
+	public void publishLimits(DropLimitSettings settings) {
+		api.publishLimits(settings);
+	}
+
+	/** Records a bounded diagnostic at an operation boundary. */
+	public void recordDiagnostic(AirdropDiagnostics.Category category, Throwable failure) {
+		api.recordDiagnostic(category, failure);
+	}
+
+	/** Clears only the matching diagnostic after a successful publication. */
+	public void clearDiagnostic(AirdropDiagnostics.Category category) {
+		api.clearDiagnostic(category);
 	}
 
 	/** Publishes the supported package snapshot after the raw registry commit. */
-	public void publishPackages(Map<String, Package> packages, PackageRegistryCause cause) {
-		api.publishPackages(packages, cause);
+	public long publishPackages(Map<String, Package> packages, PackageRegistryCause cause) {
+		return api.publishPackages(packages, cause);
 	}
 
 	public void publishFailure(Throwable failure) {

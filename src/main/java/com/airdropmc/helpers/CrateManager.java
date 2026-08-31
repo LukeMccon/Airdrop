@@ -261,6 +261,11 @@ public class CrateManager {
 		return activeDropRegistry.landedCount();
 	}
 
+	/** @return atomic active-drop counts safe for off-thread status reads */
+	public static ActiveDropRegistry.Counts activeCounts() {
+		return activeDropRegistry.counts();
+	}
+
 	/** @return bounded internal paid-crate recovery health report */
 	public static RecoveryReport recoveryReport() {
 		return recoveryReport;

@@ -90,6 +90,23 @@ class AirdropEconomyLifecycleTest {
 	}
 
 	@Test
+	void serviceStatusSanitizesAnExternalProviderDisplayName() throws Exception {
+		Airdrop plugin = loadPlugin(true);
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		net.milkbowl.vault.economy.Economy unsafe = legacy(
+				"§aVault\npassword=hunter2 /plugins/Vault/config.yml");
+
+		register(net.milkbowl.vault.economy.Economy.class, unsafe, ServicePriority.Normal);
+
+		String provider = api.status().economyProviderName().orElseThrow();
+		assertTrue(provider.startsWith("Vault"), provider);
+		assertFalse(provider.contains("hunter2"), provider);
+		assertFalse(provider.contains("/plugins/"), provider);
+		assertFalse(provider.contains("\n"), provider);
+		assertTrue(provider.codePointCount(0, provider.length()) <= 80, provider);
+	}
+
+	@Test
 	void reloadTracksEconomyEnablementAndReportsOutcome() throws Exception {
 		net.milkbowl.vault.economy.Economy legacyA = legacy("Legacy A");
 		register(net.milkbowl.vault.economy.Economy.class, legacyA, ServicePriority.Normal);

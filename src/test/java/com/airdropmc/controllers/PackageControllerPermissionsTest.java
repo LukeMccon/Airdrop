@@ -99,7 +99,7 @@ class PackageControllerPermissionsTest {
 		player.setOp(true);
 
 		for (String name : List.of(
-				"all", "*", "package", "packages", "version", "reload", "create", "DELETE", "ReLoAd")) {
+				"all", "*", "package", "packages", "version", "status", "reload", "create", "DELETE", "ReLoAd")) {
 			PackageController.createPackageCommand(player,
 					new String[]{"package", "create", name, "10.0"});
 

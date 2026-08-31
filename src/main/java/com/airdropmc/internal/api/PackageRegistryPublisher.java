@@ -17,6 +17,9 @@ import java.util.function.Consumer;
 /** Owns the volatile supported package snapshot and monotonic publication revision. */
 @ApiStatus.Internal
 public final class PackageRegistryPublisher {
+	/** Atomic revision/count pair for operational status snapshots. */
+	public record Summary(long revision, int packageCount) {
+	}
 
 	private record Snapshot(long revision, Map<String, AirdropPackage> packages) {
 	}
@@ -42,6 +45,12 @@ public final class PackageRegistryPublisher {
 	/** @return latest complete immutable package snapshot */
 	public Map<String, AirdropPackage> packages() {
 		return snapshot.packages();
+	}
+
+	/** @return revision and package count from one immutable publication */
+	public Summary summary() {
+		Snapshot current = snapshot;
+		return new Summary(current.revision(), current.packages().size());
 	}
 
 	/**

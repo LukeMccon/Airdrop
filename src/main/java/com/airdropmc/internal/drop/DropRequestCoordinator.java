@@ -32,6 +32,7 @@ import com.airdropmc.events.PackageLandEvent;
 import com.airdropmc.exceptions.DropLimitException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.internal.api.ApiModelMapper;
 import com.airdropmc.limits.DropAdmissionController;
@@ -68,6 +69,7 @@ public final class DropRequestCoordinator {
 	private final Plugin plugin;
 	private final DropSettingsResolver settingsResolver;
 	private final Map<UUID, DropRequestProcess> processes = new LinkedHashMap<>();
+	private volatile int pendingCount;
 	private boolean accepting;
 	private boolean stopping;
 
@@ -160,6 +162,11 @@ public final class DropRequestCoordinator {
 		return processes.size();
 	}
 
+	/** @return incomplete request count safe for immutable status snapshots */
+	public int pendingCount() {
+		return pendingCount;
+	}
+
 	private DropHandle begin(
 			DropRequestDescriptor descriptor,
 			Player player,
@@ -168,6 +175,8 @@ public final class DropRequestCoordinator {
 		DefaultDropHandle handle = new DefaultDropHandle(descriptor);
 		DropRequestProcess process = new DropRequestProcess(handle);
 		processes.put(handle.requestId(), process);
+		publishPendingCount();
+		AirdropLogger.debugRequest(handle.requestId(), AirdropLogger.RequestPhase.CREATED);
 
 		if (!accepting) {
 			DropRejectionReason reason = stopping
@@ -208,6 +217,7 @@ public final class DropRequestCoordinator {
 				descriptor, packageSnapshot, target.spawn(), target.landing(), settings);
 		process.context = context;
 		handle.publishContext(context);
+		AirdropLogger.debugRequest(handle.requestId(), AirdropLogger.RequestPhase.RESOLVED);
 		process.payment = paymentFor(descriptor.source(), packageSnapshot.price());
 		AirdropRequestEvent requestEvent = new AirdropRequestEvent(context);
 		process.requestEventPublished = true;
@@ -239,6 +249,8 @@ public final class DropRequestCoordinator {
 							target.landingKey(),
 							toLimitSettings(settings));
 			process.phase = DropRequestProcess.Phase.ADMITTED;
+			AirdropLogger.debugAdmission(
+					handle.requestId(), AirdropLogger.AdmissionDecision.ACCEPTED, null);
 		} catch (DropLimitException failure) {
 			return reject(process, mapLimit(failure), limitDiagnostic(failure), process.payment,
 					failure.getReason() == DropLimitException.Reason.COOLDOWN
@@ -271,6 +283,8 @@ public final class DropRequestCoordinator {
 			EconomyProvider economy,
 			BigDecimal amount) {
 		process.phase = DropRequestProcess.Phase.CHECKING_AFFORDABILITY;
+		AirdropLogger.debugRequest(
+				process.handle.requestId(), AirdropLogger.RequestPhase.PAYMENT_PENDING);
 		process.paymentSession = new PaidDropSession(
 				plugin,
 				economy,
@@ -358,6 +372,8 @@ public final class DropRequestCoordinator {
 					new DropSpawnResult.Spawned(context, view, process.payment))) {
 				throw new IllegalStateException("Could not complete the request spawn stage");
 			}
+			AirdropLogger.debugRequest(
+					process.handle.requestId(), AirdropLogger.RequestPhase.SPAWNED);
 			Bukkit.getPluginManager().callEvent(new AirdropSpawnedEvent(context, view));
 			Bukkit.getPluginManager().callEvent(new PackageDropEvent(
 					process.crate, world, process.crate.getDropLocation()));
@@ -378,6 +394,8 @@ public final class DropRequestCoordinator {
 		if (process.phase != DropRequestProcess.Phase.FALLING) {
 			return false;
 		}
+		AirdropLogger.debugRequest(
+				process.handle.requestId(), AirdropLogger.RequestPhase.LANDING_ATTEMPT);
 		AirdropLandingAttemptEvent event = new AirdropLandingAttemptEvent(
 				Objects.requireNonNull(process.context, "context"),
 				Objects.requireNonNull(process.fallingView, "fallingView"),
@@ -398,6 +416,8 @@ public final class DropRequestCoordinator {
 				context,
 				crate.getExpiresAtMillis(),
 				crate.getOpened());
+		AirdropLogger.debugRequest(
+				process.handle.requestId(), AirdropLogger.RequestPhase.LANDED);
 		Bukkit.getPluginManager().callEvent(new AirdropLandedEvent(context, view));
 		Location landingLocation = crate.getLocation();
 		Bukkit.getPluginManager().callEvent(new PackageLandEvent(
@@ -472,8 +492,13 @@ public final class DropRequestCoordinator {
 		if (process.phase == DropRequestProcess.Phase.TERMINAL) {
 			return process.handle;
 		}
+		boolean admitted = process.lease != null;
 		if (process.lease != null) {
 			process.lease.close();
+		}
+		if (!admitted) {
+			AirdropLogger.debugAdmission(
+					process.handle.requestId(), AirdropLogger.AdmissionDecision.REJECTED, reason);
 		}
 		DropRejection rejection = new DropRejection(reason, diagnostic, retryAfter);
 		DropOutcome.Rejected outcome = new DropOutcome.Rejected(
@@ -481,7 +506,10 @@ public final class DropRequestCoordinator {
 		process.phase = DropRequestProcess.Phase.TERMINAL;
 		boolean completed = process.handle.completeNotSpawned(outcome);
 		processes.remove(process.handle.requestId(), process);
+		publishPendingCount();
 		if (completed) {
+			AirdropLogger.debugRequest(
+					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL, reason);
 			publishOutcome(process, outcome);
 		}
 		return process.handle;
@@ -505,7 +533,10 @@ public final class DropRequestCoordinator {
 			}
 		}
 		processes.remove(process.handle.requestId(), process);
+		publishPendingCount();
 		if (completed) {
+			AirdropLogger.debugRequest(
+					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL, delivery);
 			publishOutcome(process, outcome);
 		}
 	}
@@ -514,7 +545,11 @@ public final class DropRequestCoordinator {
 		process.phase = DropRequestProcess.Phase.TERMINAL;
 		boolean completed = process.handle.completeOutcome(outcome);
 		processes.remove(process.handle.requestId(), process);
+		publishPendingCount();
 		if (completed) {
+			AirdropLogger.debugRequest(
+					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL,
+					outcome.delivery());
 			publishOutcome(process, outcome);
 		}
 	}
@@ -628,6 +663,10 @@ public final class DropRequestCoordinator {
 			throw new IllegalArgumentException("packageName must not be blank");
 		}
 		return required;
+	}
+
+	private void publishPendingCount() {
+		pendingCount = processes.size();
 	}
 
 	private static void requirePrimaryThread(String method) {
