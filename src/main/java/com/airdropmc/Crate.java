@@ -450,6 +450,9 @@ public class Crate {
 	}
 
 	private void startLandedEffects(Airdrop plugin) {
+		if (opened) {
+			return;
+		}
 		if (options.shouldShowLandingEffects()) {
 			RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(landedLocation.clone(), world);
 			landingEffectTask = landedEffect.runTaskTimer(plugin, 0L, 1L);
@@ -708,7 +711,10 @@ public class Crate {
 		return opened;
 	}
 
-	public void setOpened(boolean opened) {
+	public synchronized void setOpened(boolean opened) {
+		if (this.opened == opened) {
+			return;
+		}
 		this.opened = opened;
 		if (opened) {
 			this.stopEffects();

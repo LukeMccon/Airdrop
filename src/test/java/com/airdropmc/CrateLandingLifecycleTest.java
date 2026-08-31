@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -328,6 +329,72 @@ class CrateLandingLifecycleTest {
 		verify(expiryTask).cancel();
 		verify(glowTask).cancel();
 		verify(smokeTask).cancel();
+	}
+
+	@Test
+	void setOpened_cancelsContinuousEffectsWithoutCancellingExpiry() throws Exception {
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask expiryTask = mock(BukkitTask.class);
+		BukkitTask glowTask = mock(BukkitTask.class);
+		BukkitTask smokeTask = mock(BukkitTask.class);
+		when(scheduler.runTaskLater(org.mockito.ArgumentMatchers.eq(plugin),
+				org.mockito.ArgumentMatchers.any(Runnable.class), org.mockito.ArgumentMatchers.anyLong()))
+				.thenReturn(expiryTask);
+		when(scheduler.runTaskTimer(org.mockito.ArgumentMatchers.eq(plugin),
+				org.mockito.ArgumentMatchers.any(Runnable.class), org.mockito.ArgumentMatchers.anyLong(),
+				org.mockito.ArgumentMatchers.anyLong()))
+				.thenReturn(glowTask, smokeTask);
+		DropOptions options = DropOptions.createDefault()
+				.withLandingEffects(false)
+				.withContinuousEffects(true)
+				.withSmokeEnabled(true)
+				.withFlareEffects(false);
+		Crate crate = newCrate(reservedBlock, options);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class, CALLS_REAL_METHODS)) {
+			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+			crate.land(reservedBlock);
+			crate.setOpened(true);
+			crate.setOpened(true);
+		}
+
+		assertTrue(crate.getOpened());
+		verify(glowTask).cancel();
+		verify(smokeTask).cancel();
+		verify(expiryTask, never()).cancel();
+	}
+
+	@Test
+	void openingDuringLandingPublicationDoesNotStartContinuousEffects() throws Exception {
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		BukkitTask expiryTask = mock(BukkitTask.class);
+		AtomicReference<Crate> crateReference = new AtomicReference<>();
+		when(scheduler.runTaskLater(org.mockito.ArgumentMatchers.eq(plugin),
+				org.mockito.ArgumentMatchers.any(Runnable.class), org.mockito.ArgumentMatchers.anyLong()))
+				.thenAnswer(ignored -> {
+					crateReference.get().setOpened(true);
+					return expiryTask;
+				});
+		DropOptions options = DropOptions.createDefault()
+				.withLandingEffects(false)
+				.withContinuousEffects(true)
+				.withSmokeEnabled(true)
+				.withFlareEffects(false);
+		Crate crate = newCrate(reservedBlock, options);
+		crateReference.set(crate);
+
+		try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class, CALLS_REAL_METHODS)) {
+			bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+			crate.land(reservedBlock);
+		}
+
+		assertTrue(crate.getOpened());
+		verify(scheduler, never()).runTaskTimer(
+				org.mockito.ArgumentMatchers.eq(plugin),
+				org.mockito.ArgumentMatchers.any(Runnable.class),
+				org.mockito.ArgumentMatchers.anyLong(),
+				org.mockito.ArgumentMatchers.anyLong());
+		verify(expiryTask, never()).cancel();
 	}
 
 	private AnimatedCrate newAnimatedCrate() throws Exception {
