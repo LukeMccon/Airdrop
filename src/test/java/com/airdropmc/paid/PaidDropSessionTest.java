@@ -1,9 +1,9 @@
 package com.airdropmc.paid;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.economy.EconomyPlayer;
 import com.airdropmc.economy.EconomyProvider;
@@ -37,7 +37,7 @@ import static org.mockito.Mockito.when;
 class PaidDropSessionTest {
 
 	private ServerMock server;
-	private MockPlugin plugin;
+	private PluginMock plugin;
 	private PlayerMock player;
 	private DropAdmissionController admission;
 	private DropAdmissionController.Lease lease;

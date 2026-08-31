@@ -1,9 +1,9 @@
 package com.airdropmc.packages;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -38,7 +38,7 @@ class PackagesGuiNavigationTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		MockPlugin eventPlugin = MockBukkit.createMockPlugin("AirdropBrowserHarness");
+		PluginMock eventPlugin = MockBukkit.createMockPlugin("AirdropBrowserHarness");
 		Airdrop plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
 		when(plugin.getPluginLoader()).thenReturn(eventPlugin.getPluginLoader());

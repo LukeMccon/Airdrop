@@ -1,9 +1,9 @@
 package com.airdropmc.packages;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.controllers.PackageController;
 import com.airdropmc.exceptions.PackageNotFoundException;
@@ -58,7 +58,7 @@ class PackagePersistenceFailureFeedbackTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		MockPlugin eventPlugin = MockBukkit.createMockPlugin("AirdropPersistenceHarness");
+		PluginMock eventPlugin = MockBukkit.createMockPlugin("AirdropPersistenceHarness");
 		plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
 		when(plugin.getPluginLoader()).thenReturn(eventPlugin.getPluginLoader());

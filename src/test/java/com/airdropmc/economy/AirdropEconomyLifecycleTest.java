@@ -1,9 +1,9 @@
 package com.airdropmc.economy;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.commands.CmdAirdrop;
 import net.kyori.adventure.text.Component;
@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 class AirdropEconomyLifecycleTest {
 
 	private ServerMock server;
-	private MockPlugin registrar;
+	private PluginMock registrar;
 
 	@BeforeEach
 	void setUp() {

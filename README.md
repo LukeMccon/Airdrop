@@ -6,14 +6,20 @@
 
 <br />
 
-![Paper SVG](https://img.shields.io/badge/Paper-1.21.11+-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
+![Paper SVG](https://img.shields.io/badge/Paper-1.21.11-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11+-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
 
 A Paper plugin for customizable care packages with parachutes, effects, economy support, and in-game package editing.
 
 </div>
+
+## Compatibility
+
+| Airdrop | Extension API | Paper | Java | Automated lanes |
+| --- | --- | --- | --- | --- |
+| Current source (`4.0.0-SNAPSHOT`) | unavailable | `1.21.11` | `21` | unit + LightKeeper |
 
 ## Features
 
@@ -28,7 +34,7 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 
 ## Requirements
 
-- Paper `1.21.11+`
+- Paper `1.21.11`
 - Java `21`
 - [LuckPerms](https://luckperms.net/) (required)
 - Economy provider for player-requested packages priced above zero when `economy.enabled: true` (default):

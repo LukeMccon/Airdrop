@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
 build/
+!src/test/java/com/airdropmc/build/
+!src/test/java/com/airdropmc/build/**
 .gradle-tmp/
 
 # Gradle Run/Server working dirs (if using run-task or local test server)

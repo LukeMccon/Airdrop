@@ -82,7 +82,8 @@ class LightkeeperIntegrationConfigurationTest {
 		String release = requiredContents(Path.of(".github", "workflows", "release.yml"));
 
 		assertFalse(build.contains("1.21.8"), "Gradle must not retain the old Paper floor");
-		assertContains(build, "paper-api:1.21.11-R0.1-SNAPSHOT");
+		assertContains(build, "supportedPaperApiVersion = \"1.21.11-R0.1-SNAPSHOT\"");
+		assertContains(build, "paper-api:$supportedPaperApiVersion");
 		assertContains(build, "minecraftVersion(\"1.21.11\")");
 		assertContains(build, "apiVersion = \"1.21.11\"");
 		assertContains(release, "GAME_VERSIONS=\"1.21.11\"");

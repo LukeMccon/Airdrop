@@ -38,9 +38,12 @@ fun normalizeReleaseTag(tag: String): String {
 }
 
 val configuredReleaseVersion = providers.gradleProperty("releaseTag").orNull?.let { normalizeReleaseTag(it) }
+val sourceDevelopmentVersion = "4.0.0-SNAPSHOT"
+val supportedPaperApiVersion = "1.21.11-R0.1-SNAPSHOT"
+val supportedJUnitVersion = "6.1.3"
 
 group = "com.airdropmc"
-version = configuredReleaseVersion ?: "4.0.0-SNAPSHOT"
+version = configuredReleaseVersion ?: sourceDevelopmentVersion
 description = "Airdrop - Minecraft care package plugin"
 
 java {
@@ -69,7 +72,7 @@ repositories {
 
 dependencies {
     // Paper API
-    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:$supportedPaperApiVersion")
     
     // Plugin dependencies
     compileOnly("net.luckperms:api:5.4")
@@ -80,12 +83,14 @@ dependencies {
     compileOnly("org.jetbrains:annotations:24.1.0")
     
     // Test dependencies
+    testImplementation("io.papermc.paper:paper-api:$supportedPaperApiVersion")
     testImplementation("net.milkbowl.vault:VaultUnlockedAPI:2.20")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
+    testImplementation(platform("org.junit:junit-bom:$supportedJUnitVersion"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.yaml:snakeyaml:2.2")
     testImplementation("org.mockito:mockito-core:5.14.2")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
-    testImplementation("com.github.seeseemelk:MockBukkit-v1.21:3.133.2")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.116.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -108,6 +113,7 @@ tasks {
     test {
         useJUnitPlatform()
         systemProperty("airdrop.projectVersion", project.version.toString())
+        systemProperty("airdrop.sourceDevelopmentVersion", sourceDevelopmentVersion)
         addTestListener(object : TestListener {
             override fun beforeSuite(suite: TestDescriptor) = Unit
 
@@ -225,6 +231,49 @@ tasks.register("verifyReleaseArtifact") {
             logger.lifecycle("Verified release artifact: $relativeArchivePath")
         }
     }
+}
+
+val verifyDependencyMatrix = tasks.register("verifyDependencyMatrix") {
+    group = "verification"
+    description = "Verifies exact Paper and JUnit versions on the test classpaths"
+
+    doLast {
+        listOf("testCompileClasspath", "testRuntimeClasspath").forEach { configurationName ->
+            val resolvedModules = configurations.getByName(configurationName)
+                .incoming
+                .resolutionResult
+                .allComponents
+                .mapNotNull { it.moduleVersion }
+
+            val paperVersions = resolvedModules
+                .filter { it.group == "io.papermc.paper" && it.name == "paper-api" }
+                .map { it.version }
+                .toSet()
+            if (paperVersions != setOf(supportedPaperApiVersion)) {
+                throw GradleException(
+                    "$configurationName must resolve Paper $supportedPaperApiVersion exactly, but resolved $paperVersions"
+                )
+            }
+
+            val junitVersions = resolvedModules
+                .filter { it.group.startsWith("org.junit") }
+                .associate { "${it.group}:${it.name}" to it.version }
+            if (junitVersions.isEmpty()) {
+                throw GradleException("$configurationName must resolve JUnit modules")
+            }
+            val unexpectedJUnit = junitVersions.filterValues { it != supportedJUnitVersion }
+            if (unexpectedJUnit.isNotEmpty()) {
+                throw GradleException(
+                    "$configurationName must resolve every JUnit module to $supportedJUnitVersion, " +
+                        "but resolved $unexpectedJUnit"
+                )
+            }
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verifyDependencyMatrix)
 }
 
 // Configure plugin.yml generation

@@ -1,7 +1,7 @@
 package com.airdropmc;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.ServicePriority;
@@ -10,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
+import java.time.Duration;
+import java.util.concurrent.locks.LockSupport;
 
 import com.airdropmc.listeners.CrateHopperListener;
 
@@ -47,10 +49,20 @@ class AirdropListenerRegistrationTest {
 		Files.createDirectories(plugin.getDataFolder().toPath());
 		Files.writeString(plugin.getDataFolder().toPath().resolve("packages.yml"), "packages: {}\n");
 		server.getPluginManager().enablePlugin(plugin);
+		awaitReady(plugin);
 
 		assertTrue(plugin.isEnabled());
 		assertEquals(1, HandlerList.getRegisteredListeners(plugin).stream()
 				.filter(listener -> listener.getListener() instanceof CrateHopperListener)
 				.count());
+	}
+
+	private void awaitReady(Airdrop plugin) {
+		long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+		while (System.nanoTime() < deadline && plugin.isEnabled() && !Airdrop.isReady()) {
+			server.getScheduler().performOneTick();
+			LockSupport.parkNanos(Duration.ofMillis(1).toNanos());
+		}
+		assertTrue(Airdrop.isReady(), "Timed out waiting for asynchronous startup");
 	}
 }
