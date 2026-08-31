@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
+import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
@@ -36,11 +37,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Represents a crate that can be dropped from the sky
  * A.K.A an Airdrop
  */
+@ApiStatus.Internal
 public class Crate {
 	private static final NamespacedKey CRATE_ID_KEY = Objects.requireNonNull(
 			NamespacedKey.fromString("airdrop:crate_id"));
@@ -77,7 +80,7 @@ public class Crate {
 	private final ArrayList<ItemStack> contents;
 	private final String crateId;
 	private State state;
-	private final DropOptions options;
+	private final ResolvedDropSettings settings;
 	private final DropAdmissionController.Lease lease;
 	private final Consumer<Outcome> outcomeListener;
 	private final boolean paid;
@@ -111,29 +114,59 @@ public class Crate {
 	 * @param world    where it will drop in
 	 * @param contents of the crate
 	 */
-	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease) {
-		this(location, world, contents, options, lease, false, ignored -> { });
+		this(location, world, contents, settings, lease, false, ignored -> { });
 	}
 
-	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease, Consumer<Outcome> outcomeListener) {
-		this(location, world, contents, options, lease, false, outcomeListener);
+		this(location, world, contents, settings, lease, false, outcomeListener);
 	}
 
-	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease, boolean paid, Consumer<Outcome> outcomeListener) {
 		this.world = Objects.requireNonNull(world, "world");
 		this.dropLocation = LocationHelper.copyInWorld(location, this.world, "location");
 		this.contents = cloneContents(contents);
 		this.crateId = UUID.randomUUID().toString();
 		this.state = State.FALLING;
-		this.options = Objects.requireNonNull(options, "options");
+		this.settings = Objects.requireNonNull(settings, "settings");
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.paid = paid;
 		this.outcomeListener = Objects.requireNonNull(outcomeListener, "outcomeListener");
 		this.parachuteSystem = new ParachuteSystem(
-				world, options, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
+				world, settings, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
+	}
+
+	/**
+	 * @deprecated implementation adapter for callers migrating from mutable
+	 *             {@link DropOptions}; resolves the options immediately
+	 */
+	@Deprecated(forRemoval = false)
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease) {
+		this(location, world, contents, resolveLegacyOptions(options), lease);
+	}
+
+	/**
+	 * @deprecated implementation adapter for callers migrating from mutable
+	 *             {@link DropOptions}; resolves the options immediately
+	 */
+	@Deprecated(forRemoval = false)
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease, Consumer<Outcome> outcomeListener) {
+		this(location, world, contents, resolveLegacyOptions(options), lease, outcomeListener);
+	}
+
+	/**
+	 * @deprecated implementation adapter for callers migrating from mutable
+	 *             {@link DropOptions}; resolves the options immediately
+	 */
+	@Deprecated(forRemoval = false)
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease, boolean paid, Consumer<Outcome> outcomeListener) {
+		this(location, world, contents, resolveLegacyOptions(options), lease, paid, outcomeListener);
 	}
 
 	private Crate(World world, Barrel barrel, PersistedBarrelData persisted,
@@ -144,7 +177,7 @@ public class Crate {
 		this.contents = new ArrayList<>();
 		this.crateId = persisted.crateId();
 		this.state = State.LANDED;
-		this.options = DropOptions.createDefault();
+		this.settings = DropOptions.createDefault().resolve(ConfigKeys.getDropLimitSettings());
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.paid = true;
 		this.outcomeListener = ignored -> { };
@@ -177,6 +210,10 @@ public class Crate {
 		return clonedContents;
 	}
 
+	private static ResolvedDropSettings resolveLegacyOptions(DropOptions options) {
+		return Objects.requireNonNull(options, "options").resolve(ConfigKeys.getDropLimitSettings());
+	}
+
 	/**
 	 * Drop the crate
 	 */
@@ -190,8 +227,8 @@ public class Crate {
 		}
 
 		Location groundLocation = dropLocation.clone();
-		groundLocation.setY(dropLocation.getY() - options.getDropHeight() + 1);
-		if (options.shouldShowFlareEffects()) {
+		groundLocation.setY(dropLocation.getY() - settings.dropHeight() + 1);
+		if (settings.flareEffects()) {
 			flareEffect = new RenderFlareTask(groundLocation, world);
 			flareEffect.runTaskTimer(plugin, 0L, 1L);
 		}
@@ -235,7 +272,7 @@ public class Crate {
 			this.landedLocation = candidate;
 			this.state = State.LANDED;
 			this.expiresAtMillis = Math.addExact(
-					System.currentTimeMillis(), ConfigKeys.getDropLimitSettings().landedLifetime().toMillis());
+					System.currentTimeMillis(), settings.landedLifetime().toMillis());
 			blockChest.setType(Material.BARREL);
 			BlockState barrelState = blockChest.getState();
 			if (!(barrelState instanceof Barrel barrel)) {
@@ -450,16 +487,16 @@ public class Crate {
 	}
 
 	private void startLandedEffects(Airdrop plugin) {
-		if (options.shouldShowLandingEffects()) {
+		if (settings.landingEffects()) {
 			RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(landedLocation.clone(), world);
 			landingEffectTask = landedEffect.runTask(plugin);
 		}
-		if (options.shouldShowContinuousEffects()) {
+		if (settings.continuousEffects()) {
 			glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
 			glowTask = glowEffect.runTaskTimer(plugin, 0L, 10L);
 		}
-		if (options.isSmokeEnabled()) {
-			smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, options.getSmokeHeight());
+		if (settings.smokeEnabled()) {
+			smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, settings.smokeHeight());
 			smokeTask = smokeEffect.runTaskTimer(plugin, 0L, 100L);
 		}
 	}

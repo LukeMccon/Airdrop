@@ -22,6 +22,7 @@ import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.FallingBlock;
+import org.jetbrains.annotations.ApiStatus;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
@@ -33,6 +34,7 @@ import com.airdropmc.limits.DropLocationKey;
 /**
  * Manages crates.
  */
+@ApiStatus.Internal
 public class CrateManager {
 
 	private CrateManager() {

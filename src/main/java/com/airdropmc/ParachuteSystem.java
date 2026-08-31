@@ -14,17 +14,21 @@ import org.bukkit.Effect;
 import org.bukkit.util.Vector;
 import org.bukkit.scheduler.BukkitTask;
 
+import com.airdropmc.api.ResolvedDropSettings;
+import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Manages the parachute system for airdrops, including chicken parachutes and
  * effects
  */
+@ApiStatus.Internal
 public class ParachuteSystem {
     private final World world;
 	private final ArrayList<Chicken> chickenParachutes;
-	private final DropOptions options;
+	private final ResolvedDropSettings settings;
 	private final Runnable fallingCrateLostHandler;
     private Slime parachuteLeash;
     private FallingBlock fallingCrate;
@@ -34,16 +38,34 @@ public class ParachuteSystem {
 	private boolean parachutesReleased;
 	private boolean fallingCrateLossHandled;
 
-	public ParachuteSystem(World world, DropOptions options) {
-		this(world, options, () -> {});
+	public ParachuteSystem(World world, ResolvedDropSettings settings) {
+		this(world, settings, () -> {});
 	}
 
-	ParachuteSystem(World world, DropOptions options, Runnable fallingCrateLostHandler) {
-		this.world = world;
+	ParachuteSystem(World world, ResolvedDropSettings settings, Runnable fallingCrateLostHandler) {
+		this.world = Objects.requireNonNull(world, "world");
 		this.chickenParachutes = new ArrayList<>();
-		this.options = options;
+		this.settings = Objects.requireNonNull(settings, "settings");
 		this.fallingCrateLostHandler = Objects.requireNonNull(
 				fallingCrateLostHandler, "fallingCrateLostHandler");
+	}
+
+	/**
+	 * @deprecated implementation adapter for mutable {@link DropOptions}; the
+	 *             values are resolved immediately
+	 */
+	@Deprecated(forRemoval = false)
+	public ParachuteSystem(World world, DropOptions options) {
+		this(world, resolveLegacyOptions(options));
+	}
+
+	/**
+	 * @deprecated implementation adapter for mutable {@link DropOptions}; the
+	 *             values are resolved immediately
+	 */
+	@Deprecated(forRemoval = false)
+	ParachuteSystem(World world, DropOptions options, Runnable fallingCrateLostHandler) {
+		this(world, resolveLegacyOptions(options), fallingCrateLostHandler);
 	}
 
     /**
@@ -68,7 +90,7 @@ public class ParachuteSystem {
         parachuteLeash.setInvulnerable(true);
 
         // Create chicken parachuters and attach them to the slime
-        for (int i = 0; i < options.getChickenCount(); i++) {
+		for (int i = 0; i < settings.chickenCount(); i++) {
             Location chickenLocation = dropLocation.clone()
                     .add(new Vector(Math.random() * 0.25, 2 + i, Math.random() * 0.25));
             Chicken chicken = (Chicken) world.spawnEntity(
@@ -105,7 +127,7 @@ public class ParachuteSystem {
                 }
 
                 // Set the falling velocity equal to the speed in a downward direction
-                double fallingVelocity = -ParachuteSystem.this.options.getFallingSpeed();
+				double fallingVelocity = -ParachuteSystem.this.settings.fallingSpeed();
 
                 // Maintain falling velocity
                 fallingCrate.setVelocity(new Vector(0, fallingVelocity, 0));
@@ -228,5 +250,9 @@ public class ParachuteSystem {
 			}
 			return false;
 		}
+	}
+
+	private static ResolvedDropSettings resolveLegacyOptions(DropOptions options) {
+		return Objects.requireNonNull(options, "options").resolve(ConfigKeys.getDropLimitSettings());
 	}
 }

@@ -34,12 +34,14 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.ApiStatus;
 
 import com.airdropmc.commands.CmdAirdrop;
 
 /**
  * Main plugin class
  */
+@ApiStatus.Internal
 public class Airdrop extends JavaPlugin {
 
 	public static final String PLUGIN_NAME = "Airdrop";

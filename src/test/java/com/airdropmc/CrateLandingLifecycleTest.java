@@ -3,6 +3,7 @@ package com.airdropmc;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
+import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.limits.DropAdmissionController;
@@ -99,6 +100,27 @@ class CrateLandingLifecycleTest {
 		crate.land(reservedBlock);
 
 		server.getScheduler().performTicks(12_000L);
+
+		assertNull(CrateManager.getCrate(reservedBlock.getLocation()));
+		assertEquals(Material.AIR, reservedBlock.getType());
+		assertEquals(0, admission.snapshot().landedClaims());
+	}
+
+	@Test
+	void landingUsesTheLifetimeSnapshottedBeforeTheDropStarted() throws Exception {
+		DropLimitSettings limits = new DropLimitSettings(
+				Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(2));
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				DropLocationKey.from(reservedBlock.getLocation()), limits);
+		lease.commitSpawn();
+		ResolvedDropSettings settings = new ResolvedDropSettings(
+				1, 0.3, 36, false, false, false, false, 20,
+				limits.requestCooldown(), limits.maxFalling(), limits.maxLanded(), limits.landedLifetime());
+		Crate crate = new Crate(
+				new Location(world, 10.5, 100, 10.5), world, List.of(), settings, lease);
+
+		crate.land(reservedBlock);
+		server.getScheduler().performTicks(40L);
 
 		assertNull(CrateManager.getCrate(reservedBlock.getLocation()));
 		assertEquals(Material.AIR, reservedBlock.getType());

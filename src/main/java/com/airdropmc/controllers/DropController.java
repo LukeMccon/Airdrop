@@ -2,6 +2,7 @@ package com.airdropmc.controllers;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
+import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.economy.EconomyPlayer;
@@ -13,7 +14,9 @@ import com.airdropmc.exceptions.InsufficientPermissionsException;
 import com.airdropmc.exceptions.SkyNotClearException;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.internal.api.ApiModelMapper;
 import com.airdropmc.limits.DropAdmissionController;
+import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.packages.Package;
 import com.airdropmc.paid.PaidDropSession;
@@ -22,6 +25,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -31,6 +35,7 @@ import java.util.List;
  * creation. Priced player requests continue through the asynchronous economy
  * flow after this controller returns.
  */
+@ApiStatus.Internal
 public class DropController {
 
 	private static final int ZERO_BLOCKS = 0;
@@ -73,13 +78,15 @@ public class DropController {
 	 */
 	public static void dropPackage(Package pkg, World world, Location loc, DropOptions options)
 			throws SkyNotClearException, DropLimitException {
-		DropOptions resolvedOptions = options != null ? options : DropOptions.createDefault();
-		DropTarget target = getDropTarget(world, loc, resolvedOptions);
+		DropOptions requestOptions = options != null ? options : DropOptions.createDefault();
+		DropLimitSettings limitSettings = ConfigKeys.getDropLimitSettings();
+		ResolvedDropSettings resolvedSettings = ApiModelMapper.resolveSettings(requestOptions, limitSettings);
+		DropTarget target = getDropTarget(world, loc, resolvedSettings);
 		DropAdmissionController.Lease lease = requireAdmissionController().acquireSystem(
-				target.landingKey(), ConfigKeys.getDropLimitSettings());
+				target.landingKey(), limitSettings);
 		try {
 			List<ItemStack> items = pkg.getItems();
-			dropPackageAtLocation(items, world, target.spawnLocation(), resolvedOptions, lease);
+			dropPackageAtLocation(items, world, target.spawnLocation(), resolvedSettings, lease);
 		} catch (RuntimeException failure) {
 			lease.close();
 			throw failure;
@@ -118,8 +125,7 @@ public class DropController {
 	 */
 	public static void dropPackageOnPlayer(Package pkg, Player player, DropOptions options)
 			throws SkyNotClearException, DropLimitException {
-		DropOptions resolvedOptions = options != null ? options : DropOptions.createDefault();
-		dropPackage(pkg, player.getWorld(), player.getLocation(), resolvedOptions);
+		dropPackage(pkg, player.getWorld(), player.getLocation(), options);
 	}
 
 	/**
@@ -160,7 +166,7 @@ public class DropController {
 	public static void playerInitiatedDropPackage(Package pkg, Player player, DropOptions options)
 			throws EconomyUnavailableException,
 			InsufficientPermissionsException, SkyNotClearException, DropLimitException {
-		DropOptions resolvedOptions = options != null ? options : DropOptions.createDefault();
+		DropOptions requestOptions = options != null ? options : DropOptions.createDefault();
 		if (!PermissionsHelper.hasPermission(player, pkg.getName())) {
 			throw new InsufficientPermissionsException(pkg.getName());
 		}
@@ -175,11 +181,13 @@ public class DropController {
 			throw new EconomyUnavailableException(EconomyUnavailableException.Reason.NO_PROVIDER);
 		}
 
+		DropLimitSettings limitSettings = ConfigKeys.getDropLimitSettings();
+		ResolvedDropSettings resolvedSettings = ApiModelMapper.resolveSettings(requestOptions, limitSettings);
 		World world = player.getWorld();
-		DropTarget target = getDropTarget(world, player.getLocation(), resolvedOptions);
+		DropTarget target = getDropTarget(world, player.getLocation(), resolvedSettings);
 		DropAdmissionController.Lease lease = requireAdmissionController().acquirePlayer(
 				player.getUniqueId(), PermissionsHelper.hasCooldownBypass(player), target.landingKey(),
-				ConfigKeys.getDropLimitSettings());
+				limitSettings);
 		List<ItemStack> items;
 		try {
 			items = pkg.getItems();
@@ -190,7 +198,7 @@ public class DropController {
 
 		if (!priced) {
 			try {
-				dropPackageAtLocation(items, world, target.spawnLocation(), resolvedOptions, lease);
+				dropPackageAtLocation(items, world, target.spawnLocation(), resolvedSettings, lease);
 			} catch (RuntimeException failure) {
 				lease.close();
 				throw failure;
@@ -211,7 +219,7 @@ public class DropController {
 				BigDecimal.valueOf(packagePrice),
 				lease,
 				paidSession -> dropPackageAtLocation(
-						items, world, target.spawnLocation(), resolvedOptions, lease, true,
+						items, world, target.spawnLocation(), resolvedSettings, lease, true,
 						outcome -> {
 							if (outcome == Crate.Outcome.LANDED) {
 								paidSession.landed();
@@ -227,29 +235,30 @@ public class DropController {
 		}
 	}
 
-	private static DropTarget getDropTarget(World world, Location requested, DropOptions options)
+	private static DropTarget getDropTarget(
+			World world, Location requested, ResolvedDropSettings settings)
 			throws SkyNotClearException {
 		Location ground = world.getHighestBlockAt(requested.getBlockX(), requested.getBlockZ()).getLocation()
 				.add(HALF_BLOCK, ZERO_BLOCKS, HALF_BLOCK);
 		if (requested.getBlockY() < ground.getBlockY()) {
 			throw new SkyNotClearException(requested);
 		}
-		Location spawn = ground.clone().add(ZERO_BLOCKS, options.getDropHeight(), ZERO_BLOCKS);
+		Location spawn = ground.clone().add(ZERO_BLOCKS, settings.dropHeight(), ZERO_BLOCKS);
 		Location intendedBarrel = ground.clone().add(ZERO_BLOCKS, 1, ZERO_BLOCKS);
 		return new DropTarget(spawn, DropLocationKey.from(intendedBarrel));
 	}
 
 	private static void dropPackageAtLocation(List<ItemStack> items, World world, Location spawn,
-			DropOptions options, DropAdmissionController.Lease lease) {
-		dropPackageAtLocation(items, world, spawn, options, lease, false, ignored -> { });
+			ResolvedDropSettings settings, DropAdmissionController.Lease lease) {
+		dropPackageAtLocation(items, world, spawn, settings, lease, false, ignored -> { });
 	}
 
 	private static void dropPackageAtLocation(List<ItemStack> items, World world, Location spawn,
-			DropOptions options, DropAdmissionController.Lease lease, boolean paid,
+			ResolvedDropSettings settings, DropAdmissionController.Lease lease, boolean paid,
 			java.util.function.Consumer<Crate.Outcome> outcomeListener) {
 		Crate crate = null;
 		try {
-			crate = new Crate(spawn.clone(), world, items, options, lease, paid, outcomeListener);
+			crate = new Crate(spawn.clone(), world, items, settings, lease, paid, outcomeListener);
 			crate.dropCrate();
 			Bukkit.getPluginManager().callEvent(new PackageDropEvent(crate, world, crate.getDropLocation()));
 			lease.commitSpawn();
