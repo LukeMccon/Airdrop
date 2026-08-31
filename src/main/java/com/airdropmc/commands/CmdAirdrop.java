@@ -10,6 +10,7 @@ import com.airdropmc.lang.MessageKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
@@ -20,30 +21,37 @@ import java.util.logging.Level;
 public class CmdAirdrop implements CommandExecutor {
 	private static final String CREATE = "create";
 	private static final String DELETE = "delete";
+	private static final String EXTENSION_API_UNAVAILABLE = "unavailable";
+	private static final String MODRINTH_URL = "https://modrinth.com/plugin/airdrop";
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
 			@NotNull String label, String[] args) {
 
 		if (args.length == 0) {
-			return false;
-		}
-		if (hasInvalidGenericArgumentCount(args)) {
-			return false;
+			sendHelp(sender);
+			return true;
 		}
 		if (requiresPackageArgumentFeedback(args)) {
 			PackageCommand.onCommand(sender, args);
 			return true;
 		}
+		if (hasInvalidGenericArgumentCount(args)) {
+			sendHelp(sender);
+			return true;
+		}
 
 		if (AirdropCommandNames.VERSION.equals(args[0])) {
 			String version = Airdrop.getVersion() != null ? Airdrop.getVersion() : "unknown";
-			String apiVersion = Airdrop.getPluginApiVersion() != null
-					? Airdrop.getPluginApiVersion()
+			String paperVersion = Airdrop.getPaperApiVersion() != null
+					? Airdrop.getPaperApiVersion()
 					: "unknown";
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.SYSTEM_VERSION_INFO, Map.of(
-					"version", version,
-					"api_version", apiVersion));
+					"plugin_version", version,
+					"extension_api_version", EXTENSION_API_UNAVAILABLE,
+					"paper_version", paperVersion,
+					"java_version", System.getProperty("java.version", "unknown"),
+					"docs_url", MODRINTH_URL));
 			return true;
 		}
 
@@ -59,6 +67,25 @@ public class CmdAirdrop implements CommandExecutor {
 			default -> DropCommand.onCommand(sender, args);
 		}
 		return true;
+	}
+
+	private static void sendHelp(CommandSender sender) {
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_HEADER, Map.of());
+		if (sender instanceof Player) {
+			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_DROP, Map.of());
+		}
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_PACKAGE, Map.of());
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_VERSION, Map.of());
+
+		if (!PermissionsHelper.isAdmin(sender)) {
+			return;
+		}
+		if (sender instanceof Player) {
+			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_CREATE, Map.of());
+			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_PACKAGES, Map.of());
+		}
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_DELETE, Map.of());
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_RELOAD, Map.of());
 	}
 
 	private static boolean hasInvalidGenericArgumentCount(String[] args) {

@@ -50,12 +50,12 @@ class CmdAirdropArgumentCountTest {
 
 	@ParameterizedTest(name = "{0}")
 	@MethodSource("invalidGenericCommandForms")
-	void genericCommandFormsRejectInvalidArgumentCounts(String description, String[] args) {
+	void genericCommandFormsRenderHandledHelpForInvalidArgumentCounts(String description, String[] args) {
 		PlayerMock player = server.addPlayer();
 		Command command = mock(Command.class);
 		CmdAirdrop executor = new CmdAirdrop();
 
-		assertFalse(executor.onCommand(player, command, "airdrop", args), description);
+		assertTrue(executor.onCommand(player, command, "airdrop", args), description);
 	}
 
 	@ParameterizedTest(name = "{0}")

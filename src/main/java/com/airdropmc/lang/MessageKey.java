@@ -8,6 +8,14 @@ public enum MessageKey {
 			"Uses inventory GUI, not available to the console"),
 	COMMANDS_PACKAGE_SPECIFY("commands.package-specify", "Must specify a package name"),
 	COMMANDS_PACKAGE_EXAMPLE("commands.package-example", "Example: /airdrop starter"),
+	COMMANDS_HELP_HEADER("commands.help.header", "{primary}Airdrop commands"),
+	COMMANDS_HELP_DROP("commands.help.drop", "{text}/airdrop <package>{primary} — request a package; press Tab to see packages you can use"),
+	COMMANDS_HELP_PACKAGE("commands.help.package", "{text}/airdrop package <name>{primary} — inspect a package"),
+	COMMANDS_HELP_VERSION("commands.help.version", "{text}/airdrop version{primary} — show compatibility information"),
+	COMMANDS_HELP_ADMIN_CREATE("commands.help.admin-create", "{text}/airdrop package create <name> <price>{primary} — create a package"),
+	COMMANDS_HELP_ADMIN_DELETE("commands.help.admin-delete", "{text}/airdrop package delete <name>{primary} — delete a package"),
+	COMMANDS_HELP_ADMIN_PACKAGES("commands.help.admin-packages", "{text}/airdrop packages{primary} — open package management"),
+	COMMANDS_HELP_ADMIN_RELOAD("commands.help.admin-reload", "{text}/airdrop reload{primary} — reload configuration"),
 
 	PACKAGES_INFO("packages.info",
 			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Package: {accent}{name}\n{text}  Price: {accent}${price}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{info}"),
@@ -50,7 +58,7 @@ public enum MessageKey {
 			"Reload failed because packages configuration is unavailable"),
 	ERROR_SKY_NOT_CLEAR("errors.sky-not-clear", "Sky must be clear above your location to call an airdrop"),
 	ERROR_PACKAGE_NOT_FOUND("errors.package-not-found",
-			"Package {accent}{name}{error} not found. Use {warning}/airdrop packages{error} to see available packages"),
+			"Package {accent}{name}{error} not found. Type {warning}/airdrop{error} and press Tab to see packages you can use, or inspect one with {warning}/airdrop package <name>"),
 	ERROR_PACKAGE_EXISTS("errors.package-exists", "A package named {accent}{name}{error} already exists"),
 	ERROR_PACKAGE_DELETE_NOT_FOUND("errors.package-delete-not-found",
 			"Unable to delete package: {error-detail}{name}{error} not found"),
@@ -98,7 +106,7 @@ public enum MessageKey {
 	SYSTEM_PACKAGE_PRICE_INVALID("system.package-price-invalid",
 			"Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"),
 	SYSTEM_VERSION_INFO("system.version-info",
-			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Airdrop {accent}v{version}\n{text}  Paper API {accent}{api_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Found a bug? Report it here:\n{text}  {accent}airdropmc.com/report-bug\n{text}  Have an idea? Request a feature:\n{text}  {accent}airdropmc.com/request-feature");
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java runtime: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}");
 
 	private final String key;
 	private final String defaultValue;

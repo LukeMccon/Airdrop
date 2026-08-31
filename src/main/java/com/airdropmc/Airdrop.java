@@ -335,7 +335,21 @@ public class Airdrop extends JavaPlugin {
 		Airdrop.pluginInstance = pluginInstance;
 	}
 
+	/**
+	 * @deprecated This value describes Paper compatibility, not Airdrop's extension API.
+	 *             Use {@link #getPaperApiVersion()}.
+	 */
+	@Deprecated
 	public static String getPluginApiVersion() {
+		return getPaperApiVersion();
+	}
+
+	/**
+	 * Returns the Paper API compatibility declared in the generated plugin metadata.
+	 *
+	 * @return declared Paper API compatibility, or {@code null} while disabled
+	 */
+	public static String getPaperApiVersion() {
 		return pluginApiVersion;
 	}
 

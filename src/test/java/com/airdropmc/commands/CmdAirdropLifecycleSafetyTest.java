@@ -75,7 +75,7 @@ class CmdAirdropLifecycleSafetyTest {
 
 		try (MockedStatic<Airdrop> airdropMock = Mockito.mockStatic(Airdrop.class)) {
 			airdropMock.when(Airdrop::getVersion).thenReturn(null);
-			airdropMock.when(Airdrop::getPluginApiVersion).thenReturn(null);
+			airdropMock.when(Airdrop::getPaperApiVersion).thenReturn(null);
 
 			boolean handled = new CmdAirdrop().onCommand(player, command, "airdrop", new String[]{"version"});
 

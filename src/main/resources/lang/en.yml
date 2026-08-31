@@ -5,6 +5,15 @@ commands:
   packages-console-only: "Uses inventory GUI, not available to the console"
   package-specify: "Must specify a package name"
   package-example: "Example: /airdrop starter"
+  help:
+    header: "{primary}Airdrop commands"
+    drop: "{text}/airdrop <package>{primary} — request a package; press Tab to see packages you can use"
+    package: "{text}/airdrop package <name>{primary} — inspect a package"
+    version: "{text}/airdrop version{primary} — show compatibility information"
+    admin-create: "{text}/airdrop package create <name> <price>{primary} — create a package"
+    admin-delete: "{text}/airdrop package delete <name>{primary} — delete a package"
+    admin-packages: "{text}/airdrop packages{primary} — open package management"
+    admin-reload: "{text}/airdrop reload{primary} — reload configuration"
 
 packages:
   info: "{text}\nPackage info for: {accent}{name}{text}\n================\n{text}{info}"
@@ -37,7 +46,7 @@ errors:
   reload-failed-retained: "Reload failed. The previous configuration remains active. Check the server log."
   packages-reload-failed: "Reload failed because packages configuration is unavailable"
   sky-not-clear: "Sky must be clear above your location to call an airdrop"
-  package-not-found: "Package {accent}{name}{error} not found. Use {warning}/airdrop packages{error} to see available packages"
+  package-not-found: "Package {accent}{name}{error} not found. Type {warning}/airdrop{error} and press Tab to see packages you can use, or inspect one with {warning}/airdrop package <name>"
   package-exists: "A package named {accent}{name}{error} already exists"
   package-delete-not-found: "Unable to delete package: {error-detail}{name}{error} not found"
   package-save-failed: "Could not save package changes. No changes were made. Check the server log."
@@ -77,4 +86,4 @@ system:
   reload-economy-unavailable: "Reload completed, but no economy provider is available; paid drops are blocked"
   package-price-missing: "Could not find price for package: {accent}{name}"
   package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"
-  version-info: "{text}\nAirdrop Version: {accent}{version}{text}\nSpigot API Version: {accent}{api_version}"
+  version-info: "{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java runtime: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}"

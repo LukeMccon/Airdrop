@@ -88,6 +88,8 @@ armor and bread. No economy or LuckPerms installation is required.
 
 All commands start with `/airdrop` (aliases: `/drop`, `/ad`).
 
+- `/airdrop`
+  - Shows only the commands available to the sender
 - `/airdrop <packageName>`
   - Player-only
   - Drops a package at your location
@@ -106,7 +108,8 @@ All commands start with `/airdrop` (aliases: `/drop`, `/ad`).
   - Admin-only
   - Reloads main config, language, and packages
 - `/airdrop version`
-  - Shows plugin and API versions
+  - Shows the plugin version, extension API availability, Paper compatibility,
+    Java runtime, and canonical Modrinth documentation link
 
 ## Permissions
 
