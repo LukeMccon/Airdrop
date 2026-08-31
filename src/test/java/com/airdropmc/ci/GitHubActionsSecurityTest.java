@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -74,7 +75,7 @@ class GitHubActionsSecurityTest {
 
 		Map<?, ?> release = findStep(build, "id", "release", false);
 		assertEquals(
-				RELEASE_TAG,
+				"${{ steps.version.outputs.version }}",
 				value(requiredMap(value(release, "env"), "release environment"),
 						"ORG_GRADLE_PROJECT_releaseTag")
 		);
@@ -116,6 +117,50 @@ class GitHubActionsSecurityTest {
 						"modrinth-files"))
 		);
 		assertFalse(contents.contains("*.jar"));
+	}
+
+	@Test
+	void releaseNormalizesVPrefixedTagOnceAndReusesVersion() throws Exception {
+		Process process = new ProcessBuilder("./scripts/normalize-release-version", "v5.0.0")
+				.redirectErrorStream(true)
+				.start();
+		assertTrue(process.waitFor(5, TimeUnit.SECONDS), "Release version normalizer timed out");
+		String output = new String(process.getInputStream().readAllBytes()).strip();
+		assertEquals(0, process.exitValue(), output);
+		assertEquals("5.0.0", output);
+
+		String contents = Files.readString(RELEASE_WORKFLOW);
+		assertEquals(1, contents.lines()
+				.filter(line -> line.contains("./scripts/normalize-release-version"))
+				.count());
+		Map<?, ?> workflow = requiredMap(
+				loadYaml(contents),
+				"release workflow"
+		);
+		Map<?, ?> build = job(workflow, "build");
+		Map<?, ?> version = findStep(build, "id", "version", false);
+		assertEquals(
+				RELEASE_TAG,
+				value(requiredMap(value(version, "env"), "version environment"), "RAW_TAG")
+		);
+		assertTrue(String.valueOf(value(version, "run"))
+				.contains("./scripts/normalize-release-version \"$RAW_TAG\""));
+
+		Map<?, ?> outputs = requiredMap(value(build, "outputs"), "build outputs");
+		assertEquals("${{ steps.version.outputs.version }}", value(outputs, "release_version"));
+		Map<?, ?> release = findStep(build, "id", "release", false);
+		assertEquals(
+				"${{ steps.version.outputs.version }}",
+				value(requiredMap(value(release, "env"), "release environment"),
+						"ORG_GRADLE_PROJECT_releaseTag")
+		);
+
+		Map<?, ?> modrinth = job(workflow, "publish-modrinth");
+		Map<?, ?> upload = findStep(modrinth, "uses", "Kira-NT/mc-publish@", true);
+		assertEquals(
+				"${{ needs.build.outputs.release_version }}",
+				value(requiredMap(value(upload, "with"), "Modrinth inputs"), "modrinth-version")
+		);
 	}
 
 	private static List<String> lines(Object value) {

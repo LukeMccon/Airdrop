@@ -325,7 +325,9 @@ wrappers, `Crate`, and `com.airdropmc.events` are implementation details.
 
 Do not shade Airdrop into a consumer plugin. Use the released plugin as a
 compile-only dependency, and declare Paper explicitly because Airdrop's Maven
-POM deliberately has no transitive dependencies. For Gradle:
+POM deliberately has no transitive dependencies. A `v5.0.0` release tag is
+published at Maven version `5.0.0`; the tag prefix is never part of the
+consumer coordinate. For Gradle:
 
 ```kotlin
 repositories {

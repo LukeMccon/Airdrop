@@ -16,6 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
+      release_version: ${{ steps.version.outputs.version }}
       artifact_name: ${{ steps.release.outputs.artifact_name }}
       sources_artifact_name: ${{ steps.release.outputs.sources_artifact_name }}
       javadoc_artifact_name: ${{ steps.release.outputs.javadoc_artifact_name }}
@@ -25,6 +26,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.release.tag_name }}
+
+      - name: Normalize Release Version
+        id: version
+        env:
+          RAW_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          echo "version=$(./scripts/normalize-release-version "$RAW_TAG")" >> "$GITHUB_OUTPUT"
 
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
@@ -41,7 +49,7 @@ jobs:
       - name: Build, Test, and Verify Release
         id: release
         env:
-          ORG_GRADLE_PROJECT_releaseTag: ${{ github.event.release.tag_name }}
+          ORG_GRADLE_PROJECT_releaseTag: ${{ steps.version.outputs.version }}
         run: ./gradlew --no-daemon --dependency-verification=strict clean test build verifyApiCompatibility verifyReleaseArtifact lightkeeperTest
 
       - name: Upload Release Artifacts
@@ -122,7 +130,7 @@ jobs:
         with:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          modrinth-version: ${{ github.event.release.tag_name }}
+          modrinth-version: ${{ needs.build.outputs.release_version }}
           modrinth-version-type: ${{ steps.meta.outputs.release_type }}
           modrinth-changelog: ${{ github.event.release.body }}
           modrinth-loaders: ${{ steps.meta.outputs.loaders }}
