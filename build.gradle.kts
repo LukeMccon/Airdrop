@@ -11,6 +11,7 @@ import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.GradleBuild
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.bundling.Jar
@@ -533,6 +534,30 @@ releaseJar.configure {
     )
 }
 
+val consumerFixtureJar = layout.projectDirectory.file(
+    "consumer-fixture/build/libs/airdrop-consumer-fixture.jar"
+)
+
+val consumerFixtureTest = tasks.register<GradleBuild>("consumerFixtureTest") {
+    group = "verification"
+    description = "Builds and tests an external consumer against the staged Maven publication"
+    dependsOn(verifyApiPublication)
+    dir = layout.projectDirectory.dir("consumer-fixture").asFile
+    tasks = listOf("clean", "test", "jar")
+    startParameter.projectProperties = mapOf(
+        "airdropRepository" to apiPublicationRepository.get().asFile.absolutePath,
+        "airdropVersion" to project.version.toString(),
+        "paperVersion" to supportedPaperApiVersion
+    )
+    inputs.files(
+        fileTree(layout.projectDirectory.dir("consumer-fixture")) {
+            exclude("build/**")
+        }
+    )
+    outputs.file(consumerFixtureJar)
+    outputs.upToDateWhen { false }
+}
+
 val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPluginAdapter") {
     group = "verification"
     description = "Repairs the pinned JitPack LightKeeper plugin descriptor in a generated local repository"
@@ -786,7 +811,7 @@ tasks.named("check") {
 }
 
 tasks.named<Test>("test") {
-    dependsOn(publishApiPublication)
+    dependsOn(consumerFixtureTest)
     systemProperty(
         "airdrop.apiPublicationRepository",
         apiPublicationRepository.get().asFile.absolutePath
