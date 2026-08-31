@@ -1,9 +1,15 @@
 package com.airdropmc.docs;
 
 import com.airdropmc.lang.MessageKey;
+import com.airdropmc.packages.Package;
+import com.airdropmc.packages.PackageManager;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import org.bukkit.Material;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -17,22 +23,33 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ExtendWith(MockBukkitExtension.class)
 class ModrinthDocsContractTest {
 	private static final Path PROJECT_ROOT = Path.of("").toAbsolutePath().normalize();
 	private static final Path DOCUMENT = PROJECT_ROOT.resolve("docs/modrinth.md");
 	private static final Path SCRIPT = PROJECT_ROOT.resolve("scripts/modrinth-docs");
 	private static final String CANONICAL_URL = "https://modrinth.com/plugin/airdrop";
 	private static final String TEST_TOKEN = "modrinth-test-token-that-must-not-leak";
+	private static final Pattern CONFIG_REFERENCE = Pattern.compile(
+			"(?m)^<a id=\"config-([a-z0-9-]+)\"></a>\\s*\\|\\s*`([^`]+)`\\s*"
+					+ "\\|\\s*([^|\\r\\n]+)\\|\\s*([^|\\r\\n]+)\\|\\s*([^|\\r\\n]+)"
+					+ "\\|\\s*([^|\\r\\n]+)\\|\\s*([^|\\r\\n]+)\\|\\s*$");
+	private static final Pattern PACKAGE_EXAMPLE = Pattern.compile(
+			"(?s)<!-- packages-example:start -->\\R```ya?ml\\R(.*?)\\R```\\R"
+					+ "<!-- packages-example:end -->");
 
 	@Test
 	void canonicalBodyHasStableSectionsAndProjectLinks() throws IOException {
@@ -71,6 +88,84 @@ class ModrinthDocsContractTest {
 
 		assertFalse(body.toLowerCase().contains("github.com/lukemccon/airdrop/wiki"));
 		assertFalse(body.contains("1.21.11+"), "Compatibility claims must stay bounded");
+	}
+
+	@Test
+	void configurationReferenceCoversEveryShippedLeafWithItsOperatingContract() throws Exception {
+		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
+		YamlConfiguration shipped = loadBukkitYamlResource("config.yml");
+		Map<String, Object> leaves = new LinkedHashMap<>();
+		for (String key : shipped.getKeys(true)) {
+			if (!shipped.isConfigurationSection(key)) {
+				leaves.put(key, shipped.get(key));
+			}
+		}
+
+		Map<String, ConfigReference> references = parseConfigReferences(body);
+		assertEquals(leaves.keySet(), references.keySet(),
+				"The reference must contain exactly one anchored row for every shipped config leaf");
+		for (Map.Entry<String, Object> leaf : leaves.entrySet()) {
+			String key = leaf.getKey();
+			ConfigReference reference = references.get(key);
+			assertEquals(configAnchor(key), reference.anchor(), "Wrong anchor for " + key);
+			assertFalse(reference.type().isBlank(), "Missing type for " + key);
+			assertEquals("`" + leaf.getValue() + "`", reference.defaultValue(),
+					"Documented default must match the shipped config for " + key);
+			assertFalse(reference.acceptedValues().isBlank(), "Missing range or allowed values for " + key);
+			assertFalse(reference.fallback().isBlank(), "Missing fallback for " + key);
+			assertFalse(reference.reloadBehavior().isBlank(), "Missing reload behavior for " + key);
+		}
+	}
+
+	@Test
+	void markedPackageExampleParsesAndMaterializesThroughTheRuntimeLoader() throws Exception {
+		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
+		Matcher example = PACKAGE_EXAMPLE.matcher(body);
+		assertTrue(example.find(), "Missing marked packages.yml example");
+		String exampleYaml = example.group(1);
+		assertFalse(example.find(), "The operating guide must have one marked packages.yml example");
+
+		YamlConfiguration candidate = new YamlConfiguration();
+		candidate.loadFromString(exampleYaml);
+		Map<String, Package> packages = PackageManager.materializePackages(candidate, Set.of());
+
+		assertEquals(Set.of("starter", "premium"), packages.keySet());
+		Package starter = packages.get("starter");
+		assertEquals("starter", starter.getName());
+		assertEquals(0.0, starter.getPrice());
+		assertEquals(List.of(Material.BREAD, Material.TORCH), starter.getItems().stream()
+				.map(item -> item.getType())
+				.toList());
+		assertEquals(List.of(16, 32), starter.getItems().stream()
+				.map(item -> item.getAmount())
+				.toList());
+		assertEquals("premium", packages.get("premium").getName());
+		assertEquals(25.5, packages.get("premium").getPrice());
+		assertEquals(List.of(Material.DIAMOND), packages.get("premium").getItems().stream()
+				.map(item -> item.getType())
+				.toList());
+		assertTrue(packages.values().stream()
+				.allMatch(pkg -> pkg.getItems().size() <= PackageManager.MAX_PACKAGE_ITEM_STACKS));
+	}
+
+	@Test
+	void shippedPackagesFileIsAnExplicitEmptyRegistry() throws Exception {
+		YamlConfiguration packages = loadBukkitYamlResource("packages.yml");
+
+		assertTrue(packages.isConfigurationSection(PackageManager.PACKAGES_SECTION));
+		assertTrue(PackageManager.materializePackages(packages, Set.of()).isEmpty());
+	}
+
+	@Test
+	void invalidPriceMessagesDescribeWholeCandidateRejection() throws IOException {
+		String defaultMessage = MessageKey.SYSTEM_PACKAGE_PRICE_INVALID.getDefault();
+		Map<?, ?> language = loadYamlResource("lang/en.yml");
+		String configuredMessage = String.valueOf(yamlMap(language.get("system")).get("package-price-invalid"));
+
+		for (String message : List.of(defaultMessage, configuredMessage)) {
+			assertFalse(message.contains("Falling back to 0.0"));
+			assertTrue(message.contains("Package configuration rejected"));
+		}
 	}
 
 	@Test
@@ -265,6 +360,36 @@ class ModrinthDocsContractTest {
 				Files.readString(path, StandardCharsets.UTF_8)));
 	}
 
+	private YamlConfiguration loadBukkitYamlResource(String name) throws Exception {
+		try (InputStream input = getClass().getClassLoader().getResourceAsStream(name)) {
+			assertNotNull(input, "Missing generated test resource: " + name);
+			YamlConfiguration configuration = new YamlConfiguration();
+			configuration.loadFromString(new String(input.readAllBytes(), StandardCharsets.UTF_8));
+			return configuration;
+		}
+	}
+
+	private Map<String, ConfigReference> parseConfigReferences(String body) {
+		Map<String, ConfigReference> references = new LinkedHashMap<>();
+		Matcher matcher = CONFIG_REFERENCE.matcher(body);
+		while (matcher.find()) {
+			String key = matcher.group(2);
+			ConfigReference reference = new ConfigReference(
+					matcher.group(1),
+					matcher.group(3).trim(),
+					matcher.group(4).trim(),
+					matcher.group(5).trim(),
+					matcher.group(6).trim(),
+					matcher.group(7).trim());
+			assertTrue(references.put(key, reference) == null, "Duplicate config reference for " + key);
+		}
+		return references;
+	}
+
+	private String configAnchor(String key) {
+		return key.replace('.', '-');
+	}
+
 	private Map<?, ?> yamlMap(Object value) {
 		assertTrue(value instanceof Map<?, ?>, "Expected a YAML/JSON object");
 		return (Map<?, ?>) value;
@@ -274,6 +399,15 @@ class ModrinthDocsContractTest {
 		private String combinedOutput() {
 			return stdout + stderr;
 		}
+	}
+
+	private record ConfigReference(
+			String anchor,
+			String type,
+			String defaultValue,
+			String acceptedValues,
+			String fallback,
+			String reloadBehavior) {
 	}
 
 	private static final class RemoteProject implements AutoCloseable {

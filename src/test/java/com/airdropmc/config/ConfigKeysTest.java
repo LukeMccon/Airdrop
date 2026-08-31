@@ -173,6 +173,13 @@ class ConfigKeysTest {
 	}
 
 	@Test
+	void isSmokeEnabled_defaultsToTheShippedDisabledState() {
+		setConfigValues(new YamlConfiguration());
+
+		assertFalse(ConfigKeys.isSmokeEnabled());
+	}
+
+	@Test
 	void isDebugLoggingEnabled_usesDefaultWhenNoPathPresent() {
 		YamlConfiguration configValues = new YamlConfiguration();
 

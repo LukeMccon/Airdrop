@@ -87,7 +87,7 @@ system:
   reload-economy-disabled: "Configuration, language, packages, and economy reloaded. Economy is disabled; priced packages are blocked"
   reload-economy-unavailable: "Reload completed, but no economy provider is available; paid drops are blocked"
   package-price-missing: "Could not find price for package: {accent}{name}"
-  package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"
+  package-price-invalid: "Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Package configuration rejected"
   version-info: "{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java compatibility: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs and support: {accent}{docs_url}"
   status-values:
     none: "none"

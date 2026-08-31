@@ -93,7 +93,7 @@ public final class ConfigKeys {
     }
 
     public static boolean isSmokeEnabled() {
-        return getConfig().getBoolean(DROP_SMOKE_ENABLED, true);
+        return getConfig().getBoolean(DROP_SMOKE_ENABLED, false);
     }
 
     public static int getSmokeHeight() {

@@ -106,7 +106,7 @@ public enum MessageKey {
 			"Reload completed, but no economy provider is available; paid drops are blocked"),
 	SYSTEM_PACKAGE_PRICE_MISSING("system.package-price-missing", "Could not find price for package: {accent}{name}"),
 	SYSTEM_PACKAGE_PRICE_INVALID("system.package-price-invalid",
-			"Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"),
+			"Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Package configuration rejected"),
 	SYSTEM_VERSION_INFO("system.version-info",
 			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java compatibility: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs and support: {accent}{docs_url}"),
 	SYSTEM_STATUS_VALUE_NONE("system.status-values.none", "none"),
