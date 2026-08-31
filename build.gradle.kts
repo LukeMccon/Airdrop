@@ -316,24 +316,26 @@ val verifyApiCompatibility = tasks.register("verifyApiCompatibility") {
     dependsOn(generateApiSignature)
     dependsOn(comparePreviousApiJar)
     inputs.file(generatedApiSignature)
+    inputs.files(providers.provider {
+        providers.gradleProperty("previousApiBaseline").orNull
+            ?.let { layout.projectDirectory.file(it).asFile }
+            ?: recordedApiBaseline.asFile
+    }).optional()
+    inputs.property(
+        "reviewedApiBaselineChange",
+        providers.gradleProperty("reviewedApiBaselineChange").orElse("")
+    )
 
     doLast {
         val explicitBaseline = providers.gradleProperty("previousApiBaseline").orNull
         val baseline = explicitBaseline?.let { layout.projectDirectory.file(it).asFile }
             ?: recordedApiBaseline.asFile
-        val baselineRequired = requiredBuildProperty("airdropApiBaselineRequired").toBooleanStrict()
         if (!baseline.isFile) {
-            if (explicitBaseline != null || baselineRequired) {
-                throw GradleException(
-                    "API baseline is missing: $baseline. Regenerate with ./gradlew generateApiSignature " +
-                        "and review/copy build/api-signatures/current.txt to " +
-                        "config/api-signatures/$extensionApiVersion.txt"
-                )
-            }
-            logger.lifecycle(
-                "API $extensionApiVersion baseline recording is pending AIRDR-43; generated signature only"
+            throw GradleException(
+                "API baseline is missing: $baseline. Regenerate with ./gradlew generateApiSignature " +
+                    "and review/copy build/api-signatures/current.txt to " +
+                    "config/api-signatures/$extensionApiVersion.txt"
             )
-            return@doLast
         }
 
         val currentLines = Files.readAllLines(

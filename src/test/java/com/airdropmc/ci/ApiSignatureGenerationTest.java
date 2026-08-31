@@ -18,12 +18,18 @@ class ApiSignatureGenerationTest {
 	void generatedSignatureIsSortedCompleteAndLimitedToTheSupportedBoundary() throws IOException {
 		List<String> signatures = Files.readAllLines(
 				Path.of("build/api-signatures/current.txt"));
+		List<String> baseline = Files.readAllLines(
+				Path.of("config/api-signatures/1.0.0.txt"));
 		List<String> sorted = signatures.stream().sorted().toList();
 
 		assertFalse(signatures.isEmpty());
 		assertEquals(sorted, signatures, "API signatures must have deterministic order");
 		assertEquals(signatures.size(), new HashSet<>(signatures).size(),
 				"API signatures must not contain duplicate members");
+		assertTrue(signatures.stream().noneMatch(line -> !line.equals(line.stripTrailing())),
+				"API signatures must not contain trailing whitespace");
+		assertEquals(baseline, signatures,
+				"The checked-in 1.0 baseline must match the final supported surface");
 		assertTrue(signatures.stream().anyMatch(line -> line.startsWith(
 				"TYPE 0x0601 com.airdropmc.api.AirdropApi ")));
 		assertTrue(signatures.stream().anyMatch(line -> line.contains(

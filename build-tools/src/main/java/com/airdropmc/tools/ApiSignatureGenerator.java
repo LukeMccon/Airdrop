@@ -157,7 +157,9 @@ public final class ApiSignatureGenerator {
 		signatures.add("METHOD " + flags(access, METHOD_FLAGS)
 				+ " " + identity
 				+ " GENERIC " + signature(method.getAttributes())
-				+ " THROWS " + String.join(",", exceptionNames));
+				+ " THROWS " + (exceptionNames.length == 0
+						? "-"
+						: String.join(",", exceptionNames)));
 		addAnnotations("METHOD_ANNOTATION " + identity, method.getAttributes(), signatures);
 		addParameterAnnotations(identity, method.getAttributes(), signatures);
 		addDeprecation("METHOD_DEPRECATED " + identity, method.getAttributes(), signatures);

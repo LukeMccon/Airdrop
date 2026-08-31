@@ -28,6 +28,8 @@ class ApiCompatibilityConfigurationTest {
 		assertEquals("1.21.11", properties.getProperty("airdropPaperVersion"));
 		assertEquals("21", properties.getProperty("airdropJavaVersion"));
 		assertEquals("0.26.1", properties.getProperty("airdropJapicmpVersion"));
+		assertFalse(properties.containsKey("airdropApiBaselineRequired"),
+				"The final API baseline must not retain a temporary opt-out switch");
 	}
 
 	@Test
@@ -50,6 +52,7 @@ class ApiCompatibilityConfigurationTest {
 				"Signature generation must inspect classfiles without loading API classes");
 		assertFalse(generator.contains("Class.forName"));
 		assertFalse(build.contains("URLClassLoader"));
+		assertFalse(build.contains("baseline recording is pending AIRDR-43"));
 	}
 
 	@Test
