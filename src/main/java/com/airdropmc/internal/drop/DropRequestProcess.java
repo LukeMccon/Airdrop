@@ -2,6 +2,7 @@ package com.airdropmc.internal.drop;
 
 import com.airdropmc.Crate;
 import com.airdropmc.api.DeliveryStatus;
+import com.airdropmc.api.FallingAirdropView;
 import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.api.ResolvedDropContext;
 import com.airdropmc.limits.DropAdmissionController;
@@ -28,9 +29,11 @@ final class DropRequestProcess {
 	DropAdmissionController.Lease lease;
 	PaidDropSession paymentSession;
 	Crate crate;
+	FallingAirdropView fallingView;
 	Phase phase = Phase.RESOLVING;
 	PaymentStatus payment = PaymentStatus.NOT_APPLICABLE;
 	DeliveryStatus pendingFailure = DeliveryStatus.FAILED;
+	boolean requestEventPublished;
 
 	DropRequestProcess(DefaultDropHandle handle) {
 		this.handle = handle;

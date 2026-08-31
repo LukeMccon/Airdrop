@@ -62,6 +62,7 @@ class FallingCrateListenerTest {
 		when(event.getEntity()).thenReturn(fallingBlock);
 		when(event.getBlock()).thenReturn(eventBlock);
 		when(fallingBlock.getLocation()).thenReturn(entityLocation);
+		when(crate.beginLanding(any())).thenReturn(true);
 		CrateManager.addCrate(fallingBlock, crate);
 
 		listener.onEntityChangeBlockEvent(event);
@@ -69,6 +70,7 @@ class FallingCrateListenerTest {
 		assertFalse(CrateManager.hasCrate(fallingBlock));
 		verify(event).setCancelled(true);
 		verify(crate).land(eventBlock);
+		verify(crate).completeLanding();
 	}
 
 	@Test
@@ -132,6 +134,7 @@ class FallingCrateListenerTest {
 
 		when(event.getEntity()).thenReturn(fallingBlock);
 		when(event.getBlock()).thenReturn(eventBlock);
+		when(crate.beginLanding(any())).thenReturn(true);
 		doThrow(new IllegalStateException("failed to land")).when(crate).land(any());
 		CrateManager.addCrate(fallingBlock, crate);
 

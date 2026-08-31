@@ -18,11 +18,17 @@ import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.api.ResolvedDropContext;
 import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.api.WorldPosition;
+import com.airdropmc.api.event.AirdropLandedEvent;
+import com.airdropmc.api.event.AirdropLandingAttemptEvent;
+import com.airdropmc.api.event.AirdropOutcomeEvent;
+import com.airdropmc.api.event.AirdropRequestEvent;
+import com.airdropmc.api.event.AirdropSpawnedEvent;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.economy.EconomyPlayer;
 import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.economy.EconomyResult;
 import com.airdropmc.events.PackageDropEvent;
+import com.airdropmc.events.PackageLandEvent;
 import com.airdropmc.exceptions.DropLimitException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.CrateManager;
@@ -203,6 +209,16 @@ public final class DropRequestCoordinator {
 		process.context = context;
 		handle.publishContext(context);
 		process.payment = paymentFor(descriptor.source(), packageSnapshot.price());
+		AirdropRequestEvent requestEvent = new AirdropRequestEvent(context);
+		process.requestEventPublished = true;
+		Bukkit.getPluginManager().callEvent(requestEvent);
+		if (process.phase == DropRequestProcess.Phase.TERMINAL) {
+			return handle;
+		}
+		if (requestEvent.isCancelled()) {
+			return reject(process, DropRejectionReason.CANCELLED,
+					"Request cancelled by an AirdropRequestEvent listener", process.payment);
+		}
 
 		if (player != null && !PermissionsHelper.hasPermission(player, pkg.getName())) {
 			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
@@ -325,10 +341,10 @@ public final class DropRequestCoordinator {
 					process.payment == PaymentStatus.CHARGED,
 					process.handle.requestId(),
 					context,
+					candidate -> acceptLandingAttempt(process, candidate),
+					crate -> acceptLanded(process, crate),
 					outcome -> acceptCrateOutcome(process, outcome));
 			process.crate.dropCrate();
-			Bukkit.getPluginManager().callEvent(new PackageDropEvent(
-					process.crate, world, process.crate.getDropLocation()));
 			process.lease.commitSpawn();
 			FallingBlock falling = process.crate.getFallingCrate();
 			FallingAirdropView view = new FallingAirdropView(
@@ -336,9 +352,15 @@ public final class DropRequestCoordinator {
 					falling.getUniqueId(),
 					WorldPosition.from(falling.getLocation()),
 					context);
+			process.fallingView = view;
 			process.phase = DropRequestProcess.Phase.FALLING;
-			process.handle.completeSpawned(
-					new DropSpawnResult.Spawned(context, view, process.payment));
+			if (!process.handle.completeSpawned(
+					new DropSpawnResult.Spawned(context, view, process.payment))) {
+				throw new IllegalStateException("Could not complete the request spawn stage");
+			}
+			Bukkit.getPluginManager().callEvent(new AirdropSpawnedEvent(context, view));
+			Bukkit.getPluginManager().callEvent(new PackageDropEvent(
+					process.crate, world, process.crate.getDropLocation()));
 		} catch (RuntimeException failure) {
 			Crate crate = process.crate;
 			if (crate != null) {
@@ -351,20 +373,47 @@ public final class DropRequestCoordinator {
 		}
 	}
 
+	private boolean acceptLandingAttempt(
+			DropRequestProcess process, WorldPosition candidatePosition) {
+		if (process.phase != DropRequestProcess.Phase.FALLING) {
+			return false;
+		}
+		AirdropLandingAttemptEvent event = new AirdropLandingAttemptEvent(
+				Objects.requireNonNull(process.context, "context"),
+				Objects.requireNonNull(process.fallingView, "fallingView"),
+				candidatePosition);
+		Bukkit.getPluginManager().callEvent(event);
+		return process.phase == DropRequestProcess.Phase.FALLING && !event.isCancelled();
+	}
+
+	private void acceptLanded(DropRequestProcess process, Crate crate) {
+		if (process.phase == DropRequestProcess.Phase.TERMINAL
+				|| process.phase == DropRequestProcess.Phase.REFUNDING) {
+			return;
+		}
+		ResolvedDropContext context = Objects.requireNonNull(process.context, "context");
+		LandedAirdropView view = new LandedAirdropView(
+				UUID.fromString(crate.getCrateId()),
+				WorldPosition.from(crate.getLocation()),
+				context,
+				crate.getExpiresAtMillis(),
+				crate.getOpened());
+		Bukkit.getPluginManager().callEvent(new AirdropLandedEvent(context, view));
+		Location landingLocation = crate.getLocation();
+		Bukkit.getPluginManager().callEvent(new PackageLandEvent(
+				crate,
+				Objects.requireNonNull(landingLocation.getWorld(), "landing world"),
+				landingLocation,
+				landingLocation.getBlock()));
+		finishSpawned(process, new DropOutcome.Landed(context, view, process.payment));
+	}
+
 	private void acceptCrateOutcome(DropRequestProcess process, Crate.Outcome outcome) {
 		if (process.phase == DropRequestProcess.Phase.TERMINAL) {
 			return;
 		}
 		if (outcome == Crate.Outcome.LANDED) {
-			Crate crate = Objects.requireNonNull(process.crate, "crate");
-			LandedAirdropView view = new LandedAirdropView(
-					UUID.fromString(crate.getCrateId()),
-					WorldPosition.from(crate.getLocation()),
-					Objects.requireNonNull(process.context, "context"),
-					crate.getExpiresAtMillis(),
-					crate.getOpened());
-			finishSpawned(process,
-					new DropOutcome.Landed(process.context, view, process.payment));
+			acceptLanded(process, Objects.requireNonNull(process.crate, "crate"));
 			return;
 		}
 		DeliveryStatus delivery = outcome == Crate.Outcome.CANCELLED
@@ -430,8 +479,11 @@ public final class DropRequestCoordinator {
 		DropOutcome.Rejected outcome = new DropOutcome.Rejected(
 				process.handle.descriptor(), Optional.ofNullable(process.context), rejection, payment);
 		process.phase = DropRequestProcess.Phase.TERMINAL;
-		process.handle.completeNotSpawned(outcome);
+		boolean completed = process.handle.completeNotSpawned(outcome);
 		processes.remove(process.handle.requestId(), process);
+		if (completed) {
+			publishOutcome(process, outcome);
+		}
 		return process.handle;
 	}
 
@@ -443,21 +495,35 @@ public final class DropRequestCoordinator {
 				&& process.handle.spawn().toCompletableFuture().getNow(null)
 						instanceof DropSpawnResult.Spawned;
 		process.phase = DropRequestProcess.Phase.TERMINAL;
+		boolean completed;
 		if (spawned) {
-			process.handle.completeOutcome(outcome);
+			completed = process.handle.completeOutcome(outcome);
 		} else {
-			process.handle.completeNotSpawned(outcome);
+			completed = process.handle.completeNotSpawned(outcome);
 			if (process.lease != null) {
 				process.lease.close();
 			}
 		}
 		processes.remove(process.handle.requestId(), process);
+		if (completed) {
+			publishOutcome(process, outcome);
+		}
 	}
 
 	private void finishSpawned(DropRequestProcess process, DropOutcome outcome) {
 		process.phase = DropRequestProcess.Phase.TERMINAL;
-		process.handle.completeOutcome(outcome);
+		boolean completed = process.handle.completeOutcome(outcome);
 		processes.remove(process.handle.requestId(), process);
+		if (completed) {
+			publishOutcome(process, outcome);
+		}
+	}
+
+	private void publishOutcome(DropRequestProcess process, DropOutcome outcome) {
+		if (!process.requestEventPublished || process.context == null) {
+			return;
+		}
+		Bukkit.getPluginManager().callEvent(new AirdropOutcomeEvent(process.context, outcome));
 	}
 
 	private void stop(DropRequestProcess process) {

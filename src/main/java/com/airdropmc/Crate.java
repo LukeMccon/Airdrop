@@ -7,10 +7,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.api.ResolvedDropContext;
+import com.airdropmc.api.WorldPosition;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
@@ -85,6 +87,8 @@ public class Crate {
 	private final ResolvedDropSettings settings;
 	private final DropAdmissionController.Lease lease;
 	private Consumer<Outcome> outcomeListener;
+	private final Predicate<WorldPosition> landingAttemptListener;
+	private Consumer<Crate> landedCommitListener;
 	private final boolean paid;
 	private final UUID requestId;
 	private final ResolvedDropContext resolvedContext;
@@ -136,6 +140,16 @@ public class Crate {
 	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease, boolean paid, UUID requestId,
 			ResolvedDropContext resolvedContext, Consumer<Outcome> outcomeListener) {
+		this(location, world, contents, settings, lease, paid, requestId, resolvedContext,
+				ignored -> true, null, outcomeListener);
+	}
+
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
+			DropAdmissionController.Lease lease, boolean paid, UUID requestId,
+			ResolvedDropContext resolvedContext,
+			Predicate<WorldPosition> landingAttemptListener,
+			Consumer<Crate> landedCommitListener,
+			Consumer<Outcome> outcomeListener) {
 		this.world = Objects.requireNonNull(world, "world");
 		this.dropLocation = LocationHelper.copyInWorld(location, this.world, "location");
 		this.contents = cloneContents(contents);
@@ -152,6 +166,9 @@ public class Crate {
 		}
 		this.requestId = requestId;
 		this.resolvedContext = resolvedContext;
+		this.landingAttemptListener = Objects.requireNonNull(
+				landingAttemptListener, "landingAttemptListener");
+		this.landedCommitListener = landedCommitListener;
 		this.outcomeListener = Objects.requireNonNull(outcomeListener, "outcomeListener");
 		this.parachuteSystem = new ParachuteSystem(
 				world, settings, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
@@ -200,6 +217,8 @@ public class Crate {
 		this.paid = true;
 		this.requestId = null;
 		this.resolvedContext = null;
+		this.landingAttemptListener = ignored -> true;
+		this.landedCommitListener = null;
 		this.outcomeListener = ignored -> { };
 		this.outcome = Outcome.LANDED;
 		this.landedLocation = recoveredLocation;
@@ -307,11 +326,55 @@ public class Crate {
 				flareEffect.cancel();
 				flareEffect = null;
 			}
-			reportOutcome(Outcome.LANDED);
+			if (landedCommitListener == null) {
+				reportOutcome(Outcome.LANDED);
+			}
 		} catch (RuntimeException failure) {
-			CrateManager.removeCrateAndDestroy(this);
+			CrateManager.removeCrate(this);
+			destroyWithOutcome(Outcome.FAILED);
 			throw failure;
 		}
+	}
+
+	/**
+	 * Gives the owning request process a chance to cancel a candidate landing
+	 * before crate state is mutated.
+	 *
+	 * @param candidatePosition pure candidate landing position
+	 * @return whether landing may proceed
+	 */
+	public boolean beginLanding(WorldPosition candidatePosition) {
+		Predicate<WorldPosition> listener;
+		synchronized (this) {
+			if (destroyed || state != State.FALLING || outcome != null) {
+				return false;
+			}
+			WorldPosition candidate = Objects.requireNonNull(
+					candidatePosition, "candidatePosition");
+			if (!candidate.worldId().equals(world.getUID())) {
+				throw new IllegalArgumentException("Candidate landing must belong to the crate world");
+			}
+			listener = landingAttemptListener;
+		}
+		return listener.test(candidatePosition);
+	}
+
+	/** Completes a coordinator-managed landing after its post-commit events. */
+	public void completeLanding() {
+		Consumer<Crate> listener;
+		synchronized (this) {
+			if (destroyed || state != State.LANDED || outcome != null) {
+				return;
+			}
+			listener = landedCommitListener;
+			if (listener == null) {
+				return;
+			}
+			landedCommitListener = null;
+			outcome = Outcome.LANDED;
+			outcomeListener = null;
+		}
+		listener.accept(this);
 	}
 
 	private void initializeLandedBarrel(Barrel barrel) {

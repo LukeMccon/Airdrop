@@ -118,7 +118,25 @@ public class CrateManager {
 		return removed;
 	}
 
-	public static synchronized boolean removeCrateAndDestroy(Location location) {
+	/** Removes every live index for a crate without invoking its lifecycle callbacks. */
+	public static synchronized boolean removeCrate(Crate crate) {
+		if (crate == null) {
+			return false;
+		}
+		boolean removed = crateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
+		List<DropLocationKey> landedKeys = landedCrateMap.entrySet().stream()
+				.filter(entry -> entry.getValue() == crate)
+				.map(Map.Entry::getKey)
+				.toList();
+		for (DropLocationKey key : landedKeys) {
+			landedCrateMap.remove(key, crate);
+			retireIdentity(crate, key);
+			removed = true;
+		}
+		return removed;
+	}
+
+	public static boolean removeCrateAndDestroy(Location location) {
 		Crate removedCrate = removeCrate(location);
 		if (removedCrate == null) {
 			return false;
@@ -127,7 +145,7 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean removeCrateAndDetach(Location location) {
+	public static boolean removeCrateAndDetach(Location location) {
 		Crate removedCrate = removeCrate(location);
 		if (removedCrate == null) {
 			return false;
@@ -152,7 +170,7 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean removeCrateAndDestroy(FallingBlock block) {
+	public static boolean removeCrateAndDestroy(FallingBlock block) {
 		Crate removedCrate = removeCrate(block);
 		if (removedCrate == null) {
 			return false;
@@ -161,38 +179,20 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean removeCrateAndDestroy(Crate crate) {
+	public static boolean removeCrateAndDestroy(Crate crate) {
 		if (crate == null) {
 			return false;
 		}
-		boolean removed = crateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
-		List<DropLocationKey> landedKeys = landedCrateMap.entrySet().stream()
-				.filter(entry -> entry.getValue() == crate)
-				.map(Map.Entry::getKey)
-				.toList();
-		for (DropLocationKey key : landedKeys) {
-			landedCrateMap.remove(key);
-			retireIdentity(crate, key);
-			removed = true;
-		}
+		boolean removed = removeCrate(crate);
 		crate.destroy();
 		return removed;
 	}
 
-	public static synchronized boolean removeCrateAndExpire(Crate crate) {
+	public static boolean removeCrateAndExpire(Crate crate) {
 		if (crate == null) {
 			return false;
 		}
-		boolean removed = crateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
-		List<DropLocationKey> landedKeys = landedCrateMap.entrySet().stream()
-				.filter(entry -> entry.getValue() == crate)
-				.map(Map.Entry::getKey)
-				.toList();
-		for (DropLocationKey key : landedKeys) {
-			landedCrateMap.remove(key);
-			retireIdentity(crate, key);
-			removed = true;
-		}
+		boolean removed = removeCrate(crate);
 		crate.expire();
 		return removed;
 	}
@@ -202,29 +202,32 @@ public class CrateManager {
 		return key == null ? null : landedCrateMap.get(key);
 	}
 
-	public static synchronized void removeFallingCratesInChunk(Chunk chunk) {
+	public static void removeFallingCratesInChunk(Chunk chunk) {
 		if (chunk == null) {
 			return;
 		}
 		int chunkX = chunk.getX();
 		int chunkZ = chunk.getZ();
-		List<FallingBlock> blocksToRemove = new ArrayList<>();
-		for (FallingBlock fallingBlock : crateMap.keySet()) {
-			if (fallingBlock == null || fallingBlock.getWorld() == null) {
-				blocksToRemove.add(fallingBlock);
-				continue;
-			}
-			if (!fallingBlock.getWorld().equals(chunk.getWorld())) {
-				continue;
-			}
-			int locationChunkX = fallingBlock.getLocation().getBlockX() >> 4;
-			int locationChunkZ = fallingBlock.getLocation().getBlockZ() >> 4;
-			if (locationChunkX == chunkX && locationChunkZ == chunkZ) {
-				blocksToRemove.add(fallingBlock);
+		List<Crate> cratesToDestroy = new ArrayList<>();
+		synchronized (CrateManager.class) {
+			Iterator<Map.Entry<FallingBlock, Crate>> entries = crateMap.entrySet().iterator();
+			while (entries.hasNext()) {
+				Map.Entry<FallingBlock, Crate> entry = entries.next();
+				FallingBlock fallingBlock = entry.getKey();
+				boolean belongsToChunk = fallingBlock == null || fallingBlock.getWorld() == null;
+				if (!belongsToChunk && fallingBlock.getWorld().equals(chunk.getWorld())) {
+					int locationChunkX = fallingBlock.getLocation().getBlockX() >> 4;
+					int locationChunkZ = fallingBlock.getLocation().getBlockZ() >> 4;
+					belongsToChunk = locationChunkX == chunkX && locationChunkZ == chunkZ;
+				}
+				if (belongsToChunk) {
+					cratesToDestroy.add(entry.getValue());
+					entries.remove();
+				}
 			}
 		}
-		for (FallingBlock fallingBlock : blocksToRemove) {
-			removeCrateAndDestroy(fallingBlock);
+		for (Crate crate : cratesToDestroy) {
+			safeDestroy(crate);
 		}
 	}
 
@@ -233,12 +236,17 @@ public class CrateManager {
 	 *
 	 * @return whether the event must keep the chunk-save flag enabled
 	 */
-	public static synchronized boolean prepareChunkForUnload(Chunk chunk) {
+	public static boolean prepareChunkForUnload(Chunk chunk) {
 		if (chunk == null) {
 			return false;
 		}
 		removeFallingCratesInChunk(chunk);
+		synchronized (CrateManager.class) {
+			return prepareLandedCratesForChunkUnload(chunk);
+		}
+	}
 
+	private static boolean prepareLandedCratesForChunkUnload(Chunk chunk) {
 		World world = chunk.getWorld();
 		UUID worldId = world.getUID();
 		int chunkX = chunk.getX();
@@ -710,13 +718,14 @@ public class CrateManager {
 		}
 	}
 
-	public static synchronized void clearAll() {
-		try {
-			for (Crate crate : distinctTrackedCrates()) {
-				safeDestroy(crate);
-			}
-		} finally {
+	public static void clearAll() {
+		Set<Crate> crates;
+		synchronized (CrateManager.class) {
+			crates = distinctTrackedCrates();
 			clearMaps();
+		}
+		for (Crate crate : crates) {
+			safeDestroy(crate);
 		}
 	}
 

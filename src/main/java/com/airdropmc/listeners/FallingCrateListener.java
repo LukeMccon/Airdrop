@@ -1,7 +1,5 @@
 package com.airdropmc.listeners;
 
-import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
@@ -9,12 +7,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
-import org.bukkit.Bukkit;
 
 import com.airdropmc.Crate;
+import com.airdropmc.api.WorldPosition;
 import com.airdropmc.helpers.CrateManager;
-
-import com.airdropmc.events.PackageLandEvent;
 
 public class FallingCrateListener implements Listener {
 
@@ -27,33 +23,42 @@ public class FallingCrateListener implements Listener {
 		}
 
 		FallingBlock fallingBlock = (FallingBlock) entity;
-		Crate landedCrate = CrateManager.removeCrate(fallingBlock);
+		Crate landedCrate = CrateManager.getCrate(fallingBlock);
 		if (landedCrate == null) {
 			return;
 		}
 		if (e.isCancelled()) {
+			CrateManager.removeCrate(fallingBlock);
+			fallingBlock.remove();
 			landedCrate.cancelLanding();
 			return;
 		}
-		e.setCancelled(true);
-		// Paper keeps FallingBlock entities alive after event cancellation.
-		// Explicitly remove it so it doesn't fire again and place an empty barrel.
-		fallingBlock.remove();
 		Block landingBlock = e.getBlock();
 		if (landingBlock == null) {
+			e.setCancelled(true);
+			CrateManager.removeCrate(fallingBlock);
+			fallingBlock.remove();
 			landedCrate.destroy();
 			return;
 		}
-		Location landingLocation = landingBlock.getLocation();
-		World world = landingBlock.getWorld();
+		boolean landingAllowed = landedCrate.beginLanding(
+				WorldPosition.from(landingBlock.getLocation()));
+		e.setCancelled(true);
+		CrateManager.removeCrate(fallingBlock);
+		// Paper keeps FallingBlock entities alive after event cancellation.
+		// Explicitly remove it so it cannot fire again or place an empty barrel.
+		fallingBlock.remove();
+		if (!landingAllowed) {
+			landedCrate.cancelLanding();
+			return;
+		}
 		try {
 			landedCrate.land(landingBlock);
+			landedCrate.completeLanding();
 		} catch (RuntimeException landFailure) {
-			CrateManager.removeCrateAndDestroy(landedCrate);
+			CrateManager.removeCrate(landedCrate);
+			landedCrate.destroy();
 			throw landFailure;
 		}
-		PackageLandEvent landEvent = new PackageLandEvent(
-				landedCrate, world, landingLocation, landingBlock);
-		Bukkit.getPluginManager().callEvent(landEvent);
 	}
 }
