@@ -38,7 +38,6 @@ class AirdropEconomyLifecycleTest {
 	@BeforeEach
 	void setUp() {
 		server = MockBukkit.mock();
-		MockBukkit.createMockPlugin("LuckPerms");
 		registrar = MockBukkit.createMockPlugin("EconomyRegistrar");
 	}
 

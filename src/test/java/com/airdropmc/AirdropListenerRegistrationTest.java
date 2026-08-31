@@ -27,7 +27,6 @@ class AirdropListenerRegistrationTest {
 	@BeforeEach
 	void setUp() {
 		server = MockBukkit.mock();
-		MockBukkit.createMockPlugin("LuckPerms");
 		var vaultPlugin = MockBukkit.createMockPlugin("Vault");
 		Economy economy = mock(Economy.class);
 		when(economy.getName()).thenReturn("TestEconomy");

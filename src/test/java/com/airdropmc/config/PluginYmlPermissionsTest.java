@@ -46,6 +46,20 @@ class PluginYmlPermissionsTest {
 	}
 
 	@Test
+	void generatedPluginYml_treatsLuckPermsAndVaultAsOptional() throws Exception {
+		Map<?, ?> root = loadPluginYml();
+
+		Object softDepend = root.get("softdepend");
+		assertTrue(softDepend instanceof Iterable<?>);
+		String optionalDependencies = String.valueOf(softDepend);
+		assertTrue(optionalDependencies.contains("LuckPerms"));
+		assertTrue(optionalDependencies.contains("Vault"));
+
+		Object hardDepend = root.get("depend");
+		assertTrue(hardDepend == null || !String.valueOf(hardDepend).contains("LuckPerms"));
+	}
+
+	@Test
 	void generatedPluginYml_matchesProjectVersion() throws Exception {
 		Map<?, ?> root = loadPluginYml();
 		String projectVersion = System.getProperty("airdrop.projectVersion");

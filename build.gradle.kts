@@ -77,6 +77,7 @@ dependencies {
     // Plugin dependencies
     compileOnly("net.luckperms:api:5.4")
     compileOnly("net.milkbowl.vault:VaultUnlockedAPI:2.20")
+    testCompileOnly("net.luckperms:api:5.4")
     testRuntimeOnly("net.luckperms:api:5.4")
     
     // Annotations
@@ -281,8 +282,7 @@ bukkit {
     load = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.STARTUP
     main = "com.airdropmc.Airdrop"
     apiVersion = "1.21.11"
-    depend = listOf("LuckPerms")
-    softDepend = listOf("Vault")
+    softDepend = listOf("LuckPerms", "Vault")
     authors = listOf("LukeMccon", "pianoman99987 (gregoryw)")
     description = "Call in customizable care packages that fall from the sky"
 

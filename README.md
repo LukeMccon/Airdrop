@@ -36,7 +36,7 @@ A Paper plugin for customizable care packages with parachutes, effects, economy 
 
 - Paper `1.21.11`
 - Java `21`
-- [LuckPerms](https://luckperms.net/) (required)
+- Optional: [LuckPerms](https://luckperms.net/) for automatically provisioned convenience groups
 - Economy provider for player-requested packages priced above zero when `economy.enabled: true` (default):
   - [VaultUnlocked](https://github.com/TheNewEconomy/VaultUnlocked) with a compatible economy plugin (preferred), or
   - [Vault](https://github.com/milkbowl/Vault) with a Vault-compatible economy plugin (legacy fallback)
@@ -45,9 +45,9 @@ If no economy provider is installed, Airdrop still starts. Zero-priced packages 
 
 ## Installation
 
-1. Install plugin dependencies into your server `plugins/` directory:
-   - LuckPerms
-   - Optional: VaultUnlocked or Vault, plus your economy plugin (required for player-requested packages priced above zero)
+1. Install any optional integrations into your server `plugins/` directory:
+   - LuckPerms, if you want Airdrop to provision its convenience groups automatically
+   - VaultUnlocked or Vault, plus your economy plugin (required for player-requested packages priced above zero)
 2. Download the latest Airdrop release from [Releases](https://github.com/LukeMccon/Airdrop/releases/latest).
 3. Place the Airdrop `.jar` in `plugins/`.
 4. Start or restart the server.
@@ -112,7 +112,7 @@ All commands start with `/airdrop` (aliases: `/drop`, `/ad`).
   - Granted to operators by default and included under `airdrop.admin`
   - Does not bypass falling or landed capacity limits
 
-LuckPerms integration also ensures these groups exist:
+Standard Bukkit permission nodes work with or without LuckPerms. When LuckPerms is installed and its service is available, Airdrop also ensures these convenience groups exist:
 - `airdrop-admin` with `airdrop.admin`
 - `airdrop-user` with `airdrop.package.all`
 

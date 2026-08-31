@@ -15,7 +15,7 @@ import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.CrateManager;
-import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.integrations.OptionalIntegrations;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.listeners.CrateDestroyListener;
 import com.airdropmc.listeners.CrateCloseListener;
@@ -29,7 +29,6 @@ import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageGui;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
-import net.luckperms.api.LuckPerms;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
@@ -48,7 +47,6 @@ public class Airdrop extends JavaPlugin {
 	private static Airdrop pluginInstance;
 	private static String pluginVersion;
 	private static String pluginApiVersion;
-	private static LuckPerms luckPerms;
 	private static PackagesGui packagesGui;
 	private static volatile EconomyProvider economyProvider;
 	private static volatile Config configuration;
@@ -151,7 +149,6 @@ public class Airdrop extends JavaPlugin {
 			pluginInstance = null;
 			pluginVersion = null;
 			pluginApiVersion = null;
-			luckPerms = null;
 			economyProvider = null;
 			configuration = null;
 			packagesConfiguration = null;
@@ -217,11 +214,7 @@ public class Airdrop extends JavaPlugin {
 		} catch (RuntimeException failure) {
 			getLogger().log(Level.WARNING, "Could not recover saved crates", failure);
 		}
-		try {
-			PermissionsHelper.initialize();
-		} catch (RuntimeException failure) {
-			getLogger().log(Level.WARNING, "Could not initialize permissions", failure);
-		}
+		OptionalIntegrations.initialize(getServer());
 	}
 
 	public CompletionStage<EconomyProviderRefreshResult> reloadConfiguration() {
@@ -344,14 +337,6 @@ public class Airdrop extends JavaPlugin {
 
 	public static String getPluginApiVersion() {
 		return pluginApiVersion;
-	}
-
-	public static LuckPerms getLuckPerms() {
-		return luckPerms;
-	}
-
-	public static void setLuckPerms(LuckPerms luckPerms) {
-		Airdrop.luckPerms = luckPerms;
 	}
 
 	public static PackagesGui getPackagesGui() {
