@@ -225,7 +225,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 				new ItemStack(Material.IRON_LEGGINGS, 1),
 				new ItemStack(Material.IRON_BOOTS, 1),
 				new ItemStack(Material.BREAD, 2)));
-		configuration.set(PackageManager.PACKAGES_SECTION + ".starter.price", 10.0);
+		configuration.set(PackageManager.PACKAGES_SECTION + ".starter.price", 0.0);
 		return configuration;
 	}
 

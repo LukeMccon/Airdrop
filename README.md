@@ -52,26 +52,37 @@ If no economy provider is installed, Airdrop still starts. Zero-priced packages 
 3. Place the Airdrop `.jar` in `plugins/`.
 4. Start or restart the server.
 
-## Quick Start
+## Free Quick Start
 
-1. Create a package:
+On the first start, Airdrop creates one free `starter` package containing iron
+armor and bread. No economy or LuckPerms installation is required.
 
-```bash
-/airdrop package create starter 10
-```
+1. Start the server once so Airdrop can create `plugins/Airdrop/packages.yml`.
+2. As an operator, call in the existing starter package:
 
-2. Add items in the package editor GUI and click `Save`.
-3. Grant players package permissions, for example:
+   ```bash
+   /airdrop starter
+   ```
 
-```bash
-/lp group default permission set airdrop.package.starter true
-```
+3. To let non-operators use it, grant `airdrop.package.starter` with your
+   preferred Bukkit-compatible permissions plugin. With optional LuckPerms:
 
-4. Call in the package:
+   ```bash
+   /lp group default permission set airdrop.package.starter true
+   ```
 
-```bash
-/airdrop starter
-```
+## Paid Quick Start
+
+1. Install VaultUnlocked or Vault and a compatible economy provider.
+2. As an operator in game, create a differently named priced package:
+
+   ```bash
+   /airdrop package create premium 10
+   ```
+
+3. Add items in the package editor and click `Save`.
+4. Grant `airdrop.package.premium` to the players who may buy it.
+5. Call it with `/airdrop premium`.
 
 ## Commands
 
