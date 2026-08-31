@@ -39,7 +39,7 @@ public class CrateDestroyListener implements Listener {
 		}
 		try {
 			Bukkit.getScheduler().runTask(plugin,
-					() -> CrateManager.finalizeCrateRemoval(barrelLocation, crate));
+					() -> CrateManager.finalizeCrateBreak(barrelLocation, crate));
 		} catch (RuntimeException failure) {
 			AirdropLogger.log(Level.WARNING,
 					"Could not schedule landed crate break reconciliation", failure);

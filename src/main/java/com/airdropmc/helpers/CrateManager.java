@@ -143,7 +143,7 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
+	public static synchronized boolean finalizeCrateBreak(Location location, Crate expectedCrate) {
 		DropLocationKey key = toDropLocationKey(location);
 		if (key == null || expectedCrate == null || landedCrateMap.get(key) != expectedCrate) {
 			return false;
@@ -157,6 +157,25 @@ public class CrateManager {
 		}
 		expectedCrate.detachLandedBarrel();
 		return true;
+	}
+
+	/**
+	 * Compatibility overload for callers that do not retain the expected crate identity.
+	 * Deferred event handlers should use {@link #finalizeCrateBreak(Location, Crate)}.
+	 */
+	@Deprecated(forRemoval = false)
+	public static synchronized boolean finalizeCrateBreak(Location location) {
+		DropLocationKey key = toDropLocationKey(location);
+		Crate expectedCrate = key == null ? null : landedCrateMap.get(key);
+		return finalizeCrateBreak(location, expectedCrate);
+	}
+
+	/**
+	 * Compatibility alias for the integrated expected-owner API name.
+	 */
+	@Deprecated(forRemoval = false)
+	public static synchronized boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
+		return finalizeCrateBreak(location, expectedCrate);
 	}
 
 	private static boolean removeExpectedLandedCrate(DropLocationKey key, Crate expectedCrate) {

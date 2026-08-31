@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(LightkeeperExtension.class)
 class DropLifecycleIT {
 	private static final String BLOCK_CHANGE_EVENT = "org.bukkit.event.entity.EntityChangeBlockEvent";
+	private static final String BLOCK_EXPLOSION_EVENT = "org.bukkit.event.block.BlockExplodeEvent";
 	private static final String ENTITY_EXPLOSION_EVENT = "org.bukkit.event.entity.EntityExplodeEvent";
 	private static final String INVENTORY_MOVE_EVENT = "org.bukkit.event.inventory.InventoryMoveItemEvent";
 	private static final BlockPos CHEST_POSITION = new BlockPos(0, 79, 0);
@@ -139,7 +140,56 @@ class DropLifecycleIT {
 					Duration.ofSeconds(10));
 
 			assertCompletedExplosions(explosions);
-			assertExplosionResults(world);
+			assertExplosionResults(framework, world);
+			retryingPlayer = retryAtReleasedLocation(framework, world, landings);
+			assertThat(drops.getCapturedEvents()).hasSize(2);
+			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
+		} finally {
+			if (retryingPlayer != null) {
+				retryingPlayer.remove();
+			}
+			firstPlayer.remove();
+		}
+	}
+
+	@Test
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	void blockExplosionMatchesUnmanagedBarrelDropsAndReleasesLocation(
+			ILightkeeperFramework framework
+	) {
+		AirdropIntegrationSupport.awaitReady(framework);
+		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
+		PlayerHandle firstPlayer = AirdropIntegrationSupport.createPlayer(
+				framework, world, PACKAGE_PERMISSION);
+		PlayerHandle retryingPlayer = null;
+
+		try (var drops = framework.events().capture(DROP_EVENT);
+			 var landings = framework.events().capture(LAND_EVENT);
+			 var explosions = framework.events().capture(BLOCK_EXPLOSION_EVENT)) {
+			landStarterDrop(framework, firstPlayer, world, landings);
+			prepareExplosionTargets(framework, world);
+			AirdropIntegrationSupport.setExplosionDropDecay(
+					framework, world, "block_explosion_drop_decay");
+
+			explosions.cancelNext(1);
+			triggerBlockExplosion(framework, world, TRACKED_EXPLOSION_POSITION);
+			framework.waitUntil(() -> explosions.getCapturedEvents().size() == 1,
+					Duration.ofSeconds(10));
+			firstPlayer.andWaitTicks(5);
+			assertThat(explosions.getCapturedEvents().getFirst().value("isCancelled"))
+					.isEqualTo(new PBool(true));
+			AirdropIntegrationSupport.awaitBlock(world, BARREL_POSITION, "minecraft:barrel");
+			AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
+
+			triggerBlockExplosion(framework, world, TRACKED_EXPLOSION_POSITION);
+			framework.waitUntil(() -> explosions.getCapturedEvents().size() == 2,
+					Duration.ofSeconds(10));
+			triggerBlockExplosion(framework, world, BASELINE_EXPLOSION_POSITION);
+			framework.waitUntil(() -> explosions.getCapturedEvents().size() == 3,
+					Duration.ofSeconds(10));
+
+			assertCompletedExplosions(explosions);
+			assertExplosionResults(framework, world);
 			retryingPlayer = retryAtReleasedLocation(framework, world, landings);
 			assertThat(drops.getCapturedEvents()).hasSize(2);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
@@ -229,6 +279,18 @@ class DropLifecycleIT {
 		assertThat(result.success()).as("TNT summon: %s", result.message()).isTrue();
 	}
 
+	private void triggerBlockExplosion(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			BlockPos position
+	) {
+		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
+				("airdrop-lightkeeper-block-explode %s %.1f %.1f %.1f 5.0")
+						.formatted(world.name(), position.x() + 0.5, position.y() + 0.5,
+								position.z() + 0.5));
+		assertThat(result.success()).as("block explosion: %s", result.message()).isTrue();
+	}
+
 	private void assertCompletedExplosions(EventCaptureHandle explosions) {
 		assertThat(explosions.getCapturedEvents()).hasSize(3);
 		assertThat(explosions.getCapturedEvents().get(1).value("isCancelled"))
@@ -237,11 +299,11 @@ class DropLifecycleIT {
 				.isEqualTo(new PBool(false));
 	}
 
-	private void assertExplosionResults(WorldHandle world) {
+	private void assertExplosionResults(ILightkeeperFramework framework, WorldHandle world) {
 		AirdropIntegrationSupport.awaitBlock(world, BARREL_POSITION, "minecraft:air");
 		AirdropIntegrationSupport.awaitBlock(world, BASELINE_BARREL_POSITION, "minecraft:air");
 		AirdropIntegrationSupport.awaitEquivalentExplosionDrops(
-				world, BARREL_POSITION, BASELINE_BARREL_POSITION);
+				framework, world, BARREL_POSITION, BASELINE_BARREL_POSITION);
 	}
 
 	private PlayerHandle retryAtReleasedLocation(

@@ -36,6 +36,14 @@ public class CrateCleanupListener implements Listener {
 
 	private final Plugin plugin;
 
+	/**
+	 * Compatibility constructor for integrations compiled against the former listener API.
+	 */
+	@Deprecated(forRemoval = false)
+	public CrateCleanupListener() {
+		this.plugin = null;
+	}
+
 	public CrateCleanupListener(Plugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 	}
@@ -133,10 +141,16 @@ public class CrateCleanupListener implements Listener {
 		if (pending.isEmpty()) {
 			return;
 		}
+		Plugin schedulerPlugin = plugin == null ? Airdrop.getPluginInstance() : plugin;
+		if (schedulerPlugin == null) {
+			AirdropLogger.warning("Could not schedule landed crate explosion reconciliation"
+					+ " because Airdrop is unavailable");
+			return;
+		}
 		try {
-			Bukkit.getScheduler().runTask(plugin, () -> {
+			Bukkit.getScheduler().runTask(schedulerPlugin, () -> {
 				for (PendingCrateRemoval removal : pending) {
-					CrateManager.finalizeCrateRemoval(removal.location(), removal.crate());
+					CrateManager.finalizeCrateBreak(removal.location(), removal.crate());
 				}
 			});
 		} catch (RuntimeException failure) {

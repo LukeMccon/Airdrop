@@ -54,7 +54,7 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
-            <scope>test</scope>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -90,6 +90,11 @@
                             <sourceType>path</sourceType>
                             <path>${airdrop.jar.path}</path>
                             <renameTo>Airdrop.jar</renameTo>
+                        </plugin>
+                        <plugin>
+                            <sourceType>path</sourceType>
+                            <path>${project.build.directory}/${project.build.finalName}.jar</path>
+                            <renameTo>AirdropLightkeeperSupport.jar</renameTo>
                         </plugin>
                         <plugin>
                             <sourceType>modrinth</sourceType>

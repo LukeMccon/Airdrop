@@ -1,7 +1,7 @@
 package com.airdropmc.exceptions;
 
 /** Indicates that creating another package would exceed Airdrop's package limit. */
-public final class PackageCapacityException extends Exception {
+public final class PackageCapacityException extends RuntimeException {
 	private final int requestedCount;
 	private final int limit;
 

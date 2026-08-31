@@ -10,6 +10,7 @@ import nl.pim16aap2.lightkeeper.protocol.CommandSource;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.eventually;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +40,13 @@ final class AirdropIntegrationSupport {
 			+ "{id:\"minecraft:iron_leggings\",count:1},"
 			+ "{id:\"minecraft:iron_boots\",count:1},"
 			+ "{id:\"minecraft:bread\",count:2}]}";
+	private static final Map<String, Integer> STARTER_EXPLOSION_DROPS = Map.of(
+			"minecraft:barrel", 1,
+			"minecraft:iron_helmet", 1,
+			"minecraft:iron_chestplate", 1,
+			"minecraft:iron_leggings", 1,
+			"minecraft:iron_boots", 1,
+			"minecraft:bread", 2);
 
 	private AirdropIntegrationSupport() {
 	}
@@ -149,6 +157,7 @@ final class AirdropIntegrationSupport {
 	}
 
 	static void awaitEquivalentExplosionDrops(
+			ILightkeeperFramework framework,
 			WorldHandle world,
 			BlockPos trackedPosition,
 			BlockPos baselinePosition
@@ -159,6 +168,9 @@ final class AirdropIntegrationSupport {
 			assertThat(trackedDrops).as("tracked barrel drops").isEqualTo(6);
 			assertThat(baselineDrops).as("unmanaged barrel drops").isEqualTo(trackedDrops);
 		});
+
+		assertStarterExplosionDrops(framework, world, trackedPosition);
+		assertStarterExplosionDrops(framework, world, baselinePosition);
 	}
 
 	static void assertStarterContents(ILightkeeperFramework framework, WorldHandle world, BlockPos position) {
@@ -206,6 +218,30 @@ final class AirdropIntegrationSupport {
 						// Paper emits this while LightKeeper creates a valid flat test world.
 						"net.minecraft.server.dedicated.DedicatedServerProperties".equals(error.loggerName())
 								&& "No key layers in MapLike[{}]".equals(error.message()));
+	}
+
+	private static void assertStarterExplosionDrops(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			BlockPos position
+	) {
+		StringBuilder conditions = new StringBuilder();
+		for (Map.Entry<String, Integer> expectedDrop : STARTER_EXPLOSION_DROPS.entrySet()) {
+			conditions.append(" if entity @e[type=minecraft:item,distance=..6,nbt={Item:{id:\"")
+					.append(expectedDrop.getKey())
+					.append("\",count:")
+					.append(expectedDrop.getValue())
+					.append("}}]");
+		}
+
+		String marker = uniqueMarker("EXPLOSION_DROPS");
+		int outputLineCount = framework.server().output().size();
+		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute in minecraft:%s positioned %d %d %d%s run say %s")
+						.formatted(world.name(), position.x(), position.y(), position.z(),
+								conditions, marker));
+		assertThat(result.success()).as("starter drops near %s", position).isTrue();
+		awaitMarker(framework, outputLineCount, marker);
 	}
 
 	private static int itemEntitiesNear(WorldHandle world, BlockPos position) {

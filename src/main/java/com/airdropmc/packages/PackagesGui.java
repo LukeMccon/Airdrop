@@ -132,15 +132,23 @@ public class PackagesGui extends Gui implements Listener {
 		}
 
 		UUID viewerId = player.getUniqueId();
-		Bukkit.getScheduler().runTask(plugin, () -> openEditor(viewerId, expectedPackageName));
+		Bukkit.getScheduler().runTask(plugin, () -> openEditor(viewerId, slot, expectedPackageName));
 	}
 
-	private void openEditor(UUID viewerId, String packageName) {
+	private void openEditor(UUID viewerId, int slot, String packageName) {
 		Player player = Bukkit.getPlayer(viewerId);
 		if (player == null || !player.isOnline()) {
 			return;
 		}
 		if (player.getOpenInventory().getTopInventory() != inv || !PermissionsHelper.isAdmin(player)) {
+			return;
+		}
+
+		List<String> displayedNames = packageNamesBySlot;
+		if (slot < 0
+				|| slot >= displayedNames.size()
+				|| !packageName.equals(displayedNames.get(slot))
+				|| !packageName.equals(getPackageIconMarker(inv.getItem(slot)))) {
 			return;
 		}
 
@@ -156,7 +164,7 @@ public class PackagesGui extends Gui implements Listener {
 	}
 
 	@EventHandler
-	public void onInventoryDrag(final InventoryDragEvent event) {
+	public void onInventoryClick(final InventoryDragEvent event) {
 		if (event.getInventory() == inv) {
 			event.setCancelled(true);
 		}

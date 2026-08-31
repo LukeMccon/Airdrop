@@ -246,6 +246,24 @@ class PackagesGuiNavigationTest {
 	}
 
 	@Test
+	void refreshedSlotBeforeTickPreventsStaleNavigation() {
+		PlayerMock player = operator();
+		PackagesGui browser = new PackagesGui();
+		browser.openInventory(player);
+		Inventory browserInventory = player.getOpenInventory().getTopInventory();
+		browser.onInventoryClick(packageClick(player, browserInventory, null));
+
+		PackageManager.publishPackages(Map.of(
+				"alpha", new Package("alpha", 1.0, List.of()),
+				"starter", new Package("starter", 10.0, List.of())));
+		browser.initializeItems();
+		assertEquals(List.of("alpha", "starter"), displayedPackageMarkers(browserInventory));
+		server.getScheduler().performOneTick();
+
+		assertSame(browserInventory, player.getOpenInventory().getTopInventory());
+	}
+
+	@Test
 	void eventWhoseActorDoesNotOwnTheViewCannotNavigate() {
 		PlayerMock owner = operator();
 		PlayerMock other = operator();
