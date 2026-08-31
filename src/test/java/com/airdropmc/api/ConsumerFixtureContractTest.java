@@ -26,6 +26,7 @@ class ConsumerFixtureContractTest {
 		assertFalse(settings.contains("consumer-fixture"));
 		assertTrue(rootBuild.contains("register<GradleBuild>(\"consumerFixtureTest\")"));
 		assertTrue(rootBuild.contains("dependsOn(verifyApiPublication)"));
+		assertTrue(rootBuild.contains("exclude(\".gradle/**\")"));
 		assertTrue(fixtureBuild.contains("compileOnly(\"maven.modrinth:airdrop:$airdropVersion\")"));
 		assertTrue(fixtureBuild.contains("compileOnly(\"io.papermc.paper:paper-api:$paperVersion\")"));
 		assertTrue(fixtureBuild.contains("ignoreGradleMetadataRedirection()"));

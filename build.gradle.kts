@@ -374,7 +374,9 @@ val verifyApiCompatibility = tasks.register("verifyApiCompatibility") {
 }
 
 val releaseJar = tasks.named<Jar>("jar")
-val sourcesJar = tasks.named<Jar>("sourcesJar")
+val sourcesJar = tasks.named<Jar>("sourcesJar") {
+    dependsOn(generateAirdropApiMetadata)
+}
 val apiPublicationRepository = layout.buildDirectory.dir("api-publication/repository")
 val apiJavadocOutput = layout.buildDirectory.dir("docs/api-javadoc")
 
@@ -552,6 +554,7 @@ val consumerFixtureTest = tasks.register<GradleBuild>("consumerFixtureTest") {
     inputs.files(
         fileTree(layout.projectDirectory.dir("consumer-fixture")) {
             exclude("build/**")
+            exclude(".gradle/**")
         }
     )
     outputs.file(consumerFixtureJar)
