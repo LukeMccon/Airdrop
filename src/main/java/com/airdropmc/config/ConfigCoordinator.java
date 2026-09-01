@@ -12,6 +12,7 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -47,10 +49,12 @@ public final class ConfigCoordinator implements AutoCloseable {
 	private final ConfigFileStore store;
 	private final ExecutorService executor;
 	private final MainThreadDispatcher mainThread;
+	private final BukkitTask dispatchFailureWatchdog;
 	private final Function<ConfigurationCandidate, EconomyProviderRefreshResult> configurationCommit;
 	private final Consumer<PackageCandidate> packageCommit;
 	private final Object queueLock = new Object();
 	private final ArrayDeque<QueuedOperation<?>> queue = new ArrayDeque<>();
+	private final AtomicReference<Throwable> pendingDispatchFailure = new AtomicReference<>();
 
 	private QueuedOperation<?> active;
 	private boolean closed;
@@ -71,6 +75,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 					return thread;
 				}),
 				task -> Bukkit.getScheduler().runTask(plugin, task),
+				task -> Bukkit.getScheduler().runTaskTimer(plugin, task, 1L, 1L),
 				configurationCommit,
 				packageCommit);
 	}
@@ -81,6 +86,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 			ConfigFileStore store,
 			ExecutorService executor,
 			MainThreadDispatcher mainThread,
+			MainThreadWatchdogScheduler watchdogScheduler,
 			Function<ConfigurationCandidate, EconomyProviderRefreshResult> configurationCommit,
 			Consumer<PackageCandidate> packageCommit) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -90,6 +96,10 @@ public final class ConfigCoordinator implements AutoCloseable {
 		this.mainThread = Objects.requireNonNull(mainThread, "mainThread");
 		this.configurationCommit = Objects.requireNonNull(configurationCommit, "configurationCommit");
 		this.packageCommit = Objects.requireNonNull(packageCommit, "packageCommit");
+		this.dispatchFailureWatchdog = Objects.requireNonNull(
+				Objects.requireNonNull(watchdogScheduler, "watchdogScheduler")
+						.schedule(this::drainDispatchFailure),
+				"dispatchFailureWatchdog");
 	}
 
 	public CompletionStage<EconomyProviderRefreshResult> startup() {
@@ -307,12 +317,20 @@ public final class ConfigCoordinator implements AutoCloseable {
 		try {
 			mainThread.dispatch(() -> finish(operation, operationGeneration, commit, failure));
 		} catch (RuntimeException schedulingFailure) {
-			failAndClose(schedulingFailure);
-			plugin.getLogger().log(Level.SEVERE,
-					"Could not schedule configuration completion on the server thread; "
-							+ "the configuration coordinator is now closed",
-					schedulingFailure);
+			pendingDispatchFailure.compareAndSet(null, schedulingFailure);
 		}
+	}
+
+	private void drainDispatchFailure() {
+		Throwable schedulingFailure = pendingDispatchFailure.getAndSet(null);
+		if (schedulingFailure == null) {
+			return;
+		}
+		failAndClose(schedulingFailure);
+		plugin.getLogger().log(Level.SEVERE,
+				"Could not schedule configuration completion on the server thread; "
+						+ "the configuration coordinator is now closed",
+				schedulingFailure);
 	}
 
 	private void failAndClose(Throwable failure) {
@@ -331,6 +349,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 				failed.add(queue.removeFirst().future);
 			}
 		}
+		dispatchFailureWatchdog.cancel();
 		for (CompletableFuture<?> future : failed) {
 			future.completeExceptionally(failure);
 		}
@@ -391,6 +410,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 				cancelled.add(queue.removeFirst().future);
 			}
 		}
+		dispatchFailureWatchdog.cancel();
 		executor.shutdownNow();
 		for (CompletableFuture<?> future : cancelled) {
 			future.completeExceptionally(new CancellationException("Configuration coordinator is closed"));
@@ -435,6 +455,11 @@ public final class ConfigCoordinator implements AutoCloseable {
 	@FunctionalInterface
 	interface MainThreadDispatcher {
 		void dispatch(Runnable task);
+	}
+
+	@FunctionalInterface
+	interface MainThreadWatchdogScheduler {
+		BukkitTask schedule(Runnable task);
 	}
 
 	@FunctionalInterface

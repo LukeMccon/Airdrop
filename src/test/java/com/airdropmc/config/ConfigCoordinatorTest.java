@@ -1,15 +1,22 @@
 package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.AirdropApi;
 import com.airdropmc.api.PackageRegistryCause;
+import com.airdropmc.api.ReadinessState;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
+import com.airdropmc.internal.api.AirdropServiceLifecycle;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.scheduler.BukkitTask;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -24,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
@@ -34,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ConfigCoordinatorTest {
@@ -49,6 +58,9 @@ class ConfigCoordinatorTest {
 			coordinator.close();
 		}
 		PackageManager.clear();
+		if (MockBukkit.isMocked()) {
+			MockBukkit.unmock();
+		}
 	}
 
 	@Test
@@ -127,12 +139,28 @@ class ConfigCoordinatorTest {
 	}
 
 	@Test
-	void dispatchFailureTerminatesQueueAndRejectsLaterOperations() throws Exception {
+	void dispatchFailureTerminatesStartupOnWatchdogThreadAndRejectsLaterOperations() throws Exception {
 		AtomicInteger reads = new AtomicInteger();
 		CountDownLatch firstRead = new CountDownLatch(1);
 		CountDownLatch secondRead = new CountDownLatch(1);
 		CountDownLatch dispatchAttempt = new CountDownLatch(1);
-		AtomicReference<String> completionThread = new AtomicReference<>();
+		AtomicBoolean readinessCompletedOnPrimaryThread = new AtomicBoolean();
+		AtomicBoolean lifecycleCallbackOnPrimaryThread = new AtomicBoolean();
+		AtomicReference<ReadinessState> readinessAtFailure = new AtomicReference<>();
+		AtomicReference<Runnable> dispatchFailureWatchdog = new AtomicReference<>();
+		BukkitTask watchdogTask = mock(BukkitTask.class);
+		ServerMock server = MockBukkit.mock();
+		Airdrop lifecyclePlugin = (Airdrop) server.getPluginManager()
+				.loadPlugin(Airdrop.class, new Object[0]);
+		AirdropServiceLifecycle lifecycle = new AirdropServiceLifecycle(lifecyclePlugin);
+		lifecycle.register();
+		AirdropApi api = server.getServicesManager().getRegistrations(lifecyclePlugin).stream()
+				.filter(candidate -> candidate.getService() == AirdropApi.class)
+				.map(candidate -> (AirdropApi) candidate.getProvider())
+				.findFirst()
+				.orElseThrow();
+		api.readiness().whenComplete((ignored, failure) ->
+				readinessCompletedOnPrimaryThread.set(Bukkit.isPrimaryThread()));
 		ConfigFileStore store = store(reads, firstRead, secondRead, new AtomicReference<>());
 		Files.writeString(packagesPath(), """
 				packages:
@@ -155,19 +183,46 @@ class ConfigCoordinatorTest {
 					dispatchAttempt.countDown();
 					throw new IllegalStateException("scheduler unavailable");
 				},
+				task -> {
+					dispatchFailureWatchdog.set(task);
+					return watchdogTask;
+				},
 				ignored -> EconomyProviderRefreshResult.disabled(),
 				ignored -> { });
+		Runnable failureDrain = dispatchFailureWatchdog.get();
+		assertNotNull(failureDrain, "the main-thread failure drain must exist before worker dispatch");
 
-		CompletionStage<Boolean> first = coordinator.createPackage(pkg("first"));
+		CompletionStage<EconomyProviderRefreshResult> first = coordinator.startup();
 		CompletionStage<Boolean> second = coordinator.createPackage(pkg("second"));
-		first.whenComplete((ignored, failure) -> completionThread.set(Thread.currentThread().getName()));
+		first.whenComplete((ignored, failure) -> {
+			lifecycleCallbackOnPrimaryThread.set(Bukkit.isPrimaryThread());
+			lifecycle.publishFailure(failure);
+			readinessAtFailure.set(api.state());
+			lifecycle.stop();
+		});
 
-		assertTrue(firstRead.await(5, TimeUnit.SECONDS));
 		assertTrue(dispatchAttempt.await(5, TimeUnit.SECONDS));
-		assertThrows(CompletionException.class, () -> first.toCompletableFuture().join());
+		assertFalse(first.toCompletableFuture().isDone(),
+				"worker dispatch rejection must wait for the main-thread watchdog");
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (!first.toCompletableFuture().isDone() && System.nanoTime() < deadline) {
+			failureDrain.run();
+			Thread.sleep(1L);
+		}
+		CompletionException startupFailure = assertThrows(
+				CompletionException.class, () -> first.toCompletableFuture().join());
+		assertEquals("scheduler unavailable", startupFailure.getCause().getMessage());
 		assertThrows(CompletionException.class, () -> second.toCompletableFuture().join());
 		assertFalse(secondRead.await(100, TimeUnit.MILLISECONDS));
-		assertEquals("config-test-worker", completionThread.get());
+		assertEquals(ReadinessState.FAILED, readinessAtFailure.get());
+		assertEquals(ReadinessState.STOPPING, api.state());
+		assertTrue(readinessCompletedOnPrimaryThread.get(),
+				"readiness failure must originate from the pre-established main-thread handoff");
+		assertTrue(lifecycleCallbackOnPrimaryThread.get(),
+				"the lifecycle disable callback must not run on the configuration worker");
+		assertTrue(server.getServicesManager().getRegistrations(lifecyclePlugin).stream()
+				.noneMatch(candidate -> candidate.getProvider() == api));
+		verify(watchdogTask).cancel();
 		assertThrows(java.util.concurrent.CancellationException.class,
 				() -> coordinator.createPackage(pkg("late")).toCompletableFuture().join());
 	}
@@ -238,6 +293,7 @@ class ConfigCoordinatorTest {
 				store,
 				executor,
 				mainTasks::add,
+				ignored -> mock(BukkitTask.class),
 				ignored -> EconomyProviderRefreshResult.disabled(),
 				packageCommit);
 	}
