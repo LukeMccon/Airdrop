@@ -81,7 +81,8 @@ public final class DropContextPersistence {
 		required.playerId().ifPresent(playerId ->
 				target.set(PLAYER_ID_KEY, PersistentDataType.STRING, playerId.toString()));
 		target.set(PACKAGE_NAME_KEY, PersistentDataType.STRING, required.packageName());
-		target.set(PACKAGE_PRICE_KEY, PersistentDataType.STRING, required.packagePrice().toPlainString());
+		// Descriptor equality includes the price scale, including negative scales.
+		target.set(PACKAGE_PRICE_KEY, PersistentDataType.STRING, required.packagePrice().toString());
 		ResolvedDropSettings settings = required.settings();
 		target.set(CHICKEN_COUNT_KEY, PersistentDataType.INTEGER, settings.chickenCount());
 		target.set(FALLING_SPEED_KEY, PersistentDataType.DOUBLE, settings.fallingSpeed());
