@@ -19,6 +19,7 @@ final class DropRequestProcess {
 		WITHDRAWING,
 		SPAWNING,
 		FALLING,
+		LANDED,
 		REFUNDING,
 		TERMINAL
 	}

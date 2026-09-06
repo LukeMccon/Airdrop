@@ -406,6 +406,7 @@ public final class DropRequestCoordinator {
 
 	private void acceptLanded(DropRequestProcess process, Crate crate) {
 		if (process.phase == DropRequestProcess.Phase.TERMINAL
+				|| process.phase == DropRequestProcess.Phase.LANDED
 				|| process.phase == DropRequestProcess.Phase.REFUNDING) {
 			return;
 		}
@@ -416,6 +417,8 @@ public final class DropRequestCoordinator {
 				context,
 				crate.getExpiresAtMillis(),
 				crate.getOpened());
+		// Landing is committed before listeners run, including listeners that disable the plugin.
+		process.phase = DropRequestProcess.Phase.LANDED;
 		AirdropLogger.debugRequest(
 				process.handle.requestId(), AirdropLogger.RequestPhase.LANDED);
 		Bukkit.getPluginManager().callEvent(new AirdropLandedEvent(context, view));
@@ -429,7 +432,8 @@ public final class DropRequestCoordinator {
 	}
 
 	private void acceptCrateOutcome(DropRequestProcess process, Crate.Outcome outcome) {
-		if (process.phase == DropRequestProcess.Phase.TERMINAL) {
+		if (process.phase == DropRequestProcess.Phase.TERMINAL
+				|| process.phase == DropRequestProcess.Phase.LANDED) {
 			return;
 		}
 		if (outcome == Crate.Outcome.LANDED) {
@@ -562,7 +566,8 @@ public final class DropRequestCoordinator {
 	}
 
 	private void stop(DropRequestProcess process) {
-		if (process.phase == DropRequestProcess.Phase.TERMINAL) {
+		if (process.phase == DropRequestProcess.Phase.TERMINAL
+				|| process.phase == DropRequestProcess.Phase.LANDED) {
 			return;
 		}
 		DropRequestProcess.Phase phase = process.phase;
