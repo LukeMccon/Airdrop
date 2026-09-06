@@ -2,6 +2,7 @@ package com.airdropmc.controllers;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
+import com.airdropmc.api.AirdropApi;
 import com.airdropmc.api.DeliveryStatus;
 import com.airdropmc.api.DropHandle;
 import com.airdropmc.api.DropOutcome;
@@ -27,6 +28,8 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -96,6 +99,9 @@ class DropControllerEconomyFlowTest {
 	@Test
 	void fallingCrateFailureRequestsOneRefundAndReportsRefunded() {
 		DropHandle handle = request("paid");
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		CompletableFuture<Integer> pendingAtCompletion = handle.outcome()
+				.thenApply(ignored -> api.status().pendingCount()).toCompletableFuture();
 		completeCharge();
 		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
 
@@ -109,11 +115,16 @@ class DropControllerEconomyFlowTest {
 				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
 		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
 		assertEquals(PaymentStatus.REFUNDED, outcome.payment());
+		assertTrue(pendingAtCompletion.isDone());
+		assertEquals(0, pendingAtCompletion.join());
 	}
 
 	@Test
 	void landedPaidCrateCleanupCannotReplayOutcomeOrStartRefund() {
 		DropHandle handle = request("paid");
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		CompletableFuture<Integer> pendingAtCompletion = handle.outcome()
+				.thenApply(ignored -> api.status().pendingCount()).toCompletableFuture();
 		completeCharge();
 		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
 		EntityChangeBlockEvent landing = new EntityChangeBlockEvent(
@@ -128,11 +139,18 @@ class DropControllerEconomyFlowTest {
 
 		assertTrue(handle.outcome().toCompletableFuture().join() == outcome);
 		assertEquals(0, economy.deposits);
+		assertTrue(pendingAtCompletion.isDone());
+		assertEquals(0, pendingAtCompletion.join());
 	}
 
 	@Test
 	void insufficientFundsIsTypedAndReleasesAdmission() {
 		DropHandle handle = request("paid");
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		CompletableFuture<Integer> pendingAtSpawnCompletion = handle.spawn()
+				.thenApply(ignored -> api.status().pendingCount()).toCompletableFuture();
+		CompletableFuture<Integer> pendingAtOutcomeCompletion = handle.outcome()
+				.thenApply(ignored -> api.status().pendingCount()).toCompletableFuture();
 		economy.affordability.complete(EconomyResult.rejected("insufficient"));
 		server.getScheduler().performOneTick();
 
@@ -142,11 +160,20 @@ class DropControllerEconomyFlowTest {
 		assertEquals(PaymentStatus.REJECTED, outcome.payment());
 		assertEquals(0, economy.withdrawals);
 		assertEquals(emptyAdmission(), Airdrop.getDropAdmissionController().snapshot());
+		assertTrue(pendingAtSpawnCompletion.isDone());
+		assertTrue(pendingAtOutcomeCompletion.isDone());
+		assertEquals(0, pendingAtSpawnCompletion.join());
+		assertEquals(0, pendingAtOutcomeCompletion.join());
 	}
 
 	@Test
 	void ambiguousWithdrawalIsFailedUnknownAndNeverRefunded() {
 		DropHandle handle = request("paid");
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		CompletableFuture<Integer> pendingAtSpawnCompletion = handle.spawn()
+				.thenApply(ignored -> api.status().pendingCount()).toCompletableFuture();
+		CompletableFuture<Integer> pendingAtOutcomeCompletion = handle.outcome()
+				.thenApply(ignored -> api.status().pendingCount()).toCompletableFuture();
 		economy.affordability.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
 		economy.withdrawal.completeExceptionally(new IllegalStateException("offline"));
@@ -158,6 +185,34 @@ class DropControllerEconomyFlowTest {
 		assertEquals(PaymentStatus.UNKNOWN, outcome.payment());
 		assertEquals(0, economy.deposits);
 		assertTrue(CrateManager.getCrateMap().isEmpty());
+		assertTrue(pendingAtSpawnCompletion.isDone());
+		assertTrue(pendingAtOutcomeCompletion.isDone());
+		assertEquals(0, pendingAtSpawnCompletion.join());
+		assertEquals(0, pendingAtOutcomeCompletion.join());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void unspawnedFailureReleasesCapacityBeforeCompletionCallbacks(boolean spawnCallback) {
+		Airdrop.getConfiguration().getConfig().set(ConfigKeys.DROP_MAX_FALLING, 1);
+		DropHandle handle = request("paid");
+		CompletionStage<?> completion = spawnCallback ? handle.spawn() : handle.outcome();
+		CompletableFuture<DropSpawnResult> queuedFreeDrop = completion.thenCompose(ignored ->
+				DropController.requestSystemDrop(new Location(world, 16, 120, 16), "free", options())
+						.spawn()).toCompletableFuture();
+
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.completeExceptionally(new IllegalStateException("offline"));
+		server.getScheduler().performOneTick();
+
+		assertTrue(handle.outcome().toCompletableFuture().isDone());
+		assertEquals(PaymentStatus.UNKNOWN, handle.outcome().toCompletableFuture().join().payment());
+		assertTrue(queuedFreeDrop.isDone());
+		assertInstanceOf(DropSpawnResult.Spawned.class, queuedFreeDrop.join(),
+				"An unrelated free drop must see capacity released by the completed request");
+		assertEquals(1, economy.withdrawals);
+		assertEquals(0, economy.deposits);
 	}
 
 	@Test

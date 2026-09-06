@@ -514,9 +514,9 @@ public final class DropRequestCoordinator {
 		DropOutcome.Rejected outcome = new DropOutcome.Rejected(
 				process.handle.descriptor(), Optional.ofNullable(process.context), rejection, payment);
 		process.phase = DropRequestProcess.Phase.TERMINAL;
-		boolean completed = process.handle.completeNotSpawned(outcome);
 		processes.remove(process.handle.requestId(), process);
 		publishPendingCount();
+		boolean completed = process.handle.completeNotSpawned(outcome);
 		if (completed) {
 			AirdropLogger.debugRequest(
 					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL, reason);
@@ -533,17 +533,15 @@ public final class DropRequestCoordinator {
 				&& process.handle.spawn().toCompletableFuture().getNow(null)
 						instanceof DropSpawnResult.Spawned;
 		process.phase = DropRequestProcess.Phase.TERMINAL;
-		boolean completed;
-		if (spawned) {
-			completed = process.handle.completeOutcome(outcome);
-		} else {
-			completed = process.handle.completeNotSpawned(outcome);
-			if (process.lease != null) {
-				process.lease.close();
-			}
+		if (!spawned && process.lease != null) {
+			process.lease.close();
 		}
 		processes.remove(process.handle.requestId(), process);
 		publishPendingCount();
+		// Completion callbacks may immediately submit another request or inspect status.
+		boolean completed = spawned
+				? process.handle.completeOutcome(outcome)
+				: process.handle.completeNotSpawned(outcome);
 		if (completed) {
 			AirdropLogger.debugRequest(
 					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL, delivery);
@@ -553,9 +551,9 @@ public final class DropRequestCoordinator {
 
 	private void finishSpawned(DropRequestProcess process, DropOutcome outcome) {
 		process.phase = DropRequestProcess.Phase.TERMINAL;
-		boolean completed = process.handle.completeOutcome(outcome);
 		processes.remove(process.handle.requestId(), process);
 		publishPendingCount();
+		boolean completed = process.handle.completeOutcome(outcome);
 		if (completed) {
 			AirdropLogger.debugRequest(
 					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL,
