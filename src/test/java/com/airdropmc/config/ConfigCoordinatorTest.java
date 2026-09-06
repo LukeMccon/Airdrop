@@ -11,6 +11,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -165,6 +167,48 @@ class ConfigCoordinatorTest {
 		assertTrue(failure.getCause() instanceof PackageMaterializationException);
 		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES + 1)));
 		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES)));
+		assertEquals(0, configurationCommits.get());
+		assertEquals(rejectedYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
+		assertTrue(livePackage == PackageManager.get("pkg0"));
+		assertEquals(1, PackageManager.getPackageCount());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"incompatible.ItemStack", "null", "42"})
+	void reloadIncompatibleSerializedItemRetainsRegistryAndReportsPackageIndex(String serializedAlias)
+			throws Exception {
+		Files.writeString(temporaryDirectory.resolve("config.yml"), "language: en\neconomy:\n  enabled: false\n",
+				StandardCharsets.UTF_8);
+		String rejectedYaml = """
+				packages:
+				  paid:
+				    price: 10.0
+				    items:
+				    - ==: %s
+				      type: DIAMOND
+				""".formatted(serializedAlias);
+		Files.writeString(packagesPath(), rejectedYaml, StandardCharsets.UTF_8);
+		PackageManager.publishPackages(PackageManager.materializePackages(configurationWithPackages(1)));
+		Package livePackage = PackageManager.get("pkg0");
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger configurationCommits = new AtomicInteger();
+		coordinator = fileCoordinator(
+				mock(LanguageManager.class), mainTasks,
+				ignored -> {
+					configurationCommits.incrementAndGet();
+					return EconomyProviderRefreshResult.disabled();
+				},
+				ignored -> { });
+
+		CompletionStage<EconomyProviderRefreshResult> rejected = coordinator.reload();
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+
+		CompletionException failure = assertThrows(
+				CompletionException.class, () -> rejected.toCompletableFuture().join());
+		assertTrue(failure.getCause().getMessage().contains("Package 'paid'"), failure::toString);
+		assertTrue(failure.getCause().getMessage().contains("index 0"), failure::toString);
 		assertEquals(0, configurationCommits.get());
 		assertEquals(rejectedYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
 		assertTrue(livePackage == PackageManager.get("pkg0"));

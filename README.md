@@ -175,6 +175,8 @@ Limit behavior:
 Packages are stored in `plugins/Airdrop/packages.yml` and can be managed in-game.
 Airdrop supports up to `27` configured packages, matching the package browser's capacity; pagination is not supported.
 Each package can contain up to `27` item stacks (barrel capacity).
+The `items` field must be a list of valid item stacks. Free packages may use an empty list (`items: []`); paid packages must contain at least one deliverable stack.
+Invalid package data or more than `27` configured packages cause reload to fail while keeping the current package registry active.
 
 ## Paid Drop Failure and Recovery
 
