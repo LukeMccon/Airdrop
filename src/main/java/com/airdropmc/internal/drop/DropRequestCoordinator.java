@@ -371,9 +371,15 @@ public final class DropRequestCoordinator {
 					new DropSpawnResult.Spawned(context, view, process.payment))) {
 				throw new IllegalStateException("Could not complete the request spawn stage");
 			}
+			if (process.phase != DropRequestProcess.Phase.FALLING || stopping || !plugin.isEnabled()) {
+				return;
+			}
 			AirdropLogger.debugRequest(
 					process.handle.requestId(), AirdropLogger.RequestPhase.SPAWNED);
 			Bukkit.getPluginManager().callEvent(new AirdropSpawnedEvent(context, view));
+			if (process.phase != DropRequestProcess.Phase.FALLING || stopping || !plugin.isEnabled()) {
+				return;
+			}
 			Bukkit.getPluginManager().callEvent(new PackageDropEvent(
 					process.crate, world, process.crate.getDropLocation()));
 		} catch (RuntimeException failure) {
