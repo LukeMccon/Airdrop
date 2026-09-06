@@ -384,6 +384,8 @@ class ModrinthDocsContractTest {
 		Map<?, ?> jobs = yamlMap(workflow.get("jobs"));
 		Map<?, ?> docsJob = yamlMap(jobs.get("publish-modrinth-docs"));
 		assertEquals("publish-modrinth", docsJob.get("needs"));
+		assertEquals("${{ github.event.release.prerelease == false }}", docsJob.get("if"),
+				"Prereleases must not publish stable-only dependency examples");
 		assertFalse(docsJob.containsKey("env"), "The token must only be available to the publication step");
 		assertTrue(docsJob.get("steps") instanceof List<?>);
 		Map<?, ?> publicationStep = ((List<?>) docsJob.get("steps")).stream()
