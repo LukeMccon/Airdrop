@@ -243,24 +243,22 @@ class CrateLandingLifecycleTest {
 	}
 
 	@Test
-	void landingAnimation_rendersTwentyFramesThenStops() throws Exception {
+	void landingEffect_rendersSingleBurstWithoutRepeating() throws Exception {
 		AnimatedCrate animated = newAnimatedCrate();
 
 		server.getScheduler().performOneTick();
 		verifyAnimationFrames(animated.world(), 1);
 
 		server.getScheduler().performTicks(19L);
-		verifyAnimationFrames(animated.world(), 20);
+		verifyAnimationFrames(animated.world(), 1);
 
 		server.getScheduler().performTicks(5L);
-		verifyAnimationFrames(animated.world(), 20);
+		verifyAnimationFrames(animated.world(), 1);
 	}
 
 	@Test
-	void openingCrate_cancelsLandingAnimationBeforeAnotherFrame() throws Exception {
+	void openingCrate_cancelsPendingLandingBurst() throws Exception {
 		AnimatedCrate animated = newAnimatedCrate();
-		server.getScheduler().performOneTick();
-		verifyAnimationFrames(animated.world(), 1);
 
 		assertDoesNotThrow(() -> {
 			animated.crate().setOpened(true);
@@ -268,34 +266,30 @@ class CrateLandingLifecycleTest {
 		});
 		server.getScheduler().performTicks(5L);
 
-		verifyAnimationFrames(animated.world(), 1);
+		verifyAnimationFrames(animated.world(), 0);
 	}
 
 	@Test
-	void destroyingCrate_cancelsLandingAnimationBeforeAnotherFrame() throws Exception {
+	void destroyingCrate_cancelsPendingLandingBurst() throws Exception {
 		AnimatedCrate animated = newAnimatedCrate();
-		server.getScheduler().performOneTick();
-		verifyAnimationFrames(animated.world(), 1);
 
 		assertTrue(CrateManager.removeCrateAndDestroy(animated.crate()));
 		assertDoesNotThrow(animated.crate()::destroy);
 		server.getScheduler().performTicks(5L);
 
-		verifyAnimationFrames(animated.world(), 1);
+		verifyAnimationFrames(animated.world(), 0);
 	}
 
 	@Test
-	void hotDisableCleanup_cancelsLandingAnimationBeforeAnotherFrame() throws Exception {
+	void hotDisableCleanup_cancelsPendingLandingBurst() throws Exception {
 		AnimatedCrate animated = newAnimatedCrate();
-		server.getScheduler().performOneTick();
-		verifyAnimationFrames(animated.world(), 1);
 		when(plugin.getServer()).thenReturn(server);
 
 		CrateManager.purgeForHotDisable(plugin);
 		CrateManager.purgeForHotDisable(plugin);
 		server.getScheduler().performTicks(5L);
 
-		verifyAnimationFrames(animated.world(), 1);
+		verifyAnimationFrames(animated.world(), 0);
 	}
 
 	@Test

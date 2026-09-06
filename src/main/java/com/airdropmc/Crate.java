@@ -455,7 +455,8 @@ public class Crate {
 		}
 		if (options.shouldShowLandingEffects()) {
 			RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(landedLocation.clone(), world);
-			landingEffectTask = landedEffect.runTaskTimer(plugin, 0L, 1L);
+			// A single landing burst is intentional; repeating frames creates an inward-moving particle wave.
+			landingEffectTask = landedEffect.runTask(plugin);
 		}
 		if (options.shouldShowContinuousEffects()) {
 			glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
