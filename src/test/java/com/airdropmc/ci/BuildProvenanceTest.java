@@ -130,10 +130,29 @@ class BuildProvenanceTest {
 
 		assertFalse(rootMetadata.contains("<trusted-artifacts>"),
 				"The root graph must verify every resolved external artifact");
+		for (String coldCacheMetadata : List.of(
+				"groovy-bom-4.0.22.module",
+				"guava-parent-33.3.1-jre.pom",
+				"guava-parent-33.4.8-jre.pom",
+				"jackson-base-2.15.2.pom",
+				"jackson-dataformats-text-2.15.2.pom",
+				"junit-bom-5.10.3.module",
+				"junit-bom-5.7.1.module",
+				"junit-bom-5.9.2.module",
+				"junit-bom-5.9.2.pom",
+				"junit-bom-5.9.3.module",
+				"junit-bom-6.1.3.pom",
+				"spring-framework-bom-5.3.39.module")) {
+			assertTrue(rootMetadata.contains("<artifact name=\"" + coldCacheMetadata + "\">"),
+					() -> "Fresh Gradle resolution requires verified metadata for "
+							+ coldCacheMetadata);
+		}
 		assertTrue(consumerMetadata.contains("<trusted-artifacts>"));
 		assertTrue(consumerMetadata.contains("group=\"maven.modrinth\""));
 		assertTrue(consumerMetadata.contains("name=\"airdrop\""));
 		assertTrue(consumerMetadata.contains("locally staged changing Airdrop artifact"));
+		assertTrue(consumerMetadata.contains("<artifact name=\"junit-bom-6.1.3.pom\">"),
+				"Fresh consumer-fixture resolution requires the JUnit BOM POM checksum");
 		assertFalse(consumerMetadata.contains("<component group=\"maven.modrinth\""),
 				"The local staged artifact must be trusted by identity, not pinned to one build hash");
 	}
