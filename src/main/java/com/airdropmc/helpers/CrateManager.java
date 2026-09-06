@@ -218,6 +218,21 @@ public class CrateManager {
 		return removal.removed();
 	}
 
+	/** Samples a tracked falling entity on the primary thread for pure API readers. */
+	public static synchronized void refreshFallingView(FallingBlock block) {
+		Crate crate = crateMap.get(block);
+		UUID crateId = activeViewIds.get(crate);
+		if (crateId == null
+				|| !(activeDropRegistry.findByCrateId(crateId).orElse(null)
+						instanceof FallingAirdropView)) {
+			return;
+		}
+		FallingAirdropView view = crate.snapshotFallingView(block);
+		if (view != null) {
+			activeDropRegistry.replaceFalling(view);
+		}
+	}
+
 	/** Replaces a landed view after observable fields such as opened change. */
 	public static synchronized void refreshLandedView(Crate crate) {
 		if (crate == null) {

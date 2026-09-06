@@ -32,6 +32,8 @@ public sealed interface AirdropView permits FallingAirdropView, LandedAirdropVie
 
 	/**
 	 * Returns the current detached position.
+	 * Falling positions are sampled every two server ticks; a retained view
+	 * keeps the position captured when that snapshot was published.
 	 *
 	 * @return current pure position snapshot
 	 */

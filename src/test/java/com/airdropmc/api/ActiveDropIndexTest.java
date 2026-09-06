@@ -42,6 +42,49 @@ class ActiveDropIndexTest {
 	}
 
 	@Test
+	void fallingReplacementPreservesIndexesAndRetainedSnapshots() {
+		Fixture fixture = fixture((ServerMock) Bukkit.getServer(), "starter", 10);
+		ActiveDropRegistry registry = new ActiveDropRegistry();
+		registry.registerFalling(fixture.falling());
+		List<AirdropView> retained = registry.activeDrops();
+		FallingAirdropView moved = new FallingAirdropView(
+				fixture.crateId(), fixture.entityId(), fixture.context().landingPosition(),
+				fixture.context());
+
+		registry.replaceFalling(moved);
+
+		assertEquals(List.of(moved), registry.activeDrops());
+		assertSame(moved, registry.findByRequestId(fixture.requestId()).orElseThrow());
+		assertSame(moved, registry.findByCrateId(fixture.crateId()).orElseThrow());
+		assertSame(moved, registry.findByFallingEntityId(fixture.entityId()).orElseThrow());
+		assertEquals(List.of(fixture.falling()), retained);
+		assertEquals(1, registry.fallingCount());
+		assertEquals(0, registry.landedCount());
+	}
+
+	@Test
+	void fallingReplacementRejectsChangedIdentitiesAndCannotReviveRemovedDrops() {
+		ServerMock server = (ServerMock) Bukkit.getServer();
+		Fixture fixture = fixture(server, "starter", 10);
+		ActiveDropRegistry registry = new ActiveDropRegistry();
+		registry.registerFalling(fixture.falling());
+		FallingAirdropView differentEntity = new FallingAirdropView(
+				fixture.crateId(), UUID.randomUUID(), fixture.falling().position(), fixture.context());
+		FallingAirdropView differentRequest = new FallingAirdropView(
+				fixture.crateId(), fixture.entityId(), fixture.falling().position(),
+				fixture(server, "other", 30).context());
+
+		assertThrows(IllegalStateException.class, () -> registry.replaceFalling(differentEntity));
+		assertThrows(IllegalStateException.class, () -> registry.replaceFalling(differentRequest));
+		assertEquals(List.of(fixture.falling()), registry.activeDrops());
+
+		registry.remove(fixture.crateId());
+		FallingAirdropView removed = fixture.falling();
+		assertThrows(IllegalStateException.class, () -> registry.replaceFalling(removed));
+		assertTrue(registry.activeDrops().isEmpty());
+	}
+
+	@Test
 	void duplicateRequestIsRejectedWithoutPublishingAnyPartialIndex() {
 		ServerMock server = (ServerMock) Bukkit.getServer();
 		Fixture first = fixture(server, "first", 10);

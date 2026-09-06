@@ -18,6 +18,7 @@ import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
+import com.airdropmc.helpers.CrateManager;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
@@ -119,6 +120,8 @@ public class ParachuteSystem {
 					releaseParachutes();
 					return;
                 }
+
+				CrateManager.refreshFallingView(fallingCrate);
 
                 // Play smoke effects
                 Location effectLoc = fallingCrate.getLocation().add(new Vector(0, 1, 0));

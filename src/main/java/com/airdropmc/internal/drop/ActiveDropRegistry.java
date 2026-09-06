@@ -49,6 +49,18 @@ public final class ActiveDropRegistry {
 		snapshot = build(replacement);
 	}
 
+	/** Replaces a falling position snapshot while preserving every identity index. */
+	public synchronized void replaceFalling(FallingAirdropView replacement) {
+		FallingAirdropView required = Objects.requireNonNull(replacement, "replacement");
+		AirdropView current = snapshot.byCrate().get(required.crateId());
+		if (!(current instanceof FallingAirdropView falling)
+				|| !falling.fallingEntityId().equals(required.fallingEntityId())
+				|| !falling.requestId().equals(required.requestId())) {
+			throw new IllegalStateException("Expected falling crate is not active");
+		}
+		snapshot = build(replace(required.crateId(), required));
+	}
+
 	/**
 	 * Atomically replaces one falling view with its landed form.
 	 *

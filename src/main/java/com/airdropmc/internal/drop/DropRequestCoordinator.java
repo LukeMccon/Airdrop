@@ -366,7 +366,6 @@ public final class DropRequestCoordinator {
 					falling.getUniqueId(),
 					WorldPosition.from(falling.getLocation()),
 					context);
-			process.fallingView = view;
 			process.phase = DropRequestProcess.Phase.FALLING;
 			if (!process.handle.completeSpawned(
 					new DropSpawnResult.Spawned(context, view, process.payment))) {
@@ -398,7 +397,8 @@ public final class DropRequestCoordinator {
 				process.handle.requestId(), AirdropLogger.RequestPhase.LANDING_ATTEMPT);
 		AirdropLandingAttemptEvent event = new AirdropLandingAttemptEvent(
 				Objects.requireNonNull(process.context, "context"),
-				Objects.requireNonNull(process.fallingView, "fallingView"),
+				Objects.requireNonNull(process.crate.snapshotFallingView(
+						process.crate.getFallingCrate()), "fallingView"),
 				candidatePosition);
 		Bukkit.getPluginManager().callEvent(event);
 		return process.phase == DropRequestProcess.Phase.FALLING && !event.isCancelled();

@@ -10,6 +10,7 @@ import com.airdropmc.api.DropRejectionReason;
 import com.airdropmc.api.DropRequestOptions;
 import com.airdropmc.api.LandedAirdropView;
 import com.airdropmc.api.RetirementReason;
+import com.airdropmc.api.WorldPosition;
 import com.airdropmc.events.PackageDropEvent;
 import com.airdropmc.events.PackageLandEvent;
 import com.airdropmc.helpers.CrateManager;
@@ -92,6 +93,21 @@ class AirdropEventOrderTest {
 		assertTrue(recorder.primaryThreadOnly);
 		assertInstanceOf(
 				DropOutcome.Landed.class, handle.outcome().toCompletableFuture().join());
+	}
+
+	@Test
+	void landingAttemptCapturesMovementSinceTheLastScheduledSnapshot() {
+		DropHandle handle = api.requestSystemDrop(
+				new Location(world, 5, 100, 7), "starter", quietOptions());
+		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+		Location moved = falling.getLocation().add(0, -5, 0);
+		((org.mockbukkit.mockbukkit.entity.EntityMock) falling).setLocation(moved);
+
+		server.getPluginManager().callEvent(new EntityChangeBlockEvent(
+				falling, handle.context().orElseThrow().landingLocation().getBlock(),
+				Material.BARREL.createBlockData()));
+
+		assertEquals(WorldPosition.from(moved), recorder.landingAttemptPosition);
 	}
 
 	@Test
@@ -280,6 +296,7 @@ class AirdropEventOrderTest {
 		private boolean outcomeObservedInsideManagerMonitor;
 		private boolean retiredObservedInsideManagerMonitor;
 		private boolean retiredObservedPostRemoval = true;
+		private WorldPosition landingAttemptPosition;
 		private final List<RetirementReason> retirementReasons = new ArrayList<>();
 
 		private void record(String name, AbstractAirdropEvent event) {
@@ -305,6 +322,7 @@ class AirdropEventOrderTest {
 
 		@EventHandler
 		public void onLandingAttempt(AirdropLandingAttemptEvent event) {
+			landingAttemptPosition = event.airdrop().position();
 			record("landing-attempt", event);
 		}
 

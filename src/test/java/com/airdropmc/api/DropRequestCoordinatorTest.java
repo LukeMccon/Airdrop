@@ -135,6 +135,41 @@ class DropRequestCoordinatorTest {
 	}
 
 	@Test
+	void fallingMovementRefreshesEveryLookupWithoutChangingRetainedSnapshots() {
+		DropHandle handle = api.requestSystemDrop(
+				new Location(world, 5, 100, 7), "starter", quietOptions());
+		FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+		AirdropView original = api.findByRequestId(handle.requestId()).orElseThrow();
+		List<AirdropView> retained = List.copyOf(api.activeDrops());
+		WorldPosition spawnPosition = original.position();
+		Location moved = falling.getLocation().add(1, -5, 2);
+		((org.mockbukkit.mockbukkit.entity.EntityMock) falling).setLocation(moved);
+
+		server.getScheduler().performTicks(2);
+
+		AirdropView refreshed = api.findByRequestId(handle.requestId()).orElseThrow();
+		assertEquals(WorldPosition.from(moved), refreshed.position());
+		assertEquals(refreshed, api.findByCrateId(original.crateId()).orElseThrow());
+		assertEquals(refreshed, api.findByFallingEntity(falling).orElseThrow());
+		assertEquals(List.of(refreshed), List.copyOf(api.activeDrops()));
+		assertEquals(spawnPosition, retained.getFirst().position());
+		assertEquals(spawnPosition, original.position());
+		CompletableFuture.runAsync(() -> {
+			assertEquals(refreshed, api.findByRequestId(handle.requestId()).orElseThrow());
+			assertEquals(refreshed, api.findByCrateId(original.crateId()).orElseThrow());
+			assertEquals(List.of(refreshed), List.copyOf(api.activeDrops()));
+		}).join();
+
+		server.getPluginManager().callEvent(new EntityChangeBlockEvent(
+				falling, handle.context().orElseThrow().landingLocation().getBlock(),
+				Material.BARREL.createBlockData()));
+		server.getScheduler().performTicks(2);
+		assertInstanceOf(LandedAirdropView.class,
+				api.findByRequestId(handle.requestId()).orElseThrow());
+		assertTrue(api.findByFallingEntity(falling).isEmpty());
+	}
+
+	@Test
 	void cancelledPaperLandingIsDistinctFromFailure() {
 		DropHandle handle = api.requestSystemDrop(
 				new Location(world, 9, 100, 11),
