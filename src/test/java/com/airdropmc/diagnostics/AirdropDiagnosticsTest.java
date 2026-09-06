@@ -19,11 +19,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -122,6 +124,27 @@ class AirdropDiagnosticsTest {
 		assertFalse(safe.contains("hunter2"), safe);
 		assertFalse(safe.contains("/plugins/"), safe);
 		assertTrue(safe.codePointCount(0, safe.length()) <= 80, safe);
+	}
+
+	@Test
+	void deeplySegmentedUnixPathsDoNotOverflowTheRegexStack() throws InterruptedException {
+		String unsafePath = "/" + "a/".repeat(1_023) + "z";
+		AtomicReference<String> sanitized = new AtomicReference<>();
+		AtomicReference<Throwable> failure = new AtomicReference<>();
+		Thread sanitizer = new Thread(
+				null,
+				() -> sanitized.set(AirdropDiagnostics.sanitizeLabel(unsafePath)),
+				"diagnostic-sanitizer-test",
+				32 * 1_024);
+		sanitizer.setDaemon(true);
+		sanitizer.setUncaughtExceptionHandler((thread, problem) -> failure.set(problem));
+
+		sanitizer.start();
+		sanitizer.join(Duration.ofSeconds(5).toMillis());
+
+		assertFalse(sanitizer.isAlive(), "Sanitizing a bounded path did not finish");
+		assertNull(failure.get(), () -> "Sanitizing a bounded path failed: " + failure.get());
+		assertEquals("[path]", sanitized.get());
 	}
 
 	@Test

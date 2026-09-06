@@ -35,7 +35,7 @@ public final class AirdropDiagnostics {
 	private static final Pattern KNOWN_RELATIVE_PATH = Pattern.compile(
 			"(?i)\\b(?:plugins?|config|logs?|worlds?|server)[\\\\/][^\\s,;]+");
 	private static final Pattern UNIX_PATH = Pattern.compile(
-			"(?<![:/\\p{Alnum}])/(?:[^\\s/,;]+/)*[^\\s,;]+");
+			"(?<![:/\\p{Alnum}])/[^\\s,;]+");
 	private static final Pattern LONG_SECRET_FRAGMENT = Pattern.compile(
 			"(?<![\\p{Alnum}_-])[A-Za-z0-9_-]{24,}(?![\\p{Alnum}_-])");
 	private static final Pattern BRACED_CONTENT = Pattern.compile("\\{[^{}]*}");
