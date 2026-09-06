@@ -3,6 +3,7 @@ package com.airdropmc.paid;
 import com.airdropmc.economy.EconomyPlayer;
 import com.airdropmc.economy.EconomyProvider;
 import com.airdropmc.economy.EconomyResult;
+import com.airdropmc.internal.diagnostics.AirdropDiagnostics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -10,6 +11,7 @@ import org.jetbrains.annotations.ApiStatus;
 
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -52,8 +54,10 @@ public final class PaidDropSession {
 	private final EconomyProvider economy;
 	private final EconomyPlayer player;
 	private final BigDecimal amount;
+	private final UUID requestId;
 	private final Listener listener;
 	private final Logger logger;
+	private final String providerName;
 
 	private State state = State.NEW;
 	private BukkitTask timeoutTask;
@@ -63,11 +67,13 @@ public final class PaidDropSession {
 			EconomyProvider economy,
 			EconomyPlayer player,
 			BigDecimal amount,
+			UUID requestId,
 			Listener listener) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.economy = Objects.requireNonNull(economy, "economy");
 		this.player = Objects.requireNonNull(player, "player");
 		this.amount = Objects.requireNonNull(amount, "amount");
+		this.requestId = Objects.requireNonNull(requestId, "requestId");
 		this.listener = Objects.requireNonNull(listener, "listener");
 		if (amount.signum() <= 0) {
 			throw new IllegalArgumentException("amount must be positive");
@@ -76,6 +82,7 @@ public final class PaidDropSession {
 		this.logger = pluginLogger != null
 				? pluginLogger
 				: Logger.getLogger(PaidDropSession.class.getName());
+		this.providerName = providerLabel(economy);
 	}
 
 	public void start() {
@@ -112,6 +119,10 @@ public final class PaidDropSession {
 		if (state != State.STOPPED) {
 			cancelTimeout();
 			state = State.STOPPED;
+			if (previous == State.WITHDRAWING || previous == State.REFUNDING) {
+				warnPayment(previous == State.WITHDRAWING ? Operation.WITHDRAWAL : Operation.REFUND,
+						EconomyResult.unknown("Plugin stopped before the operation was confirmed"));
+			}
 		}
 		return previous;
 	}
@@ -157,6 +168,11 @@ public final class PaidDropSession {
 				accept(operation, result);
 				return;
 			}
+			if (operation != Operation.AFFORDABILITY) {
+				warnPayment(operation, new EconomyResult(result.outcome(),
+						"Could not marshal economy result to the primary thread: " + result.message()));
+				return;
+			}
 			logger.log(Level.WARNING,
 					"Could not marshal economy result to the primary thread", schedulingFailure);
 		}
@@ -164,6 +180,9 @@ public final class PaidDropSession {
 
 	private void accept(Operation operation, EconomyResult result) {
 		if (!matches(operation)) {
+			if (operation != Operation.AFFORDABILITY && result.outcome() == EconomyResult.Outcome.SUCCESS) {
+				warnPayment(operation, new EconomyResult(result.outcome(), "Ignoring late successful result"));
+			}
 			return;
 		}
 		cancelTimeout();
@@ -189,11 +208,17 @@ public final class PaidDropSession {
 		state = result.outcome() == EconomyResult.Outcome.SUCCESS
 				? State.CHARGED
 				: State.TERMINAL;
+		if (result.outcome() == EconomyResult.Outcome.UNKNOWN) {
+			warnPayment(Operation.WITHDRAWAL, result);
+		}
 		listener.complete(Operation.WITHDRAWAL, result);
 	}
 
 	private void acceptRefund(EconomyResult result) {
 		state = State.TERMINAL;
+		if (result.outcome() != EconomyResult.Outcome.SUCCESS) {
+			warnPayment(Operation.REFUND, result);
+		}
 		listener.complete(Operation.REFUND, result);
 	}
 
@@ -202,9 +227,24 @@ public final class PaidDropSession {
 			return;
 		}
 		timeoutTask = null;
-		state = State.TERMINAL;
-		listener.complete(operation, EconomyResult.unknown(
+		accept(operation, EconomyResult.unknown(
 				"Economy " + operation.name().toLowerCase() + " operation timed out"));
+	}
+
+	private void warnPayment(Operation operation, EconomyResult result) {
+		logger.warning("Paid drop requires reconciliation: request=" + requestId
+				+ " player=" + player.uniqueId() + " amount=" + amount
+				+ " provider=" + providerName + " operation=" + operation + " result=" + result.outcome()
+				+ " detail=" + AirdropDiagnostics.sanitizeLabel(result.message())
+				+ "; no automatic retry or refund");
+	}
+
+	private static String providerLabel(EconomyProvider economy) {
+		try {
+			return AirdropDiagnostics.sanitizeLabel(economy.getName());
+		} catch (RuntimeException | LinkageError unavailable) {
+			return "unknown";
+		}
 	}
 
 	private boolean matches(Operation operation) {

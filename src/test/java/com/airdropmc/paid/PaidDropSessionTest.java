@@ -8,6 +8,8 @@ import org.bukkit.scheduler.BukkitScheduler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockbukkit.mockbukkit.MockBukkit;
@@ -18,8 +20,13 @@ import org.mockbukkit.mockbukkit.plugin.PluginMock;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -40,6 +47,22 @@ class PaidDropSessionTest {
 	private PlayerMock player;
 	private ControlledEconomyProvider economy;
 	private List<Completion> completions;
+	private UUID requestId;
+	private final List<LogRecord> logs = new ArrayList<>();
+	private final Handler logCapture = new Handler() {
+		@Override
+		public void publish(LogRecord record) {
+			logs.add(record);
+		}
+
+		@Override
+		public void flush() {
+		}
+
+		@Override
+		public void close() {
+		}
+	};
 
 	@BeforeEach
 	void setUp() {
@@ -48,11 +71,176 @@ class PaidDropSessionTest {
 		player = server.addPlayer("Luke");
 		economy = new ControlledEconomyProvider();
 		completions = new ArrayList<>();
+		requestId = UUID.randomUUID();
+		plugin.getLogger().addHandler(logCapture);
 	}
 
 	@AfterEach
 	void tearDown() {
+		plugin.getLogger().removeHandler(logCapture);
 		MockBukkit.unmock();
+	}
+
+	@Test
+	void ambiguousWithdrawalWarnsWithCorrelationWithoutDebugLogging() {
+		PaidDropSession session = session();
+		session.start();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.completeExceptionally(new IllegalStateException("provider offline"));
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS + 1L);
+
+		assertEquals(1, warnings().size());
+		assertWarning(warnings().getFirst(), "WITHDRAWAL", "UNKNOWN");
+		assertTrue(warnings().getFirst().contains("provider offline"));
+		assertEquals(1, completions.size());
+		assertEquals(1, economy.withdrawals);
+		assertEquals(0, economy.deposits);
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = EconomyResult.Outcome.class, names = {"REJECTED", "UNKNOWN"})
+	void unsuccessfulRefundWarnsOnceWithBoundedSanitizedDiagnostics(EconomyResult.Outcome outcome) {
+		economy.name = "§aControlled\npassword=hidden /plugins/private.yml";
+		PaidDropSession session = chargedSession();
+		session.refund();
+		String unsafe = "deposit failed\ntoken=secret /server/private.yml " + "details ".repeat(100);
+		economy.refund.complete(outcome == EconomyResult.Outcome.REJECTED
+				? EconomyResult.rejected(unsafe) : EconomyResult.unknown(unsafe));
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS + 1L);
+
+		assertEquals(1, warnings().size());
+		String warning = warnings().getFirst();
+		assertWarning(warning, "REFUND", outcome.name());
+		assertTrue(warning.contains("deposit failed"));
+		for (String forbidden : List.of("hidden", "secret", "/plugins/", "/server/", "§", "\n")) {
+			assertFalse(warning.contains(forbidden), warning);
+		}
+		assertTrue(warning.length() < 600, warning);
+		assertEquals(1, economy.deposits);
+		assertEquals(2, completions.size());
+	}
+
+	@Test
+	void withdrawalTimeoutAndLateSuccessRemainVisibleWithoutRecovery() {
+		PaidDropSession session = session();
+		session.start();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
+		assertEquals(1, warnings().size());
+		assertWarning(warnings().getFirst(), "WITHDRAWAL", "UNKNOWN");
+		economy.withdrawal.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+
+		assertEquals(2, warnings().size());
+		assertWarning(warnings().getLast(), "WITHDRAWAL", "SUCCESS");
+		assertTrue(warnings().getLast().contains("late"));
+		assertEquals(1, completions.size());
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
+	void refundTimeoutWarnsWithoutRetrying() {
+		PaidDropSession session = chargedSession();
+		session.refund();
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS + 1L);
+
+		assertEquals(1, warnings().size());
+		assertWarning(warnings().getFirst(), "REFUND", "UNKNOWN");
+		assertEquals(1, economy.deposits);
+		assertEquals(2, completions.size());
+	}
+
+	@Test
+	void stoppingOutstandingWithdrawalWarnsOnce() {
+		PaidDropSession session = session();
+		session.start();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		session.stop();
+		session.stop();
+
+		assertEquals(1, warnings().size());
+		assertWarning(warnings().getFirst(), "WITHDRAWAL", "UNKNOWN");
+		assertTrue(completions.isEmpty());
+		assertEquals(0, economy.deposits);
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = PaidDropSession.Operation.class, names = {"WITHDRAWAL", "REFUND"})
+	void lateAsyncSuccessAfterSchedulerShutdownRetainsCorrelation(PaidDropSession.Operation operation)
+			throws Exception {
+		PaidDropSession session;
+		if (operation == PaidDropSession.Operation.REFUND) {
+			session = chargedSession();
+			session.refund();
+		} else {
+			session = session();
+			session.start();
+			economy.affordability.complete(EconomyResult.ok());
+			server.getScheduler().performOneTick();
+		}
+		session.stop();
+		int completedBeforeStop = completions.size();
+		BukkitScheduler scheduler = mock(BukkitScheduler.class);
+		when(scheduler.runTask(eq(plugin), any(Runnable.class)))
+				.thenThrow(new IllegalStateException("plugin disabled"));
+
+		CompletableFuture.runAsync(() -> {
+			try (MockedStatic<Bukkit> bukkit = Mockito.mockStatic(Bukkit.class, Mockito.CALLS_REAL_METHODS)) {
+				bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+				assertFalse(Bukkit.isPrimaryThread());
+				(operation == PaidDropSession.Operation.REFUND ? economy.refund : economy.withdrawal)
+						.complete(EconomyResult.ok());
+			}
+		}).get(5, TimeUnit.SECONDS);
+
+		assertEquals(2, warnings().size());
+		assertWarning(warnings().getLast(), operation.name(), "SUCCESS");
+		assertTrue(warnings().getLast().contains("Could not marshal"));
+		assertEquals(PaidDropSession.State.STOPPED, session.state());
+		assertEquals(completedBeforeStop, completions.size());
+		assertEquals(1, economy.withdrawals);
+		assertEquals(operation == PaidDropSession.Operation.REFUND ? 1 : 0, economy.deposits);
+	}
+
+	@Test
+	void successfulPaymentAndRefundDoNotWarn() {
+		PaidDropSession session = chargedSession();
+		session.refund();
+		economy.refund.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+
+		assertTrue(warnings().isEmpty());
+	}
+
+	@Test
+	void brokenProviderLabelCannotPreventAnAmbiguousPaymentResult() {
+		economy.nameFailure = new IllegalStateException("unavailable label");
+		PaidDropSession session = session();
+		session.start();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		economy.withdrawal.complete(EconomyResult.unknown("offline"));
+		server.getScheduler().performOneTick();
+
+		assertEquals(EconomyResult.Outcome.UNKNOWN, completions.getFirst().result().outcome());
+		assertEquals(1, warnings().size());
+		assertTrue(warnings().getFirst().contains("provider=unknown"));
+	}
+
+	private List<String> warnings() {
+		return logs.stream().filter(record -> record.getLevel().intValue() >= Level.WARNING.intValue())
+				.map(LogRecord::getMessage).toList();
+	}
+
+	private void assertWarning(String warning, String operation, String result) {
+		for (String expected : List.of("request=" + requestId, "player=" + player.getUniqueId(),
+				"amount=10", "provider=Controlled", "operation=" + operation, "result=" + result,
+				"no automatic retry or refund")) {
+			assertTrue(warning.contains(expected), "Missing " + expected + " in " + warning);
+		}
 	}
 
 	@Test
@@ -238,7 +426,7 @@ class PaidDropSessionTest {
 	@Test
 	void rejectsNonPositiveAmountsAndRepeatedStart() {
 		assertThrows(IllegalArgumentException.class, () -> new PaidDropSession(
-				plugin, economy, playerIdentity(), BigDecimal.ZERO, this::record));
+				plugin, economy, playerIdentity(), BigDecimal.ZERO, requestId, this::record));
 		PaidDropSession session = session();
 		session.start();
 		assertThrows(IllegalStateException.class, session::start);
@@ -256,7 +444,7 @@ class PaidDropSessionTest {
 
 	private PaidDropSession session() {
 		return new PaidDropSession(
-				plugin, economy, playerIdentity(), BigDecimal.TEN, this::record);
+				plugin, economy, playerIdentity(), BigDecimal.TEN, requestId, this::record);
 	}
 
 	private EconomyPlayer playerIdentity() {
@@ -280,6 +468,8 @@ class PaidDropSessionTest {
 
 		private CompletionStage<EconomyResult> affordabilityStage;
 		private RuntimeException affordabilityFailure;
+		private String name = "Controlled";
+		private RuntimeException nameFailure;
 		private final CompletableFuture<EconomyResult> affordability;
 		private final CompletableFuture<EconomyResult> withdrawal = new CompletableFuture<>();
 		private final CompletableFuture<EconomyResult> refund = new CompletableFuture<>();
@@ -336,7 +526,10 @@ class PaidDropSessionTest {
 
 		@Override
 		public String getName() {
-			return "Controlled";
+			if (nameFailure != null) {
+				throw nameFailure;
+			}
+			return name;
 		}
 	}
 }

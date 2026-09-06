@@ -290,6 +290,7 @@ public final class DropRequestCoordinator {
 				economy,
 				new EconomyPlayer(player.getUniqueId(), player.getName()),
 				amount,
+				process.handle.requestId(),
 				(operation, result) -> acceptPayment(process, operation, result));
 		try {
 			process.paymentSession.start();
