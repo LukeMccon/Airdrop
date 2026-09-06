@@ -1,9 +1,12 @@
 package com.airdropmc.api;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.event.PackageRegistryChangedEvent;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.listeners.CrateHopperListener;
 import com.airdropmc.packages.PackageManager;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.ServiceRegisterEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -11,6 +14,8 @@ import org.bukkit.plugin.ServicePriority;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.plugin.PluginMock;
@@ -18,15 +23,23 @@ import org.mockbukkit.mockbukkit.plugin.PluginMock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -92,6 +105,74 @@ class AirdropApiServiceTest {
 		assertEquals(3, api.status().maxFalling().orElseThrow());
 		assertEquals(10, api.status().maxLanded().orElseThrow());
 		assertEquals(0, api.status().pendingCount());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void serviceRegistrationListenerStopsTheInterruptedEnable(boolean restart) throws Exception {
+		Airdrop plugin = preparedPlugin(false);
+		List<AirdropApi> registeredApis = new ArrayList<>();
+		AtomicInteger startupPublications = new AtomicInteger();
+		PluginMock observer = MockBukkit.createMockPlugin("ServiceLifecycleObserver");
+		server.getPluginManager().registerEvents(new Listener() {
+			@EventHandler
+			public void onServiceRegister(ServiceRegisterEvent event) {
+				if (event.getProvider().getService() != AirdropApi.class
+						|| event.getProvider().getPlugin() != plugin) {
+					return;
+				}
+				registeredApis.add((AirdropApi) event.getProvider().getProvider());
+				if (registeredApis.size() == 1) {
+					server.getPluginManager().disablePlugin(plugin);
+					if (restart) {
+						server.getPluginManager().enablePlugin(plugin);
+					}
+				}
+			}
+
+			@EventHandler
+			public void onRegistryChanged(PackageRegistryChangedEvent event) {
+				if (event.cause() == PackageRegistryCause.STARTUP) {
+					startupPublications.incrementAndGet();
+				}
+			}
+		}, observer);
+
+		server.getPluginManager().enablePlugin(plugin);
+
+		assertEquals(restart ? 2 : 1, registeredApis.size());
+		AirdropApi interrupted = registeredApis.getFirst();
+		assertEquals(ReadinessState.STOPPING, interrupted.state());
+		CompletableFuture<AirdropApi> interruptedReadiness = interrupted.readiness().toCompletableFuture();
+		assertTrue(interruptedReadiness.isDone());
+		assertThrows(CompletionException.class, interruptedReadiness::join);
+		assertEquals(0L, interrupted.packageRevision());
+		if (!restart) {
+			assertAll(
+					() -> assertFalse(plugin.isEnabled()),
+					() -> assertNull(Airdrop.getPluginInstance()),
+					() -> assertNull(plugin.getLanguageManager(), "Stopped enable must not initialize language"),
+					() -> assertTrue(HandlerList.getRegisteredListeners(plugin).isEmpty()),
+					() -> assertTrue(server.getServicesManager().getRegistrations(plugin).isEmpty()),
+					() -> assertEquals(0, startupPublications.get()));
+			return;
+		}
+
+		AirdropApi replacement = registeredApis.getLast();
+		assertNotSame(interrupted, replacement);
+		assertSame(replacement, requireApi(plugin));
+		awaitReady(plugin);
+		CompletableFuture<AirdropApi> replacementReadiness = replacement.readiness().toCompletableFuture();
+		assertTrue(replacementReadiness.isDone());
+		assertSame(replacement, replacementReadiness.join());
+		assertAll(
+				() -> assertEquals(ReadinessState.READY, replacement.state()),
+				() -> assertEquals(1L, replacement.packageRevision()),
+				() -> assertEquals(1, startupPublications.get()),
+				() -> assertEquals(1L, HandlerList.getRegisteredListeners(plugin).stream()
+						.filter(listener -> listener.getListener() instanceof CrateHopperListener).count()),
+				() -> assertEquals(1L, server.getServicesManager().getRegistrations(plugin).stream()
+						.filter(registration -> registration.getService() == AirdropApi.class).count()));
 	}
 
 	@Test

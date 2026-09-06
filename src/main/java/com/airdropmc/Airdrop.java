@@ -75,8 +75,13 @@ public class Airdrop extends JavaPlugin {
 		dropAdmissionController = new DropAdmissionController();
 
 		try {
-			airdropServiceLifecycle = new AirdropServiceLifecycle(this);
-			airdropServiceLifecycle.register();
+			AirdropServiceLifecycle serviceLifecycle = new AirdropServiceLifecycle(this);
+			airdropServiceLifecycle = serviceLifecycle;
+			serviceLifecycle.register();
+			// Service registration listeners can synchronously disable or restart this plugin.
+			if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
+				return;
+			}
 
 			languageManager = new LanguageManager(this);
 			ChatHandler.init(languageManager);
