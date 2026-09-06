@@ -2,6 +2,7 @@ package com.airdropmc.packages;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.DuplicatePackageException;
+import com.airdropmc.exceptions.PackageCapacityException;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.MessageKey;
 import org.bukkit.entity.Player;
@@ -57,12 +58,17 @@ public class CreatePackageGui extends PackageEditorGui {
 
 	@Override
 	protected boolean handleSpecificSaveFailure(Player player, Throwable failure) {
-		if (!(failure instanceof DuplicatePackageException duplicate)) {
-			return false;
+		if (failure instanceof DuplicatePackageException duplicate) {
+			ChatHandler.sendError(player, MessageKey.ERROR_PACKAGE_EXISTS,
+					Map.of("name", duplicate.getPackageName()));
+			return true;
 		}
-
-		ChatHandler.sendError(player, MessageKey.ERROR_PACKAGE_EXISTS,
-				Map.of("name", duplicate.getPackageName()));
-		return true;
+		if (failure instanceof PackageCapacityException capacity) {
+			ChatHandler.sendError(player, MessageKey.PACKAGES_CAPACITY_LIMIT, Map.of(
+					"count", String.valueOf(capacity.getRequestedCount()),
+					"limit", String.valueOf(capacity.getLimit())));
+			return true;
+		}
+		return false;
 	}
 }

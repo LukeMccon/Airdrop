@@ -209,6 +209,30 @@ class CrateManagerTest {
 	}
 
 	@Test
+	void removeCrateAndDestroy_withExpectedCrate_removesMatchingMapping() {
+		Location location = new Location(world, 100, 64, 200);
+		CrateManager.addCrate(location, mockCrate);
+
+		boolean removed = CrateManager.removeCrateAndDestroy(location, mockCrate);
+
+		assertTrue(removed);
+		assertNull(CrateManager.getCrate(location));
+		verify(mockCrate).destroy();
+	}
+
+	@Test
+	void removeCrateAndDestroy_withExpectedCrate_preservesReboundMapping() {
+		Location location = new Location(world, 100, 64, 200);
+		CrateManager.addCrate(location, mockCrate2);
+
+		boolean removed = CrateManager.removeCrateAndDestroy(location, mockCrate);
+
+		assertFalse(removed);
+		assertSame(mockCrate2, CrateManager.getCrate(location));
+		verifyNoInteractions(mockCrate, mockCrate2);
+	}
+
+	@Test
 	void removeCrateAndDestroy_withFallingBlock_removesAndDestroysCrate() {
 		CrateManager.addCrate(mockFallingBlock, mockCrate);
 

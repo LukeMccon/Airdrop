@@ -125,6 +125,15 @@ public class CrateManager {
 		return true;
 	}
 
+	public static synchronized boolean removeCrateAndDestroy(Location location, Crate expectedCrate) {
+		DropLocationKey key = toDropLocationKey(location);
+		if (!removeExpectedLandedCrate(key, expectedCrate)) {
+			return false;
+		}
+		expectedCrate.destroy();
+		return true;
+	}
+
 	public static synchronized boolean removeCrateAndDetach(Location location) {
 		Crate removedCrate = removeCrate(location);
 		if (removedCrate == null) {
@@ -134,19 +143,52 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean finalizeCrateBreak(Location location) {
+	public static synchronized boolean finalizeCrateBreak(Location location, Crate expectedCrate) {
 		DropLocationKey key = toDropLocationKey(location);
-		Crate crate = key == null ? null : landedCrateMap.get(key);
-		if (crate == null) {
+		if (key == null || expectedCrate == null || landedCrateMap.get(key) != expectedCrate) {
 			return false;
 		}
 		BlockState current = location.getBlock().getState();
-		if (current instanceof Barrel barrel && crate.ownsLandedBarrel(barrel)) {
+		if (current instanceof Barrel barrel && expectedCrate.ownsLandedBarrel(barrel)) {
 			return false;
 		}
-		landedCrateMap.remove(key, crate);
-		retireIdentity(crate, key);
-		crate.detachLandedBarrel();
+		if (!removeExpectedLandedCrate(key, expectedCrate)) {
+			return false;
+		}
+		expectedCrate.detachLandedBarrel();
+		return true;
+	}
+
+	/**
+	 * Compatibility overload for callers that do not retain the expected crate identity.
+	 * Deferred event handlers should use {@link #finalizeCrateBreak(Location, Crate)}.
+	 *
+	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)} to retain the expected crate identity
+	 */
+	@Deprecated(forRemoval = false)
+	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
+	public static synchronized boolean finalizeCrateBreak(Location location) {
+		DropLocationKey key = toDropLocationKey(location);
+		Crate expectedCrate = key == null ? null : landedCrateMap.get(key);
+		return finalizeCrateBreak(location, expectedCrate);
+	}
+
+	/**
+	 * Compatibility alias for the integrated expected-owner API name.
+	 *
+	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)}
+	 */
+	@Deprecated(forRemoval = false)
+	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
+	public static synchronized boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
+		return finalizeCrateBreak(location, expectedCrate);
+	}
+
+	private static boolean removeExpectedLandedCrate(DropLocationKey key, Crate expectedCrate) {
+		if (key == null || expectedCrate == null || !landedCrateMap.remove(key, expectedCrate)) {
+			return false;
+		}
+		retireIdentity(expectedCrate, key);
 		return true;
 	}
 

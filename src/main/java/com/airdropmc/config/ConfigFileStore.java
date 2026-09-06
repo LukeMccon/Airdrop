@@ -3,8 +3,16 @@ package com.airdropmc.config;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.file.YamlConstructor;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.NodeTuple;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -45,8 +53,69 @@ final class ConfigFileStore {
 	YamlConfiguration read(Path source) throws IOException, InvalidConfigurationException {
 		String yaml = reader.read(Objects.requireNonNull(source, "source"));
 		YamlConfiguration configuration = new YamlConfiguration();
-		configuration.loadFromString(yaml);
+		try {
+			configuration.loadFromString(yaml);
+		} catch (RuntimeException failure) {
+			diagnosePackageItemFailure(yaml, failure);
+			throw failure;
+		}
 		return configuration;
+	}
+
+	private static void diagnosePackageItemFailure(String yaml, RuntimeException originalFailure)
+			throws InvalidConfigurationException {
+		// Bukkit drops package/index context when a serialized YAML object cannot be constructed.
+		// Inspect nodes only after a failed load; successful reads still use Bukkit's loader alone.
+		try {
+			YamlConstructor constructor = new YamlConstructor();
+			Node root = new Yaml(constructor).compose(new StringReader(yaml));
+			Node packages = childNode(root, "packages", constructor);
+			if (!(packages instanceof MappingNode packageNodes)) {
+				return;
+			}
+			constructor.flattenMapping(packageNodes);
+			for (NodeTuple entry : packageNodes.getValue()) {
+				diagnosePackageItems(entry, constructor, originalFailure);
+			}
+		} catch (RuntimeException diagnosticFailure) {
+			originalFailure.addSuppressed(diagnosticFailure);
+		}
+	}
+
+	private static void diagnosePackageItems(NodeTuple entry, YamlConstructor constructor,
+			RuntimeException originalFailure) throws InvalidConfigurationException {
+		if (!(entry.getKeyNode() instanceof ScalarNode name)) {
+			return;
+		}
+		Node items = childNode(entry.getValueNode(), "items", constructor);
+		if (!(items instanceof SequenceNode itemNodes)) {
+			return;
+		}
+		for (int index = 0; index < itemNodes.getValue().size(); index++) {
+			Node item = itemNodes.getValue().get(index);
+			if (!(item instanceof MappingNode)) {
+				continue;
+			}
+			try {
+				constructor.construct(item);
+			} catch (RuntimeException itemFailure) {
+				throw new InvalidConfigurationException(
+						"Package '" + name.getValue() + "' has invalid item at index " + index
+								+ ": could not deserialize ItemStack", originalFailure);
+			}
+		}
+	}
+
+	private static Node childNode(Node parent, String key, YamlConstructor constructor) {
+		if (parent instanceof MappingNode mapping) {
+			constructor.flattenMapping(mapping);
+			for (NodeTuple entry : mapping.getValue()) {
+				if (entry.getKeyNode() instanceof ScalarNode scalar && key.equals(scalar.getValue())) {
+					return entry.getValueNode();
+				}
+			}
+		}
+		return null;
 	}
 
 	void write(Path target, FileConfiguration candidate) throws IOException {

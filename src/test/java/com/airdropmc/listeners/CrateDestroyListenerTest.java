@@ -77,6 +77,7 @@ class CrateDestroyListenerTest {
 		Location barrelLocation = block.getLocation();
 
 		Crate crate = mock(Crate.class);
+		when(crate.ownsLandedBarrel(any(Barrel.class))).thenReturn(true);
 		CrateManager.addCrate(barrelLocation, crate);
 
 		server.getPluginManager().callEvent(new BlockBreakEvent(block, player));

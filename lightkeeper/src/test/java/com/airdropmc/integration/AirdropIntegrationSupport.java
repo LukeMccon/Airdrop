@@ -10,6 +10,7 @@ import nl.pim16aap2.lightkeeper.protocol.CommandSource;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.eventually;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +40,13 @@ final class AirdropIntegrationSupport {
 			+ "{id:\"minecraft:iron_leggings\",count:1},"
 			+ "{id:\"minecraft:iron_boots\",count:1},"
 			+ "{id:\"minecraft:bread\",count:2}]}";
+	private static final Map<String, Integer> STARTER_EXPLOSION_DROPS = Map.of(
+			"minecraft:barrel", 1,
+			"minecraft:iron_helmet", 1,
+			"minecraft:iron_chestplate", 1,
+			"minecraft:iron_leggings", 1,
+			"minecraft:iron_boots", 1,
+			"minecraft:bread", 2);
 
 	private AirdropIntegrationSupport() {
 	}
@@ -113,6 +121,60 @@ final class AirdropIntegrationSupport {
 		});
 	}
 
+	static void placeStarterBarrel(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			BlockPos position
+	) {
+		CommandResult blockResult = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute in minecraft:%s run setblock %d %d %d minecraft:barrel")
+						.formatted(world.name(), position.x(), position.y(), position.z()));
+		assertThat(blockResult.success()).as("starter barrel block at %s", position).isTrue();
+		CommandResult contentsResult = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute in minecraft:%s run data merge block %d %d %d %s")
+						.formatted(world.name(), position.x(), position.y(), position.z(),
+								STARTER_ITEMS_EXACT));
+		assertThat(contentsResult.success()).as("starter barrel contents at %s", position).isTrue();
+	}
+
+	static void isolateExplosionTarget(WorldHandle world, BlockPos position) {
+		int supportY = position.y() - 1;
+		for (int x = position.x() - 2; x <= position.x() + 2; x++) {
+			for (int z = position.z() - 2; z <= position.z() + 2; z++) {
+				world.setBlockAt(new BlockPos(x, supportY, z), "minecraft:air");
+			}
+		}
+		world.setBlockAt(new BlockPos(position.x(), supportY, position.z()), "minecraft:bedrock");
+	}
+
+	static void setExplosionDropDecay(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			String gameRule
+	) {
+		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
+				"minecraft:execute in minecraft:%s run gamerule %s false"
+						.formatted(world.name(), gameRule));
+		assertThat(result.success()).as("%s gamerule", gameRule).isTrue();
+	}
+
+	static void awaitEquivalentExplosionDrops(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			BlockPos trackedPosition,
+			BlockPos baselinePosition
+	) {
+		eventually(Duration.ofSeconds(10), () -> {
+			int trackedDrops = itemEntitiesNear(world, trackedPosition);
+			int baselineDrops = itemEntitiesNear(world, baselinePosition);
+			assertThat(trackedDrops).as("tracked barrel drops").isEqualTo(6);
+			assertThat(baselineDrops).as("unmanaged barrel drops").isEqualTo(trackedDrops);
+		});
+
+		assertStarterExplosionDrops(framework, world, trackedPosition);
+		assertStarterExplosionDrops(framework, world, baselinePosition);
+	}
+
 	static void assertStarterContents(ILightkeeperFramework framework, WorldHandle world, BlockPos position) {
 		String marker = uniqueMarker("STARTER_CONTENTS");
 		int outputLineCount = framework.server().output().size();
@@ -158,6 +220,36 @@ final class AirdropIntegrationSupport {
 						// Paper emits this while LightKeeper creates a valid flat test world.
 						"net.minecraft.server.dedicated.DedicatedServerProperties".equals(error.loggerName())
 								&& "No key layers in MapLike[{}]".equals(error.message()));
+	}
+
+	private static void assertStarterExplosionDrops(
+			ILightkeeperFramework framework,
+			WorldHandle world,
+			BlockPos position
+	) {
+		StringBuilder conditions = new StringBuilder();
+		for (Map.Entry<String, Integer> expectedDrop : STARTER_EXPLOSION_DROPS.entrySet()) {
+			conditions.append(" if entity @e[type=minecraft:item,distance=..6,nbt={Item:{id:\"")
+					.append(expectedDrop.getKey())
+					.append("\",count:")
+					.append(expectedDrop.getValue())
+					.append("}}]");
+		}
+
+		String marker = uniqueMarker("EXPLOSION_DROPS");
+		int outputLineCount = framework.server().output().size();
+		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
+				("minecraft:execute in minecraft:%s positioned %d %d %d%s run say %s")
+						.formatted(world.name(), position.x(), position.y(), position.z(),
+								conditions, marker));
+		assertThat(result.success()).as("starter drops near %s", position).isTrue();
+		awaitMarker(framework, outputLineCount, marker);
+	}
+
+	private static int itemEntitiesNear(WorldHandle world, BlockPos position) {
+		BlockPos minimum = new BlockPos(position.x() - 6, position.y() - 6, position.z() - 6);
+		BlockPos maximum = new BlockPos(position.x() + 6, position.y() + 6, position.z() + 6);
+		return world.entities().ofType("minecraft:item").within(minimum, maximum).count();
 	}
 
 	private static void storeContainerItemCount(

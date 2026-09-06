@@ -4,12 +4,14 @@ import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Barrel;
+import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
 
+import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
 
 public class CrateCloseListener implements Listener {
@@ -24,15 +26,22 @@ public class CrateCloseListener implements Listener {
 		}
 
 		Location barrelLocation = barrel.getBlock().getLocation();
-		if (CrateManager.getCrate(barrelLocation) == null) {
+		Crate expectedCrate = CrateManager.getCrate(barrelLocation);
+		if (expectedCrate == null || !expectedCrate.ownsLandedBarrel(barrel)) {
 			return;
 		}
 
-		boolean barrelInventoryIsEmpty = barrel.getInventory().isEmpty();
+		Block currentBlock = barrel.getBlock();
+		if (currentBlock.getType() != Material.BARREL
+				|| !(currentBlock.getState() instanceof Barrel currentBarrel)
+				|| !expectedCrate.ownsLandedBarrel(currentBarrel)
+				|| !e.getInventory().equals(currentBarrel.getInventory())
+				|| !currentBarrel.getInventory().isEmpty()) {
+			return;
+		}
 
-		if (barrelInventoryIsEmpty) {
-			barrel.getWorld().playEffect(barrel.getLocation(), Effect.STEP_SOUND, Material.BARREL);
-			CrateManager.removeCrateAndDestroy(barrelLocation);
+		if (CrateManager.removeCrateAndDestroy(barrelLocation, expectedCrate)) {
+			barrel.getWorld().playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
 		}
 	}
 }

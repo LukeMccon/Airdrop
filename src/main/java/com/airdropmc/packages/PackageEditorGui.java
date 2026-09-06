@@ -5,7 +5,6 @@ import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,13 +20,18 @@ import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 
 public abstract class PackageEditorGui extends Gui implements Listener {
 	private static final int INVENTORY_SIZE = 36;
+	private static final Set<PackageEditorGui> OPEN_EDITORS =
+			Collections.newSetFromMap(new IdentityHashMap<>());
 
 	private final Inventory inventory;
 	private final String name;
@@ -42,14 +46,19 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 	}
 
 	protected void initializeEditorItems(List<ItemStack> initialItems) {
-		initialItems.forEach(inventory::addItem);
+		List<ItemStack> packageItems = PackageManager.sanitizePackageItems(initialItems);
+		if (packageItems.size() > PackageManager.MAX_PACKAGE_ITEM_STACKS) {
+			throw new IllegalArgumentException("Package has more item stacks than the editor can hold");
+		}
+		for (int slot = 0; slot < packageItems.size(); slot++) {
+			inventory.setItem(slot, packageItems.get(slot));
+		}
 
 		int inventorySize = inventory.getSize();
 		int helpSlot = inventorySize - (supportsBackControl ? 4 : 3);
-		inventory.setItem(helpSlot, createGuiItem(
-				Material.BOOK,
+		inventory.setItem(helpSlot, createControlItem(
+				Control.HELP,
 				ChatHandler.get(MessageKey.GUI_HELP),
-				1,
 				ChatHandler.get(MessageKey.GUI_EDITOR_HELP_ADD_STACK),
 				ChatHandler.get(MessageKey.GUI_EDITOR_HELP_ADD_ONE),
 				ChatHandler.get(MessageKey.GUI_EDITOR_HELP_REMOVE_STACK),
@@ -57,14 +66,14 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		if (supportsBackControl) {
 			inventory.setItem(
 					inventorySize - 3,
-					createGuiItem(Material.BLUE_WOOL, ChatHandler.get(MessageKey.GUI_BACK), 1));
+					createControlItem(Control.BACK, ChatHandler.get(MessageKey.GUI_BACK)));
 		}
 		inventory.setItem(
 				inventorySize - 2,
-				createGuiItem(Material.GREEN_WOOL, ChatHandler.get(MessageKey.GUI_SAVE), 1));
+				createControlItem(Control.SAVE, ChatHandler.get(MessageKey.GUI_SAVE)));
 		inventory.setItem(
 				inventorySize - 1,
-				createGuiItem(Material.RED_WOOL, ChatHandler.get(MessageKey.GUI_CANCEL), 1));
+				createControlItem(Control.CANCEL, ChatHandler.get(MessageKey.GUI_CANCEL)));
 	}
 
 	public boolean openInventory(final Player player) {
@@ -82,6 +91,9 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 			InventoryView view = player.openInventory(inventory);
 			if (view == null || view.getTopInventory() != inventory || !session.activate(view.getTopInventory())) {
 				return retire();
+			}
+			synchronized (OPEN_EDITORS) {
+				OPEN_EDITORS.add(this);
 			}
 			return true;
 		} catch (RuntimeException error) {
@@ -120,7 +132,7 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		}
 
 		if (action == PackageEditorInteraction.VirtualAction.CONTROL) {
-			handleControl(event, player);
+			handleControl(event, player, clickedItem);
 			return;
 		}
 
@@ -171,6 +183,16 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 			return;
 		}
 		scheduleKickObservation(event.getPlayer());
+	}
+
+	static void closeTrackedEditors() {
+		List<PackageEditorGui> editors;
+		synchronized (OPEN_EDITORS) {
+			editors = new ArrayList<>(OPEN_EDITORS);
+		}
+		for (PackageEditorGui editor : editors) {
+			editor.closeAndUnregister();
+		}
 	}
 
 	public String getName() {
@@ -243,19 +265,43 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		scheduleTransitionTask(player, viewChange);
 	}
 
-	private void handleControl(InventoryClickEvent event, Player player) {
-		int slot = event.getSlot();
-		if (supportsBackControl && slot == inventory.getSize() - 3) {
-			navigateBack(event);
-		} else if (slot == inventory.getSize() - 2) {
-			if (PermissionsHelper.isAdmin(player)) {
-				save(event);
-			} else {
-				ChatHandler.sendError(player, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
-			}
-		} else if (slot == inventory.getSize() - 1) {
-			cancel(event);
+	private void handleControl(InventoryClickEvent event, Player player, ItemStack clickedItem) {
+		Control control = controlAtSlot(event.getSlot());
+		if (control == null || !isControlItem(clickedItem, control)) {
+			return;
 		}
+
+		switch (control) {
+			case BACK -> navigateBack(event);
+			case SAVE -> {
+				if (PermissionsHelper.isAdmin(player)) {
+					save(event);
+				} else {
+					ChatHandler.sendError(player, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
+				}
+			}
+			case CANCEL -> cancel(event);
+			case HELP -> {
+				// The help item is informational only.
+			}
+		}
+	}
+
+	private Control controlAtSlot(int slot) {
+		int inventorySize = inventory.getSize();
+		if (slot == inventorySize - (supportsBackControl ? 4 : 3)) {
+			return Control.HELP;
+		}
+		if (supportsBackControl && slot == inventorySize - 3) {
+			return Control.BACK;
+		}
+		if (slot == inventorySize - 2) {
+			return Control.SAVE;
+		}
+		if (slot == inventorySize - 1) {
+			return Control.CANCEL;
+		}
+		return null;
 	}
 
 	private void handleSaveCompletion(Player player, Boolean committed, Throwable failure) {
@@ -283,8 +329,20 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		if (!session.retire()) {
 			return false;
 		}
+		synchronized (OPEN_EDITORS) {
+			OPEN_EDITORS.remove(this);
+		}
 		HandlerList.unregisterAll(this);
 		return false;
+	}
+
+	private void closeAndUnregister() {
+		for (org.bukkit.entity.HumanEntity viewer : List.copyOf(inventory.getViewers())) {
+			if (viewer.getOpenInventory().getTopInventory() == inventory) {
+				viewer.closeInventory();
+			}
+		}
+		retire();
 	}
 
 	private void scheduleTransitionTask(Player player, Runnable viewChange) {

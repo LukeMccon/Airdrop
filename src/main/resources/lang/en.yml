@@ -27,6 +27,7 @@ packages:
   price-invalid: "Package price must be a finite non-negative number"
   create-open-error: "Unable to open package editor right now"
   item-limit: "Package can only hold {accent}{max}{error} item stacks (barrel capacity). Remove extra items before saving."
+  capacity-limit: "Cannot configure {accent}{count}{error} packages; the limit is {accent}{limit}{error}. Delete an existing package first."
 
 errors:
   cannot-afford: "{accent}{player}{error} cannot afford package price of {accent}{price}{error}"

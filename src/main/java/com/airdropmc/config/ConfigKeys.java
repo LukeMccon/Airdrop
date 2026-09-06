@@ -4,6 +4,7 @@ import com.airdropmc.Airdrop;
 import com.airdropmc.Config;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.limits.DropLimitSettings;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -23,6 +24,7 @@ public final class ConfigKeys {
     private static final int DEFAULT_DROP_HEIGHT = 100;
     private static final int MIN_DROP_HEIGHT = 1;
     private static final int MAX_DROP_HEIGHT = 320;
+    static final boolean DEFAULT_SMOKE_ENABLED = false;
     private static final int DEFAULT_SMOKE_HEIGHT = 20;
     private static final int MIN_SMOKE_HEIGHT = 0;
     private static final int MAX_SMOKE_HEIGHT = 128;
@@ -91,7 +93,25 @@ public final class ConfigKeys {
     }
 
     public static boolean isSmokeEnabled() {
-        return getConfig().getBoolean(DROP_SMOKE_ENABLED, true);
+        return isSmokeEnabled(getConfig());
+    }
+
+    static boolean isSmokeEnabled(FileConfiguration config) {
+        Object configured = config.get(DROP_SMOKE_ENABLED);
+        if (configured == null) {
+            return DEFAULT_SMOKE_ENABLED;
+        }
+        if (configured instanceof Boolean enabled) {
+            return enabled;
+        }
+
+        String configuredType = configured instanceof ConfigurationSection
+                ? "configuration section"
+                : configured.getClass().getSimpleName();
+        AirdropLogger.warning("Invalid " + DROP_SMOKE_ENABLED
+                + " value; expected Boolean but found " + configuredType
+                + "; using " + DEFAULT_SMOKE_ENABLED);
+        return DEFAULT_SMOKE_ENABLED;
     }
 
     public static int getSmokeHeight() {
@@ -190,8 +210,7 @@ public final class ConfigKeys {
 		if (value >= minimum && value <= maximum) {
 			return value;
 		}
-		AirdropLogger.warning("Invalid " + key + " value " + value + "; using " + fallback);
-		return fallback;
+		return invalidInteger(key, value, fallback);
 	}
 
     // Helper method to get config
