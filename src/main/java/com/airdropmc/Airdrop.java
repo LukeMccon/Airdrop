@@ -203,6 +203,8 @@ public class Airdrop extends JavaPlugin {
 			return selection.result();
 		}
 		PackageManager.publishPackages(candidate.packages());
+		// Registry callbacks must observe this configuration's selected economy.
+		publishEconomyProvider(selection);
 		if (serviceLifecycle != null) {
 			serviceLifecycle.publishLimits(ConfigKeys.getDropLimitSettings());
 			long revision = serviceLifecycle.publishPackages(
@@ -217,8 +219,6 @@ public class Airdrop extends JavaPlugin {
 					revision,
 					candidate.packages().size());
 		}
-		publishEconomyProvider(selection);
-
 		refreshPackageBrowser();
 		if (candidate.startup()) {
 			ready = true;

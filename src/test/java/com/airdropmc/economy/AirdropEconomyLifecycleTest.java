@@ -6,13 +6,27 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.api.AirdropApi;
+import com.airdropmc.api.DropHandle;
+import com.airdropmc.api.DropOutcome;
+import com.airdropmc.api.DropRejectionReason;
+import com.airdropmc.api.DropRequestOptions;
 import com.airdropmc.api.EconomyState;
+import com.airdropmc.api.PackageRegistryCause;
+import com.airdropmc.api.event.PackageRegistryChangedEvent;
 import com.airdropmc.commands.CmdAirdrop;
 import com.airdropmc.config.ConfigKeys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault2.economy.AsyncEconomy;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.command.Command;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.ServicePriority;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,17 +35,25 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AirdropEconomyLifecycleTest {
@@ -138,6 +160,54 @@ class AirdropEconomyLifecycleTest {
 		server.getServicesManager().unregister(net.milkbowl.vault.economy.Economy.class, legacyB);
 		assertNull(Airdrop.getEconomyProvider());
 		assertTrue(runReload(operator).toLowerCase().contains("no economy provider"));
+	}
+
+	@Test
+	void reloadRegistryListenerUsesTheNewlyEnabledEconomy() throws Exception {
+		World world = server.addSimpleWorld("economy_publication");
+		net.milkbowl.vault.economy.Economy economy = legacy("Reload Economy");
+		when(economy.has(any(OfflinePlayer.class), eq(10.0))).thenReturn(false);
+		register(net.milkbowl.vault.economy.Economy.class, economy, ServicePriority.Normal);
+		Airdrop plugin = loadPlugin(false);
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		assertEquals(EconomyState.DISABLED, api.status().economy());
+		assertNull(Airdrop.getEconomyProvider());
+
+		YamlConfiguration packages = new YamlConfiguration();
+		packages.set("packages.paid.price", 10.0);
+		packages.set("packages.paid.items", List.of(new ItemStack(Material.DIAMOND)));
+		packages.save(plugin.getDataFolder().toPath().resolve("packages.yml").toFile());
+		PlayerMock player = server.addPlayer();
+		player.setOp(true);
+		player.teleport(new Location(world, 8, 120, 8));
+		AtomicReference<EconomyState> economyFromEvent = new AtomicReference<>();
+		AtomicReference<DropHandle> requestFromEvent = new AtomicReference<>();
+		server.getPluginManager().registerEvents(new Listener() {
+			@EventHandler
+			public void onRegistryChanged(PackageRegistryChangedEvent event) {
+				if (event.cause() == PackageRegistryCause.RELOAD) {
+					economyFromEvent.set(api.status().economy());
+					requestFromEvent.set(api.requestPlayerDrop(
+							player, "paid", DropRequestOptions.defaults()));
+				}
+			}
+		}, registrar);
+
+		writeConfig(plugin, true);
+		CompletableFuture<EconomyProviderRefreshResult> reload =
+				plugin.reloadConfiguration().toCompletableFuture();
+		awaitCondition(reload::isDone);
+		assertNotNull(requestFromEvent.get(), "Reload must notify the registry listener");
+		CompletableFuture<DropOutcome> requestOutcome =
+				requestFromEvent.get().outcome().toCompletableFuture();
+		awaitCondition(requestOutcome::isDone);
+		DropOutcome.Rejected rejected = assertInstanceOf(DropOutcome.Rejected.class, requestOutcome.join());
+
+		assertAll(
+				() -> assertEquals(EconomyProviderRefreshResult.Outcome.ACTIVE, reload.join().outcome()),
+				() -> assertEquals(EconomyState.ACTIVE, economyFromEvent.get()),
+				() -> assertEquals(DropRejectionReason.INSUFFICIENT_FUNDS, rejected.rejection().reason()),
+				() -> verify(economy).has(any(OfflinePlayer.class), eq(10.0)));
 	}
 
 	@Test
