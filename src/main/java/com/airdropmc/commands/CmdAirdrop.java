@@ -42,6 +42,8 @@ public class CmdAirdrop implements CommandExecutor {
 
 		if (AirdropCommandNames.VERSION.equals(args[0])) {
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.SYSTEM_VERSION_INFO, Map.of(
+					"version", known(Airdrop.getVersion()),
+					"api_version", known(Airdrop.getPaperApiVersion()),
 					"plugin_version", known(Airdrop.getVersion()),
 					"extension_api_version", known(Airdrop.getExtensionApiVersion()),
 					"paper_version", known(Airdrop.getPaperApiVersion()),

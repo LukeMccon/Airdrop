@@ -22,6 +22,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -33,12 +36,15 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -52,6 +58,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class CmdAirdropHelpTest {
+
+	private static final String LEGACY_VERSION_TEMPLATE = "{text}\nAirdrop Version: {accent}{version}{text}"
+			+ "\nSpigot API Version: {accent}{api_version}";
+
+	@TempDir
+	Path tempDir;
 
 	private ServerMock server;
 
@@ -175,11 +187,56 @@ class CmdAirdropHelpTest {
 		ArgumentCaptor<Map<String, String>> placeholders = ArgumentCaptor.forClass(Map.class);
 		verify(language).get(eq(MessageKey.SYSTEM_VERSION_INFO), placeholders.capture());
 		assertEquals(Set.of(
+				"version",
+				"api_version",
 				"plugin_version",
 				"extension_api_version",
 				"paper_version",
 				"java_version",
 				"docs_url"), placeholders.getValue().keySet());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {true, false})
+	void upgradingStockVersionTemplateShowsCurrentCompatibilityDetails(boolean writeMissingKeys) throws Exception {
+		setStatic("pluginVersion", "4.1.0-test");
+		setStatic("paperCompatibilityVersion", "1.21.11");
+		LanguageManager language = loadVersionTemplate(LEGACY_VERSION_TEMPLATE, writeMissingKeys);
+		PlayerMock player = server.addPlayer();
+
+		new CmdAirdrop().onCommand(player, mock(Command.class), "airdrop", new String[]{"version"});
+
+		String message = nextMessage(player);
+		assertTrue(message.contains("Plugin: 4.1.0-test"), message);
+		assertTrue(message.contains("Extension API: 1.0.0"), message);
+		assertTrue(message.contains("Paper compatibility: 1.21.11"), message);
+		assertTrue(message.contains("Java compatibility: 21"), message);
+		assertTrue(message.contains("https://modrinth.com/plugin/airdrop"), message);
+		Path languageFile = tempDir.resolve("lang/en.yml");
+		String savedTemplate = YamlConfiguration.loadConfiguration(languageFile.toFile())
+				.getString("system.version-info");
+		assertEquals(writeMissingKeys ? MessageKey.SYSTEM_VERSION_INFO.getDefault() : LEGACY_VERSION_TEMPLATE,
+				savedTemplate);
+		String savedContents = Files.readString(languageFile);
+		language.publishLanguage(language.prepareLanguage("en", writeMissingKeys));
+		assertEquals(savedContents, Files.readString(languageFile));
+	}
+
+	@Test
+	void customizedVersionTemplateKeepsItsTextAndResolvesLegacyAndCurrentPlaceholders() throws Exception {
+		setStatic("pluginVersion", "4.1.0-test");
+		setStatic("paperCompatibilityVersion", "1.21.11");
+		String template = "Server build {version}; Paper {api_version}; API {extension_api_version}"
+				+ "; Current {plugin_version}/{paper_version}";
+		loadVersionTemplate(template, true);
+		PlayerMock player = server.addPlayer();
+
+		new CmdAirdrop().onCommand(player, mock(Command.class), "airdrop", new String[]{"version"});
+
+		assertEquals("Server build 4.1.0-test; Paper 1.21.11; API 1.0.0; Current 4.1.0-test/1.21.11",
+				nextMessage(player));
+		assertEquals(template, YamlConfiguration.loadConfiguration(tempDir.resolve("lang/en.yml").toFile())
+				.getString("system.version-info"));
 	}
 
 	@Test
@@ -209,6 +266,23 @@ class CmdAirdropHelpTest {
 				assertFalse(language.getString(key, "").isBlank(), key);
 			}
 		}
+	}
+
+	private LanguageManager loadVersionTemplate(String template, boolean writeMissingKeys) throws Exception {
+		Path languageFile = tempDir.resolve("lang/en.yml");
+		Files.createDirectories(languageFile.getParent());
+		YamlConfiguration existing = new YamlConfiguration();
+		existing.set("system.version-info", template);
+		existing.save(languageFile.toFile());
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
+		when(plugin.getResource("lang/en.yml"))
+				.thenAnswer(ignored -> getClass().getClassLoader().getResourceAsStream("lang/en.yml"));
+		LanguageManager language = new LanguageManager(plugin);
+		language.publishLanguage(language.prepareLanguage("en", writeMissingKeys));
+		ChatHandler.init(language);
+		return language;
 	}
 
 	private String drainMessages(PlayerMock player) {
