@@ -232,7 +232,7 @@ public final class PaidDropSession {
 	}
 
 	private void warnPayment(Operation operation, EconomyResult result) {
-		logger.warning("Paid drop requires reconciliation: request=" + requestId
+		logger.warning(() -> "Paid drop requires reconciliation: request=" + requestId
 				+ " player=" + player.uniqueId() + " amount=" + amount
 				+ " provider=" + providerName + " operation=" + operation + " result=" + result.outcome()
 				+ " detail=" + AirdropDiagnostics.sanitizeLabel(result.message())

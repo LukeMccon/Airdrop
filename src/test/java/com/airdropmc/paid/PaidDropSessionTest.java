@@ -51,16 +51,18 @@ class PaidDropSessionTest {
 	private final List<LogRecord> logs = new ArrayList<>();
 	private final Handler logCapture = new Handler() {
 		@Override
-		public void publish(LogRecord record) {
-			logs.add(record);
+		public void publish(LogRecord logRecord) {
+			logs.add(logRecord);
 		}
 
 		@Override
 		public void flush() {
+			// Records are captured immediately in memory.
 		}
 
 		@Override
 		public void close() {
+			// The capture handler owns no resources to close.
 		}
 	};
 
@@ -231,7 +233,7 @@ class PaidDropSessionTest {
 	}
 
 	private List<String> warnings() {
-		return logs.stream().filter(record -> record.getLevel().intValue() >= Level.WARNING.intValue())
+		return logs.stream().filter(logRecord -> logRecord.getLevel().intValue() >= Level.WARNING.intValue())
 				.map(LogRecord::getMessage).toList();
 	}
 
