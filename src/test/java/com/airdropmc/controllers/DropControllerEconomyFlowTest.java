@@ -38,6 +38,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 import org.mockito.MockedConstruction;
 
+import java.lang.ref.Reference;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -49,10 +50,13 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.locks.LockSupport;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockConstruction;
@@ -452,6 +456,66 @@ class DropControllerEconomyFlowTest {
 		assertEquals(PaymentStatus.REFUND_FAILED, outcome.payment());
 		assertInstanceOf(
 				DropSpawnResult.NotSpawned.class, handle.spawn().toCompletableFuture().join());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void worldLostDuringWithdrawalRefundsOnceAndReleasesAdmission(boolean clearWorldReference)
+			throws Exception {
+		DropHandle handle = request("paid");
+		AirdropApi api = server.getServicesManager().load(AirdropApi.class);
+		DropAdmissionController admission = Airdrop.getDropAdmissionController();
+		CompletableFuture<DropAdmissionController.Snapshot> admissionAtSpawnCompletion = handle.spawn()
+				.thenApply(ignored -> admission.snapshot()).toCompletableFuture();
+		CompletableFuture<Integer> pendingAtOutcomeCompletion = handle.outcome()
+				.thenApply(ignored -> api.status().pendingCount()).toCompletableFuture();
+		economy.affordability.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+		assertEquals(1, economy.withdrawals);
+
+		WorldMock otherWorld = server.addSimpleWorld("other_world");
+		player.teleport(new Location(otherWorld, 0, 120, 0));
+		assertTrue(server.unloadWorld(world, false));
+		assertNull(server.getWorld(world.getUID()));
+		Location retainedSpawn = handle.context().orElseThrow().spawnLocation();
+		if (clearWorldReference) {
+			// Location clones share the weak reference; clear it to model collection deterministically.
+			Field field = Location.class.getDeclaredField("world");
+			field.setAccessible(true);
+			Reference<?> reference = (Reference<?>) field.get(retainedSpawn);
+			reference.clear();
+			assertThrows(IllegalArgumentException.class, retainedSpawn::getWorld);
+		} else {
+			assertSame(world, retainedSpawn.getWorld());
+		}
+
+		economy.withdrawal.complete(EconomyResult.ok());
+		assertDoesNotThrow(() -> server.getScheduler().performOneTick());
+
+		assertEquals(1, economy.deposits);
+		assertTrue(CrateManager.getCrateMap().isEmpty());
+		assertFalse(handle.spawn().toCompletableFuture().isDone());
+		assertFalse(handle.outcome().toCompletableFuture().isDone());
+		assertEquals(new DropAdmissionController.Snapshot(1, 1, 1, 1, 0, true),
+				admission.snapshot());
+		economy.refund.complete(EconomyResult.ok());
+		server.getScheduler().performOneTick();
+
+		DropOutcome.Failed outcome = assertInstanceOf(
+				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().getNow(null));
+		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+		assertEquals(PaymentStatus.REFUNDED, outcome.payment());
+		DropSpawnResult.NotSpawned spawn = assertInstanceOf(
+				DropSpawnResult.NotSpawned.class, handle.spawn().toCompletableFuture().getNow(null));
+		assertEquals(outcome, spawn.outcome());
+		assertEquals(emptyAdmission(), admissionAtSpawnCompletion.getNow(null));
+		assertEquals(0, pendingAtOutcomeCompletion.getNow(null));
+
+		server.getScheduler().performTicks(PaidDropSession.PAYMENT_TIMEOUT_TICKS);
+		assertEquals(1, economy.withdrawals);
+		assertEquals(1, economy.deposits);
+		assertSame(outcome, handle.outcome().toCompletableFuture().getNow(null));
+		assertEquals(emptyAdmission(), admission.snapshot());
 	}
 
 	@Test

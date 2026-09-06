@@ -341,14 +341,15 @@ public final class DropRequestCoordinator {
 		}
 		process.phase = DropRequestProcess.Phase.SPAWNING;
 		ResolvedDropContext context = Objects.requireNonNull(process.context, "context");
-		World world = context.spawnLocation().getWorld();
-		if (world == null) {
-			failBeforeSpawn(process, DeliveryStatus.FAILED);
-			return;
-		}
 		try {
+			Location spawnLocation = context.spawnLocation();
+			World world = spawnLocation.getWorld();
+			if (world == null || Bukkit.getWorld(world.getUID()) != world) {
+				failBeforeSpawn(process, DeliveryStatus.FAILED);
+				return;
+			}
 			process.crate = new Crate(
-					context.spawnLocation(),
+					spawnLocation,
 					world,
 					context.airdropPackage().items(),
 					context.settings(),
