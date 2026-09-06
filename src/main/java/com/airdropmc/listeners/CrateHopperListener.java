@@ -40,7 +40,8 @@ public class CrateHopperListener implements Listener {
 		if (source.getType() != InventoryType.BARREL) {
 			return;
 		}
-		if (!(source.getHolder() instanceof Barrel sourceBarrel)) {
+		if (!(source.getHolder() instanceof Barrel sourceBarrel)
+				|| !source.equals(sourceBarrel.getInventory())) {
 			return;
 		}
 		Location barrelLocation = sourceBarrel.getLocation();

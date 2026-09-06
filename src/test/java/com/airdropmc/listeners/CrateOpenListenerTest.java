@@ -18,6 +18,7 @@ import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
@@ -27,6 +28,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
+import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -160,6 +162,23 @@ class CrateOpenListenerTest {
 	}
 
 	@Test
+	void onInventoryOpen_ignoresStaleInventoryWhoseHolderResolvesReplacementBarrel() {
+		Crate original = trackOwnedMockCrate();
+		assertSame(original, CrateManager.removeCrate(barrelLocation));
+		Barrel replacementBarrel = replaceWithFreshBarrel();
+		Crate replacement = trackOwnedMockCrate();
+		Inventory staleInventory = mock(Inventory.class);
+		when(staleInventory.getType()).thenReturn(InventoryType.BARREL);
+		// Paper resolves a retained inventory's holder from the current block position.
+		when(staleInventory.getHolder()).thenReturn(replacementBarrel);
+
+		server.getPluginManager().callEvent(openEvent(staleInventory));
+
+		assertSame(replacement, CrateManager.getCrate(barrelLocation));
+		verify(replacement, never()).setOpened(true);
+	}
+
+	@Test
 	void onInventoryOpen_stopsEffectsOnceForRepeatedSuccessfulCurrentOwnedOpens() throws Exception {
 		DropOptions options = DropOptions.createDefault()
 				.withLandingEffects(false)
@@ -217,9 +236,14 @@ class CrateOpenListenerTest {
 	}
 
 	private Inventory eventInventory(Barrel barrel) {
-		Inventory inventory = mock(Inventory.class);
-		when(inventory.getType()).thenReturn(InventoryType.BARREL);
-		when(inventory.getHolder()).thenReturn(barrel);
+		Inventory inventory = barrel.getInventory();
+		// MockBukkit retains the original holder object when a barrel state is updated.
+		Barrel inventoryHolder = (Barrel) inventory.getHolder();
+		NamespacedKey identityKey = NamespacedKey.fromString("airdrop:crate_id");
+		String crateId = barrel.getPersistentDataContainer().get(identityKey, PersistentDataType.STRING);
+		if (crateId != null) {
+			inventoryHolder.getPersistentDataContainer().set(identityKey, PersistentDataType.STRING, crateId);
+		}
 		return inventory;
 	}
 

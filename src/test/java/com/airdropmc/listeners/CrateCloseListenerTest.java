@@ -48,8 +48,8 @@ class CrateCloseListenerTest {
 		eventBarrel = mock(Barrel.class);
 		currentBarrel = mock(Barrel.class);
 		event = mock(InventoryCloseEvent.class);
-		eventInventory = mock(Inventory.class);
 		currentInventory = mock(Inventory.class);
+		eventInventory = currentInventory;
 		barrelLocation = new Location(world, 24, 64, 24);
 
 		when(event.getInventory()).thenReturn(eventInventory);
@@ -84,12 +84,11 @@ class CrateCloseListenerTest {
 	@Test
 	void onInventoryClose_removesCurrentOwnedBarrel_whenFreshInventoryIsEmpty() {
 		Crate crate = trackOwnedCrate();
-		when(eventInventory.isEmpty()).thenReturn(false);
 
 		listener.onInventoryClose(event);
 
 		verify(world).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
-		verify(eventInventory, never()).isEmpty();
+		verify(currentInventory).isEmpty();
 		assertNull(CrateManager.getCrate(barrelLocation));
 		verify(crate).destroy();
 	}
@@ -148,6 +147,24 @@ class CrateCloseListenerTest {
 		assertSame(replacement, CrateManager.getCrate(barrelLocation));
 		verify(currentInventory, never()).isEmpty();
 		verify(original, never()).destroy();
+		verify(replacement, never()).destroy();
+	}
+
+	@Test
+	void onInventoryClose_ignoresStaleInventoryWhoseHolderResolvesReplacementBarrel() {
+		Crate original = trackOwnedCrate();
+		assertSame(original, CrateManager.removeCrate(barrelLocation));
+		Crate replacement = trackOwnedCrate();
+		Inventory staleInventory = mock(Inventory.class);
+		when(staleInventory.getType()).thenReturn(InventoryType.BARREL);
+		// Paper resolves a retained inventory's holder from the current block position.
+		when(staleInventory.getHolder()).thenReturn(eventBarrel);
+		when(event.getInventory()).thenReturn(staleInventory);
+
+		listener.onInventoryClose(event);
+
+		assertSame(replacement, CrateManager.getCrate(barrelLocation));
+		verify(currentInventory, never()).isEmpty();
 		verify(replacement, never()).destroy();
 	}
 

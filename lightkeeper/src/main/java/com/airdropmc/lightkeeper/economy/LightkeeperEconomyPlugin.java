@@ -1,6 +1,7 @@
 package com.airdropmc.lightkeeper.economy;
 
 import com.airdropmc.integration.support.BlockExplosionCommand;
+import com.airdropmc.integration.support.InventoryReplacementCommand;
 import net.milkbowl.vault2.economy.Economy;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -26,6 +27,8 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 	public void onEnable() {
 		Objects.requireNonNull(getCommand("airdrop-lightkeeper-block-explode"), "block explosion command")
 				.setExecutor(new BlockExplosionCommand());
+		Objects.requireNonNull(getCommand("airdrop-lightkeeper-inventory-replacement"), "inventory replacement command")
+				.setExecutor(new InventoryReplacementCommand());
 		executor = Executors.newSingleThreadExecutor(task -> {
 			Thread thread = new Thread(task, "lightkeeper-economy");
 			thread.setDaemon(true);

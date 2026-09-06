@@ -21,6 +21,7 @@ import com.airdropmc.limits.DropLocationKey;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
@@ -30,6 +31,7 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -134,11 +136,15 @@ class CrateHopperListenerTest {
 	}
 
 	@Test
-	void onInventoryMoveItem_rechecksFreshBarrelInventoryInsteadOfEventSourceReference() {
-		Crate crate = trackMockCrate();
+	void onInventoryMoveItem_ignoresStaleInventoryWhoseHolderResolvesReplacementBarrel() {
+		Crate original = trackMockCrate();
+		assertSame(original, CrateManager.removeCrate(barrelLocation));
+		Barrel replacementBarrel = replaceWithFreshBarrel();
+		Crate replacement = trackMockCrate();
 		Inventory staleEventSource = mock(Inventory.class);
 		when(staleEventSource.getType()).thenReturn(InventoryType.BARREL);
-		when(staleEventSource.getHolder()).thenReturn((Barrel) barrelBlock.getState());
+		// Paper resolves a retained inventory's holder from the current block position.
+		when(staleEventSource.getHolder()).thenReturn(replacementBarrel);
 		when(staleEventSource.getLocation()).thenReturn(barrelLocation);
 		when(staleEventSource.isEmpty()).thenReturn(false);
 		ItemStack item = new ItemStack(Material.DIAMOND);
@@ -147,9 +153,8 @@ class CrateHopperListenerTest {
 				staleEventSource, item, hopperInventory, false));
 		runNextTickTasks();
 
-		assertTrue(barrelInventory.isEmpty());
-		assertNull(CrateManager.getCrate(barrelLocation));
-		verify(crate).destroy();
+		assertSame(replacement, CrateManager.getCrate(barrelLocation));
+		verify(replacement, never()).destroy();
 	}
 
 	@Test
@@ -292,11 +297,8 @@ class CrateHopperListenerTest {
 	@Test
 	void onInventoryMoveItem_delayedCleanupRechecksPreservedSourceBarrelIdentity() {
 		Crate crate = trackMockCrate();
-		Barrel sourceBarrel = (Barrel) barrelBlock.getState();
-		Inventory source = mock(Inventory.class);
-		when(source.getType()).thenReturn(InventoryType.BARREL);
-		when(source.getHolder()).thenReturn(sourceBarrel);
-		when(source.getLocation()).thenReturn(barrelLocation);
+		Inventory source = barrelInventory;
+		Barrel sourceBarrel = (Barrel) source.getHolder();
 		ItemStack item = new ItemStack(Material.DIAMOND);
 		barrelInventory.clear();
 
@@ -412,12 +414,15 @@ class CrateHopperListenerTest {
 	}
 
 	private InventoryMoveItemEvent extractionEvent(ItemStack item, Inventory contents) {
-		Inventory source = mock(Inventory.class);
-		when(source.getType()).thenReturn(InventoryType.BARREL);
-		when(source.getHolder()).thenReturn((Barrel) barrelBlock.getState());
-		when(source.getLocation()).thenReturn(barrelLocation);
-		when(source.isEmpty()).thenAnswer(ignored -> contents.isEmpty());
-		return new InventoryMoveItemEvent(source, item, hopperInventory, false);
+		// MockBukkit retains the original holder object when a barrel state is updated.
+		Barrel currentBarrel = (Barrel) barrelBlock.getState();
+		Barrel inventoryHolder = (Barrel) contents.getHolder();
+		NamespacedKey identityKey = NamespacedKey.fromString("airdrop:crate_id");
+		String crateId = currentBarrel.getPersistentDataContainer().get(identityKey, PersistentDataType.STRING);
+		if (crateId != null) {
+			inventoryHolder.getPersistentDataContainer().set(identityKey, PersistentDataType.STRING, crateId);
+		}
+		return new InventoryMoveItemEvent(contents, item, hopperInventory, false);
 	}
 
 	private void runNextTickTasks() {

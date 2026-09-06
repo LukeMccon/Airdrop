@@ -35,6 +35,7 @@ public class CrateCloseListener implements Listener {
 		if (currentBlock.getType() != Material.BARREL
 				|| !(currentBlock.getState() instanceof Barrel currentBarrel)
 				|| !expectedCrate.ownsLandedBarrel(currentBarrel)
+				|| !e.getInventory().equals(currentBarrel.getInventory())
 				|| !currentBarrel.getInventory().isEmpty()) {
 			return;
 		}

@@ -30,7 +30,8 @@ public class CrateOpenListener implements Listener {
 
 		if (!(barrelLocation.getBlock().getState() instanceof Barrel currentBarrel)
 				|| CrateManager.getCrate(currentBarrel.getLocation()) != landedCrate
-				|| !landedCrate.ownsLandedBarrel(currentBarrel)) {
+				|| !landedCrate.ownsLandedBarrel(currentBarrel)
+				|| !e.getInventory().equals(currentBarrel.getInventory())) {
 			return;
 		}
 
