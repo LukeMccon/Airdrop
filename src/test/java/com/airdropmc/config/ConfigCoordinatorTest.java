@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
@@ -192,8 +193,8 @@ class ConfigCoordinatorTest {
 		Runnable failureDrain = dispatchFailureWatchdog.get();
 		assertNotNull(failureDrain, "the main-thread failure drain must exist before worker dispatch");
 
-		CompletionStage<EconomyProviderRefreshResult> first = coordinator.startup();
-		CompletionStage<Boolean> second = coordinator.createPackage(pkg("second"));
+		CompletableFuture<EconomyProviderRefreshResult> first = coordinator.startup().toCompletableFuture();
+		CompletableFuture<Boolean> second = coordinator.createPackage(pkg("second")).toCompletableFuture();
 		first.whenComplete((ignored, failure) -> {
 			lifecycleCallbackOnPrimaryThread.set(Bukkit.isPrimaryThread());
 			lifecycle.publishFailure(failure);
@@ -202,17 +203,19 @@ class ConfigCoordinatorTest {
 		});
 
 		assertTrue(dispatchAttempt.await(5, TimeUnit.SECONDS));
-		assertFalse(first.toCompletableFuture().isDone(),
+		assertFalse(first.isDone(),
 				"worker dispatch rejection must wait for the main-thread watchdog");
 		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-		while (!first.toCompletableFuture().isDone() && System.nanoTime() < deadline) {
+		while (!first.isDone() && System.nanoTime() < deadline) {
 			failureDrain.run();
 			Thread.sleep(1L);
 		}
+		assertTrue(first.isDone(), "the watchdog must complete startup before the deadline");
+		assertTrue(second.isDone(), "the watchdog must also reject the queued operation");
 		CompletionException startupFailure = assertThrows(
-				CompletionException.class, () -> first.toCompletableFuture().join());
+				CompletionException.class, first::join);
 		assertEquals("scheduler unavailable", startupFailure.getCause().getMessage());
-		assertThrows(CompletionException.class, () -> second.toCompletableFuture().join());
+		assertThrows(CompletionException.class, second::join);
 		assertFalse(secondRead.await(100, TimeUnit.MILLISECONDS));
 		assertEquals(ReadinessState.FAILED, readinessAtFailure.get());
 		assertEquals(ReadinessState.STOPPING, api.state());
@@ -223,8 +226,10 @@ class ConfigCoordinatorTest {
 		assertTrue(server.getServicesManager().getRegistrations(lifecyclePlugin).stream()
 				.noneMatch(candidate -> candidate.getProvider() == api));
 		verify(watchdogTask).cancel();
+		CompletableFuture<Boolean> late = coordinator.createPackage(pkg("late")).toCompletableFuture();
+		assertTrue(late.isDone(), "a closed coordinator must reject later operations immediately");
 		assertThrows(java.util.concurrent.CancellationException.class,
-				() -> coordinator.createPackage(pkg("late")).toCompletableFuture().join());
+				late::join);
 	}
 
 	@Test
