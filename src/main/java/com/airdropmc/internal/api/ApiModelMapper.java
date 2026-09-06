@@ -22,7 +22,7 @@ public final class ApiModelMapper {
 		return new AirdropPackage(
 				requiredPackage.getName(),
 				BigDecimal.valueOf(requiredPackage.getPrice()),
-				requiredPackage.getItems());
+				requiredPackage.getItems().stream().filter(Objects::nonNull).toList());
 	}
 
 	public static ResolvedDropSettings resolveSettings(

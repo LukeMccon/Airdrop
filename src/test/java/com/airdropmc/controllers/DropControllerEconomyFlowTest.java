@@ -23,8 +23,10 @@ import com.airdropmc.packages.Package;
 import com.airdropmc.paid.PaidDropSession;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Barrel;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.locks.LockSupport;
@@ -49,6 +52,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockConstruction;
@@ -481,6 +485,42 @@ class DropControllerEconomyFlowTest {
 						.withFlareEffects(false));
 
 		assertEquals(1, CrateManager.getCrateMap().size());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void deprecatedResolvedPackageAdaptersDeliverItemsAroundNullSlots(boolean playerInitiated)
+			throws Exception {
+		ItemStack diamond = new ItemStack(Material.DIAMOND, 2);
+		ItemStack gold = new ItemStack(Material.GOLD_INGOT, 3);
+		Package detached = new Package(
+				"legacy", 10.0, Arrays.asList(null, diamond, null, gold, null));
+		PackageManager.clear();
+		DropOptions legacyOptions = DropOptions.createDefault()
+				.withDropHeight(20).withChickenCount(1).withFlareEffects(false)
+				.withLandingEffects(false).withContinuousEffects(false).withSmokeEnabled(false);
+
+		if (playerInitiated) {
+			DropController.playerInitiatedDropPackage(detached, player, legacyOptions);
+			completeCharge();
+		} else {
+			DropController.dropPackage(detached, world, player.getLocation(), legacyOptions);
+		}
+
+		assertEquals(1, CrateManager.getCrateMap().size());
+		Crate crate = CrateManager.getCrateMap().values().iterator().next();
+		assertEquals(List.of(diamond, gold), crate.getResolvedContext().airdropPackage().items());
+		assertEquals(playerInitiated, crate.isPaid());
+		Location landing = crate.getResolvedContext().landingLocation();
+		server.getPluginManager().callEvent(new EntityChangeBlockEvent(
+				crate.getFallingCrate(), landing.getBlock(), Material.BARREL.createBlockData()));
+
+		Barrel barrel = assertInstanceOf(Barrel.class, landing.getBlock().getState());
+		assertEquals(diamond, barrel.getInventory().getItem(0));
+		assertEquals(gold, barrel.getInventory().getItem(1));
+		assertNull(barrel.getInventory().getItem(2));
+		assertEquals(playerInitiated ? 1 : 0, economy.withdrawals);
+		assertEquals(0, economy.deposits);
 	}
 
 	private DropHandle request(String packageName) {
