@@ -47,7 +47,7 @@ import static org.mockito.Mockito.when;
 class StatusCommandTest {
 
 	private static final AirdropVersions VERSIONS = new AirdropVersions(
-			"5.0.0-test", "1.0.0-test", "1.21.11", "21");
+			"4.1.0-test", "1.0.0-test", "1.21.11", "21");
 
 	private ServerMock server;
 
@@ -82,7 +82,7 @@ class StatusCommandTest {
 
 		String message = nextMessage(operator);
 		for (String required : List.of(
-				"Plugin: 5.0.0-test",
+				"Plugin: 4.1.0-test",
 				"Extension API: 1.0.0-test",
 				"Paper compatibility: 1.21.11",
 				"Java compatibility: 21",

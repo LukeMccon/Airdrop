@@ -2,6 +2,11 @@
 
 Status: accepted after DRI design-review cycle 2 (`CONFIRM`)
 
+Revision (2026-09-06): This program now targets Airdrop 4.1.0. The project has
+no known consumers of the 4.0 implementation-facing API, so it accepts the
+already documented 4.1 source and binary breaks instead of advancing the plugin
+major. The independently versioned extension API still begins at `1.0.0`.
+
 ## Goal
 
 Make Airdrop predictable to install, operate, and integrate with by shipping one
@@ -24,15 +29,17 @@ internal.
    and verification can complete here; live Modrinth publication, wiki redirect,
    and tag-triggered release evidence remain externally undeployed and their
    Plane criteria are not marked complete.
-2. The supported boundary starts with Airdrop 5.0.0. The source-controlled
-   development version becomes `5.0.0-SNAPSHOT`, and the independently
-   versioned extension API begins at `1.0.0`. This avoids describing the already
-   accepted 4.1 binary breaks as a compatible minor release while keeping the
-   plugin and extension version signals unambiguous.
+2. The supported boundary starts with Airdrop 4.1.0. The source-controlled
+   development version becomes `4.1.0-SNAPSHOT`, and the independently
+   versioned extension API begins at `1.0.0`. The project accepts the already
+   documented 4.1 compatibility break because it has no known consumers of the
+   accidental 4.0 implementation-facing surface, while keeping the plugin and
+   extension version signals unambiguous.
 3. Only types under `com.airdropmc.api` are covered by compatibility promises.
    Existing controllers, `Crate`, managers, raw configuration wrappers, and
    `com.airdropmc.events` are implementation details. Legacy drop/land events
-   remain as deprecated post-state adapters for one major line.
+   currently remain as deprecated post-state adapters without a retention
+   guarantee.
 4. No public package-mutation API is added. There is no retained consumer use
    case that justifies exposing persistence transactions; administrators keep
    using commands and configuration. Consumers receive immutable package

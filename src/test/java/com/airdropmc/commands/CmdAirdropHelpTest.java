@@ -145,7 +145,7 @@ class CmdAirdropHelpTest {
 
 	@Test
 	void versionOutputLabelsEveryCompatibilitySignalAndCanonicalDocs() throws Exception {
-		setStatic("pluginVersion", "5.0.0-test");
+		setStatic("pluginVersion", "4.1.0-test");
 		setStatic("paperCompatibilityVersion", "1.21.11");
 		PlayerMock player = server.addPlayer();
 
@@ -153,7 +153,7 @@ class CmdAirdropHelpTest {
 				player, mock(Command.class), "airdrop", new String[]{"version"}));
 
 		String message = nextMessage(player);
-		assertTrue(message.contains("Plugin: 5.0.0-test"), message);
+		assertTrue(message.contains("Plugin: 4.1.0-test"), message);
 		assertTrue(message.contains("Extension API: 1.0.0"), message);
 		assertTrue(message.contains("Paper compatibility: 1.21.11"), message);
 		assertTrue(message.contains("Java compatibility: 21"), message);
@@ -162,7 +162,7 @@ class CmdAirdropHelpTest {
 
 	@Test
 	void versionOutputUsesStableNamedPlaceholders() throws Exception {
-		setStatic("pluginVersion", "5.0.0-test");
+		setStatic("pluginVersion", "4.1.0-test");
 		setStatic("paperCompatibilityVersion", "1.21.11");
 		LanguageManager language = mock(LanguageManager.class);
 		when(language.get(eq(MessageKey.SYSTEM_VERSION_INFO), anyMap())).thenReturn("version details");

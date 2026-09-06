@@ -13,10 +13,10 @@ import com.airdropmc.helpers.LocationHelper;
 /**
  * Event that is called when a package is dropped.
  *
- * @deprecated since 5.0; listen for {@link AirdropSpawnedEvent}, which exposes
+ * @deprecated since 4.1; listen for {@link AirdropSpawnedEvent}, which exposes
  *             only supported immutable API snapshots
  */
-@Deprecated(since = "5.0", forRemoval = false)
+@Deprecated(since = "4.1", forRemoval = false)
 public class PackageDropEvent extends Event {
 	private static final HandlerList HANDLERS = new HandlerList();
 	private final Crate crate;

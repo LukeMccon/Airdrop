@@ -325,8 +325,8 @@ wrappers, `Crate`, and `com.airdropmc.events` are implementation details.
 
 Do not shade Airdrop into a consumer plugin. Use the released plugin as a
 compile-only dependency, and declare Paper explicitly because Airdrop's Maven
-POM deliberately has no transitive dependencies. A `v5.0.0` release tag is
-published at Maven version `5.0.0`; the tag prefix is never part of the
+POM deliberately has no transitive dependencies. A `v4.1.0` release tag is
+published at Maven version `4.1.0`; the tag prefix is never part of the
 consumer coordinate. For Gradle:
 
 ```kotlin
@@ -336,7 +336,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("maven.modrinth:airdrop:5.0.0")
+    compileOnly("maven.modrinth:airdrop:4.1.0")
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
 }
 ```
@@ -358,7 +358,7 @@ For Maven, use the same Modrinth coordinate and mark both plugins as provided:
   <dependency>
     <groupId>maven.modrinth</groupId>
     <artifactId>airdrop</artifactId>
-    <version>5.0.0</version>
+    <version>4.1.0</version>
     <scope>provided</scope>
   </dependency>
   <dependency>
@@ -386,7 +386,7 @@ softdepend: [Airdrop]
 Match the plugin release to the documented extension API version. The plugin
 and extension API have independent versions; see the
 [API version policy](https://github.com/LukeMccon/Airdrop/blob/main/docs/development/api-versioning.md)
-and [Airdrop 5 migration guide](https://github.com/LukeMccon/Airdrop/blob/main/docs/migration-5.md).
+and [Airdrop 4.1 migration guide](https://github.com/LukeMccon/Airdrop/blob/main/docs/migration-4.1.md).
 
 ### Discover the service, then schedule Bukkit work
 
@@ -484,12 +484,16 @@ primary thread. The supported API intentionally has no package-mutation method.
 All supported events are synchronous on the primary thread and carry immutable
 snapshots. A resolved successful request has this order:
 
-1. `AirdropRequestEvent` — cancellable before admission, cooldown, payment, or entity side effects.
+1. `AirdropRequestEvent` — cancellable before admission, cooldown, payment, or
+   entity side effects.
 2. `AirdropSpawnedEvent` — after the falling crate and admission state commit.
-3. Deprecated `PackageDropEvent` — retained only as a 5.x post-state adapter.
-4. `AirdropLandingAttemptEvent` — cancellable before block, inventory, index, lease, or delivery mutation.
+3. Deprecated `PackageDropEvent` — unsupported post-state adapter outside the
+   compatibility boundary.
+4. `AirdropLandingAttemptEvent` — cancellable before block, inventory, index,
+   lease, or delivery mutation.
 5. `AirdropLandedEvent` — after the barrel and landed index commit.
-6. Deprecated `PackageLandEvent` — retained only as a 5.x post-state adapter.
+6. Deprecated `PackageLandEvent` — unsupported post-state adapter outside the
+   compatibility boundary.
 7. `AirdropOutcomeEvent` — exactly once after delivery and payment are final.
 
 Resolution failures fire no request event. Cancelling a request event leaves

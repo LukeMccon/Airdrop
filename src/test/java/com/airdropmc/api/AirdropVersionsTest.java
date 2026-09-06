@@ -31,9 +31,9 @@ class AirdropVersionsTest {
 	@Test
 	void snapshotKeepsPluginExtensionPaperAndJavaVersionsDistinct() {
 		AirdropVersions versions = new AirdropVersions(
-				"5.0.0-SNAPSHOT", "1.0.0", "1.21.11", "21");
+				"4.1.0-SNAPSHOT", "1.0.0", "1.21.11", "21");
 
-		assertEquals("5.0.0-SNAPSHOT", versions.pluginVersion());
+		assertEquals("4.1.0-SNAPSHOT", versions.pluginVersion());
 		assertEquals("1.0.0", versions.extensionApiVersion());
 		assertEquals("1.21.11", versions.paperApiVersion());
 		assertEquals("21", versions.javaVersion());

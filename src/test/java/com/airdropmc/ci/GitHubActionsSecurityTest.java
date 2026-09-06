@@ -121,13 +121,13 @@ class GitHubActionsSecurityTest {
 
 	@Test
 	void releaseNormalizesVPrefixedTagOnceAndReusesVersion() throws Exception {
-		Process process = new ProcessBuilder("./scripts/normalize-release-version", "v5.0.0")
+		Process process = new ProcessBuilder("./scripts/normalize-release-version", "v4.1.0")
 				.redirectErrorStream(true)
 				.start();
 		assertTrue(process.waitFor(5, TimeUnit.SECONDS), "Release version normalizer timed out");
 		String output = new String(process.getInputStream().readAllBytes()).strip();
 		assertEquals(0, process.exitValue(), output);
-		assertEquals("5.0.0", output);
+		assertEquals("4.1.0", output);
 
 		String contents = Files.readString(RELEASE_WORKFLOW);
 		assertEquals(1, contents.lines()

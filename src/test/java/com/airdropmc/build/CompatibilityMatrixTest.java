@@ -30,7 +30,7 @@ class CompatibilityMatrixTest {
 
 		assertNotNull(sourceVersion, "Gradle must expose the source development version to tests");
 		assertNotNull(extensionApiVersion, "Gradle must expose the extension API version to tests");
-		assertEquals("5.0.0-SNAPSHOT", sourceVersion);
+		assertEquals("4.1.0-SNAPSHOT", sourceVersion);
 		assertEquals("1.0.0", extensionApiVersion);
 		assertTrue(
 			readme.contains(

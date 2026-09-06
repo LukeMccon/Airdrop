@@ -758,6 +758,23 @@ tasks.register<Exec>("lightkeeperTest") {
     }
 }
 
+val verifyReleaseLine = tasks.register<Exec>("verifyReleaseLine") {
+    group = "verification"
+    description = "Verifies release documentation and metadata against gradle.properties"
+    workingDir(layout.projectDirectory)
+    commandLine("./scripts/verify-release-line")
+    inputs.files(
+        layout.projectDirectory.file("gradle.properties"),
+        layout.projectDirectory.file("README.md"),
+        layout.projectDirectory.file("CHANGELOG.md"),
+        layout.projectDirectory.file("scripts/verify-release-line"),
+        layout.projectDirectory.file("scripts/modrinth-docs"),
+        layout.projectDirectory.file("docs/development/api-versioning.md"),
+        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("lightkeeper/pom.xml")
+    )
+}
+
 tasks.register("verifyReleaseArtifact") {
     group = "verification"
     description = "Cross-checks runtime, sources, API Javadocs, and every published compatibility version"
@@ -768,6 +785,7 @@ tasks.register("verifyReleaseArtifact") {
     dependsOn(apiJavadocJar)
     dependsOn(verifyRuntimeClasspathEmpty)
     dependsOn(verifyReproducibleRuntimeJar)
+    dependsOn(verifyReleaseLine)
 
     doLast {
         val releaseVersion = configuredReleaseVersion
@@ -988,6 +1006,7 @@ tasks.named("check") {
     dependsOn(verifyModrinthDocs)
     dependsOn(verifyApiPublication)
     dependsOn(verifyRuntimeClasspathEmpty)
+    dependsOn(verifyReleaseLine)
 }
 
 tasks.named<Test>("test") {

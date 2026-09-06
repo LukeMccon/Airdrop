@@ -153,14 +153,14 @@ class PackageEventLocationIsolationTest {
 	}
 
 	@Test
-	void legacyEventsCarryTheFiveZeroMigrationAnnotation() {
+	void legacyEventsCarryTheFourOneMigrationAnnotation() {
 		Deprecated dropped = PackageDropEvent.class.getAnnotation(Deprecated.class);
 		Deprecated landed = PackageLandEvent.class.getAnnotation(Deprecated.class);
 
 		assertNotNull(dropped);
 		assertNotNull(landed);
-		assertEquals("5.0", dropped.since());
-		assertEquals("5.0", landed.since());
+		assertEquals("4.1", dropped.since());
+		assertEquals("4.1", landed.since());
 		assertFalse(dropped.forRemoval());
 		assertFalse(landed.forRemoval());
 	}

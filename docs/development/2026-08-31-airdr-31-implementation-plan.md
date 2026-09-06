@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` for the assigned worktree and `superpowers:test-driven-development` for every behavior change. The program controller owns integration checkpoints. Because `$dri` permits exactly one independent implementation review, workers must not start per-task review agents; the controller starts the sole read-only review after the complete stack is green.
 
-**Goal:** Ship a locally integrated Airdrop 5.0 developer-experience release with a small immutable extension API, typed drop outcomes and events, useful administrator diagnostics, canonical Modrinth-ready documentation, aligned test dependencies, and a repeatable real-server consumer gate.
+**Revision (2026-09-06):** This plan now targets Airdrop 4.1.0. The project has no known consumers of the 4.0 implementation-facing API, so it accepts the already documented 4.1 source and binary breaks. The independently versioned extension API remains `1.0.0`.
+
+**Goal:** Ship a locally integrated Airdrop 4.1 developer-experience release with a small immutable extension API, typed drop outcomes and events, useful administrator diagnostics, canonical Modrinth-ready documentation, aligned test dependencies, and a repeatable real-server consumer gate.
 
 **Architecture:** Keep one `program/airdr-31-developer-experience` integration branch based on the updated local `develop`. Cut each isolated worktree from the current program tip, implement its Plane item with red-green-refactor, commit with the AIRDR key, verify it, then fast-forward the program branch before cutting the next dependent worktree. `com.airdropmc.api` is the only supported boundary; an internal implementation adapts existing controllers, package snapshots, economy sessions, admission leases, and crate indexes. Repository Markdown remains the canonical docs source and local scripts prove the exact Modrinth payload without publishing it.
 
@@ -71,7 +73,7 @@
 
 3. In `build.gradle.kts`, import `org.junit:junit-bom:6.1.3` once and remove component-level JUnit versions; select maintained `org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.116.3`; keep Paper compile-only and also declare Paper explicitly for tests at `1.21.11-R0.1-SNAPSHOT`. Mechanically migrate all 25 MockBukkit imports from `be.seeseemelk.mockbukkit` to `org.mockbukkit.mockbukkit`. Add `verifyDependencyMatrix` which resolves both test compile/runtime classpaths and fails unless Paper resolves to 1.21.11 and all `org.junit*` modules resolve to the selected 6.1.3 BOM line. Wire it into `check`, which existing `build` workflow commands already execute; do not modify the secret-scanning-only develop workflow.
 
-4. Add an explicit README table for the current source version, extension API `unavailable`, Paper `1.21.11`, Java `21`, and automated lanes `unit + LightKeeper`. Remove every `1.21.11+`, `latest`, or otherwise unbounded support claim. AIRDR-42 updates the same table to Airdrop 5/API 1 only after those artifacts exist.
+4. Add an explicit README table for the current source version, extension API `unavailable`, Paper `1.21.11`, Java `21`, and automated lanes `unit + LightKeeper`. Remove every `1.21.11+`, `latest`, or otherwise unbounded support claim. AIRDR-42 updates the same table to Airdrop 4.1/API 1 only after those artifacts exist.
 
 5. Verify the focused and complete behavior:
 
@@ -430,7 +432,7 @@ Methods whose dependent types arrive in later tasks may initially return empty s
 
 3. New events expose supported immutable snapshots only. Clone Bukkit locations on construction/access and never expose `Crate`, a lease, mutable contents, raw options, live maps, or internal controllers. Add normal Bukkit `HandlerList` boilerplate and synchronous event constructors.
 
-4. Deprecate `PackageDropEvent` and `PackageLandEvent` with migration Javadocs to the supported post-events. Preserve their existing post-fact, non-cancellable behavior for the 5.x line and fire them only after the new committed post-event.
+4. Deprecate `PackageDropEvent` and `PackageLandEvent` with migration Javadocs to the supported post-events. Preserve their existing post-fact, non-cancellable behavior for this change and fire them only after the new committed post-event; they remain unsupported implementation adapters without a retention guarantee.
 
 5. Emit outcome exactly once after final delivery/payment state. Recovery/retirement events and typed removal reasons land with the indexes in AIRDR-40; do not add duplicate native inventory/open/close/break events here.
 
@@ -512,7 +514,7 @@ Methods whose dependent types arrive in later tasks may initially return empty s
 - Create: `src/main/resources/airdrop-api.properties`
 - Create: `config/api-signatures/1.0.0.txt`
 - Create: `docs/development/api-versioning.md`
-- Create: `docs/migration-5.md`
+- Create: `docs/migration-4.1.md`
 - Create: `src/test/java/com/airdropmc/api/AirdropVersionsTest.java`
 - Create: `src/test/java/com/airdropmc/ci/ApiCompatibilityConfigurationTest.java`
 - Modify: `src/test/java/com/airdropmc/commands/CmdAirdropLifecycleSafetyTest.java`
@@ -524,13 +526,13 @@ Methods whose dependent types arrive in later tasks may initially return empty s
 
 **Steps:**
 
-1. Add failing tests requiring source version `5.0.0-SNAPSHOT`, extension API `1.0.0`, Paper `1.21.11`, and Java `21` to appear as distinct named fields in `AirdropVersions`, version command, README matrix, generated metadata, changelog, and verification tasks. Rename the internal `pluginApiVersion` terminology/getter to Paper compatibility (retain a deprecated adapter only for necessary 5.x source migration) and reject use of Bukkit's `plugin.yml api-version` as the extension API version.
+1. Add failing tests requiring source version `4.1.0-SNAPSHOT`, extension API `1.0.0`, Paper `1.21.11`, and Java `21` to appear as distinct named fields in `AirdropVersions`, version command, README matrix, generated metadata, changelog, and verification tasks. Rename the internal `pluginApiVersion` terminology/getter to Paper compatibility (retain a deprecated adapter for the 4.1 source migration) and reject use of Bukkit's `plugin.yml api-version` as the extension API version.
 
 2. Embed `Airdrop-API-Version: 1.0.0` in the runtime manifest and add an API-signature task limited to public/protected members under `com.airdropmc.api` (including events and excluding every `com.airdropmc.internal` type). Normalize sorted class/member signatures so timestamps and filesystem order cannot change the result. Record the initial `config/api-signatures/1.0.0.txt` only after the supported surface compiles.
 
 3. Add `verifyApiCompatibility`. For the initial 1.0 line it compares the generated signature to the recorded baseline. For subsequent local/release builds, accept an explicit previous supported JAR/baseline property, run JApiCmp or an equivalent binary/source comparison only over `com.airdropmc.api`, and fail incompatible changes unless the extension API major or explicitly reviewed baseline changes. Never silently fetch an arbitrary latest version during ordinary `test`.
 
-4. Add narrow ignore exceptions for the two version/migration documents. Document the semantic policy: additions may ship in an API minor; compatible fixes in patch; removal/signature/semantic breaks require API major; deprecated supported members remain for at least the current plugin major. Document the 5.0 migration away from implementation packages and legacy events.
+4. Add narrow ignore exceptions for the two version/migration documents. Document the semantic policy: additions may ship in an API minor; compatible fixes in patch; removal/signature/semantic breaks require API major; deprecated supported members remain for at least the current plugin major. Document the 4.1 migration away from implementation packages and legacy events.
 
 5. Extend local release verification to cross-check release tag, runtime artifact filename, embedded plugin version, extension API resource, Paper/Java contract, changelog heading, and compatibility result.
 
@@ -539,7 +541,7 @@ Methods whose dependent types arrive in later tasks may initially return empty s
    ```bash
    ./gradlew generateApiSignature verifyApiCompatibility
    ./gradlew test --tests com.airdropmc.api.AirdropVersionsTest --tests com.airdropmc.ci.ApiCompatibilityConfigurationTest
-   ./gradlew -PreleaseTag=5.0.0 verifyReleaseArtifact
+   ./gradlew -PreleaseTag=4.1.0 verifyReleaseArtifact
    ./gradlew test
    git diff --check
    ```
@@ -803,8 +805,8 @@ Methods whose dependent types arrive in later tasks may initially return empty s
    ./gradlew dependencies --configuration runtimeClasspath
    ./gradlew --write-verification-metadata sha256 test build apiJavadocJar publishModrinthPublicationToStagingRepository
    ./gradlew --dependency-verification=strict clean test build verifyApiPublication
-   ./gradlew -PreleaseTag=5.0.0 verifyReleaseArtifact
-   jar tf build/libs/Airdrop-5.0.0.jar
+   ./gradlew -PreleaseTag=4.1.0 verifyReleaseArtifact
+   jar tf build/libs/Airdrop-4.1.0.jar
    git diff --check
    ```
 
@@ -876,7 +878,7 @@ Methods whose dependent types arrive in later tasks may initially return empty s
    ./gradlew lightkeeperTest
    test -f lightkeeper/target/lightkeeper-reports/failsafe-summary.xml
    ./gradlew lightkeeperTest
-   ./gradlew -PreleaseTag=5.0.0 verifyReleaseArtifact lightkeeperTest
+   ./gradlew -PreleaseTag=4.1.0 verifyReleaseArtifact lightkeeperTest
    git diff --check
    ```
 
@@ -904,7 +906,7 @@ No fake Vault/VaultUnlocked server plugin is added; deterministic provider-backe
    git diff --check develop...HEAD
    ./gradlew --dependency-verification=strict clean test build
    ./gradlew verifyDependencyMatrix verifyApiCompatibility verifyModrinthDocs verifyApiPublication consumerFixtureTest
-   ./gradlew -PreleaseTag=5.0.0 verifyReleaseArtifact
+   ./gradlew -PreleaseTag=4.1.0 verifyReleaseArtifact
    ./gradlew clean lightkeeperTest
    ./gradlew lightkeeperTest
    ```

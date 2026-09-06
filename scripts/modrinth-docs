@@ -63,7 +63,7 @@ check_local() {
 	require_text "https://modrinth.com/plugin/airdrop/versions"
 	require_text "https://github.com/LukeMccon/Airdrop/issues/new?labels=bug"
 	require_text "https://github.com/LukeMccon/Airdrop/issues/new?labels=enhancement"
-	require_text "maven.modrinth:airdrop:5.0.0"
+	require_text "maven.modrinth:airdrop:4.1.0"
 	require_text "getServicesManager().load(AirdropApi.class)"
 	require_text "requestPlayerDrop"
 	require_text "AirdropOutcomeEvent"
