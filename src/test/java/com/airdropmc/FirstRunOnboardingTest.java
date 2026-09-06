@@ -73,7 +73,11 @@ class FirstRunOnboardingTest {
 				packages:
 				  starter:
 				    price: 7.5
-				    items: []
+				    items:
+				      - ==: org.bukkit.inventory.ItemStack
+				        schema_version: 1
+				        id: minecraft:bread
+				        count: 16
 				  custom:
 				    price: 0.0
 				    items: []

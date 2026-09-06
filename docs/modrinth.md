@@ -214,13 +214,21 @@ case-insensitive collision, or invalid price rejects the whole candidate. A
 failed reload keeps the previous complete registry; Airdrop never substitutes a
 zero price for an invalid price.
 
-The `items` list uses Bukkit's item serialization, including the `==` type tag.
-Item ID, count, enchantments, custom names, lore, and other metadata are
-represented by the fields Bukkit writes. Non-item values, null entries, air,
-and localized editor-control items are filtered out. After filtering, Airdrop
-retains the first 27 stacks in YAML order, matching barrel capacity, and drops
-later stacks. Structural, name, and price errors reject the candidate; an
-unusable item entry is filtered instead.
+The required `items` list uses Bukkit's item serialization, including the `==`
+type tag. Item ID, count, enchantments, custom names, lore, and other metadata
+are represented by the fields Bukkit writes. A missing list, non-item value,
+or null entry rejects the whole candidate; item errors identify the package
+and entry index. Ordinary reward items keep their custom names, including names
+that match editor controls.
+
+Air and item stacks with a non-positive amount are filtered out. Airdrop retains
+the first 27 deliverable stacks in YAML order, matching barrel capacity, and
+drops later stacks. Free packages may use `items: []`; paid packages must retain
+at least one deliverable stack.
+
+Airdrop supports at most 27 configured packages, matching the package browser's
+capacity; pagination is not supported. Exceeding that limit or supplying invalid
+package data rejects the reload and preserves the previous complete registry.
 
 ### Backups make regeneration and rollback predictable
 

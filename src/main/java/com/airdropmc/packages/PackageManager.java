@@ -1,6 +1,7 @@
 package com.airdropmc.packages;
 
 import com.airdropmc.exceptions.DuplicatePackageException;
+import com.airdropmc.exceptions.PackageCapacityException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -29,25 +30,13 @@ import java.util.stream.Collectors;
 public class PackageManager {
 
 	public static final String PACKAGES_SECTION = "packages";
+	public static final int MAX_PACKAGES = 27;
 	public static final int MAX_PACKAGE_ITEM_STACKS = 27;
 
+	private static final String CONTROL_ITEM_NAMES_REQUIRED = "Control item names are required";
 	private static volatile Map<String, Package> packages = Map.of();
 
 	PackageManager() {
-	}
-
-	/**
-	 * Materializes a complete, detached package snapshot using the currently
-	 * published GUI control labels. Worker-side configuration preparation should
-	 * use the explicit-control-label overload.
-	 *
-	 * @param candidate configuration to materialize
-	 * @return immutable map keyed by canonical package name
-	 * @throws PackageMaterializationException if the packages section or any package is invalid
-	 */
-	public static Map<String, Package> materializePackages(FileConfiguration candidate)
-			throws PackageMaterializationException {
-		return materializePackages(candidate, Set.copyOf(Gui.getControlItemNames()));
 	}
 
 	/**
@@ -56,16 +45,11 @@ public class PackageManager {
 	 * the complete candidate.
 	 *
 	 * @param candidate configuration to materialize
-	 * @param controlItemNames exact display names reserved for GUI control items
 	 * @return immutable map keyed by canonical package name
 	 * @throws PackageMaterializationException if the packages section or any package is invalid
 	 */
-	public static Map<String, Package> materializePackages(
-			FileConfiguration candidate,
-			Set<String> controlItemNames)
+	public static Map<String, Package> materializePackages(FileConfiguration candidate)
 			throws PackageMaterializationException {
-		Set<String> detachedControlItemNames = Set.copyOf(
-				Objects.requireNonNull(controlItemNames, "Control item names are required"));
 		if (candidate == null) {
 			throw new PackageMaterializationException("Packages configuration is unavailable");
 		}
@@ -79,6 +63,10 @@ public class PackageManager {
 		}
 
 		List<String> configuredNames = new ArrayList<>(configuredPackages.getKeys(false));
+		if (configuredNames.size() > MAX_PACKAGES) {
+			throw new PackageMaterializationException(
+					"Configured " + configuredNames.size() + " packages, but the limit is " + MAX_PACKAGES);
+		}
 		configuredNames.sort(Comparator.naturalOrder());
 		Map<String, List<String>> namesByCanonical = validateConfiguredNames(configuredNames);
 		Map<String, Package> materialized = new LinkedHashMap<>();
@@ -91,31 +79,33 @@ public class PackageManager {
 						"Package '" + configuredName + "' must be a configuration section");
 			}
 
-			Object rawPrice = packageSection.isSet("price") ? packageSection.get("price") : null;
-			if (!(rawPrice instanceof Number number)) {
-				throw invalidPrice(configuredName, rawPrice);
-			}
-
-			double price;
-			try {
-				price = number.doubleValue();
-			} catch (RuntimeException exception) {
+			double price = readPackagePrice(packageSection, configuredName);
+			List<ItemStack> items = readPackageItems(packageSection, configuredName);
+			List<ItemStack> deliverableItems = limitToBarrelCapacity(items);
+			if (price > 0.0 && deliverableItems.isEmpty()) {
 				throw new PackageMaterializationException(
-						invalidPriceMessage(configuredName, rawPrice), exception);
+						"Package '" + configuredName
+								+ "' has a positive price but no deliverable item stacks");
 			}
-			if (!Package.isValidPrice(price)) {
-				throw invalidPrice(configuredName, rawPrice);
-			}
-
-			List<ItemStack> items = readPackageItems(packageSection);
 			materialized.put(entry.getKey(),
-					new Package(
-							configuredName,
-							price,
-							limitToBarrelCapacity(items, detachedControlItemNames)));
+					new Package(configuredName, price, deliverableItems));
 		}
 
 		return Collections.unmodifiableMap(materialized);
+	}
+
+	/**
+	 * Compatibility overload retained for integrations compiled against the former
+	 * display-name filtering API. Visible control labels are intentionally ignored.
+	 *
+	 * @deprecated Use {@link #materializePackages(FileConfiguration)} instead.
+	 */
+	@Deprecated(forRemoval = false)
+	public static Map<String, Package> materializePackages(
+			FileConfiguration candidate,
+			Set<String> controlItemNames) throws PackageMaterializationException {
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
+		return materializePackages(candidate);
 	}
 
 	private static Map<String, List<String>> validateConfiguredNames(List<String> configuredNames)
@@ -141,19 +131,48 @@ public class PackageManager {
 		return namesByCanonical;
 	}
 
-	private static List<ItemStack> readPackageItems(ConfigurationSection packageSection) {
-		List<?> rawItems = packageSection.getList("items");
-		if (rawItems == null || rawItems.isEmpty()) {
-			return List.of();
+	private static List<ItemStack> readPackageItems(
+			ConfigurationSection packageSection,
+			String packageName)
+			throws PackageMaterializationException {
+		Object configuredItems = packageSection.get("items");
+		if (!(configuredItems instanceof List<?> rawItems)) {
+			throw new PackageMaterializationException(
+					"Package '" + packageName + "' items must be a list");
 		}
 
-		List<ItemStack> items = new ArrayList<>();
-		for (Object rawItem : rawItems) {
-			if (rawItem instanceof ItemStack itemStack) {
-				items.add(itemStack);
+		List<ItemStack> items = new ArrayList<>(rawItems.size());
+		for (int index = 0; index < rawItems.size(); index++) {
+			Object rawItem = rawItems.get(index);
+			if (!(rawItem instanceof ItemStack itemStack)) {
+				String rawType = rawItem == null ? "null" : rawItem.getClass().getName();
+				throw new PackageMaterializationException(
+						"Package '" + packageName + "' has invalid item at index " + index
+								+ ": expected ItemStack but found " + rawType);
 			}
+			items.add(itemStack);
 		}
 		return items;
+	}
+
+	private static double readPackagePrice(ConfigurationSection packageSection, String packageName)
+			throws PackageMaterializationException {
+		Object rawPrice = packageSection.isSet("price") ? packageSection.get("price") : null;
+		if (!(rawPrice instanceof Number number)) {
+			throw invalidPrice(packageName, rawPrice);
+		}
+
+		double price;
+		try {
+			price = number.doubleValue();
+		} catch (RuntimeException exception) {
+			throw new PackageMaterializationException(
+					invalidPriceMessage(packageName, rawPrice), exception);
+		}
+		if (!Package.isValidPrice(price)) {
+			throw invalidPrice(packageName, rawPrice);
+		}
+		return price;
 	}
 
 	private static PackageMaterializationException invalidPrice(String packageName, Object rawPrice) {
@@ -171,7 +190,13 @@ public class PackageManager {
 	 * @param candidatePackages packages keyed by canonical package name
 	 */
 	public static void publishPackages(Map<String, Package> candidatePackages) {
-		packages = Objects.requireNonNull(candidatePackages, "Package snapshot is required");
+		Map<String, Package> candidate = Objects.requireNonNull(
+				candidatePackages, "Package snapshot is required");
+		if (candidate.size() > MAX_PACKAGES) {
+			throw new IllegalArgumentException(
+					"Cannot publish " + candidate.size() + " packages; the limit is " + MAX_PACKAGES);
+		}
+		packages = candidate;
 	}
 
 	/**
@@ -182,28 +207,11 @@ public class PackageManager {
 	 * @return detached configuration containing the new package
 	 * @throws PackageMaterializationException if the source configuration is invalid
 	 * @throws DuplicatePackageException if the package name already exists
+	 * @throws PackageCapacityException if adding the package would exceed the package limit
 	 */
 	public static YamlConfiguration createPackageCandidate(FileConfiguration source, Package pkg)
-			throws PackageMaterializationException, DuplicatePackageException {
-		return createPackageCandidate(source, pkg, Set.copyOf(Gui.getControlItemNames()));
-	}
-
-	/**
-	 * Creates a detached configuration candidate containing a normalized package.
-	 *
-	 * @param source source configuration
-	 * @param pkg package to add
-	 * @param controlItemNames exact display names reserved for GUI control items
-	 * @return detached configuration containing the new package
-	 * @throws PackageMaterializationException if the source configuration is invalid
-	 * @throws DuplicatePackageException if the package name already exists
-	 */
-	public static YamlConfiguration createPackageCandidate(
-			FileConfiguration source, Package pkg, Set<String> controlItemNames)
-			throws PackageMaterializationException, DuplicatePackageException {
-		Set<String> detachedControlItemNames = Set.copyOf(
-				Objects.requireNonNull(controlItemNames, "Control item names are required"));
-		Map<String, Package> currentPackages = materializePackages(source, detachedControlItemNames);
+			throws PackageMaterializationException, DuplicatePackageException, PackageCapacityException {
+		Map<String, Package> currentPackages = materializePackages(source);
 		if (pkg == null) {
 			throw new IllegalArgumentException("Package is required");
 		}
@@ -212,15 +220,34 @@ public class PackageManager {
 		if (currentPackages.containsKey(canonicalName)) {
 			throw new DuplicatePackageException(pkg.getName());
 		}
+		if (currentPackages.size() >= MAX_PACKAGES) {
+			throw new PackageCapacityException(currentPackages.size() + 1, MAX_PACKAGES);
+		}
 		if (!Package.isValidPrice(pkg.getPrice())) {
 			throw new IllegalArgumentException("Package price must be finite and non-negative");
 		}
 
-		List<ItemStack> normalizedItems = limitToBarrelCapacity(pkg.getItems(), detachedControlItemNames);
+		List<ItemStack> normalizedItems = limitToBarrelCapacity(pkg.getItems());
 		YamlConfiguration candidate = copyConfiguration(source);
 		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".price", pkg.getPrice());
 		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".items", new ArrayList<>(normalizedItems));
 		return candidate;
+	}
+
+	/**
+	 * Compatibility overload retained for integrations compiled against the former
+	 * display-name filtering API. Visible control labels are intentionally ignored.
+	 *
+	 * @deprecated Use {@link #createPackageCandidate(FileConfiguration, Package)} instead.
+	 */
+	@Deprecated(forRemoval = false)
+	public static YamlConfiguration createPackageCandidate(
+			FileConfiguration source,
+			Package pkg,
+			Set<String> controlItemNames)
+			throws PackageMaterializationException, DuplicatePackageException, PackageCapacityException {
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
+		return createPackageCandidate(source, pkg);
 	}
 
 	/**
@@ -236,36 +263,30 @@ public class PackageManager {
 	public static YamlConfiguration updatePackageInventoryCandidate(
 			FileConfiguration source, String packageName, List<ItemStack> items)
 			throws PackageMaterializationException, PackageNotFoundException {
-		return updatePackageInventoryCandidate(
-				source, packageName, items, Set.copyOf(Gui.getControlItemNames()));
+		Map<String, Package> currentPackages = materializePackages(source);
+		Package pkg = findPackage(currentPackages, packageName);
+		List<ItemStack> normalizedItems = limitToBarrelCapacity(items);
+
+		YamlConfiguration candidate = copyConfiguration(source);
+		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".items", new ArrayList<>(normalizedItems));
+		return candidate;
 	}
 
 	/**
-	 * Creates a detached configuration candidate with one package inventory replaced.
+	 * Compatibility overload retained for integrations compiled against the former
+	 * display-name filtering API. Visible control labels are intentionally ignored.
 	 *
-	 * @param source source configuration
-	 * @param packageName package to update
-	 * @param items replacement inventory
-	 * @param controlItemNames exact display names reserved for GUI control items
-	 * @return detached configuration containing the replacement inventory
-	 * @throws PackageMaterializationException if the source configuration is invalid
-	 * @throws PackageNotFoundException if the package does not exist
+	 * @deprecated Use {@link #updatePackageInventoryCandidate(FileConfiguration, String, List)} instead.
 	 */
+	@Deprecated(forRemoval = false)
 	public static YamlConfiguration updatePackageInventoryCandidate(
 			FileConfiguration source,
 			String packageName,
 			List<ItemStack> items,
 			Set<String> controlItemNames)
 			throws PackageMaterializationException, PackageNotFoundException {
-		Set<String> detachedControlItemNames = Set.copyOf(
-				Objects.requireNonNull(controlItemNames, "Control item names are required"));
-		Map<String, Package> currentPackages = materializePackages(source, detachedControlItemNames);
-		Package pkg = findPackage(currentPackages, packageName);
-		List<ItemStack> normalizedItems = limitToBarrelCapacity(items, detachedControlItemNames);
-
-		YamlConfiguration candidate = copyConfiguration(source);
-		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".items", new ArrayList<>(normalizedItems));
-		return candidate;
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
+		return updatePackageInventoryCandidate(source, packageName, items);
 	}
 
 	/**
@@ -279,25 +300,7 @@ public class PackageManager {
 	 */
 	public static YamlConfiguration deletePackageCandidate(FileConfiguration source, String packageName)
 			throws PackageMaterializationException, PackageNotFoundException {
-		return deletePackageCandidate(source, packageName, Set.copyOf(Gui.getControlItemNames()));
-	}
-
-	/**
-	 * Creates a detached configuration candidate with one package removed.
-	 *
-	 * @param source source configuration
-	 * @param packageName package to remove
-	 * @param controlItemNames exact display names reserved for GUI control items
-	 * @return detached configuration without the package
-	 * @throws PackageMaterializationException if the source configuration is invalid
-	 * @throws PackageNotFoundException if the package does not exist
-	 */
-	public static YamlConfiguration deletePackageCandidate(
-			FileConfiguration source, String packageName, Set<String> controlItemNames)
-			throws PackageMaterializationException, PackageNotFoundException {
-		Set<String> detachedControlItemNames = Set.copyOf(
-				Objects.requireNonNull(controlItemNames, "Control item names are required"));
-		Map<String, Package> currentPackages = materializePackages(source, detachedControlItemNames);
+		Map<String, Package> currentPackages = materializePackages(source);
 		Package pkg = findPackage(currentPackages, packageName);
 
 		YamlConfiguration candidate = copyConfiguration(source);
@@ -306,6 +309,22 @@ public class PackageManager {
 			candidate.createSection(PACKAGES_SECTION);
 		}
 		return candidate;
+	}
+
+	/**
+	 * Compatibility overload retained for integrations compiled against the former
+	 * display-name filtering API. Visible control labels are intentionally ignored.
+	 *
+	 * @deprecated Use {@link #deletePackageCandidate(FileConfiguration, String)} instead.
+	 */
+	@Deprecated(forRemoval = false)
+	public static YamlConfiguration deletePackageCandidate(
+			FileConfiguration source,
+			String packageName,
+			Set<String> controlItemNames)
+			throws PackageMaterializationException, PackageNotFoundException {
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
+		return deletePackageCandidate(source, packageName);
 	}
 
 	private static Package findPackage(Map<String, Package> snapshot, String packageName)
@@ -339,6 +358,18 @@ public class PackageManager {
 				.collect(Collectors.toUnmodifiableSet());
 	}
 
+	public static int getPackageCount() {
+		return packages.size();
+	}
+
+	static List<Package> getPackagesForDisplay() {
+		Map<String, Package> snapshot = packages;
+		return snapshot.values().stream()
+				.sorted(Comparator.comparing(Package::getName, String.CASE_INSENSITIVE_ORDER)
+						.thenComparing(Package::getName))
+				.toList();
+	}
+
 	/**
 	 * Gets a package by name using case-insensitive package identity.
 	 *
@@ -355,15 +386,9 @@ public class PackageManager {
 	}
 
 	/**
-	 * Removes invalid and editor-control stacks and detaches retained stacks.
+	 * Removes null, air, and nonpositive-amount stacks and detaches every retained package item.
 	 */
 	public static List<ItemStack> sanitizePackageItems(List<ItemStack> items) {
-		return sanitizePackageItems(items, Set.copyOf(Gui.getControlItemNames()));
-	}
-
-	private static List<ItemStack> sanitizePackageItems(
-			List<ItemStack> items,
-			Set<String> controlItemNames) {
 		if (items == null || items.isEmpty()) {
 			return new ArrayList<>();
 		}
@@ -371,19 +396,13 @@ public class PackageManager {
 		return items.stream()
 				.filter(Objects::nonNull)
 				.filter(itemStack -> !itemStack.getType().isAir())
-				.filter(itemStack -> !controlItemNames.contains(Gui.getDisplayName(itemStack)))
+				.filter(itemStack -> itemStack.getAmount() > 0)
 				.map(ItemStack::clone)
 				.collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
 	}
 
 	private static List<ItemStack> limitToBarrelCapacity(List<ItemStack> items) {
-		return limitToBarrelCapacity(items, Set.copyOf(Gui.getControlItemNames()));
-	}
-
-	private static List<ItemStack> limitToBarrelCapacity(
-			List<ItemStack> items,
-			Set<String> controlItemNames) {
-		List<ItemStack> sanitizedItems = sanitizePackageItems(items, controlItemNames);
+		List<ItemStack> sanitizedItems = sanitizePackageItems(items);
 		if (sanitizedItems.size() <= MAX_PACKAGE_ITEM_STACKS) {
 			return sanitizedItems;
 		}

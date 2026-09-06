@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -113,12 +112,10 @@ public final class ConfigCoordinator implements AutoCloseable {
 	public CompletionStage<Boolean> createPackage(Package pkg) {
 		Objects.requireNonNull(pkg, "pkg");
 		Package detachedPackage = new Package(pkg.getName(), pkg.getPrice(), pkg.getItems());
-		Set<String> controlItemNames = Set.copyOf(languageManager.getControlItemNames());
 		return enqueue(() -> {
 			YamlConfiguration candidate = PackageManager.createPackageCandidate(
-					readPackages(), detachedPackage, controlItemNames);
-			Map<String, Package> materialized = PackageManager.materializePackages(
-					candidate, controlItemNames);
+					readPackages(), detachedPackage);
+			Map<String, Package> materialized = PackageManager.materializePackages(candidate);
 			store.write(packagesPath(), candidate);
 			PackageCandidate prepared = new PackageCandidate(
 					candidate, materialized, true, PackageRegistryCause.CREATE);
@@ -132,12 +129,10 @@ public final class ConfigCoordinator implements AutoCloseable {
 	public CompletionStage<Boolean> updatePackageInventory(String packageName, List<ItemStack> items) {
 		String detachedName = Objects.requireNonNull(packageName, "packageName");
 		List<ItemStack> detachedItems = cloneItems(items);
-		Set<String> controlItemNames = Set.copyOf(languageManager.getControlItemNames());
 		return enqueue(() -> {
 			YamlConfiguration candidate = PackageManager.updatePackageInventoryCandidate(
-					readPackages(), detachedName, detachedItems, controlItemNames);
-			Map<String, Package> materialized = PackageManager.materializePackages(
-					candidate, controlItemNames);
+					readPackages(), detachedName, detachedItems);
+			Map<String, Package> materialized = PackageManager.materializePackages(candidate);
 			store.write(packagesPath(), candidate);
 			PackageCandidate prepared = new PackageCandidate(
 					candidate, materialized, false, PackageRegistryCause.UPDATE);
@@ -150,12 +145,10 @@ public final class ConfigCoordinator implements AutoCloseable {
 
 	public CompletionStage<Boolean> deletePackage(String packageName) {
 		String detachedName = Objects.requireNonNull(packageName, "packageName");
-		Set<String> controlItemNames = Set.copyOf(languageManager.getControlItemNames());
 		return enqueue(() -> {
 			YamlConfiguration candidate = PackageManager.deletePackageCandidate(
-					readPackages(), detachedName, controlItemNames);
-			Map<String, Package> materialized = PackageManager.materializePackages(
-					candidate, controlItemNames);
+					readPackages(), detachedName);
+			Map<String, Package> materialized = PackageManager.materializePackages(candidate);
 			store.write(packagesPath(), candidate);
 			PackageCandidate prepared = new PackageCandidate(
 					candidate, materialized, true, PackageRegistryCause.DELETE);
@@ -184,10 +177,9 @@ public final class ConfigCoordinator implements AutoCloseable {
 
 		String languageCode = ConfigKeys.getLanguage(mainConfig);
 		LanguageManager.LanguageCandidate language = languageManager.prepareLanguage(languageCode);
-		Map<String, Package> packages = PackageManager.materializePackages(
-				packagesConfig,
-				language.controlItemNames());
+		Map<String, Package> packages = PackageManager.materializePackages(packagesConfig);
 		boolean economyEnabled = ConfigKeys.isEconomyEnabled(mainConfig);
+		mainConfig.set(ConfigKeys.DROP_SMOKE_ENABLED, ConfigKeys.isSmokeEnabled(mainConfig));
 		ConfigurationCandidate candidate = new ConfigurationCandidate(
 				mainConfig, packagesConfig, packages, language, economyEnabled, startup,
 				startup ? PackageRegistryCause.STARTUP : PackageRegistryCause.RELOAD);

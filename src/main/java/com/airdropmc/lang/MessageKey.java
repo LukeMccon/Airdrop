@@ -43,6 +43,8 @@ public enum MessageKey {
 	PACKAGES_CREATE_OPEN_ERROR("packages.create-open-error", "Unable to open package editor right now"),
 	PACKAGES_ITEM_LIMIT("packages.item-limit",
 			"Package can only hold {accent}{max}{error} item stacks (barrel capacity). Remove extra items before saving."),
+	PACKAGES_CAPACITY_LIMIT("packages.capacity-limit",
+			"Cannot configure {accent}{count}{error} packages; the limit is {accent}{limit}{error}. Delete an existing package first."),
 
 	ERROR_CANNOT_AFFORD("errors.cannot-afford",
 			"{accent}{player}{error} cannot afford package price of {accent}{price}{error}"),

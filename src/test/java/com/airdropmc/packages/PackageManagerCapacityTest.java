@@ -15,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -52,9 +53,7 @@ class PackageManagerCapacityTest {
 	@Test
 	void materializePackages_sanitizesAndTruncatesItemsToBarrelCapacity() throws Exception {
 		YamlConfiguration candidate = baseConfiguration();
-		List<Object> rawItems = new ArrayList<>(itemStacks(PackageManager.MAX_PACKAGE_ITEM_STACKS + 3));
-		rawItems.add("not-an-item");
-		rawItems.add(null);
+		List<ItemStack> rawItems = itemStacks(PackageManager.MAX_PACKAGE_ITEM_STACKS + 3);
 		candidate.set("packages.starter.items", rawItems);
 
 		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
@@ -65,19 +64,44 @@ class PackageManagerCapacityTest {
 	}
 
 	@Test
-	void materializePackages_usesCandidateLanguageControlLabels() throws Exception {
+	void materializePackages_rejectsInvalidItemAfterBarrelCapacity() {
 		YamlConfiguration candidate = baseConfiguration();
-		ItemStack oldLanguageLabel = namedItem("Save");
-		ItemStack candidateLanguageLabel = namedItem("Enregistrer");
-		candidate.set("packages.starter.items", List.of(oldLanguageLabel, candidateLanguageLabel));
+		List<Object> rawItems = new ArrayList<>(itemStacks(PackageManager.MAX_PACKAGE_ITEM_STACKS));
+		rawItems.add("not-an-item");
+		candidate.set("packages.starter.items", rawItems);
 
-		Map<String, Package> materialized = PackageManager.materializePackages(
-				candidate,
-				Set.of("Enregistrer"));
+		PackageMaterializationException failure = assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.materializePackages(candidate));
 
-		List<ItemStack> items = materialized.get("starter").getItems();
-		assertEquals(1, items.size());
-		assertEquals("Save", items.getFirst().getItemMeta().getDisplayName());
+		assertTrue(failure.getMessage().contains("starter"), failure::getMessage);
+		assertTrue(failure.getMessage().contains("index 27"), failure::getMessage);
+	}
+
+	@Test
+	void materializePackages_preservesItemsNamedLikeControlsAcrossLanguages() throws Exception {
+		YamlConfiguration candidate = baseConfiguration();
+		List<ItemStack> namedItems = List.of(
+				namedItem("Save"),
+				namedItem("Cancel"),
+				namedItem("Back"),
+				namedItem("Help"),
+				namedItem("Enregistrer"));
+		candidate.set("packages.starter.items", namedItems);
+
+		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
+		Map<String, Package> compatibilityMaterialized = PackageManager.materializePackages(
+				candidate, Set.of("Save", "Cancel", "Back", "Help", "Enregistrer"));
+
+		List<String> displayNames = materialized.get("starter").getItems().stream()
+				.map(ItemStack::getItemMeta)
+				.map(ItemMeta::getDisplayName)
+				.toList();
+		List<String> compatibilityDisplayNames = compatibilityMaterialized.get("starter").getItems().stream()
+				.map(ItemStack::getItemMeta)
+				.map(ItemMeta::getDisplayName)
+				.toList();
+		assertEquals(List.of("Save", "Cancel", "Back", "Help", "Enregistrer"), displayNames);
+		assertEquals(displayNames, compatibilityDisplayNames);
 	}
 
 	@Test
@@ -102,7 +126,7 @@ class PackageManagerCapacityTest {
 	private static YamlConfiguration baseConfiguration() {
 		YamlConfiguration config = new YamlConfiguration();
 		config.createSection("packages.starter");
-		config.set("packages.starter.price", 10.0);
+		config.set("packages.starter.price", 0.0);
 		config.set("packages.starter.items", List.of());
 		return config;
 	}

@@ -1,9 +1,12 @@
 package com.airdropmc.config;
 
+import org.mockbukkit.mockbukkit.MockBukkit;
 import com.airdropmc.Config;
 import com.airdropmc.PackagesConfig;
+import org.bukkit.Material;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -15,7 +18,9 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -55,6 +60,56 @@ class ConfigFileStoreTest {
 		assertThrows(InvalidConfigurationException.class, () -> new ConfigFileStore().read(source));
 
 		assertSame(publishedCandidate, published.getConfig());
+	}
+
+	@Test
+	void readReportsNonzeroIndexForIncompatibleNestedItemMetadata() throws Exception {
+		assertMalformedSecondItemIsDiagnosed(false);
+	}
+
+	@Test
+	void readReportsNonzeroIndexForNullSerializedMappingKey() throws Exception {
+		assertMalformedSecondItemIsDiagnosed(true);
+	}
+
+	private void assertMalformedSecondItemIsDiagnosed(boolean nullMappingKey) throws Exception {
+		MockBukkit.mock();
+		try {
+			ItemStack first = new ItemStack(Material.STONE, 3);
+			ItemStack second = new ItemStack(Material.DIAMOND);
+			Map<String, Object> firstItem = new LinkedHashMap<>(first.serialize());
+			Map<String, Object> secondItem = new LinkedHashMap<>(second.serialize());
+			// MockBukkit cannot deserialize ItemMeta.setVersion, even for plain stacks.
+			firstItem.remove("meta");
+			secondItem.remove("meta");
+			firstItem.put("==", "org.bukkit.inventory.ItemStack");
+			secondItem.put("==", "org.bukkit.inventory.ItemStack");
+			YamlConfiguration candidate = new YamlConfiguration();
+			candidate.set("packages.paid.price", 10.0);
+			candidate.set("packages.paid.items", List.of(firstItem, secondItem));
+			Path source = tempDir.resolve("packages.yml");
+			Files.writeString(source, candidate.saveToString(), StandardCharsets.UTF_8);
+			ConfigFileStore store = new ConfigFileStore();
+			assertEquals(List.of(first, second), store.read(source).getList("packages.paid.items"));
+
+			Map<String, Object> malformedItem = new LinkedHashMap<>(secondItem);
+			if (nullMappingKey) {
+				malformedItem.put(null, "invalid");
+			} else {
+				malformedItem.put("meta", Map.of("==", "incompatible.ItemMeta"));
+			}
+			candidate.set("packages.paid.items", List.of(firstItem, malformedItem));
+			String rejectedYaml = candidate.saveToString();
+			Files.writeString(source, rejectedYaml, StandardCharsets.UTF_8);
+
+			InvalidConfigurationException failure = assertThrows(
+					InvalidConfigurationException.class, () -> store.read(source));
+			assertTrue(failure.getMessage().contains("Package 'paid'"), failure::toString);
+			assertTrue(failure.getMessage().contains("index 1"), failure::toString);
+			assertEquals(rejectedYaml, Files.readString(source, StandardCharsets.UTF_8));
+		} finally {
+			MockBukkit.unmock();
+		}
 	}
 
 	@Test

@@ -67,7 +67,9 @@ class CommittedLandingShutdownTest {
 		Files.writeString(plugin.getDataFolder().toPath().resolve("config.yml"),
 				"language: en\neconomy:\n  enabled: true\n", StandardCharsets.UTF_8);
 		Files.writeString(plugin.getDataFolder().toPath().resolve("packages.yml"),
-				"packages:\n  paid:\n    price: 10\n    items: []\n"
+				"packages:\n  paid:\n    price: 10\n    items:\n"
+						+ "      - ==: org.bukkit.inventory.ItemStack\n"
+						+ "        schema_version: 1\n        id: minecraft:diamond\n        count: 1\n"
 						+ "  free:\n    price: 0\n    items: []\n", StandardCharsets.UTF_8);
 		server.getPluginManager().enablePlugin(plugin);
 		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());

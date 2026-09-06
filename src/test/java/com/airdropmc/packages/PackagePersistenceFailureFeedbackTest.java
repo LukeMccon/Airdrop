@@ -6,6 +6,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.controllers.PackageController;
+import com.airdropmc.exceptions.PackageCapacityException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.LanguageManager;
@@ -27,6 +28,7 @@ import org.mockito.ArgumentCaptor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -261,6 +263,44 @@ class PackagePersistenceFailureFeedbackTest {
 	}
 
 	@Test
+	void packageCapacityFailureKeepsCreateEditorOpenWithActionableFeedback() {
+		when(plugin.createPackageAsync(any())).thenReturn(CompletableFuture.failedFuture(
+				new CompletionException(new PackageCapacityException(
+						PackageManager.MAX_PACKAGES + 1, PackageManager.MAX_PACKAGES))));
+		PlayerMock player = operator();
+		CreatePackageGui gui = new CreatePackageGui("overflow", 3.0);
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+
+		gui.save(saveClick(player));
+
+		assertSame(editor, player.getOpenInventory().getTopInventory());
+		assertNextMessageContains(player, "Delete an existing package first");
+	}
+
+	@Test
+	void packageSavePreservesRealItemsNamedLikeEveryControl() throws Exception {
+		allowSuccessfulUpdate();
+		PlayerMock player = operator();
+		PackageGui gui = new PackageGui(PackageManager.get("starter"));
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+		List<String> controlNames = List.of("Save", "Cancel", "Back", "Help");
+		for (int slot = 0; slot < controlNames.size(); slot++) {
+			editor.setItem(slot, namedItem(controlNames.get(slot)));
+		}
+
+		gui.save(saveClick(player));
+		server.getScheduler().performOneTick();
+
+		List<String> savedNames = PackageManager.get("starter").getItems().stream()
+				.map(ItemStack::getItemMeta)
+				.map(org.bukkit.inventory.meta.ItemMeta::getDisplayName)
+				.toList();
+		assertEquals(controlNames, savedNames);
+	}
+
+	@Test
 	void existingPackageSavePersistsOnlyEditableSlots() throws Exception {
 		allowSuccessfulUpdate();
 		PlayerMock player = operator();
@@ -348,6 +388,24 @@ class PackagePersistenceFailureFeedbackTest {
 	}
 
 	@Test
+	void createCommandRejectsPackageTwentyEightBeforeOpeningEditor() {
+		Map<String, Package> packages = new LinkedHashMap<>();
+		for (int index = 0; index < PackageManager.MAX_PACKAGES; index++) {
+			String name = "pkg" + index;
+			packages.put(name, new Package(name, 1.0, List.of()));
+		}
+		PackageManager.publishPackages(packages);
+		PlayerMock player = operator();
+
+		PackageController.createPackageCommand(
+				player, new String[]{"package", "create", "overflow", "3.0"});
+
+		assertNotEquals(InventoryType.CHEST, player.getOpenInventory().getType());
+		assertNextMessageContains(player, "Delete an existing package first");
+		verify(plugin, never()).createPackageAsync(any());
+	}
+
+	@Test
 	void createAndDeleteCommandsAreGatedWhilePluginIsNotReady() throws Exception {
 		setAirdropStaticField("ready", false);
 		PlayerMock createPlayer = operator();
@@ -425,6 +483,14 @@ class PackagePersistenceFailureFeedbackTest {
 		for (int slot = 0; slot < PackageManager.MAX_PACKAGE_ITEM_STACKS; slot++) {
 			editor.setItem(slot, new ItemStack(Material.DIRT, 1));
 		}
+	}
+
+	private static ItemStack namedItem(String name) {
+		ItemStack item = new ItemStack(Material.PAPER);
+		org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(name);
+		item.setItemMeta(meta);
+		return item;
 	}
 
 	private InventoryClickEvent saveClick(PlayerMock player) {

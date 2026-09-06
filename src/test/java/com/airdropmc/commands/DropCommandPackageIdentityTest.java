@@ -12,11 +12,16 @@ import com.airdropmc.api.DropSpawnResult;
 import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.internal.drop.DropRequestCoordinator;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.lang.MessageKey;
+import com.airdropmc.packages.PackageManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,12 +31,16 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 import org.mockito.MockedStatic;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -46,14 +55,20 @@ class DropCommandPackageIdentityTest {
 	private WorldMock world;
 
 	@BeforeEach
-	void setUp() {
+	void setUp() throws Exception {
 		server = MockBukkit.mock();
 		world = server.addSimpleWorld("command_world");
+		YamlConfiguration config = new YamlConfiguration();
+		config.set("packages.Starter.price", 10.0);
+		config.set("packages.Starter.items", List.of(new ItemStack(Material.STONE)));
 		ChatHandler.init(new LanguageManager(mock(Airdrop.class)));
+		PackageManager.clear();
+		PackageManager.publishPackages(PackageManager.materializePackages(config));
 	}
 
 	@AfterEach
 	void tearDown() {
+		PackageManager.clear();
 		ChatHandler.init(null);
 		MockBukkit.unmock();
 	}
@@ -74,6 +89,38 @@ class DropCommandPackageIdentityTest {
 			controller.verify(() -> DropController.requestPlayerDrop(
 					player, "STARTER", DropRequestOptions.defaults()));
 		}
+	}
+
+	@Test
+	void dropCommandResolvesAcceptedPackageWithoutCaseDifferences() {
+		PlayerMock player = server.addPlayer();
+		player.teleport(new Location(world, 0, 100, 0));
+		DropRequestCoordinator requests = new DropRequestCoordinator(MockBukkit.createMockPlugin());
+		requests.startAccepting();
+		AtomicReference<DropHandle> requested = new AtomicReference<>();
+
+		try (MockedStatic<DropController> controller = mockStatic(DropController.class)) {
+			controller.when(() -> DropController.requestPlayerDrop(
+					player, "STARTER", DropRequestOptions.defaults())).thenAnswer(invocation -> {
+				DropHandle handle = requests.requestPlayerDrop(
+						player, "STARTER", DropRequestOptions.defaults());
+				requested.set(handle);
+				return handle;
+			});
+
+			DropCommand.onCommand(player, new String[]{"STARTER"});
+		}
+
+		DropHandle handle = requested.get();
+		assertNotNull(handle);
+		assertTrue(handle.outcome().toCompletableFuture().isDone());
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
+		assertEquals(DropRejectionReason.INSUFFICIENT_PERMISSION, outcome.rejection().reason());
+		assertEquals("STARTER", handle.descriptor().requestedPackageName());
+		assertEquals("Starter", handle.context().orElseThrow().airdropPackage().name());
+		assertEquals(List.of(new ItemStack(Material.STONE)),
+				handle.context().orElseThrow().airdropPackage().items());
 	}
 
 	@Test

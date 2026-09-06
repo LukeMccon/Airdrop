@@ -299,6 +299,24 @@ public class CrateManager {
 		return true;
 	}
 
+	public static boolean removeCrateAndDestroy(Location location, Crate expectedCrate) {
+		return removeCrateAndDestroy(location, expectedCrate, RetirementReason.FAILED);
+	}
+
+	public static boolean removeCrateAndDestroy(
+			Location location, Crate expectedCrate, RetirementReason reason) {
+		Removal removal;
+		synchronized (CrateManager.class) {
+			removal = removeExpectedLandedCrate(toDropLocationKey(location), expectedCrate);
+		}
+		if (!removal.removed()) {
+			return false;
+		}
+		publishRetired(removal.view(), reason);
+		expectedCrate.destroy();
+		return true;
+	}
+
 	public static boolean removeCrateAndDetach(Location location) {
 		Crate removedCrate = removeCrate(location, RetirementReason.FAILED);
 		if (removedCrate == null) {
@@ -308,30 +326,64 @@ public class CrateManager {
 		return true;
 	}
 
-	public static boolean finalizeCrateBreak(Location location) {
+	public static boolean finalizeCrateBreak(Location location, Crate expectedCrate) {
+		return finalizeCrateBreak(location, expectedCrate, RetirementReason.BROKEN);
+	}
+
+	public static boolean finalizeCrateBreak(
+			Location location, Crate expectedCrate, RetirementReason reason) {
 		DropLocationKey key = toDropLocationKey(location);
-		Crate crate;
 		synchronized (CrateManager.class) {
-			crate = key == null ? null : landedCrateMap.get(key);
-		}
-		if (crate == null) {
-			return false;
+			if (key == null || expectedCrate == null || landedCrateMap.get(key) != expectedCrate) {
+				return false;
+			}
 		}
 		BlockState current = location.getBlock().getState();
-		if (current instanceof Barrel barrel && crate.ownsLandedBarrel(barrel)) {
+		if (current instanceof Barrel barrel && expectedCrate.ownsLandedBarrel(barrel)) {
 			return false;
 		}
 		Removal removal;
 		synchronized (CrateManager.class) {
-			if (!landedCrateMap.remove(key, crate)) {
-				return false;
-			}
-			retireIdentity(crate, key);
-			removal = new Removal(crate, removeActiveView(crate), true);
+			removal = removeExpectedLandedCrate(key, expectedCrate);
 		}
-		crate.detachLandedBarrel();
-		publishRetired(removal.view(), RetirementReason.BROKEN);
+		if (!removal.removed()) {
+			return false;
+		}
+		expectedCrate.detachLandedBarrel();
+		publishRetired(removal.view(), reason);
 		return true;
+	}
+
+	/**
+	 * Compatibility overload for callers that do not retain the expected crate identity.
+	 * Deferred event handlers should use {@link #finalizeCrateBreak(Location, Crate)}.
+	 *
+	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)} to retain the expected crate identity
+	 */
+	@Deprecated(forRemoval = false)
+	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
+	public static boolean finalizeCrateBreak(Location location) {
+		Crate expectedCrate = getCrate(location);
+		return finalizeCrateBreak(location, expectedCrate);
+	}
+
+	/**
+	 * Compatibility alias for the integrated expected-owner API name.
+	 *
+	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)}
+	 */
+	@Deprecated(forRemoval = false)
+	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
+	public static boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
+		return finalizeCrateBreak(location, expectedCrate);
+	}
+
+	private static Removal removeExpectedLandedCrate(DropLocationKey key, Crate expectedCrate) {
+		if (key == null || expectedCrate == null || !landedCrateMap.remove(key, expectedCrate)) {
+			return new Removal(expectedCrate, null, false);
+		}
+		retireIdentity(expectedCrate, key);
+		return new Removal(expectedCrate, removeActiveView(expectedCrate), true);
 	}
 
 	public static boolean removeCrateAndDestroy(FallingBlock block) {

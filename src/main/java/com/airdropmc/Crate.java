@@ -624,8 +624,12 @@ public class Crate {
 	}
 
 	private void startLandedEffects(Airdrop plugin) {
+		if (opened) {
+			return;
+		}
 		if (settings.landingEffects()) {
 			RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(landedLocation.clone(), world);
+			// A single landing burst is intentional; repeating frames creates an inward-moving particle wave.
 			landingEffectTask = landedEffect.runTask(plugin);
 		}
 		if (settings.continuousEffects()) {
@@ -642,6 +646,11 @@ public class Crate {
 	 * Stop particle effects
 	 */
 	public synchronized void stopEffects() {
+		cleanupResource("landing effect", () -> {
+			if (landingEffectTask != null && !landingEffectTask.isCancelled()) {
+				landingEffectTask.cancel();
+			}
+		});
 		cleanupResource("glow task", () -> {
 			if (glowTask != null && !glowTask.isCancelled()) {
 				glowTask.cancel();
@@ -652,6 +661,7 @@ public class Crate {
 				smokeTask.cancel();
 			}
 		});
+		landingEffectTask = null;
 		glowTask = null;
 		smokeTask = null;
 	}
@@ -761,12 +771,6 @@ public class Crate {
 			}
 		});
 		expiryTask = null;
-		cleanupResource("landing effect", () -> {
-			if (landingEffectTask != null && !landingEffectTask.isCancelled()) {
-				landingEffectTask.cancel();
-			}
-		});
-		landingEffectTask = null;
 	}
 
 	private void reportOutcome(Outcome reported) {
@@ -936,14 +940,19 @@ public class Crate {
 		return plugin;
 	}
 
-	public boolean getOpened() {
+	public synchronized boolean getOpened() {
 		return opened;
 	}
 
 	public void setOpened(boolean opened) {
-		this.opened = opened;
-		if (opened) {
-			this.stopEffects();
+		synchronized (this) {
+			if (this.opened == opened) {
+				return;
+			}
+			this.opened = opened;
+			if (opened) {
+				this.stopEffects();
+			}
 		}
 		CrateManager.refreshLandedView(this);
 	}

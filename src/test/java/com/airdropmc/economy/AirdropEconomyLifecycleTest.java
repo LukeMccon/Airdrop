@@ -8,6 +8,7 @@ import com.airdropmc.Airdrop;
 import com.airdropmc.api.AirdropApi;
 import com.airdropmc.api.EconomyState;
 import com.airdropmc.commands.CmdAirdrop;
+import com.airdropmc.config.ConfigKeys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault2.economy.AsyncEconomy;
@@ -26,6 +27,7 @@ import java.util.concurrent.locks.LockSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -136,6 +138,48 @@ class AirdropEconomyLifecycleTest {
 		server.getServicesManager().unregister(net.milkbowl.vault.economy.Economy.class, legacyB);
 		assertNull(Airdrop.getEconomyProvider());
 		assertTrue(runReload(operator).toLowerCase().contains("no economy provider"));
+	}
+
+	@Test
+	void malformedSmokeReloadPublishesDisabledValueWithoutRewritingSource() throws Exception {
+		Airdrop plugin = loadPlugin(false);
+		PlayerMock operator = server.addPlayer();
+		operator.setOp(true);
+		Path configPath = plugin.getDataFolder().toPath().resolve("config.yml");
+
+		Files.writeString(configPath, """
+				language: en
+				drop:
+				  particles:
+				    smoke:
+				      enabled: true
+				economy:
+				  enabled: false
+				""");
+		runReload(operator);
+		assertTrue(ConfigKeys.isSmokeEnabled());
+		Object enabledConfiguration = Airdrop.getConfiguration();
+
+		String malformed = """
+				language: en
+				drop:
+				  particles:
+				    smoke:
+				      enabled: sometimes
+				economy:
+				  enabled: false
+				""";
+		Files.writeString(configPath, malformed);
+
+		String response = runReload(operator);
+
+		assertTrue(response.toLowerCase().contains("disabled"), response);
+		assertNotSame(enabledConfiguration, Airdrop.getConfiguration());
+		assertEquals(Boolean.FALSE,
+				Airdrop.getConfiguration().getConfig().get(ConfigKeys.DROP_SMOKE_ENABLED));
+		assertFalse(ConfigKeys.isSmokeEnabled());
+		assertEquals(malformed, Files.readString(configPath));
+		assertTrue(Airdrop.isReady());
 	}
 
 	@Test

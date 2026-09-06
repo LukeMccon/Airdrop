@@ -41,27 +41,31 @@ public class CrateHopperListener implements Listener {
 		if (source.getType() != InventoryType.BARREL) {
 			return;
 		}
-		Location barrelLocation = source.getLocation();
-		if (barrelLocation == null) {
+		if (!(source.getHolder() instanceof Barrel sourceBarrel)
+				|| !source.equals(sourceBarrel.getInventory())) {
 			return;
 		}
+		Location barrelLocation = sourceBarrel.getLocation();
 		Crate expectedCrate = CrateManager.getCrate(barrelLocation);
 		if (expectedCrate == null) {
 			return;
 		}
 		DropLocationKey locationKey = DropLocationKey.from(barrelLocation);
 
-		nextTickScheduler.accept(() -> cleanupCrateAfterExtraction(locationKey, expectedCrate));
+		nextTickScheduler.accept(
+				() -> cleanupCrateAfterExtraction(locationKey, expectedCrate, sourceBarrel));
 	}
 
-	private void cleanupCrateAfterExtraction(DropLocationKey locationKey, Crate expectedCrate) {
+	private void cleanupCrateAfterExtraction(
+			DropLocationKey locationKey, Crate expectedCrate, Barrel sourceBarrel) {
 		World world = Bukkit.getWorld(locationKey.worldId());
 		if (world == null) {
 			return;
 		}
 
 		Location barrelLocation = new Location(world, locationKey.x(), locationKey.y(), locationKey.z());
-		if (CrateManager.getCrate(barrelLocation) != expectedCrate) {
+		if (CrateManager.getCrate(barrelLocation) != expectedCrate
+				|| !expectedCrate.ownsLandedBarrel(sourceBarrel)) {
 			return;
 		}
 		if (!world.isChunkLoaded(locationKey.x() >> 4, locationKey.z() >> 4)) {
@@ -71,13 +75,15 @@ public class CrateHopperListener implements Listener {
 		Block block = world.getBlockAt(locationKey.x(), locationKey.y(), locationKey.z());
 		if (block.getType() != Material.BARREL || !(block.getState() instanceof Barrel barrel)
 				|| !expectedCrate.ownsLandedBarrel(barrel)) {
-			CrateManager.removeCrateAndDestroy(barrelLocation, RetirementReason.HOPPER_EMPTY);
+			CrateManager.removeCrateAndDestroy(
+					barrelLocation, expectedCrate, RetirementReason.HOPPER_EMPTY);
 			return;
 		}
 		if (!barrel.getInventory().isEmpty()) {
 			return;
 		}
 
-		CrateManager.removeCrateAndDestroy(barrelLocation, RetirementReason.HOPPER_EMPTY);
+		CrateManager.removeCrateAndDestroy(
+				barrelLocation, expectedCrate, RetirementReason.HOPPER_EMPTY);
 	}
 }

@@ -59,6 +59,9 @@ public class RenderPackageLandedTask extends BukkitRunnable {
         }
 
         ticksElapsed++;
+        if (ticksElapsed >= MAX_TICKS) {
+            this.cancel();
+        }
     }
 
     public void setContinue(boolean shouldContinue) {

@@ -6,6 +6,7 @@ import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.CreatePackageGui;
 import com.airdropmc.packages.Package;
+import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackageNamePolicy;
 import com.airdropmc.exceptions.PackageNotFoundException;
 
@@ -143,13 +144,7 @@ public class PackageController {
 
 		PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(packageName);
 		if (!nameValidation.accepted()) {
-			MessageKey message = switch (nameValidation.rejection()) {
-				case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
-				case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
-				case RESERVED -> PackageNamePolicy.isPackageSubcommandIdentity(packageName)
-						? MessageKey.PACKAGES_NAME_SUBCOMMAND_RESERVED
-						: MessageKey.PACKAGES_NAME_RESERVED;
-			};
+			MessageKey message = packageNameRejectionMessage(nameValidation.rejection(), packageName);
 			ChatHandler.sendError(sender, message);
 			return;
 		}
@@ -175,11 +170,29 @@ public class PackageController {
 			ChatHandler.sendError(sender, MessageKey.ERROR_PLUGIN_NOT_READY);
 			return;
 		}
+		if (!PackageManager.has(packageName)
+				&& PackageManager.getPackageCount() >= PackageManager.MAX_PACKAGES) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_CAPACITY_LIMIT, Map.of(
+					"count", String.valueOf(PackageManager.getPackageCount() + 1),
+					"limit", String.valueOf(PackageManager.MAX_PACKAGES)));
+			return;
+		}
 
 		CreatePackageGui createGui = new CreatePackageGui(packageName, price);
 		if (!createGui.openInventory(player)) {
 			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
 		}
+	}
+
+	private static MessageKey packageNameRejectionMessage(
+			PackageNamePolicy.Rejection rejection, String packageName) {
+		return switch (rejection) {
+			case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
+			case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
+			case RESERVED -> PackageNamePolicy.isPackageSubcommandIdentity(packageName)
+					? MessageKey.PACKAGES_NAME_SUBCOMMAND_RESERVED
+					: MessageKey.PACKAGES_NAME_RESERVED;
+		};
 	}
 
 	/**

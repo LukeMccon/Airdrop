@@ -304,9 +304,9 @@ class TabCompletionPermissionsTest {
 
 	private YamlConfiguration validPackagesConfig() {
 		YamlConfiguration config = new YamlConfiguration();
-		config.set("packages.starter.price", 10.0);
+		config.set("packages.starter.price", 0.0);
 		config.set("packages.starter.items", List.of());
-		config.set("packages.Premium.price", 15.0);
+		config.set("packages.Premium.price", 0.0);
 		config.set("packages.Premium.items", List.of());
 		return config;
 	}
