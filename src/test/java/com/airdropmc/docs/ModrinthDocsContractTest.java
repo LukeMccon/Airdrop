@@ -44,7 +44,7 @@ class ModrinthDocsContractTest {
 	private static final String CANONICAL_URL = "https://modrinth.com/plugin/airdrop";
 	private static final String TEST_TOKEN = "modrinth-test-token-that-must-not-leak";
 	private static final Pattern CONFIG_REFERENCE = Pattern.compile(
-			"(?m)^<a id=\"config-([a-z0-9-]+)\"></a>\\s*\\|\\s*`([^`]+)`\\s*"
+			"(?m)^\\|\\s*<a id=\"config-([a-z0-9-]+)\"></a>\\s*`([^`]+)`\\s*"
 					+ "\\|\\s*([^|\\r\\n]+)\\|\\s*([^|\\r\\n]+)\\|\\s*([^|\\r\\n]+)"
 					+ "\\|\\s*([^|\\r\\n]+)\\|\\s*([^|\\r\\n]+)\\|\\s*$");
 	private static final Pattern PACKAGE_EXAMPLE = Pattern.compile(
@@ -187,6 +187,12 @@ class ModrinthDocsContractTest {
 			}
 		}
 
+		for (String row : body.lines().filter(line -> line.contains("<a id=\"config-")).toList()) {
+			assertTrue(row.startsWith("|") && row.endsWith("|"),
+					"Config references must be complete table rows: " + row);
+			assertEquals(6, row.substring(1, row.length() - 1).split("\\|", -1).length,
+					"Config rows must align with the six table headers: " + row);
+		}
 		Map<String, ConfigReference> references = parseConfigReferences(body);
 		assertEquals(leaves.keySet(), references.keySet(),
 				"The reference must contain exactly one anchored row for every shipped config leaf");

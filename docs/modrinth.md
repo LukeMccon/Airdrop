@@ -136,28 +136,28 @@ its accepted range unless the row says otherwise.
 
 | Key | Type | Shipped default | Range or allowed values | Fallback | Reload behavior |
 | --- | --- | --- | --- | --- | --- |
-<a id="config-language"></a> | `language` | string | `en` | Lowercase ISO-style code such as `en`, or language-region such as `pt-BR` | `en` for blank or unsafe codes | Subsequent messages after a successful full reload |
-<a id="config-drop-parachute-chicken-count"></a> | `drop.parachute.chicken-count` | integer | `5` | `1` to `64` inclusive | `5` | Future requests after a successful full reload |
-<a id="config-drop-particles-landing-effects"></a> | `drop.particles.landing-effects` | boolean | `true` | `true` or `false`; one-shot particles when the barrel lands | `true` | Future requests after a successful full reload |
-<a id="config-drop-particles-continuous-effects"></a> | `drop.particles.continuous-effects` | boolean | `true` | `true` or `false`; repeating landed-crate glow | `true` | Future requests after a successful full reload |
-<a id="config-drop-particles-flare-effects"></a> | `drop.particles.flare-effects` | boolean | `true` | `true` or `false`; ground flare while the crate is falling | `true` | Future requests after a successful full reload |
-<a id="config-drop-particles-smoke-enabled"></a> | `drop.particles.smoke.enabled` | boolean | `false` | `true` or `false`; repeating smoke above a landed crate | `false` | Future requests after a successful full reload |
-<a id="config-drop-particles-smoke-height"></a> | `drop.particles.smoke.height` | integer | `20` | `0` to `128` blocks inclusive | `20` | Future requests after a successful full reload |
-<a id="config-drop-falling-speed"></a> | `drop.falling-speed` | finite number | `0.3` | `0.01` to `4.0` blocks per tick inclusive | Legacy `drop.parachute.falling-speed`, then `0.3` | Future requests after a successful full reload |
-<a id="config-drop-height"></a> | `drop.height` | integer | `100` | `1` to `320` blocks above the landing surface inclusive | `100` | Future requests after a successful full reload |
-<a id="config-drop-limits-request-cooldown-seconds"></a> | `drop.limits.request-cooldown-seconds` | integer | `30` | `1` to `86400` seconds inclusive | `30` | Future player requests after a successful full reload |
-<a id="config-drop-limits-max-falling"></a> | `drop.limits.max-falling` | integer | `3` | `1` to `64` inclusive | `3` | Future admission decisions after a successful full reload |
-<a id="config-drop-limits-max-landed"></a> | `drop.limits.max-landed` | integer | `10` | `1` to `256` inclusive | `10` | Future admission decisions after a successful full reload |
-<a id="config-drop-limits-landed-lifetime-seconds"></a> | `drop.limits.landed-lifetime-seconds` | integer | `600` | `30` to `86400` seconds inclusive | `600` | Future crates; existing deadlines remain unchanged |
-<a id="config-economy-enabled"></a> | `economy.enabled` | boolean | `true` | `true` or `false`; false blocks priced player requests | `true` | Provider discovery and future priced requests after a successful full reload |
-<a id="config-logging-debug"></a> | `logging.debug` | boolean | `false` | `true` or `false` | `false` | Takes effect when the successful full reload publishes |
-<a id="config-ui-chat-colors-primary"></a> | `ui.chat.colors.primary` | string | `BLUE` | Any Bukkit `ChatColor` enum name, case-insensitive | `BLUE` | Subsequent messages after a successful full reload |
-<a id="config-ui-chat-colors-text"></a> | `ui.chat.colors.text` | string | `WHITE` | Any Bukkit `ChatColor` enum name, case-insensitive | `WHITE` | Subsequent messages after a successful full reload |
-<a id="config-ui-chat-colors-accent"></a> | `ui.chat.colors.accent` | string | `AQUA` | Any Bukkit `ChatColor` enum name, case-insensitive | `AQUA` | Subsequent messages after a successful full reload |
-<a id="config-ui-chat-colors-success"></a> | `ui.chat.colors.success` | string | `GREEN` | Any Bukkit `ChatColor` enum name, case-insensitive | `GREEN` | Subsequent messages after a successful full reload |
-<a id="config-ui-chat-colors-warning"></a> | `ui.chat.colors.warning` | string | `YELLOW` | Any Bukkit `ChatColor` enum name, case-insensitive | `YELLOW` | Subsequent messages after a successful full reload |
-<a id="config-ui-chat-colors-error"></a> | `ui.chat.colors.error` | string | `RED` | Any Bukkit `ChatColor` enum name, case-insensitive | `RED` | Subsequent messages after a successful full reload |
-<a id="config-ui-chat-colors-error-detail"></a> | `ui.chat.colors.error-detail` | string | `DARK_RED` | Any Bukkit `ChatColor` enum name, case-insensitive | `DARK_RED` | Subsequent messages after a successful full reload |
+| <a id="config-language"></a> `language` | string | `en` | Lowercase ISO-style code such as `en`, or language-region such as `pt-BR` | `en` for blank or unsafe codes | Subsequent messages after a successful full reload |
+| <a id="config-drop-parachute-chicken-count"></a> `drop.parachute.chicken-count` | integer | `5` | `1` to `64` inclusive | `5` | Future requests after a successful full reload |
+| <a id="config-drop-particles-landing-effects"></a> `drop.particles.landing-effects` | boolean | `true` | `true` or `false`; one-shot particles when the barrel lands | `true` | Future requests after a successful full reload |
+| <a id="config-drop-particles-continuous-effects"></a> `drop.particles.continuous-effects` | boolean | `true` | `true` or `false`; repeating landed-crate glow | `true` | Future requests after a successful full reload |
+| <a id="config-drop-particles-flare-effects"></a> `drop.particles.flare-effects` | boolean | `true` | `true` or `false`; ground flare while the crate is falling | `true` | Future requests after a successful full reload |
+| <a id="config-drop-particles-smoke-enabled"></a> `drop.particles.smoke.enabled` | boolean | `false` | `true` or `false`; repeating smoke above a landed crate | `false` | Future requests after a successful full reload |
+| <a id="config-drop-particles-smoke-height"></a> `drop.particles.smoke.height` | integer | `20` | `0` to `128` blocks inclusive | `20` | Future requests after a successful full reload |
+| <a id="config-drop-falling-speed"></a> `drop.falling-speed` | finite number | `0.3` | `0.01` to `4.0` blocks per tick inclusive | Legacy `drop.parachute.falling-speed`, then `0.3` | Future requests after a successful full reload |
+| <a id="config-drop-height"></a> `drop.height` | integer | `100` | `1` to `320` blocks above the landing surface inclusive | `100` | Future requests after a successful full reload |
+| <a id="config-drop-limits-request-cooldown-seconds"></a> `drop.limits.request-cooldown-seconds` | integer | `30` | `1` to `86400` seconds inclusive | `30` | Future player requests after a successful full reload |
+| <a id="config-drop-limits-max-falling"></a> `drop.limits.max-falling` | integer | `3` | `1` to `64` inclusive | `3` | Future admission decisions after a successful full reload |
+| <a id="config-drop-limits-max-landed"></a> `drop.limits.max-landed` | integer | `10` | `1` to `256` inclusive | `10` | Future admission decisions after a successful full reload |
+| <a id="config-drop-limits-landed-lifetime-seconds"></a> `drop.limits.landed-lifetime-seconds` | integer | `600` | `30` to `86400` seconds inclusive | `600` | Future crates; existing deadlines remain unchanged |
+| <a id="config-economy-enabled"></a> `economy.enabled` | boolean | `true` | `true` or `false`; false blocks priced player requests | `true` | Provider discovery and future priced requests after a successful full reload |
+| <a id="config-logging-debug"></a> `logging.debug` | boolean | `false` | `true` or `false` | `false` | Takes effect when the successful full reload publishes |
+| <a id="config-ui-chat-colors-primary"></a> `ui.chat.colors.primary` | string | `BLUE` | Any Bukkit `ChatColor` enum name, case-insensitive | `BLUE` | Subsequent messages after a successful full reload |
+| <a id="config-ui-chat-colors-text"></a> `ui.chat.colors.text` | string | `WHITE` | Any Bukkit `ChatColor` enum name, case-insensitive | `WHITE` | Subsequent messages after a successful full reload |
+| <a id="config-ui-chat-colors-accent"></a> `ui.chat.colors.accent` | string | `AQUA` | Any Bukkit `ChatColor` enum name, case-insensitive | `AQUA` | Subsequent messages after a successful full reload |
+| <a id="config-ui-chat-colors-success"></a> `ui.chat.colors.success` | string | `GREEN` | Any Bukkit `ChatColor` enum name, case-insensitive | `GREEN` | Subsequent messages after a successful full reload |
+| <a id="config-ui-chat-colors-warning"></a> `ui.chat.colors.warning` | string | `YELLOW` | Any Bukkit `ChatColor` enum name, case-insensitive | `YELLOW` | Subsequent messages after a successful full reload |
+| <a id="config-ui-chat-colors-error"></a> `ui.chat.colors.error` | string | `RED` | Any Bukkit `ChatColor` enum name, case-insensitive | `RED` | Subsequent messages after a successful full reload |
+| <a id="config-ui-chat-colors-error-detail"></a> `ui.chat.colors.error-detail` | string | `DARK_RED` | Any Bukkit `ChatColor` enum name, case-insensitive | `DARK_RED` | Subsequent messages after a successful full reload |
 
 Landing particles run once. Continuous glow and landed smoke repeat only while
 Airdrop tracks that barrel. They stop when tracking ends because the crate is
@@ -472,6 +472,10 @@ schedule any Bukkit work yourself.
 lookups use `findByRequestId(requestId)` and `findByCrateId(crateId)`.
 `findByFallingEntity(entity)` and `findByLandedBlock(block)` inspect Bukkit
 objects and therefore require the primary server thread.
+
+Falling positions refresh every two server ticks. Fetch a new view to observe
+movement; a retained view keeps its original position. Landing-attempt events
+capture the entity position when the event fires.
 
 Views expose correlation IDs, phase, package identity, detached positions,
 source, and optional recovery data. They never expose a live crate, mutable
