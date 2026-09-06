@@ -941,9 +941,7 @@ public class Crate {
 	}
 
 	public boolean getOpened() {
-		synchronized (this) {
-			return opened;
-		}
+		return opened;
 	}
 
 	public void setOpened(boolean opened) {
