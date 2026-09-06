@@ -3,10 +3,10 @@ package com.airdropmc.integration.support;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.plugin.java.JavaPlugin;
 
-public final class LightkeeperSupportPlugin extends JavaPlugin {
+public final class BlockExplosionCommand implements CommandExecutor {
 	@Override
 	public boolean onCommand(
 			CommandSender sender,

@@ -1,8 +1,17 @@
-name: AirdropLightkeeperSupport
+name: Vault
 version: 1.0.0
-main: com.airdropmc.integration.support.LightkeeperSupportPlugin
-api-version: '1.21'
+main: com.airdropmc.lightkeeper.economy.LightkeeperEconomyPlugin
+api-version: '1.21.11'
+load: STARTUP
+description: Deterministic economy provider for Airdrop LightKeeper tests
 commands:
   airdrop-lightkeeper-block-explode:
     description: Triggers a source-less Paper block explosion for integration tests
     usage: /airdrop-lightkeeper-block-explode <world> <x> <y> <z> <power>
+  lkeconomy:
+    description: Controls the LightKeeper economy fixture
+    usage: /lkeconomy <reset|report> <player UUID> <balance|correlation ID>
+    permission: lkeconomy.admin
+permissions:
+  lkeconomy.admin:
+    default: op
