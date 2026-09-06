@@ -35,6 +35,7 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -127,8 +128,8 @@ class ConfigCoordinatorTest {
 		assertNotNull(completion);
 		completion.run();
 
-		CompletionException failure = assertThrows(
-				CompletionException.class, () -> rejected.toCompletableFuture().join());
+		var rejectedFuture = rejected.toCompletableFuture();
+		CompletionException failure = assertThrows(CompletionException.class, rejectedFuture::join);
 		assertTrue(failure.getCause() instanceof PackageCapacityException);
 		assertEquals(originalYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
 		assertEquals(0, publications.get());
@@ -162,14 +163,14 @@ class ConfigCoordinatorTest {
 		assertNotNull(completion);
 		completion.run();
 
-		CompletionException failure = assertThrows(
-				CompletionException.class, () -> rejected.toCompletableFuture().join());
+		var rejectedFuture = rejected.toCompletableFuture();
+		CompletionException failure = assertThrows(CompletionException.class, rejectedFuture::join);
 		assertTrue(failure.getCause() instanceof PackageMaterializationException);
 		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES + 1)));
 		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES)));
 		assertEquals(0, configurationCommits.get());
 		assertEquals(rejectedYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
-		assertTrue(livePackage == PackageManager.get("pkg0"));
+		assertSame(livePackage, PackageManager.get("pkg0"));
 		assertEquals(1, PackageManager.getPackageCount());
 	}
 
@@ -205,13 +206,13 @@ class ConfigCoordinatorTest {
 		assertNotNull(completion);
 		completion.run();
 
-		CompletionException failure = assertThrows(
-				CompletionException.class, () -> rejected.toCompletableFuture().join());
+		var rejectedFuture = rejected.toCompletableFuture();
+		CompletionException failure = assertThrows(CompletionException.class, rejectedFuture::join);
 		assertTrue(failure.getCause().getMessage().contains("Package 'paid'"), failure::toString);
 		assertTrue(failure.getCause().getMessage().contains("index 0"), failure::toString);
 		assertEquals(0, configurationCommits.get());
 		assertEquals(rejectedYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
-		assertTrue(livePackage == PackageManager.get("pkg0"));
+		assertSame(livePackage, PackageManager.get("pkg0"));
 		assertEquals(1, PackageManager.getPackageCount());
 	}
 

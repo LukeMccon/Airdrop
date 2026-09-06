@@ -37,6 +37,8 @@ public abstract class Gui {
     /**
      * Returns localized control labels for display-only compatibility with older GUI subclasses.
      * Control identity must use the PDC marker instead of these visible names.
+     *
+     * @deprecated Use {@link #isControlItem(ItemStack)} to identify controls.
      */
     @Deprecated(forRemoval = false)
     protected static List<String> getControlItemNames() {
@@ -50,6 +52,8 @@ public abstract class Gui {
     /**
      * Returns an item's visible display name for compatibility with older GUI subclasses.
      * Visible names must not be used to identify controls or package icons.
+     *
+     * @deprecated Use {@link #isControlItem(ItemStack)} or {@link #getPackageIconMarker(ItemStack)} for GUI identity.
      */
     @Deprecated(forRemoval = false)
     protected static String getDisplayName(ItemStack item) {

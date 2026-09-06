@@ -162,6 +162,8 @@ public class CrateManager {
 	/**
 	 * Compatibility overload for callers that do not retain the expected crate identity.
 	 * Deferred event handlers should use {@link #finalizeCrateBreak(Location, Crate)}.
+	 *
+	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)} to retain the expected crate identity
 	 */
 	@Deprecated(forRemoval = false)
 	public static synchronized boolean finalizeCrateBreak(Location location) {
@@ -172,6 +174,8 @@ public class CrateManager {
 
 	/**
 	 * Compatibility alias for the integrated expected-owner API name.
+	 *
+	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)}
 	 */
 	@Deprecated(forRemoval = false)
 	public static synchronized boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {

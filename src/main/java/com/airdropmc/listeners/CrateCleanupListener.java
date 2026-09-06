@@ -38,6 +38,8 @@ public class CrateCleanupListener implements Listener {
 
 	/**
 	 * Compatibility constructor for integrations compiled against the former listener API.
+	 *
+	 * @deprecated use {@link #CrateCleanupListener(Plugin)} to provide the scheduler owner explicitly
 	 */
 	@Deprecated(forRemoval = false)
 	public CrateCleanupListener() {
@@ -72,30 +74,30 @@ public class CrateCleanupListener implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onChunkLoad(ChunkLoadEvent e) {
-		Airdrop plugin = Airdrop.getPluginInstance();
+		Airdrop airdrop = Airdrop.getPluginInstance();
 		DropAdmissionController admission = Airdrop.getDropAdmissionController();
-		if (plugin != null && admission != null && Airdrop.isReady()
+		if (airdrop != null && admission != null && Airdrop.isReady()
 				&& !Airdrop.isShuttingDown()) {
-			CrateManager.recoverCratesInChunk(plugin, admission, e.getChunk());
+			CrateManager.recoverCratesInChunk(airdrop, admission, e.getChunk());
 		}
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onWorldUnload(WorldUnloadEvent e) {
-		Airdrop plugin = Airdrop.getPluginInstance();
-		if (plugin == null || !CrateManager.prepareWorldForUnload(e.getWorld(), plugin)) {
+		Airdrop airdrop = Airdrop.getPluginInstance();
+		if (airdrop == null || !CrateManager.prepareWorldForUnload(e.getWorld(), airdrop)) {
 			e.setCancelled(true);
 			return;
 		}
 
 		UUID worldId = e.getWorld().getUID();
 		try {
-			Bukkit.getScheduler().runTask(plugin, () -> {
+			Bukkit.getScheduler().runTask(airdrop, () -> {
 				World loaded = Bukkit.getWorld(worldId);
 				DropAdmissionController admission = Airdrop.getDropAdmissionController();
 				if (loaded != null && admission != null && Airdrop.isReady()
 						&& !Airdrop.isShuttingDown()) {
-					CrateManager.recoverLoadedCratesInWorld(plugin, admission, loaded);
+					CrateManager.recoverLoadedCratesInWorld(airdrop, admission, loaded);
 				}
 			});
 		} catch (RuntimeException failure) {
@@ -105,7 +107,7 @@ public class CrateCleanupListener implements Listener {
 			DropAdmissionController admission = Airdrop.getDropAdmissionController();
 			if (admission != null && Airdrop.isReady() && !Airdrop.isShuttingDown()) {
 				try {
-					CrateManager.recoverLoadedCratesInWorld(plugin, admission, e.getWorld());
+					CrateManager.recoverLoadedCratesInWorld(airdrop, admission, e.getWorld());
 				} catch (RuntimeException recoveryFailure) {
 					AirdropLogger.log(Level.SEVERE,
 							"Could not reconcile paid crates after cancelling world unload",
@@ -117,11 +119,11 @@ public class CrateCleanupListener implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onWorldLoad(WorldLoadEvent e) {
-		Airdrop plugin = Airdrop.getPluginInstance();
+		Airdrop airdrop = Airdrop.getPluginInstance();
 		DropAdmissionController admission = Airdrop.getDropAdmissionController();
-		if (plugin != null && admission != null && Airdrop.isReady()
+		if (airdrop != null && admission != null && Airdrop.isReady()
 				&& !Airdrop.isShuttingDown()) {
-			CrateManager.recoverLoadedCratesInWorld(plugin, admission, e.getWorld());
+			CrateManager.recoverLoadedCratesInWorld(airdrop, admission, e.getWorld());
 		}
 	}
 

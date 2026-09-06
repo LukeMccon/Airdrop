@@ -31,6 +31,7 @@ public class PackageManager {
 	public static final int MAX_PACKAGES = 27;
 	public static final int MAX_PACKAGE_ITEM_STACKS = 27;
 
+	private static final String CONTROL_ITEM_NAMES_REQUIRED = "Control item names are required";
 	private static volatile Map<String, Package> packages = Map.of();
 
 	PackageManager() {
@@ -76,22 +77,7 @@ public class PackageManager {
 						"Package '" + configuredName + "' must be a configuration section");
 			}
 
-			Object rawPrice = packageSection.isSet("price") ? packageSection.get("price") : null;
-			if (!(rawPrice instanceof Number number)) {
-				throw invalidPrice(configuredName, rawPrice);
-			}
-
-			double price;
-			try {
-				price = number.doubleValue();
-			} catch (RuntimeException exception) {
-				throw new PackageMaterializationException(
-						invalidPriceMessage(configuredName, rawPrice), exception);
-			}
-			if (!Package.isValidPrice(price)) {
-				throw invalidPrice(configuredName, rawPrice);
-			}
-
+			double price = readPackagePrice(packageSection, configuredName);
 			List<ItemStack> items = readPackageItems(packageSection, configuredName);
 			List<ItemStack> deliverableItems = limitToBarrelCapacity(items);
 			if (price > 0.0 && deliverableItems.isEmpty()) {
@@ -109,12 +95,14 @@ public class PackageManager {
 	/**
 	 * Compatibility overload retained for integrations compiled against the former
 	 * display-name filtering API. Visible control labels are intentionally ignored.
+	 *
+	 * @deprecated Use {@link #materializePackages(FileConfiguration)} instead.
 	 */
 	@Deprecated(forRemoval = false)
 	public static Map<String, Package> materializePackages(
 			FileConfiguration candidate,
 			Set<String> controlItemNames) throws PackageMaterializationException {
-		Objects.requireNonNull(controlItemNames, "Control item names are required");
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
 		return materializePackages(candidate);
 	}
 
@@ -163,6 +151,26 @@ public class PackageManager {
 			items.add(itemStack);
 		}
 		return items;
+	}
+
+	private static double readPackagePrice(ConfigurationSection packageSection, String packageName)
+			throws PackageMaterializationException {
+		Object rawPrice = packageSection.isSet("price") ? packageSection.get("price") : null;
+		if (!(rawPrice instanceof Number number)) {
+			throw invalidPrice(packageName, rawPrice);
+		}
+
+		double price;
+		try {
+			price = number.doubleValue();
+		} catch (RuntimeException exception) {
+			throw new PackageMaterializationException(
+					invalidPriceMessage(packageName, rawPrice), exception);
+		}
+		if (!Package.isValidPrice(price)) {
+			throw invalidPrice(packageName, rawPrice);
+		}
+		return price;
 	}
 
 	private static PackageMaterializationException invalidPrice(String packageName, Object rawPrice) {
@@ -227,6 +235,8 @@ public class PackageManager {
 	/**
 	 * Compatibility overload retained for integrations compiled against the former
 	 * display-name filtering API. Visible control labels are intentionally ignored.
+	 *
+	 * @deprecated Use {@link #createPackageCandidate(FileConfiguration, Package)} instead.
 	 */
 	@Deprecated(forRemoval = false)
 	public static YamlConfiguration createPackageCandidate(
@@ -234,7 +244,7 @@ public class PackageManager {
 			Package pkg,
 			Set<String> controlItemNames)
 			throws PackageMaterializationException, DuplicatePackageException, PackageCapacityException {
-		Objects.requireNonNull(controlItemNames, "Control item names are required");
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
 		return createPackageCandidate(source, pkg);
 	}
 
@@ -263,6 +273,8 @@ public class PackageManager {
 	/**
 	 * Compatibility overload retained for integrations compiled against the former
 	 * display-name filtering API. Visible control labels are intentionally ignored.
+	 *
+	 * @deprecated Use {@link #updatePackageInventoryCandidate(FileConfiguration, String, List)} instead.
 	 */
 	@Deprecated(forRemoval = false)
 	public static YamlConfiguration updatePackageInventoryCandidate(
@@ -271,7 +283,7 @@ public class PackageManager {
 			List<ItemStack> items,
 			Set<String> controlItemNames)
 			throws PackageMaterializationException, PackageNotFoundException {
-		Objects.requireNonNull(controlItemNames, "Control item names are required");
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
 		return updatePackageInventoryCandidate(source, packageName, items);
 	}
 
@@ -300,6 +312,8 @@ public class PackageManager {
 	/**
 	 * Compatibility overload retained for integrations compiled against the former
 	 * display-name filtering API. Visible control labels are intentionally ignored.
+	 *
+	 * @deprecated Use {@link #deletePackageCandidate(FileConfiguration, String)} instead.
 	 */
 	@Deprecated(forRemoval = false)
 	public static YamlConfiguration deletePackageCandidate(
@@ -307,7 +321,7 @@ public class PackageManager {
 			String packageName,
 			Set<String> controlItemNames)
 			throws PackageMaterializationException, PackageNotFoundException {
-		Objects.requireNonNull(controlItemNames, "Control item names are required");
+		Objects.requireNonNull(controlItemNames, CONTROL_ITEM_NAMES_REQUIRED);
 		return deletePackageCandidate(source, packageName);
 	}
 

@@ -68,10 +68,10 @@ class PackageManagerMutationTest {
 	void createPackageCandidate_rejectsPackageTwentyEightWithoutMutatingSource() throws Exception {
 		YamlConfiguration source = configurationWithPackages(PackageManager.MAX_PACKAGES);
 		String sourceYaml = source.saveToString();
+		Package overflow = new Package("overflow", 3.0, List.of(new ItemStack(Material.DIAMOND)));
 
 		PackageCapacityException failure = assertThrows(PackageCapacityException.class,
-				() -> PackageManager.createPackageCandidate(
-						source, new Package("overflow", 3.0, List.of(new ItemStack(Material.DIAMOND)))));
+				() -> PackageManager.createPackageCandidate(source, overflow));
 
 		assertEquals(PackageManager.MAX_PACKAGES + 1, failure.getRequestedCount());
 		assertEquals(PackageManager.MAX_PACKAGES, failure.getLimit());
@@ -80,7 +80,7 @@ class PackageManagerMutationTest {
 	}
 
 	@Test
-	void duplicateNameTakesPrecedenceWhenRegistryIsAtCapacity() throws Exception {
+	void duplicateNameTakesPrecedenceWhenRegistryIsAtCapacity() {
 		YamlConfiguration source = configurationWithPackages(PackageManager.MAX_PACKAGES);
 
 		assertThrows(DuplicatePackageException.class,

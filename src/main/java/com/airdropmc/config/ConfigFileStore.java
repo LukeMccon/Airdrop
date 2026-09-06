@@ -75,29 +75,34 @@ final class ConfigFileStore {
 			}
 			constructor.flattenMapping(packageNodes);
 			for (NodeTuple entry : packageNodes.getValue()) {
-				if (!(entry.getKeyNode() instanceof ScalarNode name)) {
-					continue;
-				}
-				Node items = childNode(entry.getValueNode(), "items", constructor);
-				if (!(items instanceof SequenceNode itemNodes)) {
-					continue;
-				}
-				for (int index = 0; index < itemNodes.getValue().size(); index++) {
-					Node item = itemNodes.getValue().get(index);
-					if (!(item instanceof MappingNode)) {
-						continue;
-					}
-					try {
-						constructor.construct(item);
-					} catch (RuntimeException itemFailure) {
-						throw new InvalidConfigurationException(
-								"Package '" + name.getValue() + "' has invalid item at index " + index
-										+ ": could not deserialize ItemStack", originalFailure);
-					}
-				}
+				diagnosePackageItems(entry, constructor, originalFailure);
 			}
 		} catch (RuntimeException diagnosticFailure) {
 			originalFailure.addSuppressed(diagnosticFailure);
+		}
+	}
+
+	private static void diagnosePackageItems(NodeTuple entry, YamlConstructor constructor,
+			RuntimeException originalFailure) throws InvalidConfigurationException {
+		if (!(entry.getKeyNode() instanceof ScalarNode name)) {
+			return;
+		}
+		Node items = childNode(entry.getValueNode(), "items", constructor);
+		if (!(items instanceof SequenceNode itemNodes)) {
+			return;
+		}
+		for (int index = 0; index < itemNodes.getValue().size(); index++) {
+			Node item = itemNodes.getValue().get(index);
+			if (!(item instanceof MappingNode)) {
+				continue;
+			}
+			try {
+				constructor.construct(item);
+			} catch (RuntimeException itemFailure) {
+				throw new InvalidConfigurationException(
+						"Package '" + name.getValue() + "' has invalid item at index " + index
+								+ ": could not deserialize ItemStack", originalFailure);
+			}
 		}
 	}
 

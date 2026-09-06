@@ -210,8 +210,7 @@ public final class ConfigKeys {
 		if (value >= minimum && value <= maximum) {
 			return value;
 		}
-		AirdropLogger.warning("Invalid " + key + " value " + value + "; using " + fallback);
-		return fallback;
+		return invalidInteger(key, value, fallback);
 	}
 
     // Helper method to get config

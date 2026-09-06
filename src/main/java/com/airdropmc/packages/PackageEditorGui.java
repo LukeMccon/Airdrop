@@ -185,7 +185,7 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		scheduleKickObservation(event.getPlayer());
 	}
 
-	static void closeOpenEditors() {
+	static void closeTrackedEditors() {
 		List<PackageEditorGui> editors;
 		synchronized (OPEN_EDITORS) {
 			editors = new ArrayList<>(OPEN_EDITORS);

@@ -27,6 +27,9 @@ import java.util.UUID;
 
 /** Exercises Paper's location-based inventory holder resolution without depending on the plugin JAR. */
 public final class InventoryReplacementCommand implements CommandExecutor {
+	private static final String SNAPSHOT_METHOD = "snapshot";
+	private static final String GET_OPENED_METHOD = "getOpened";
+
 	private final Map<UUID, CapturedView> capturedViews = new HashMap<>();
 
 	@Override
@@ -89,10 +92,10 @@ public final class InventoryReplacementCommand implements CommandExecutor {
 		require(Boolean.TRUE.equals(crate.getClass().getMethod("ownsLandedBarrel", Barrel.class)
 				.invoke(crate, staleHolder)), "stale holder must carry the replacement's valid identity");
 		Object admission = airdrop.getClass().getMethod("getDropAdmissionController").invoke(null);
-		Object before = admission.getClass().getMethod("snapshot").invoke(admission);
+		Object before = publicValue(admission, SNAPSHOT_METHOD);
 		require(publicValue(before, "landedClaims").equals(1), "one landed lease must be active");
 		require(publicValue(before, "locations").equals(1), "one landing location must be reserved");
-		require(Boolean.FALSE.equals(publicValue(crate, "getOpened")), "replacement must be unopened");
+		require(Boolean.FALSE.equals(publicValue(crate, GET_OPENED_METHOD)), "replacement must be unopened");
 		Map<String, BukkitTask> tasks = activeTasks(crate);
 		require(tasks.containsKey("expiryTask"), "replacement expiry task must be active");
 
@@ -102,23 +105,23 @@ public final class InventoryReplacementCommand implements CommandExecutor {
 			assertReplacementSurvives(manager, location, crate, currentInventory, admission, before, tasks);
 		}
 		Bukkit.getPluginManager().callEvent(new InventoryOpenEvent(captured.view()));
-		require(Boolean.FALSE.equals(publicValue(crate, "getOpened")),
+		require(Boolean.FALSE.equals(publicValue(crate, GET_OPENED_METHOD)),
 				"stale inventory open must not mark the replacement opened");
 		assertReplacementSurvives(manager, location, crate, currentInventory, admission, before, tasks);
 
 		InventoryView currentView = player.openInventory(currentInventory);
 		require(currentView != null && currentView.getTopInventory().equals(currentInventory),
 				"current tracked barrel must open normally");
-		require(Boolean.TRUE.equals(publicValue(crate, "getOpened")),
+		require(Boolean.TRUE.equals(publicValue(crate, GET_OPENED_METHOD)),
 				"normal open must mark the tracked crate opened");
 		player.closeInventory();
 		require(block.getType() == Material.AIR, "normal empty close must remove the owned barrel");
 		require(crateAt(manager, location) == null, "normal empty close must remove tracking");
-		Object after = publicValue(admission, "snapshot");
+		Object after = publicValue(admission, SNAPSHOT_METHOD);
 		require(publicValue(after, "landedClaims").equals(0), "normal close must release the landed lease");
 		require(publicValue(after, "locations").equals(0), "normal close must release the location");
-		for (BukkitTask task : tasks.values()) {
-			require(task.isCancelled(), "normal close must cancel every previously active crate task");
+		for (Map.Entry<String, BukkitTask> entry : tasks.entrySet()) {
+			require(entry.getValue().isCancelled(), "normal close must cancel " + entry.getKey());
 		}
 	}
 
@@ -131,7 +134,7 @@ public final class InventoryReplacementCommand implements CommandExecutor {
 		require(((Barrel) location.getBlock().getState()).getInventory().equals(inventory),
 				"stale event replaced the current inventory");
 		require(inventory.isEmpty(), "stale event changed replacement contents");
-		require(before.equals(publicValue(admission, "snapshot")), "stale event released the replacement lease");
+		require(before.equals(publicValue(admission, SNAPSHOT_METHOD)), "stale event released the replacement lease");
 		for (Map.Entry<String, BukkitTask> entry : tasks.entrySet()) {
 			require(field(crate, entry.getKey()) == entry.getValue() && !entry.getValue().isCancelled(),
 					"stale event cancelled or replaced " + entry.getKey());
@@ -142,7 +145,8 @@ public final class InventoryReplacementCommand implements CommandExecutor {
 		Map<String, BukkitTask> tasks = new LinkedHashMap<>();
 		for (String name : List.of("expiryTask", "landingEffectTask", "glowTask", "smokeTask")) {
 			Object value = field(crate, name);
-			if (value instanceof BukkitTask task && !task.isCancelled()) {
+			// Completed one-shot tasks can remain uncancelled after leaving Paper's scheduler.
+			if (value instanceof BukkitTask task && Bukkit.getScheduler().isQueued(task.getTaskId())) {
 				tasks.put(name, task);
 			}
 		}

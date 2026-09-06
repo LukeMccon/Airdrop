@@ -144,13 +144,7 @@ public class PackageController {
 
 		PackageNamePolicy.Result nameValidation = PackageNamePolicy.validate(packageName);
 		if (!nameValidation.accepted()) {
-			MessageKey message = switch (nameValidation.rejection()) {
-				case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
-				case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
-				case RESERVED -> PackageNamePolicy.isPackageSubcommandIdentity(packageName)
-						? MessageKey.PACKAGES_NAME_SUBCOMMAND_RESERVED
-						: MessageKey.PACKAGES_NAME_RESERVED;
-			};
+			MessageKey message = packageNameRejectionMessage(nameValidation.rejection(), packageName);
 			ChatHandler.sendError(sender, message);
 			return;
 		}
@@ -188,6 +182,17 @@ public class PackageController {
 		if (!createGui.openInventory(player)) {
 			ChatHandler.sendError(sender, MessageKey.PACKAGES_CREATE_OPEN_ERROR);
 		}
+	}
+
+	private static MessageKey packageNameRejectionMessage(
+			PackageNamePolicy.Rejection rejection, String packageName) {
+		return switch (rejection) {
+			case MISSING -> MessageKey.PACKAGES_NAME_REQUIRED;
+			case INVALID_CHARACTERS -> MessageKey.PACKAGES_NAME_INVALID;
+			case RESERVED -> PackageNamePolicy.isPackageSubcommandIdentity(packageName)
+					? MessageKey.PACKAGES_NAME_SUBCOMMAND_RESERVED
+					: MessageKey.PACKAGES_NAME_RESERVED;
+		};
 	}
 
 	/**
