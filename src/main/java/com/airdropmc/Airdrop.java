@@ -203,6 +203,10 @@ public class Airdrop extends JavaPlugin {
 			serviceLifecycle.publishLimits(ConfigKeys.getDropLimitSettings());
 			long revision = serviceLifecycle.publishPackages(
 					candidate.packages(), candidate.cause());
+			// Registry listeners can synchronously disable or restart this plugin.
+			if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
+				return selection.result();
+			}
 			AirdropLogger.debugPublication(
 					AirdropLogger.Publication.CONFIGURATION,
 					candidate.cause(),
