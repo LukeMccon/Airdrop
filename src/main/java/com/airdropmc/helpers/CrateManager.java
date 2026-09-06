@@ -720,6 +720,9 @@ public class CrateManager {
 
 	private static void recoverCrates(Airdrop plugin, DropAdmissionController admission,
 			World world, List<Chunk> chunks) {
+		if (!isCurrentRecovery(plugin, admission)) {
+			return;
+		}
 		List<Barrel> stale = new ArrayList<>();
 		Map<String, List<RecoveryCandidate>> byId = new LinkedHashMap<>();
 		Map<UUID, List<RecoveryCandidate>> byRequestId = new LinkedHashMap<>();
@@ -738,6 +741,9 @@ public class CrateManager {
 				foundUntrackedMarker = true;
 				if (tracked != null) {
 					removeTrackedAndDetach(key, tracked);
+					if (!isCurrentRecovery(plugin, admission)) {
+						return;
+					}
 				}
 
 				PersistedBarrelData persisted = Crate.readPaidPersistence(barrel);
@@ -800,6 +806,9 @@ public class CrateManager {
 			}
 			if (duplicate) {
 				compromiseCrateId(crateId);
+				if (!isCurrentRecovery(plugin, admission)) {
+					return;
+				}
 				for (RecoveryCandidate candidate : candidates) {
 					purgeRecoveryBarrel(candidate.barrel(), "duplicate crate identity");
 				}
@@ -888,10 +897,19 @@ public class CrateManager {
 				saveAgain = true;
 			}
 			publishRecovered(recoveredView);
+			if (!isCurrentRecovery(plugin, admission)) {
+				return;
+			}
 		}
 		if (saveAgain) {
 			saveFailClosedWorld(world);
 		}
+	}
+
+	private static boolean isCurrentRecovery(Airdrop plugin, DropAdmissionController admission) {
+		// Each enable creates a new admission controller, even for the same plugin instance.
+		return !Airdrop.isShuttingDown() && Airdrop.getPluginInstance() == plugin
+				&& Airdrop.getDropAdmissionController() == admission;
 	}
 
 	public static void removeCratesInWorld(World world) {

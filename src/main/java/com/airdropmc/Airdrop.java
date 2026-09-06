@@ -186,6 +186,7 @@ public class Airdrop extends JavaPlugin {
 	}
 
 	private EconomyProviderRefreshResult commitConfiguration(ConfigCoordinator.ConfigurationCandidate candidate) {
+		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
 		EconomySelection selection = selectEconomyProvider(candidate.economyEnabled());
 		Config replacementConfiguration = new Config(candidate.configuration());
 		PackagesConfig replacementPackagesConfiguration = new PackagesConfig(candidate.packagesConfiguration());
@@ -197,8 +198,11 @@ public class Airdrop extends JavaPlugin {
 		OptionalIntegrations.State optionalIntegrations = candidate.startup()
 				? initializeStartupIntegrations()
 				: null;
+		// Recovery listeners can synchronously disable or restart this plugin.
+		if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
+			return selection.result();
+		}
 		PackageManager.publishPackages(candidate.packages());
-		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
 		if (serviceLifecycle != null) {
 			serviceLifecycle.publishLimits(ConfigKeys.getDropLimitSettings());
 			long revision = serviceLifecycle.publishPackages(
