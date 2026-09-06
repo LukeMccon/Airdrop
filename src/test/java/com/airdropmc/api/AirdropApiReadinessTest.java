@@ -7,6 +7,8 @@ import org.bukkit.Bukkit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockbukkit.mockbukkit.MockBukkit;
@@ -15,13 +17,18 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,6 +99,59 @@ class AirdropApiReadinessTest {
 		assertTrue(diagnostic.codePointCount(0, diagnostic.length()) <= 160, diagnostic);
 		assertTrue(server.getServicesManager().getRegistrations(AirdropApi.class).stream()
 				.noneMatch(candidate -> candidate.getProvider() == api));
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void readinessFailureCallbackCanDisableOrRestartWithoutObsoleteStartupInterference(boolean restart)
+			throws Exception {
+		Airdrop plugin = preparedPlugin("packages: [\n", false);
+		server.getPluginManager().enablePlugin(plugin);
+		AirdropApi interrupted = requireApi(plugin);
+		CompletableFuture<AirdropApi> callback = interrupted.readiness().handle((ignored, failure) -> {
+			assertNotNull(failure);
+			assertEquals(ReadinessState.FAILED, interrupted.state());
+			assertTrue(Bukkit.isPrimaryThread());
+			if (restart) {
+				assertDoesNotThrow(() -> Files.writeString(
+						plugin.getDataFolder().toPath().resolve("packages.yml"),
+						"packages: {}\n", StandardCharsets.UTF_8));
+			}
+			server.getPluginManager().disablePlugin(plugin);
+			if (!restart) {
+				return null;
+			}
+			server.getPluginManager().enablePlugin(plugin);
+			return requireApi(plugin);
+		}).toCompletableFuture();
+
+		awaitCondition(callback::isDone);
+
+		AirdropApi replacement = callback.join();
+		assertThrows(CompletionException.class,
+				() -> interrupted.readiness().toCompletableFuture().join());
+		assertEquals(ReadinessState.STOPPING, interrupted.state());
+		if (!restart) {
+			assertNull(replacement);
+			assertFalse(plugin.isEnabled());
+			assertFalse(Airdrop.isReady());
+			assertNull(Airdrop.getPluginInstance());
+			assertTrue(server.getServicesManager().getRegistrations(plugin).isEmpty());
+			return;
+		}
+
+		assertNotSame(interrupted, replacement);
+		assertTrue(plugin.isEnabled(), "Obsolete startup failure must not disable the replacement lifecycle");
+		assertSame(plugin, Airdrop.getPluginInstance());
+		assertSame(replacement, requireApi(plugin));
+		awaitCondition(() -> replacement.state() == ReadinessState.READY || !plugin.isEnabled());
+		assertTrue(plugin.isEnabled());
+		assertTrue(Airdrop.isReady());
+		assertEquals(ReadinessState.READY, replacement.state());
+		assertSame(replacement, replacement.readiness().toCompletableFuture().join());
+		assertEquals(1L, replacement.packageRevision());
+		assertEquals(1L, server.getServicesManager().getRegistrations(plugin).stream()
+				.filter(registration -> registration.getService() == AirdropApi.class).count());
 	}
 
 	@Test

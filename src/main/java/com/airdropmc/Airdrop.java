@@ -395,6 +395,10 @@ public class Airdrop extends JavaPlugin {
 		if (serviceLifecycle != null) {
 			serviceLifecycle.publishFailure(failure);
 		}
+		// Readiness callbacks can synchronously disable or restart this plugin.
+		if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
+			return;
+		}
 		getLogger().log(Level.SEVERE,
 				"Airdrop startup failed; the plugin will be disabled", failure);
 		Bukkit.getPluginManager().disablePlugin(this);
