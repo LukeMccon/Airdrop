@@ -707,7 +707,7 @@ public class Crate {
 		return plugin;
 	}
 
-	public boolean getOpened() {
+	public synchronized boolean getOpened() {
 		return opened;
 	}
 

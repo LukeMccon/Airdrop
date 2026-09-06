@@ -370,7 +370,7 @@ public class PackageManager {
 	}
 
 	/**
-	 * Removes null and air stacks and detaches every retained package item.
+	 * Removes null, air, and nonpositive-amount stacks and detaches every retained package item.
 	 */
 	public static List<ItemStack> sanitizePackageItems(List<ItemStack> items) {
 		if (items == null || items.isEmpty()) {
@@ -380,6 +380,7 @@ public class PackageManager {
 		return items.stream()
 				.filter(Objects::nonNull)
 				.filter(itemStack -> !itemStack.getType().isAir())
+				.filter(itemStack -> itemStack.getAmount() > 0)
 				.map(ItemStack::clone)
 				.collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
 	}

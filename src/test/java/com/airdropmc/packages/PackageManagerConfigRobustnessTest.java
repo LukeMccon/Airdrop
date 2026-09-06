@@ -7,6 +7,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -299,6 +301,64 @@ class PackageManagerConfigRobustnessTest {
 		assertEquals(List.of("metadata survives"), items.getFirst().getItemMeta().getLore());
 		assertEquals(3, items.get(1).getAmount());
 		assertNotSame(namedItem, items.getFirst());
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = {0, -1})
+	void materializePackages_rejectsPaidPackagesWithOnlyNonPositiveAmounts(int amount) throws Exception {
+		PackageManager.publishPackages(PackageManager.materializePackages(
+				configurationWithPackage("starter", 10.0)));
+		Package livePackage = PackageManager.get("starter");
+		ItemStack emptyStack = new ItemStack(Material.STONE);
+		emptyStack.setAmount(amount);
+		YamlConfiguration candidate = configurationWithPackage("paid_empty", 1.0);
+		candidate.set("packages.paid_empty.items", List.of(emptyStack));
+
+		assertPaidEmptyFailure(candidate, "paid_empty", Set.of());
+		assertSame(livePackage, PackageManager.get("starter"));
+		assertFalse(PackageManager.has("paid_empty"));
+	}
+
+	@Test
+	void materializePackages_excludesNonPositiveAmountsBeforeApplyingBarrelCapacity() throws Exception {
+		ItemStack zeroStack = new ItemStack(Material.STONE);
+		zeroStack.setAmount(0);
+		ItemStack negativeStack = new ItemStack(Material.DIRT);
+		negativeStack.setAmount(-1);
+		ItemStack namedItem = namedItem("Reward");
+		ItemStack bread = new ItemStack(Material.BREAD, 3);
+		List<ItemStack> configuredItems = new ArrayList<>();
+		for (int index = 0; index < PackageManager.MAX_PACKAGE_ITEM_STACKS; index++) {
+			configuredItems.add(index % 2 == 0 ? zeroStack : negativeStack);
+		}
+		configuredItems.add(namedItem);
+		configuredItems.add(bread);
+		YamlConfiguration candidate = configurationWithPackage("mixed", 2.0);
+		candidate.set("packages.mixed.items", configuredItems);
+
+		List<ItemStack> items = PackageManager.materializePackages(candidate).get("mixed").getItems();
+
+		assertEquals(List.of(Material.PAPER, Material.BREAD),
+				items.stream().map(ItemStack::getType).toList());
+		assertEquals("Reward", items.getFirst().getItemMeta().getDisplayName());
+		assertEquals(3, items.get(1).getAmount());
+		assertNotSame(namedItem, items.getFirst());
+		assertEquals(PackageManager.MAX_PACKAGE_ITEM_STACKS + 2, configuredItems.size());
+	}
+
+	@Test
+	void materializePackages_allowsFreePackagesWithOnlyNonPositiveAmounts() throws Exception {
+		ItemStack zeroStack = new ItemStack(Material.STONE);
+		zeroStack.setAmount(0);
+		ItemStack negativeStack = new ItemStack(Material.DIRT);
+		negativeStack.setAmount(-1);
+		YamlConfiguration candidate = configurationWithPackage("free_empty", 0.0);
+		candidate.set("packages.free_empty.items", List.of(zeroStack, negativeStack));
+
+		Package freePackage = PackageManager.materializePackages(candidate).get("free_empty");
+
+		assertEquals(0.0, freePackage.getPrice());
+		assertTrue(freePackage.getItems().isEmpty());
 	}
 
 	@Test
