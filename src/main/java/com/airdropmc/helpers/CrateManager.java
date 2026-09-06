@@ -166,6 +166,7 @@ public class CrateManager {
 	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)} to retain the expected crate identity
 	 */
 	@Deprecated(forRemoval = false)
+	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
 	public static synchronized boolean finalizeCrateBreak(Location location) {
 		DropLocationKey key = toDropLocationKey(location);
 		Crate expectedCrate = key == null ? null : landedCrateMap.get(key);
@@ -178,6 +179,7 @@ public class CrateManager {
 	 * @deprecated use {@link #finalizeCrateBreak(Location, Crate)}
 	 */
 	@Deprecated(forRemoval = false)
+	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
 	public static synchronized boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
 		return finalizeCrateBreak(location, expectedCrate);
 	}

@@ -41,6 +41,7 @@ public abstract class Gui {
      * @deprecated Use {@link #isControlItem(ItemStack)} to identify controls.
      */
     @Deprecated(forRemoval = false)
+    @SuppressWarnings("java:S1133") // Retained for binary compatibility with existing GUI subclasses.
     protected static List<String> getControlItemNames() {
         return Arrays.asList(
                 ChatHandler.get(MessageKey.GUI_SAVE),
@@ -56,6 +57,7 @@ public abstract class Gui {
      * @deprecated Use {@link #isControlItem(ItemStack)} or {@link #getPackageIconMarker(ItemStack)} for GUI identity.
      */
     @Deprecated(forRemoval = false)
+    @SuppressWarnings("java:S1133") // Retained for binary compatibility with existing GUI subclasses.
     protected static String getDisplayName(ItemStack item) {
         if (item == null) {
             return "";

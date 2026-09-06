@@ -42,6 +42,7 @@ public class CrateCleanupListener implements Listener {
 	 * @deprecated use {@link #CrateCleanupListener(Plugin)} to provide the scheduler owner explicitly
 	 */
 	@Deprecated(forRemoval = false)
+	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
 	public CrateCleanupListener() {
 		this.plugin = null;
 	}
