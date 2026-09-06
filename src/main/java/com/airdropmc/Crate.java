@@ -940,8 +940,10 @@ public class Crate {
 		return plugin;
 	}
 
-	public synchronized boolean getOpened() {
-		return opened;
+	public boolean getOpened() {
+		synchronized (this) {
+			return opened;
+		}
 	}
 
 	public void setOpened(boolean opened) {
