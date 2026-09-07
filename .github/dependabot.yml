@@ -5,12 +5,24 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      # New run-paper releases can require a newer Gradle plugin API.
+      gradle-tooling:
+        patterns:
+          - "gradle-wrapper"
+          - "xyz.jpenilla.run-paper"
+    ignore:
+      # Paper upgrades must move the supported Paper/Java matrix together.
+      - dependency-name: "io.papermc.paper:paper-api"
 
   - package-ecosystem: "maven"
     directory: "/lightkeeper"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # Keep LightKeeper aligned with the Paper version in gradle.properties.
+      - dependency-name: "io.papermc.paper:paper-api"
 
   - package-ecosystem: "github-actions"
     directory: "/"

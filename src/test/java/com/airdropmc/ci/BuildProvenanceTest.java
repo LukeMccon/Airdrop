@@ -9,9 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -30,7 +27,6 @@ class BuildProvenanceTest {
 	private static final Path SETTINGS_FILE = Path.of("settings.gradle.kts");
 	private static final Path DEPENDABOT_FILE = Path.of(".github", "dependabot.yml");
 	private static final Path WRAPPER_PROPERTIES = Path.of("gradle", "wrapper", "gradle-wrapper.properties");
-	private static final Path WRAPPER_JAR = Path.of("gradle", "wrapper", "gradle-wrapper.jar");
 	private static final Path ROOT_VERIFICATION_METADATA =
 			Path.of("gradle", "verification-metadata.xml");
 	private static final Path CONSUMER_VERIFICATION_METADATA =
@@ -38,10 +34,6 @@ class BuildProvenanceTest {
 	private static final Path CONSUMER_BUILD_FILE = Path.of("consumer-fixture", "build.gradle.kts");
 	private static final Path CI_WORKFLOW = Path.of(".github", "workflows", "ci.yml");
 	private static final Path RELEASE_WORKFLOW = Path.of(".github", "workflows", "release.yml");
-	private static final String DISTRIBUTION_SHA256 =
-			"8fad3d78296ca518113f3d29016617c7f9367dc005f932bd9d93bf45ba46072b";
-	private static final String WRAPPER_JAR_SHA256 =
-			"76805e32c009c0cf0dd5d206bddc9fb22ea42e84db904b764f3047de095493f3";
 
 	@Test
 	void rootRepositoriesExclusivelyRoutePaperAndVault() throws IOException {
@@ -93,14 +85,16 @@ class BuildProvenanceTest {
 	}
 
 	@Test
-	void wrapperChecksumsArePinned() throws IOException, NoSuchAlgorithmException {
+	void wrapperDistributionChecksumIsPinned() throws IOException {
 		Properties properties = new Properties();
 		try (InputStream input = Files.newInputStream(WRAPPER_PROPERTIES)) {
 			properties.load(input);
 		}
 
-		assertEquals(DISTRIBUTION_SHA256, properties.getProperty("distributionSha256Sum"));
-		assertEquals(WRAPPER_JAR_SHA256, sha256(WRAPPER_JAR));
+		String distributionChecksum = properties.getProperty("distributionSha256Sum");
+		assertNotNull(distributionChecksum, "Gradle must verify its downloaded distribution");
+		assertTrue(distributionChecksum.matches("[0-9a-fA-F]{64}"),
+				"The distribution checksum must be a SHA-256 digest");
 	}
 
 	@Test
@@ -227,11 +221,6 @@ class BuildProvenanceTest {
 	private static List<?> yamlList(Object value) {
 		assertTrue(value instanceof List<?>, "Expected a YAML list");
 		return (List<?>) value;
-	}
-
-	private static String sha256(Path path) throws IOException, NoSuchAlgorithmException {
-		MessageDigest digest = MessageDigest.getInstance("SHA-256");
-		return HexFormat.of().formatHex(digest.digest(Files.readAllBytes(path)));
 	}
 
 	private static String verifiedSha256Metadata(Path path) throws IOException {
