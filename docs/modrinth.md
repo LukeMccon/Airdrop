@@ -384,8 +384,8 @@ Use a hard dependency when your plugin cannot run without Airdrop:
 depend: [Airdrop]
 ```
 
-If the integration is optional, use `softdepend: [Airdrop]`, handle a missing
-service, and disable only the integration:
+If the integration is optional, use `softdepend: [Airdrop]` and check plugin
+availability before loading any class that references Airdrop API types:
 
 ```yaml
 softdepend: [Airdrop]
@@ -398,27 +398,65 @@ and [Airdrop 4.1 migration guide](https://github.com/LukeMccon/Airdrop/blob/main
 
 ### Discover the service, then schedule Bukkit work
 
-Airdrop registers `AirdropApi` before asynchronous startup begins. Load it
-through Bukkit's `ServicesManager`, inspect its `ReadinessState`, and attach to
-the readiness stage:
+A soft dependency controls plugin load order; it does not supply API classes
+when Airdrop is absent. Keep Airdrop API fields, method signatures, and event
+listeners in a separate integration class. The plugin entry point checks
+availability before calling that class. In `ExamplePlugin.java`:
 
+<!-- optional-example:ExamplePlugin.java -->
 ```java
-AirdropApi api = getServer().getServicesManager().load(AirdropApi.class);
-if (api == null) {
-    return; // Expected only for a soft dependency or a failed plugin load.
-}
+package dev.airdropmc.example;
 
-api.readiness().whenComplete((ready, failure) -> {
-    getServer().getScheduler().runTask(this, () -> {
-        if (failure != null) {
-            getLogger().warning("Airdrop did not become ready");
-            return;
-        }
-        getLogger().info("Airdrop API "
-                + ready.versions().extensionApiVersion() + " is ready");
-    });
-});
+import org.bukkit.plugin.java.JavaPlugin;
+
+public final class ExamplePlugin extends JavaPlugin {
+	@Override
+	public void onEnable() {
+		if (getServer().getPluginManager().isPluginEnabled("Airdrop")) {
+			AirdropIntegration.enable(this);
+		}
+	}
+}
 ```
+
+Airdrop registers `AirdropApi` before asynchronous startup begins. In the
+separate `AirdropIntegration.java`, load it through Bukkit's `ServicesManager`
+and attach to its readiness stage. The missing-service guard is still needed
+if registration is unavailable. Service discovery and an enabled plugin do
+not imply `ReadinessState.READY`:
+
+<!-- optional-example:AirdropIntegration.java -->
+```java
+package dev.airdropmc.example;
+
+import com.airdropmc.api.AirdropApi;
+import org.bukkit.plugin.java.JavaPlugin;
+
+final class AirdropIntegration {
+	static void enable(JavaPlugin plugin) {
+		AirdropApi api = plugin.getServer().getServicesManager().load(AirdropApi.class);
+		if (api == null) {
+			return;
+		}
+
+		api.readiness().whenComplete((ready, failure) -> {
+			plugin.getServer().getScheduler().runTask(plugin, () -> {
+				if (failure != null) {
+					plugin.getLogger().warning("Airdrop did not become ready");
+					return;
+				}
+				plugin.getLogger().info("Airdrop API "
+						+ ready.versions().extensionApiVersion() + " is ready");
+			});
+		});
+	}
+}
+```
+
+These two files are compiled in the consumer fixture and tested with Airdrop
+API classes unavailable, a missing service, and readiness success or failure.
+If Airdrop or its service is unavailable, the consumer skips the integration
+and continues operating.
 
 Airdrop completes its backing readiness transition on the primary server
 thread. A continuation attached after completion can still run on the thread

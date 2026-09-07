@@ -9,28 +9,69 @@ Integrations should use `com.airdropmc.api`.
 ## Discover the service after declaring Airdrop as a dependency
 
 Declare `depend: [Airdrop]` when your plugin cannot run without it, or
-`softdepend: [Airdrop]` when the integration is optional. Discover the provider
-through Bukkit instead of storing Airdrop's plugin singleton:
+`softdepend: [Airdrop]` when the integration is optional. Compile against Airdrop
+without shading it, as shown in the [developer guide](modrinth.md#developer-integration).
+A soft dependency controls load order but leaves API classes unavailable when
+Airdrop is absent. Keep all Airdrop API references, including listener types,
+in a separate integration class, and check availability in the plugin entry
+point before calling it. In `ExamplePlugin.java`:
 
+<!-- optional-example:ExamplePlugin.java -->
 ```java
-RegisteredServiceProvider<AirdropApi> registration =
-		getServer().getServicesManager().getRegistration(AirdropApi.class);
-if (registration == null) {
-	return;
-}
+package dev.airdropmc.example;
 
-AirdropApi airdrop = registration.getProvider();
-airdrop.readiness().whenComplete((ready, failure) -> {
-	if (failure != null) {
-		getLogger().warning("Airdrop did not become ready");
-		return;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public final class ExamplePlugin extends JavaPlugin {
+	@Override
+	public void onEnable() {
+		if (getServer().getPluginManager().isPluginEnabled("Airdrop")) {
+			AirdropIntegration.enable(this);
+		}
 	}
-	// Schedule Bukkit work on the server thread before calling Bukkit-bound methods.
-});
+}
 ```
 
-Register listeners normally through Bukkit. Service calls that accept or return
-`Player`, `Location`, `Block`, `Entity`, `ItemStack`, or other mutable Bukkit
+In the separate `AirdropIntegration.java`, discover the provider through Bukkit
+and wait for readiness. An enabled Airdrop can still have an unavailable
+service or be starting; a null-service check alone cannot handle absent API
+classes:
+
+<!-- optional-example:AirdropIntegration.java -->
+```java
+package dev.airdropmc.example;
+
+import com.airdropmc.api.AirdropApi;
+import org.bukkit.plugin.java.JavaPlugin;
+
+final class AirdropIntegration {
+	static void enable(JavaPlugin plugin) {
+		AirdropApi api = plugin.getServer().getServicesManager().load(AirdropApi.class);
+		if (api == null) {
+			return;
+		}
+
+		api.readiness().whenComplete((ready, failure) -> {
+			plugin.getServer().getScheduler().runTask(plugin, () -> {
+				if (failure != null) {
+					plugin.getLogger().warning("Airdrop did not become ready");
+					return;
+				}
+				plugin.getLogger().info("Airdrop API "
+						+ ready.versions().extensionApiVersion() + " is ready");
+			});
+		});
+	}
+}
+```
+
+Either availability check can skip the integration. Register Airdrop event
+listeners from the integration class after the availability check. Airdrop
+unregisters its service during disable; do not retain the provider across
+plugin reloads.
+
+Service calls that accept or return `Player`, `Location`, `Block`, `Entity`,
+`ItemStack`, or other mutable Bukkit
 objects require the primary server thread. Pure version, state, UUID, count,
 enum, and `WorldPosition` values are safe to read off-thread. Completion-stage
 continuations do not promise a particular executor.

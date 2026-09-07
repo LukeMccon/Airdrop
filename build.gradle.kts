@@ -1011,6 +1011,12 @@ tasks.named("check") {
 
 tasks.named<Test>("test") {
     dependsOn(consumerFixtureTest)
+    inputs.files(
+        consumerFixtureJar,
+        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/migration-4.1.md")
+    )
+    inputs.dir(layout.projectDirectory.dir("consumer-fixture/src/main/java/dev/airdropmc/example"))
     systemProperty(
         "airdrop.apiPublicationRepository",
         apiPublicationRepository.get().asFile.absolutePath
