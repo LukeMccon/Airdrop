@@ -126,7 +126,7 @@ dependencies {
     testRuntimeOnly("net.luckperms:api:5.4")
     
     // Annotations
-    compileOnly("org.jetbrains:annotations:24.1.0")
+    compileOnly("org.jetbrains:annotations:26.1.0")
     
     // Test dependencies
     testImplementation("io.papermc.paper:paper-api:$supportedPaperApiVersion")
