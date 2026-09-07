@@ -62,6 +62,10 @@ errors:
 
 drop:
   charged: "{accent}${amount}{primary} has been taken from your account"
+  incoming: "Your {accent}{name}{primary} package is on its way."
+  incoming-charged: "Your {accent}{name}{primary} package is on its way. {accent}${amount}{primary} has been taken from your account."
+  landed: "Your {accent}{name}{primary} package landed at {accent}X: {x}, Y: {y}, Z: {z}{primary}."
+  landed-other-world: "Your {accent}{name}{primary} package landed at {accent}X: {x}, Y: {y}, Z: {z}{primary} in {accent}{world}{primary}."
   failed: "Airdrop failed; no crate was created"
   refunded: "Airdrop failed; your payment was refunded"
 

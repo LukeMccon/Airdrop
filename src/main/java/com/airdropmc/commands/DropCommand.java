@@ -5,13 +5,17 @@ import com.airdropmc.api.DropOutcome;
 import com.airdropmc.api.DropRequestOptions;
 import com.airdropmc.api.DropSpawnResult;
 import com.airdropmc.api.PaymentStatus;
+import com.airdropmc.api.WorldPosition;
 import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.PackageNamePolicy;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /** Translates typed request results into localized command feedback. */
@@ -40,14 +44,27 @@ public final class DropCommand {
 	}
 
 	private static void sendSpawnFeedback(Player player, DropSpawnResult result) {
-		if (result instanceof DropSpawnResult.Spawned spawned
-				&& spawned.payment() == PaymentStatus.CHARGED) {
-			ChatHandler.send(player, MessageKey.DROP_CHARGED, Map.of(
+		if (!player.isOnline() || !(result instanceof DropSpawnResult.Spawned spawned)) {
+			return;
+		}
+		String name = spawned.resolvedContext().airdropPackage().name();
+		if (spawned.payment() == PaymentStatus.CHARGED) {
+			ChatHandler.send(player, MessageKey.DROP_INCOMING_CHARGED, Map.of(
+					"name", name,
 					"amount", spawned.resolvedContext().airdropPackage().price().toPlainString()));
+		} else {
+			ChatHandler.send(player, MessageKey.DROP_INCOMING, Map.of("name", name));
 		}
 	}
 
 	private static void sendOutcomeFeedback(Player player, DropOutcome outcome) {
+		if (!player.isOnline()) {
+			return;
+		}
+		if (outcome instanceof DropOutcome.Landed landed) {
+			sendLandedFeedback(player, landed);
+			return;
+		}
 		if (outcome instanceof DropOutcome.Rejected rejected) {
 			sendRejection(player, rejected);
 			return;
@@ -59,6 +76,22 @@ public final class DropCommand {
 				ChatHandler.sendError(player, MessageKey.DROP_FAILED);
 			}
 		}
+	}
+
+	private static void sendLandedFeedback(Player player, DropOutcome.Landed landed) {
+		WorldPosition position = landed.airdrop().position();
+		Map<String, String> placeholders = new HashMap<>(Map.of(
+				"name", landed.resolvedContext().airdropPackage().name(),
+				"x", Integer.toString((int) Math.floor(position.x())),
+				"y", Integer.toString((int) Math.floor(position.y())),
+				"z", Integer.toString((int) Math.floor(position.z()))));
+		MessageKey key = MessageKey.DROP_LANDED;
+		if (!player.getWorld().getUID().equals(position.worldId())) {
+			World world = Bukkit.getWorld(position.worldId());
+			placeholders.put("world", world == null ? position.worldId().toString() : world.getName());
+			key = MessageKey.DROP_LANDED_OTHER_WORLD;
+		}
+		ChatHandler.send(player, key, placeholders);
 	}
 
 	private static void sendRejection(Player player, DropOutcome.Rejected rejected) {

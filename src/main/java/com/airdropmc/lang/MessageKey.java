@@ -81,6 +81,13 @@ public enum MessageKey {
 			"Airdrops are unavailable while the plugin is shutting down"),
 
 	DROP_CHARGED("drop.charged", "{accent}${amount}{primary} has been taken from your account"),
+	DROP_INCOMING("drop.incoming", "Your {accent}{name}{primary} package is on its way."),
+	DROP_INCOMING_CHARGED("drop.incoming-charged",
+			"Your {accent}{name}{primary} package is on its way. {accent}${amount}{primary} has been taken from your account."),
+	DROP_LANDED("drop.landed",
+			"Your {accent}{name}{primary} package landed at {accent}X: {x}, Y: {y}, Z: {z}{primary}."),
+	DROP_LANDED_OTHER_WORLD("drop.landed-other-world",
+			"Your {accent}{name}{primary} package landed at {accent}X: {x}, Y: {y}, Z: {z}{primary} in {accent}{world}{primary}."),
 	DROP_FAILED("drop.failed", "Airdrop failed; no crate was created"),
 	DROP_REFUNDED("drop.refunded", "Airdrop failed; your payment was refunded"),
 
