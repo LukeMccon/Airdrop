@@ -3,7 +3,9 @@ package com.airdropmc.packages;
 import com.airdropmc.Airdrop;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.helpers.PermissionsHelper;
 import com.airdropmc.lang.MessageKey;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
@@ -27,6 +29,27 @@ public class PackageGui extends PackageEditorGui {
 
 	public void initializeItems() {
 		initializeEditorItems(pkg.getItems());
+		String price = pkg.getPrice() == 0
+				? ChatHandler.get(MessageKey.GUI_CATALOG_FREE)
+				: ChatHandler.get(MessageKey.GUI_PACKAGE_PRICE, Map.of("price", String.valueOf(pkg.getPrice())));
+		initializeInformationItem(createGuiItem(Material.PAPER, pkg.getName(), 1,
+				price,
+				ChatHandler.get(MessageKey.GUI_PACKAGE_REQUEST, Map.of("name", pkg.getName())),
+				ChatHandler.get(MessageKey.GUI_PACKAGE_AVAILABILITY)));
+	}
+
+	@Override
+	protected boolean canOpen(Player player) {
+		return PermissionsHelper.hasPermission(player, getName());
+	}
+
+	@Override
+	protected boolean isDefinitionCurrent() {
+		try {
+			return PackageManager.get(getName()) == pkg;
+		} catch (PackageNotFoundException ignored) {
+			return false;
+		}
 	}
 
 	@Override

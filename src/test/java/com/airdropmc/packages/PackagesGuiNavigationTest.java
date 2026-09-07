@@ -49,6 +49,7 @@ class PackagesGuiNavigationTest {
 		when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("PackagesGuiNavigationTest"));
 
 		setAirdropStaticField("pluginInstance", plugin);
+		setAirdropStaticField("ready", true);
 		PackageManager.publishPackages(Map.of(
 				"starter", new Package("starter", 10.0, List.of(new ItemStack(Material.STONE, 2)))));
 	}
@@ -303,8 +304,9 @@ class PackagesGuiNavigationTest {
 	private static List<String> displayedPackageMarkers(Inventory inventory) {
 		List<String> markers = new ArrayList<>();
 		for (ItemStack item : inventory.getContents()) {
-			if (item != null) {
-				markers.add(Gui.getPackageIconMarker(item));
+			String marker = Gui.getPackageIconMarker(item);
+			if (marker != null) {
+				markers.add(marker);
 			}
 		}
 		return markers;

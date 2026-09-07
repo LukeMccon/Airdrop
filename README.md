@@ -31,6 +31,9 @@ Plugin developers should use only `com.airdropmc.api`. See the
 
 ## Get started
 
+Run `/airdrop packages` in game to browse packages you can request, compare prices,
+and preview their items. Administrators can edit packages in the same item view.
+
 The [canonical Modrinth documentation](https://modrinth.com/plugin/airdrop)
 contains the maintained installation, configuration, command, troubleshooting,
 and developer integration guide:
