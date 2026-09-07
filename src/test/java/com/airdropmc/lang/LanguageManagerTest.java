@@ -84,6 +84,53 @@ class LanguageManagerTest {
 	}
 
 	@Test
+	void existingEnglishLanguageGainsDeliveryKeysWithoutReplacingCustomMessages() throws Exception {
+		Path languageFile = languageFile("en");
+		Files.createDirectories(languageFile.getParent());
+		Files.writeString(languageFile, """
+				drop:
+				  charged: 'Custom charge {amount}'
+				  incoming: 'Custom incoming {name}'
+				""");
+		LanguageManager manager = managerWithResources(Map.of(
+				"lang/en.yml", Files.readString(Path.of("src/main/resources/lang/en.yml"))));
+
+		manager.publishLanguage(manager.prepareLanguage("en"));
+
+		assertEquals("Custom incoming Starter", manager.get(MessageKey.DROP_INCOMING,
+				Map.of("name", "Starter")));
+		assertEquals("Custom charge 12.50", manager.get(MessageKey.DROP_CHARGED,
+				Map.of("amount", "12.50")));
+		YamlConfiguration written = strictLoad(languageFile);
+		assertEquals("Custom incoming {name}", written.getString("drop.incoming"));
+		assertEquals("Custom charge {amount}", written.getString("drop.charged"));
+		for (MessageKey key : new MessageKey[]{MessageKey.DROP_INCOMING_CHARGED,
+				MessageKey.DROP_LANDED, MessageKey.DROP_LANDED_OTHER_WORLD}) {
+			assertEquals(key.getDefault(), written.getString(key.getKey()));
+		}
+	}
+
+	@Test
+	void olderCustomLanguageFallsBackForMissingOrBlankDeliveryMessages() throws Exception {
+		Path languageFile = languageFile("de");
+		Files.createDirectories(languageFile.getParent());
+		Files.writeString(languageFile, "drop:\n  incoming: ''\n  charged: 'Bezahlt {amount}'\n");
+		LanguageManager manager = managerWithResources(Map.of());
+		manager.publishLanguage(manager.prepareLanguage("de"));
+		Map<String, String> placeholders = Map.of("name", "Starter", "amount", "12.50",
+				"x", "12", "y", "-4", "z", "-10", "world", "delivery_world");
+
+		assertEquals("Your Starter package is on its way.",
+				ChatColor.stripColor(manager.get(MessageKey.DROP_INCOMING, placeholders)));
+		assertEquals("Your Starter package is on its way. $12.50 has been taken from your account.",
+				ChatColor.stripColor(manager.get(MessageKey.DROP_INCOMING_CHARGED, placeholders)));
+		assertEquals("Your Starter package landed at X: 12, Y: -4, Z: -10.",
+				ChatColor.stripColor(manager.get(MessageKey.DROP_LANDED, placeholders)));
+		assertEquals("Your Starter package landed at X: 12, Y: -4, Z: -10 in delivery_world.",
+				ChatColor.stripColor(manager.get(MessageKey.DROP_LANDED_OTHER_WORLD, placeholders)));
+	}
+
+	@Test
 	void missingKeyWriteBackCanBeDisabledWhileDefaultsRemainAvailable() throws Exception {
 		Path languageFile = languageFile("en");
 		Files.createDirectories(languageFile.getParent());

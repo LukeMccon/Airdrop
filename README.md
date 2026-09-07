@@ -64,6 +64,39 @@ access with:
 ./gradlew verifyModrinthDocs
 ```
 
+## Update dependencies with their checksums
+
+CI uses strict Gradle dependency verification. Dependabot version bumps can
+require new checksums in `gradle/verification-metadata.xml`, including transitive
+dependencies introduced by a Gradle wrapper update.
+Dependabot groups the wrapper and run-paper plugin because plugin updates can
+require a newer Gradle API. Apply the wrapper update first when reviewing older,
+separate PRs for these tools.
+
+On the dependency update branch, generate candidate checksums with:
+
+```bash
+./gradlew --no-daemon \
+  --init-script scripts/refresh-dependency-verification.init.gradle \
+  --write-verification-metadata sha256 help
+git diff -- gradle/verification-metadata.xml
+```
+
+The init script works around Gradle's snapshot metadata writer bug by excluding
+Paper from generation and retaining its existing checksums. Paper API upgrades
+are manual: update the supported Paper/Java matrix and both build systems
+together. Normal builds still verify the complete dependency graph.
+
+Review the new coordinates and verify their checksums against the publishing
+repositories before committing the metadata with the version update. Follow
+[Gradle's dependency verification guidance](https://docs.gradle.org/current/userguide/dependency_verification.html).
+Then run the CI commands without the generation init script:
+
+```bash
+./gradlew --no-daemon --dependency-verification=strict clean test build verifyApiCompatibility prepareCiRuntimeArtifact
+./gradlew --no-daemon --dependency-verification=strict lightkeeperTest
+```
+
 Source is available under the [MIT license](LICENSE). Use the
 [bug](https://github.com/LukeMccon/Airdrop/issues/new?labels=bug) and
 [feature](https://github.com/LukeMccon/Airdrop/issues/new?labels=enhancement)
