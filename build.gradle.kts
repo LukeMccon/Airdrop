@@ -31,7 +31,7 @@ import org.gradle.external.javadoc.StandardJavadocDocletOptions
 plugins {
     `java-library`
     `maven-publish`
-    id("xyz.jpenilla.run-paper") version "3.0.2" // Adds the runServer task for testing
+    id("xyz.jpenilla.run-paper") version "3.1.0" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
 
