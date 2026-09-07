@@ -59,8 +59,10 @@ import static org.mockito.Mockito.when;
 
 class CmdAirdropHelpTest {
 
-	private static final String LEGACY_VERSION_TEMPLATE = "{text}\nAirdrop Version: {accent}{version}{text}"
-			+ "\nSpigot API Version: {accent}{api_version}";
+	private static final String LEGACY_VERSION_TEMPLATE = """
+			{text}
+			Airdrop Version: {accent}{version}{text}
+			Spigot API Version: {accent}{api_version}""";
 
 	@TempDir
 	Path tempDir;

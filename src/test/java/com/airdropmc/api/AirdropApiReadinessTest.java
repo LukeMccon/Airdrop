@@ -128,8 +128,8 @@ class AirdropApiReadinessTest {
 		awaitCondition(callback::isDone);
 
 		AirdropApi replacement = callback.join();
-		assertThrows(CompletionException.class,
-				() -> interrupted.readiness().toCompletableFuture().join());
+		CompletableFuture<AirdropApi> interruptedReadiness = interrupted.readiness().toCompletableFuture();
+		assertThrows(CompletionException.class, interruptedReadiness::join);
 		assertEquals(ReadinessState.STOPPING, interrupted.state());
 		if (!restart) {
 			assertNull(replacement);

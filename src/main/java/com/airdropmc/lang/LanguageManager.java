@@ -29,8 +29,10 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class LanguageManager {
 	private static final String DEFAULT_LANGUAGE = "en";
-	private static final String LEGACY_VERSION_INFO = "{text}\nAirdrop Version: {accent}{version}{text}"
-			+ "\nSpigot API Version: {accent}{api_version}";
+	private static final String LEGACY_VERSION_INFO = """
+			{text}
+			Airdrop Version: {accent}{version}{text}
+			Spigot API Version: {accent}{api_version}""";
 	private static final Pattern SAFE_LANGUAGE_CODE_PATTERN = Pattern.compile("^[a-z]{2}(?:-[A-Z]{2})?$");
 
 	private final Airdrop plugin;

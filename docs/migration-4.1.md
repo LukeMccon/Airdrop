@@ -45,6 +45,9 @@ import com.airdropmc.api.AirdropApi;
 import org.bukkit.plugin.java.JavaPlugin;
 
 final class AirdropIntegration {
+	private AirdropIntegration() {
+	}
+
 	static void enable(JavaPlugin plugin) {
 		AirdropApi api = plugin.getServer().getServicesManager().load(AirdropApi.class);
 		if (api == null) {
