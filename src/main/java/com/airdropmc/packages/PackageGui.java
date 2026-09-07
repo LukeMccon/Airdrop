@@ -19,7 +19,7 @@ public class PackageGui extends PackageEditorGui {
 
 	public PackageGui(Package pkg) {
 		super(pkg.getName(), true);
-		this.pkg = pkg;
+		this.pkg = new Package(pkg.getName(), pkg.getPrice(), pkg.getItems());
 		initializeItems();
 	}
 
@@ -46,7 +46,11 @@ public class PackageGui extends PackageEditorGui {
 	@Override
 	protected boolean isDefinitionCurrent() {
 		try {
-			return PackageManager.get(getName()) == pkg;
+			// Unrelated writes rematerialize every package, so compare the displayed values.
+			Package current = PackageManager.get(getName());
+			return current.getName().equals(pkg.getName())
+					&& Double.compare(current.getPrice(), pkg.getPrice()) == 0
+					&& current.getItems().equals(pkg.getItems());
 		} catch (PackageNotFoundException ignored) {
 			return false;
 		}

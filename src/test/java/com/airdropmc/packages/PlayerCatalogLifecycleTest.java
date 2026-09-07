@@ -14,6 +14,8 @@ import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -21,6 +23,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
@@ -97,6 +100,95 @@ class PlayerCatalogLifecycleTest {
 		assertSame(preview, top(reader));
 		assertTrue(click(reader, 0).isCancelled());
 		assertEquals(reward, preview.getItem(0));
+	}
+
+	@Test
+	void unrelatedPackageChangesPreserveAdminDraftUntilItIsSaved() throws Exception {
+		PlayerMock admin = reader();
+		admin.setOp(true);
+		Inventory editor = openPackage(admin);
+		Package original = PackageManager.get("starter");
+		for (int slot = 0; slot < PackageManager.MAX_PACKAGE_ITEM_STACKS; slot++) {
+			editor.setItem(slot, null);
+		}
+		ItemStack draft = new ItemStack(Material.GOLD_INGOT, 4);
+		editor.setItem(0, draft);
+
+		var creation = plugin.createPackageAsync(
+				new Package("other", 0, List.of(new ItemStack(Material.STONE)))).toCompletableFuture();
+		await(creation::isDone);
+		assertTrue(creation.join());
+		server.getScheduler().performOneTick();
+		assertNotSame(original, PackageManager.get("starter"));
+		assertSame(editor, top(admin), "Creating another package must preserve the editor");
+		assertEquals(draft, editor.getItem(0));
+
+		var update = plugin.updatePackageInventoryAsync(
+				"other", List.of(new ItemStack(Material.DIAMOND))).toCompletableFuture();
+		await(update::isDone);
+		assertTrue(update.join());
+		server.getScheduler().performOneTick();
+		assertSame(editor, top(admin), "Updating another package must preserve the editor");
+		assertEquals(draft, editor.getItem(0));
+
+		var deletion = plugin.deletePackageAsync("other").toCompletableFuture();
+		await(deletion::isDone);
+		assertTrue(deletion.join());
+		server.getScheduler().performOneTick();
+		assertSame(editor, top(admin), "Deleting another package must preserve the editor");
+		assertEquals(draft, editor.getItem(0));
+		assertEquals(original.getItems(), PackageManager.get("starter").getItems());
+
+		click(admin, 34);
+		await(() -> admin.getOpenInventory().getType() != InventoryType.CHEST);
+		assertEquals(List.of(draft), PackageManager.get("starter").getItems());
+		assertEquals(new ItemStack(Material.EMERALD, 3), admin.getInventory().getItem(0));
+	}
+
+	@Test
+	void mutatingCurrentPackageItemsClosesTheStaleView() throws Exception {
+		PlayerMock reader = reader();
+		Inventory preview = openPackage(reader);
+		Package current = PackageManager.get("starter");
+
+		current.setItems(List.of(new ItemStack(Material.DIAMOND)));
+		server.getScheduler().performOneTick();
+
+		assertNotSame(preview, top(reader));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"name", "price", "amount", "metadata", "order"})
+	void changedDefinitionClosesReadersAndActiveAdminDrafts(String change) throws Exception {
+		PlayerMock reader = reader();
+		Inventory preview = openPackage(reader);
+		PlayerMock admin = reader();
+		admin.setOp(true);
+		Inventory editor = openPackage(admin);
+		editor.setItem(0, new ItemStack(Material.DIAMOND));
+		Package original = PackageManager.get("starter");
+		String name = original.getName();
+		double price = original.getPrice();
+		List<ItemStack> items = original.getItems();
+		switch (change) {
+			case "name" -> name = "Starter";
+			case "price" -> price += 1;
+			case "amount" -> items.getFirst().setAmount(items.getFirst().getAmount() + 1);
+			case "metadata" -> {
+				var meta = items.getFirst().getItemMeta();
+				meta.displayName(Component.text("Changed reward"));
+				items.getFirst().setItemMeta(meta);
+			}
+			case "order" -> items = items.reversed();
+			default -> throw new IllegalArgumentException(change);
+		}
+		Package changed = new Package(name, price, items);
+		PackageManager.publishPackages(Map.of("starter", changed));
+		server.getScheduler().performOneTick();
+
+		assertNotSame(preview, top(reader));
+		assertNotSame(editor, top(admin));
+		assertSame(changed, PackageManager.get("starter"));
 	}
 
 	@Test
