@@ -7,8 +7,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -27,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockBukkitExtension.class)
 class PackageManagerConfigRobustnessTest {
 
 	@AfterEach
@@ -119,7 +122,7 @@ class PackageManagerConfigRobustnessTest {
 	@Test
 	void materializePackages_rejectsWholeCandidateOnInvalidOrReservedName() {
 		for (String invalidName : List.of(
-				"all", "*", "package", "packages", "version", "reload", "bad name")) {
+				"all", "*", "package", "packages", "version", "status", "reload", "bad name")) {
 			YamlConfiguration candidate = configurationWithPackage("valid_name", 1.0);
 			addPackage(candidate, invalidName, 2.0);
 

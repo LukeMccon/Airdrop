@@ -1,7 +1,7 @@
 package com.airdropmc.tasks;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;

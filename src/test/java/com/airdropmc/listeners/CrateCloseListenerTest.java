@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
@@ -37,6 +38,7 @@ class CrateCloseListenerTest {
 	private Barrel currentBarrel;
 	private Block block;
 	private World world;
+	private BlockData barrelData;
 
 	@BeforeEach
 	void setUp() {
@@ -46,6 +48,7 @@ class CrateCloseListenerTest {
 		when(world.getUID()).thenReturn(UUID.randomUUID());
 		block = mock(Block.class);
 		eventBarrel = mock(Barrel.class);
+		barrelData = mock(BlockData.class);
 		currentBarrel = mock(Barrel.class);
 		event = mock(InventoryCloseEvent.class);
 		currentInventory = mock(Inventory.class);
@@ -59,6 +62,7 @@ class CrateCloseListenerTest {
 		when(eventBarrel.getBlock()).thenReturn(block);
 		when(eventBarrel.getWorld()).thenReturn(world);
 		when(eventBarrel.getLocation()).thenReturn(barrelLocation);
+		when(eventBarrel.getBlockData()).thenReturn(barrelData);
 
 		when(world.getBlockAt(24, 64, 24)).thenReturn(block);
 		when(block.getLocation()).thenReturn(barrelLocation);
@@ -77,7 +81,7 @@ class CrateCloseListenerTest {
 	void onInventoryClose_keepsEmptyBarrel_whenNotTrackedCrate() {
 		listener.onInventoryClose(event);
 
-		verify(world, never()).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
+		verify(world, never()).playEffect(barrelLocation, Effect.STEP_SOUND, barrelData);
 		verify(currentInventory, never()).isEmpty();
 	}
 
@@ -87,7 +91,7 @@ class CrateCloseListenerTest {
 
 		listener.onInventoryClose(event);
 
-		verify(world).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
+		verify(world).playEffect(barrelLocation, Effect.STEP_SOUND, barrelData);
 		verify(currentInventory).isEmpty();
 		assertNull(CrateManager.getCrate(barrelLocation));
 		verify(crate).destroy();
@@ -102,7 +106,7 @@ class CrateCloseListenerTest {
 
 		assertSame(crate, CrateManager.getCrate(barrelLocation));
 		verify(crate, never()).destroy();
-		verify(world, never()).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
+		verify(world, never()).playEffect(barrelLocation, Effect.STEP_SOUND, barrelData);
 	}
 
 	@Test
@@ -177,7 +181,7 @@ class CrateCloseListenerTest {
 
 		assertNull(CrateManager.getCrate(barrelLocation));
 		verify(crate, times(1)).destroy();
-		verify(world, times(1)).playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
+		verify(world, times(1)).playEffect(barrelLocation, Effect.STEP_SOUND, barrelData);
 	}
 
 	private Crate trackOwnedCrate() {

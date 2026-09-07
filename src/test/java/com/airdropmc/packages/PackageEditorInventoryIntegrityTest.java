@@ -1,9 +1,9 @@
 package com.airdropmc.packages;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -53,7 +53,7 @@ class PackageEditorInventoryIntegrityTest {
 	@BeforeEach
 	void setUp() {
 		server = MockBukkit.mock();
-		MockPlugin eventPlugin = MockBukkit.createMockPlugin("AirdropTestHarness");
+		PluginMock eventPlugin = MockBukkit.createMockPlugin("AirdropTestHarness");
 		plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
 		when(plugin.getPluginLoader()).thenReturn(eventPlugin.getPluginLoader());
@@ -182,11 +182,11 @@ class PackageEditorInventoryIntegrityTest {
 
 		InventoryClickEvent event = bottomClick(player, ClickType.LEFT, InventoryAction.PICKUP_ALL);
 		assertSame(player.getInventory(), event.getClickedInventory());
-		assertSame(source, event.getCurrentItem());
+		assertEquals(source, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(source, player.getInventory().getItem(0));
+		assertEquals(source, player.getInventory().getItem(0));
 		assertEquals(5, source.getAmount());
 		assertNotSame(source, editor.getItem(0));
 		assertEquals(new ItemStack(Material.DIAMOND, 5), editor.getItem(0));
@@ -203,11 +203,11 @@ class PackageEditorInventoryIntegrityTest {
 
 		InventoryClickEvent event = bottomClick(player, ClickType.RIGHT, InventoryAction.PICKUP_HALF);
 		assertSame(player.getInventory(), event.getClickedInventory());
-		assertSame(source, event.getCurrentItem());
+		assertEquals(source, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(source, player.getInventory().getItem(0));
+		assertEquals(source, player.getInventory().getItem(0));
 		assertEquals(5, source.getAmount());
 		assertNotSame(source, editor.getItem(0));
 		assertEquals(new ItemStack(Material.DIAMOND, 1), editor.getItem(0));
@@ -227,11 +227,11 @@ class PackageEditorInventoryIntegrityTest {
 				ClickType.SHIFT_LEFT,
 				InventoryAction.MOVE_TO_OTHER_INVENTORY);
 		assertSame(player.getInventory(), event.getClickedInventory());
-		assertSame(source, event.getCurrentItem());
+		assertEquals(source, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(source, player.getInventory().getItem(0));
+		assertEquals(source, player.getInventory().getItem(0));
 		assertNull(editor.getItem(0));
 	}
 
@@ -245,11 +245,11 @@ class PackageEditorInventoryIntegrityTest {
 
 		InventoryClickEvent event = topClick(player, 0, ClickType.NUMBER_KEY, InventoryAction.HOTBAR_SWAP);
 		assertSame(editor, event.getClickedInventory());
-		assertSame(original, event.getCurrentItem());
+		assertEquals(original, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(original, editor.getItem(0));
+		assertEquals(original, editor.getItem(0));
 		assertEquals(2, editor.getItem(0).getAmount());
 	}
 
@@ -269,7 +269,7 @@ class PackageEditorInventoryIntegrityTest {
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(original, editor.getItem(0));
+		assertEquals(original, editor.getItem(0));
 		assertEquals(3, editor.getItem(0).getAmount());
 	}
 
@@ -544,7 +544,7 @@ class PackageEditorInventoryIntegrityTest {
 		when(closeEvent.getInventory()).thenReturn(player.getOpenInventory().getTopInventory());
 		closeHandler.accept(closeEvent);
 
-		assertSame(unrelated, player.getInventory().getItem(0));
+		assertEquals(unrelated, player.getInventory().getItem(0));
 	}
 
 	private Player mockPlayer() {

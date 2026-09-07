@@ -16,12 +16,14 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 
 import org.bukkit.Chunk;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.FallingBlock;
+import org.jetbrains.annotations.ApiStatus;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
@@ -29,18 +31,30 @@ import com.airdropmc.Crate.PersistedBarrelData;
 import com.airdropmc.Crate.RecoveryState;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
+import com.airdropmc.api.AirdropView;
+import com.airdropmc.api.FallingAirdropView;
+import com.airdropmc.api.LandedAirdropView;
+import com.airdropmc.api.RetirementReason;
+import com.airdropmc.api.event.AirdropRecoveredEvent;
+import com.airdropmc.api.event.AirdropRetiredEvent;
+import com.airdropmc.internal.drop.ActiveDropRegistry;
+import com.airdropmc.internal.recovery.RecoveryReport;
 
 /**
  * Manages crates.
  */
+@ApiStatus.Internal
 public class CrateManager {
 
 	private CrateManager() {
 		// Private constructor to prevent instantiation
 	}
 
-	// Guarded by synchronized access methods in this class
+	// Mutated on the primary thread; short synchronized sections keep related
+	// physical indexes coherent without running lifecycle cleanup or events under the monitor.
 	private static final Map<FallingBlock, Crate> crateMap = new HashMap<>();
+	private static final ActiveDropRegistry activeDropRegistry = new ActiveDropRegistry();
+	private static final Map<Crate, UUID> activeViewIds = new IdentityHashMap<>();
 	private static final Map<DropLocationKey, Crate> landedCrateMap = new HashMap<>();
 	private static final Map<String, Crate> activeCrateIds = new HashMap<>();
 	private static final Map<Crate, String> indexedCrateIds = new IdentityHashMap<>();
@@ -48,6 +62,7 @@ public class CrateManager {
 	private static final Map<String, DropAdmissionController.Lease> suspendedLeases = new HashMap<>();
 	private static final Set<String> compromisedCrateIds = new HashSet<>();
 	private static final Set<String> retiredCrateIds = new HashSet<>();
+	private static volatile RecoveryReport recoveryReport = RecoveryReport.empty();
 	private static final Consumer<World> DEFAULT_WORLD_SAVER = world -> world.save(true);
 	private static Consumer<World> worldSaver = DEFAULT_WORLD_SAVER;
 
@@ -62,6 +77,14 @@ public class CrateManager {
 			DropAdmissionController.Lease lease) {
 	}
 
+	private record Removal(Crate crate, AirdropView view, boolean removed) {
+	}
+
+	private record ClearedState(
+			List<AirdropView> views,
+			List<DropAdmissionController.Lease> suspendedLeases) {
+	}
+
 	static synchronized void setWorldSaverForTesting(Consumer<World> saver) {
 		worldSaver = saver == null ? DEFAULT_WORLD_SAVER : saver;
 	}
@@ -74,7 +97,38 @@ public class CrateManager {
 		return block != null && crate != null && crateMap.putIfAbsent(block, crate) == null;
 	}
 
-	public static synchronized Crate removeCrate(FallingBlock block) {
+	/** Registers the physical falling crate and supported read model atomically. */
+	public static synchronized boolean addActiveCrate(
+			FallingBlock block, Crate crate, FallingAirdropView view) {
+		if (block == null || crate == null || view == null || crateMap.containsKey(block)) {
+			return false;
+		}
+		try {
+			activeDropRegistry.registerFalling(view);
+		} catch (RuntimeException duplicate) {
+			return false;
+		}
+		crateMap.put(block, crate);
+		activeViewIds.put(crate, view.crateId());
+		return true;
+	}
+
+	public static Crate removeCrate(FallingBlock block) {
+		return removeCrate(block, RetirementReason.FAILED);
+	}
+
+	public static Crate removeCrate(FallingBlock block, RetirementReason reason) {
+		Removal removal;
+		synchronized (CrateManager.class) {
+			Crate removed = crateMap.remove(block);
+			removal = new Removal(removed, removeActiveView(removed), removed != null);
+		}
+		publishRetired(removal.view(), reason);
+		return removal.crate();
+	}
+
+	/** Removes only the physical falling index while preserving the active view for landing. */
+	public static synchronized Crate detachFallingForLanding(FallingBlock block) {
 		return crateMap.remove(block);
 	}
 
@@ -101,23 +155,143 @@ public class CrateManager {
 			return false;
 		}
 
+		LandedAirdropView landedView = crate.snapshotLandedView();
+		if (landedView != null) {
+			try {
+				AirdropView current = activeDropRegistry.findByCrateId(landedView.crateId()).orElse(null);
+				if (current instanceof FallingAirdropView falling) {
+					activeDropRegistry.transitionToLanded(
+							landedView.crateId(), falling.fallingEntityId(), key, landedView);
+				} else if (landedView.recovered()) {
+					activeDropRegistry.registerRecovered(key, landedView);
+					activeViewIds.put(crate, landedView.crateId());
+				}
+			} catch (RuntimeException duplicate) {
+				return false;
+			}
+		}
 		landedCrateMap.put(key, crate);
 		index(crateId, key, crate);
 		return true;
 	}
 
-	public static synchronized Crate removeCrate(Location location) {
+	/** Validates landed raw/identity indexes without mutating them. */
+	public static synchronized boolean canAddLandedCrate(Location location, Crate crate) {
 		DropLocationKey key = toDropLocationKey(location);
-		if (key == null) {
-			return null;
+		if (key == null || crate == null || landedCrateMap.containsKey(key)) {
+			return false;
 		}
-		Crate removed = landedCrateMap.remove(key);
-		retireIdentity(removed, key);
-		return removed;
+		String crateId = getCrateId(crate);
+		return crateId != null && isValidCrateId(crateId) && canIndex(crateId, key, crate);
 	}
 
-	public static synchronized boolean removeCrateAndDestroy(Location location) {
-		Crate removedCrate = removeCrate(location);
+	public static Crate removeCrate(Location location) {
+		return removeCrate(location, RetirementReason.FAILED);
+	}
+
+	public static Crate removeCrate(Location location, RetirementReason reason) {
+		Removal removal;
+		synchronized (CrateManager.class) {
+			DropLocationKey key = toDropLocationKey(location);
+			if (key == null) {
+				return null;
+			}
+			Crate removed = landedCrateMap.remove(key);
+			retireIdentity(removed, key);
+			removal = new Removal(removed, removeActiveView(removed), removed != null);
+		}
+		publishRetired(removal.view(), reason);
+		return removal.crate();
+	}
+
+	/** Removes every live index for a crate without invoking its lifecycle callbacks. */
+	public static boolean removeCrate(Crate crate) {
+		return removeCrate(crate, RetirementReason.FAILED);
+	}
+
+	public static boolean removeCrate(Crate crate, RetirementReason reason) {
+		Removal removal;
+		synchronized (CrateManager.class) {
+			removal = removeCrateTracking(crate);
+		}
+		publishRetired(removal.view(), reason);
+		return removal.removed();
+	}
+
+	/** Samples a tracked falling entity on the primary thread for pure API readers. */
+	public static synchronized void refreshFallingView(FallingBlock block) {
+		Crate crate = crateMap.get(block);
+		UUID crateId = activeViewIds.get(crate);
+		if (crateId == null
+				|| !(activeDropRegistry.findByCrateId(crateId).orElse(null)
+						instanceof FallingAirdropView)) {
+			return;
+		}
+		FallingAirdropView view = crate.snapshotFallingView(block);
+		if (view != null) {
+			activeDropRegistry.replaceFalling(view);
+		}
+	}
+
+	/** Replaces a landed view after observable fields such as opened change. */
+	public static synchronized void refreshLandedView(Crate crate) {
+		if (crate == null) {
+			return;
+		}
+		String indexedId = indexedCrateIds.get(crate);
+		DropLocationKey key = indexedId == null ? null : knownCrateLocations.get(indexedId);
+		LandedAirdropView view = crate.snapshotLandedView();
+		if (key != null && view != null
+				&& activeDropRegistry.findByCrateId(view.crateId()).isPresent()) {
+			activeDropRegistry.replaceLanded(key, view);
+		}
+	}
+
+	/** @return immutable active-drop aggregate safe for off-thread reads */
+	public static List<AirdropView> activeDrops() {
+		return activeDropRegistry.activeDrops();
+	}
+
+	public static java.util.Optional<AirdropView> findByRequestId(UUID requestId) {
+		return activeDropRegistry.findByRequestId(requestId);
+	}
+
+	public static java.util.Optional<AirdropView> findByCrateId(UUID crateId) {
+		return activeDropRegistry.findByCrateId(crateId);
+	}
+
+	public static java.util.Optional<AirdropView> findByFallingEntityId(UUID entityId) {
+		return activeDropRegistry.findByFallingEntityId(entityId);
+	}
+
+	public static java.util.Optional<AirdropView> findByLandedLocation(DropLocationKey location) {
+		return activeDropRegistry.findByLandedLocation(location);
+	}
+
+	public static int fallingCount() {
+		return activeDropRegistry.fallingCount();
+	}
+
+	public static int landedCount() {
+		return activeDropRegistry.landedCount();
+	}
+
+	/** @return atomic active-drop counts safe for off-thread status reads */
+	public static ActiveDropRegistry.Counts activeCounts() {
+		return activeDropRegistry.counts();
+	}
+
+	/** @return bounded internal paid-crate recovery health report */
+	public static RecoveryReport recoveryReport() {
+		return recoveryReport;
+	}
+
+	public static boolean removeCrateAndDestroy(Location location) {
+		return removeCrateAndDestroy(location, RetirementReason.FAILED);
+	}
+
+	public static boolean removeCrateAndDestroy(Location location, RetirementReason reason) {
+		Crate removedCrate = removeCrate(location, reason);
 		if (removedCrate == null) {
 			return false;
 		}
@@ -125,17 +299,26 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean removeCrateAndDestroy(Location location, Crate expectedCrate) {
-		DropLocationKey key = toDropLocationKey(location);
-		if (!removeExpectedLandedCrate(key, expectedCrate)) {
+	public static boolean removeCrateAndDestroy(Location location, Crate expectedCrate) {
+		return removeCrateAndDestroy(location, expectedCrate, RetirementReason.FAILED);
+	}
+
+	public static boolean removeCrateAndDestroy(
+			Location location, Crate expectedCrate, RetirementReason reason) {
+		Removal removal;
+		synchronized (CrateManager.class) {
+			removal = removeExpectedLandedCrate(toDropLocationKey(location), expectedCrate);
+		}
+		if (!removal.removed()) {
 			return false;
 		}
+		publishRetired(removal.view(), reason);
 		expectedCrate.destroy();
 		return true;
 	}
 
-	public static synchronized boolean removeCrateAndDetach(Location location) {
-		Crate removedCrate = removeCrate(location);
+	public static boolean removeCrateAndDetach(Location location) {
+		Crate removedCrate = removeCrate(location, RetirementReason.FAILED);
 		if (removedCrate == null) {
 			return false;
 		}
@@ -143,19 +326,31 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean finalizeCrateBreak(Location location, Crate expectedCrate) {
+	public static boolean finalizeCrateBreak(Location location, Crate expectedCrate) {
+		return finalizeCrateBreak(location, expectedCrate, RetirementReason.BROKEN);
+	}
+
+	public static boolean finalizeCrateBreak(
+			Location location, Crate expectedCrate, RetirementReason reason) {
 		DropLocationKey key = toDropLocationKey(location);
-		if (key == null || expectedCrate == null || landedCrateMap.get(key) != expectedCrate) {
-			return false;
+		synchronized (CrateManager.class) {
+			if (key == null || expectedCrate == null || landedCrateMap.get(key) != expectedCrate) {
+				return false;
+			}
 		}
 		BlockState current = location.getBlock().getState();
 		if (current instanceof Barrel barrel && expectedCrate.ownsLandedBarrel(barrel)) {
 			return false;
 		}
-		if (!removeExpectedLandedCrate(key, expectedCrate)) {
+		Removal removal;
+		synchronized (CrateManager.class) {
+			removal = removeExpectedLandedCrate(key, expectedCrate);
+		}
+		if (!removal.removed()) {
 			return false;
 		}
 		expectedCrate.detachLandedBarrel();
+		publishRetired(removal.view(), reason);
 		return true;
 	}
 
@@ -167,9 +362,8 @@ public class CrateManager {
 	 */
 	@Deprecated(forRemoval = false)
 	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
-	public static synchronized boolean finalizeCrateBreak(Location location) {
-		DropLocationKey key = toDropLocationKey(location);
-		Crate expectedCrate = key == null ? null : landedCrateMap.get(key);
+	public static boolean finalizeCrateBreak(Location location) {
+		Crate expectedCrate = getCrate(location);
 		return finalizeCrateBreak(location, expectedCrate);
 	}
 
@@ -180,20 +374,24 @@ public class CrateManager {
 	 */
 	@Deprecated(forRemoval = false)
 	@SuppressWarnings("java:S1133") // Retained for binary compatibility with existing integrations.
-	public static synchronized boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
+	public static boolean finalizeCrateRemoval(Location location, Crate expectedCrate) {
 		return finalizeCrateBreak(location, expectedCrate);
 	}
 
-	private static boolean removeExpectedLandedCrate(DropLocationKey key, Crate expectedCrate) {
+	private static Removal removeExpectedLandedCrate(DropLocationKey key, Crate expectedCrate) {
 		if (key == null || expectedCrate == null || !landedCrateMap.remove(key, expectedCrate)) {
-			return false;
+			return new Removal(expectedCrate, null, false);
 		}
 		retireIdentity(expectedCrate, key);
-		return true;
+		return new Removal(expectedCrate, removeActiveView(expectedCrate), true);
 	}
 
-	public static synchronized boolean removeCrateAndDestroy(FallingBlock block) {
-		Crate removedCrate = removeCrate(block);
+	public static boolean removeCrateAndDestroy(FallingBlock block) {
+		return removeCrateAndDestroy(block, RetirementReason.FAILED);
+	}
+
+	public static boolean removeCrateAndDestroy(FallingBlock block, RetirementReason reason) {
+		Crate removedCrate = removeCrate(block, reason);
 		if (removedCrate == null) {
 			return false;
 		}
@@ -201,38 +399,24 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized boolean removeCrateAndDestroy(Crate crate) {
+	public static boolean removeCrateAndDestroy(Crate crate) {
+		return removeCrateAndDestroy(crate, RetirementReason.FAILED);
+	}
+
+	public static boolean removeCrateAndDestroy(Crate crate, RetirementReason reason) {
 		if (crate == null) {
 			return false;
 		}
-		boolean removed = crateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
-		List<DropLocationKey> landedKeys = landedCrateMap.entrySet().stream()
-				.filter(entry -> entry.getValue() == crate)
-				.map(Map.Entry::getKey)
-				.toList();
-		for (DropLocationKey key : landedKeys) {
-			landedCrateMap.remove(key);
-			retireIdentity(crate, key);
-			removed = true;
-		}
+		boolean removed = removeCrate(crate, reason);
 		crate.destroy();
 		return removed;
 	}
 
-	public static synchronized boolean removeCrateAndExpire(Crate crate) {
+	public static boolean removeCrateAndExpire(Crate crate) {
 		if (crate == null) {
 			return false;
 		}
-		boolean removed = crateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
-		List<DropLocationKey> landedKeys = landedCrateMap.entrySet().stream()
-				.filter(entry -> entry.getValue() == crate)
-				.map(Map.Entry::getKey)
-				.toList();
-		for (DropLocationKey key : landedKeys) {
-			landedCrateMap.remove(key);
-			retireIdentity(crate, key);
-			removed = true;
-		}
+		boolean removed = removeCrate(crate, RetirementReason.EXPIRED);
 		crate.expire();
 		return removed;
 	}
@@ -242,29 +426,35 @@ public class CrateManager {
 		return key == null ? null : landedCrateMap.get(key);
 	}
 
-	public static synchronized void removeFallingCratesInChunk(Chunk chunk) {
+	public static void removeFallingCratesInChunk(Chunk chunk) {
 		if (chunk == null) {
 			return;
 		}
 		int chunkX = chunk.getX();
 		int chunkZ = chunk.getZ();
-		List<FallingBlock> blocksToRemove = new ArrayList<>();
-		for (FallingBlock fallingBlock : crateMap.keySet()) {
-			if (fallingBlock == null || fallingBlock.getWorld() == null) {
-				blocksToRemove.add(fallingBlock);
-				continue;
-			}
-			if (!fallingBlock.getWorld().equals(chunk.getWorld())) {
-				continue;
-			}
-			int locationChunkX = fallingBlock.getLocation().getBlockX() >> 4;
-			int locationChunkZ = fallingBlock.getLocation().getBlockZ() >> 4;
-			if (locationChunkX == chunkX && locationChunkZ == chunkZ) {
-				blocksToRemove.add(fallingBlock);
+		List<Removal> cratesToDestroy = new ArrayList<>();
+		synchronized (CrateManager.class) {
+			Iterator<Map.Entry<FallingBlock, Crate>> entries = crateMap.entrySet().iterator();
+			while (entries.hasNext()) {
+				Map.Entry<FallingBlock, Crate> entry = entries.next();
+				FallingBlock fallingBlock = entry.getKey();
+				boolean belongsToChunk = fallingBlock == null || fallingBlock.getWorld() == null;
+				if (!belongsToChunk && fallingBlock.getWorld().equals(chunk.getWorld())) {
+					int locationChunkX = fallingBlock.getLocation().getBlockX() >> 4;
+					int locationChunkZ = fallingBlock.getLocation().getBlockZ() >> 4;
+					belongsToChunk = locationChunkX == chunkX && locationChunkZ == chunkZ;
+				}
+				if (belongsToChunk) {
+					Crate crate = entry.getValue();
+					cratesToDestroy.add(new Removal(
+							crate, removeActiveView(crate), crate != null));
+					entries.remove();
+				}
 			}
 		}
-		for (FallingBlock fallingBlock : blocksToRemove) {
-			removeCrateAndDestroy(fallingBlock);
+		for (Removal removal : cratesToDestroy) {
+			publishRetired(removal.view(), RetirementReason.CHUNK_UNLOAD);
+			safeDestroy(removal.crate());
 		}
 	}
 
@@ -273,12 +463,15 @@ public class CrateManager {
 	 *
 	 * @return whether the event must keep the chunk-save flag enabled
 	 */
-	public static synchronized boolean prepareChunkForUnload(Chunk chunk) {
+	public static boolean prepareChunkForUnload(Chunk chunk) {
 		if (chunk == null) {
 			return false;
 		}
 		removeFallingCratesInChunk(chunk);
+		return prepareLandedCratesForChunkUnload(chunk);
+	}
 
+	private static boolean prepareLandedCratesForChunkUnload(Chunk chunk) {
 		World world = chunk.getWorld();
 		UUID worldId = world.getUID();
 		int chunkX = chunk.getX();
@@ -297,7 +490,7 @@ public class CrateManager {
 				continue;
 			}
 			if (!isPaid(crate)) {
-				removeTrackedAndDestroy(key, crate);
+				removeTrackedAndDestroy(key, crate, RetirementReason.CHUNK_UNLOAD);
 				continue;
 			}
 
@@ -340,7 +533,8 @@ public class CrateManager {
 				continue;
 			}
 			try {
-				detachForRecovery(entry.getKey(), crate, true);
+				detachForRecovery(
+						entry.getKey(), crate, true, RetirementReason.CHUNK_UNLOAD);
 			} catch (RuntimeException failure) {
 				AirdropLogger.log(Level.WARNING,
 						"Could not suspend paid crate for chunk unload; removing it fail-closed", failure);
@@ -353,7 +547,7 @@ public class CrateManager {
 	/**
 	 * Backward-compatible destructive cleanup used by older callers and tests.
 	 */
-	public static synchronized void removeCratesInChunk(Chunk chunk) {
+	public static void removeCratesInChunk(Chunk chunk) {
 		if (chunk == null) {
 			return;
 		}
@@ -363,22 +557,25 @@ public class CrateManager {
 				.filter(key -> inChunk(key, worldId, chunk.getX(), chunk.getZ()))
 				.toList();
 		for (DropLocationKey key : keys) {
-			removeCrateAndDestroy(new Location(chunk.getWorld(), key.x(), key.y(), key.z()));
+			removeCrateAndDestroy(
+					new Location(chunk.getWorld(), key.x(), key.y(), key.z()),
+					RetirementReason.CHUNK_UNLOAD);
 		}
 	}
 
-	public static synchronized boolean prepareWorldForUnload(World world, Airdrop plugin) {
+	public static boolean prepareWorldForUnload(World world, Airdrop plugin) {
 		if (world == null || plugin == null) {
 			return false;
 		}
-		removeFallingCratesInWorld(world);
+		removeFallingCratesInWorld(world, RetirementReason.WORLD_UNLOAD);
 		List<Map.Entry<DropLocationKey, Crate>> paid = new ArrayList<>();
 		for (Map.Entry<DropLocationKey, Crate> entry : landedEntriesInWorld(world.getUID())) {
 			Crate crate = entry.getValue();
 			if (isPaid(crate) && ensurePaidIdentityIndexed(entry.getKey(), crate)) {
 				paid.add(entry);
 			} else {
-				removeTrackedAndDestroy(entry.getKey(), crate);
+				removeTrackedAndDestroy(
+						entry.getKey(), crate, RetirementReason.WORLD_UNLOAD);
 			}
 		}
 		if (paid.isEmpty()) {
@@ -406,7 +603,8 @@ public class CrateManager {
 		}
 		for (Map.Entry<DropLocationKey, Crate> entry : paid) {
 			try {
-				detachForRecovery(entry.getKey(), entry.getValue(), true);
+				detachForRecovery(
+						entry.getKey(), entry.getValue(), true, RetirementReason.WORLD_UNLOAD);
 			} catch (RuntimeException failure) {
 				AirdropLogger.log(Level.WARNING,
 						"Could not suspend paid crate for world unload; removing it fail-closed", failure);
@@ -416,11 +614,11 @@ public class CrateManager {
 		return true;
 	}
 
-	public static synchronized void prepareForShutdown(Airdrop plugin) {
+	public static void prepareForShutdown(Airdrop plugin) {
 		try {
 			for (FallingBlock fallingBlock : new ArrayList<>(crateMap.keySet())) {
 				try {
-					removeCrateAndDestroy(fallingBlock);
+					removeCrateAndDestroy(fallingBlock, RetirementReason.SHUTDOWN);
 				} catch (RuntimeException failure) {
 					AirdropLogger.log(Level.WARNING, "Could not remove falling crate during shutdown", failure);
 				}
@@ -432,7 +630,8 @@ public class CrateManager {
 				Location landed = safeLandedLocation(crate);
 				if (crate == null || !isPaid(crate) || landed == null || landed.getWorld() == null
 						|| !ensurePaidIdentityIndexed(entry.getKey(), crate)) {
-					removeTrackedAndDestroy(entry.getKey(), crate);
+					removeTrackedAndDestroy(
+							entry.getKey(), crate, RetirementReason.SHUTDOWN);
 					continue;
 				}
 				paidByWorld.computeIfAbsent(landed.getWorld(), ignored -> new ArrayList<>())
@@ -467,7 +666,8 @@ public class CrateManager {
 				boolean cleanupChanged = false;
 				for (Map.Entry<DropLocationKey, Crate> entry : prepared) {
 					try {
-						detachForRecovery(entry.getKey(), entry.getValue(), false);
+						detachForRecovery(
+								entry.getKey(), entry.getValue(), false, RetirementReason.SHUTDOWN);
 					} catch (RuntimeException failure) {
 						AirdropLogger.log(Level.WARNING,
 								"Could not detach paid crate during shutdown; removing it fail-closed", failure);
@@ -482,14 +682,17 @@ public class CrateManager {
 		} catch (RuntimeException | LinkageError failure) {
 			AirdropLogger.log(Level.SEVERE, "Unexpected paid crate shutdown cleanup failure", failure);
 		} finally {
-			for (Crate crate : distinctTrackedCrates()) {
+			Set<Crate> remaining = distinctTrackedCrates();
+			ClearedState cleared = clearMaps();
+			publishRetired(cleared.views(), RetirementReason.SHUTDOWN);
+			closeSuspendedLeases(cleared.suspendedLeases());
+			for (Crate crate : remaining) {
 				safeDestroy(crate);
 			}
-			clearMaps();
 		}
 	}
 
-	public static synchronized void recoverLoadedCrates(
+	public static void recoverLoadedCrates(
 			Airdrop plugin, DropAdmissionController admission) {
 		if (plugin == null || admission == null) {
 			return;
@@ -499,7 +702,7 @@ public class CrateManager {
 		}
 	}
 
-	public static synchronized void recoverCratesInChunk(
+	public static void recoverCratesInChunk(
 			Airdrop plugin, DropAdmissionController admission, Chunk chunk) {
 		if (plugin == null || admission == null || chunk == null) {
 			return;
@@ -507,7 +710,7 @@ public class CrateManager {
 		recoverCrates(plugin, admission, chunk.getWorld(), List.of(chunk));
 	}
 
-	public static synchronized void recoverLoadedCratesInWorld(
+	public static void recoverLoadedCratesInWorld(
 			Airdrop plugin, DropAdmissionController admission, World world) {
 		if (plugin == null || admission == null || world == null) {
 			return;
@@ -517,8 +720,12 @@ public class CrateManager {
 
 	private static void recoverCrates(Airdrop plugin, DropAdmissionController admission,
 			World world, List<Chunk> chunks) {
+		if (!isCurrentRecovery(plugin, admission)) {
+			return;
+		}
 		List<Barrel> stale = new ArrayList<>();
 		Map<String, List<RecoveryCandidate>> byId = new LinkedHashMap<>();
+		Map<UUID, List<RecoveryCandidate>> byRequestId = new LinkedHashMap<>();
 		Map<DropLocationKey, String> discoveredIds = new HashMap<>();
 		boolean foundUntrackedMarker = false;
 		for (Chunk chunk : chunks) {
@@ -534,6 +741,9 @@ public class CrateManager {
 				foundUntrackedMarker = true;
 				if (tracked != null) {
 					removeTrackedAndDetach(key, tracked);
+					if (!isCurrentRecovery(plugin, admission)) {
+						return;
+					}
 				}
 
 				PersistedBarrelData persisted = Crate.readPaidPersistence(barrel);
@@ -542,8 +752,20 @@ public class CrateManager {
 					continue;
 				}
 				discoveredIds.put(key, persisted.crateId());
+				RecoveryCandidate candidate = new RecoveryCandidate(barrel, persisted, key);
 				byId.computeIfAbsent(persisted.crateId(), ignored -> new ArrayList<>())
-						.add(new RecoveryCandidate(barrel, persisted, key));
+						.add(candidate);
+				persisted.recoveryDescriptor().ifPresent(descriptor ->
+						byRequestId.computeIfAbsent(descriptor.requestId(), ignored -> new ArrayList<>())
+								.add(candidate));
+			}
+		}
+
+		Set<RecoveryCandidate> duplicateRequests = new HashSet<>();
+		for (Map.Entry<UUID, List<RecoveryCandidate>> entry : byRequestId.entrySet()) {
+			if (entry.getValue().size() > 1
+					|| activeDropRegistry.findByRequestId(entry.getKey()).isPresent()) {
+				duplicateRequests.addAll(entry.getValue());
 			}
 		}
 
@@ -551,22 +773,29 @@ public class CrateManager {
 				world.getUID(), chunks, discoveredIds);
 
 		for (Barrel barrel : stale) {
-			purgeMarkedBarrel(barrel, "stale or invalid lifecycle marker");
+			purgeRecoveryBarrel(barrel, "stale or invalid lifecycle marker");
 		}
 
 		List<RecoveryCandidate> valid = new ArrayList<>();
 		for (Map.Entry<String, List<RecoveryCandidate>> entry : byId.entrySet()) {
 			String crateId = entry.getKey();
 			List<RecoveryCandidate> candidates = entry.getValue();
+			if (candidates.stream().anyMatch(duplicateRequests::contains)) {
+				retireCrateId(crateId);
+				for (RecoveryCandidate candidate : candidates) {
+					purgeRecoveryBarrel(candidate.barrel(), "duplicate request identity");
+				}
+				continue;
+			}
 			if (mismatchedSuspendedIds.contains(crateId)) {
 				for (RecoveryCandidate candidate : candidates) {
-					purgeMarkedBarrel(candidate.barrel(), "moved or changed recovery marker");
+					purgeRecoveryBarrel(candidate.barrel(), "moved or changed recovery marker");
 				}
 				continue;
 			}
 			if (retiredCrateIds.contains(crateId)) {
 				for (RecoveryCandidate candidate : candidates) {
-					purgeMarkedBarrel(candidate.barrel(), "retired crate identity");
+					purgeRecoveryBarrel(candidate.barrel(), "retired crate identity");
 				}
 				continue;
 			}
@@ -577,15 +806,18 @@ public class CrateManager {
 			}
 			if (duplicate) {
 				compromiseCrateId(crateId);
+				if (!isCurrentRecovery(plugin, admission)) {
+					return;
+				}
 				for (RecoveryCandidate candidate : candidates) {
-					purgeMarkedBarrel(candidate.barrel(), "duplicate crate identity");
+					purgeRecoveryBarrel(candidate.barrel(), "duplicate crate identity");
 				}
 				continue;
 			}
 			RecoveryCandidate candidate = candidates.getFirst();
 			if (candidate.persisted().recoveryState() != RecoveryState.RECOVERABLE) {
 				retireCrateId(crateId);
-				purgeMarkedBarrel(candidate.barrel(), "stale lifecycle marker");
+				purgeRecoveryBarrel(candidate.barrel(), "stale lifecycle marker");
 				continue;
 			}
 			valid.add(candidate);
@@ -603,13 +835,13 @@ public class CrateManager {
 				AirdropLogger.log(Level.WARNING,
 						"Could not restore admission for paid crate " + candidate.persisted().crateId(), failure);
 				retireCrateId(candidate.persisted().crateId());
-				purgeMarkedBarrel(candidate.barrel(), "duplicate or invalid admission claim");
+				purgeRecoveryBarrel(candidate.barrel(), "duplicate or invalid admission claim");
 				continue;
 			}
 			if (!Crate.markPersistedBarrelLive(candidate.barrel(), candidate.persisted())) {
 				lease.close();
 				retireCrateId(candidate.persisted().crateId());
-				purgeMarkedBarrel(candidate.barrel(), "could not claim recoverable marker");
+				purgeRecoveryBarrel(candidate.barrel(), "could not claim recoverable marker");
 				continue;
 			}
 			pending.add(new PendingRecovery(candidate, lease));
@@ -627,12 +859,15 @@ public class CrateManager {
 			for (PendingRecovery recovery : pending) {
 				recovery.lease().close();
 				retireCrateId(recovery.candidate().persisted().crateId());
-				purgeMarkedBarrel(recovery.candidate().barrel(), "claim save failed");
+				purgeRecoveryBarrel(recovery.candidate().barrel(), "claim save failed");
 			}
 			if (saveFailClosedWorld(world)) {
 				retireMismatchedSuspendedIdentities(mismatchedSuspendedIds);
 			}
-			return;
+			if (failure instanceof RuntimeException runtimeFailure) {
+				throw runtimeFailure;
+			}
+			throw (LinkageError) failure;
 		}
 		retireMismatchedSuspendedIdentities(mismatchedSuspendedIds);
 
@@ -640,12 +875,15 @@ public class CrateManager {
 		for (PendingRecovery recovery : pending) {
 			RecoveryCandidate candidate = recovery.candidate();
 			Crate crate = null;
+			LandedAirdropView recoveredView = null;
 			try {
 				crate = Crate.recoverPaidLanded(
 						world, candidate.barrel(), candidate.persisted(), recovery.lease(), plugin);
 				if (!addLandedCrate(candidate.barrel().getLocation(), crate)) {
 					throw new IllegalStateException("Recovered crate identity is already active");
 				}
+				recoveredView = crate.snapshotLandedView();
+				recordRecoveredCrate();
 			} catch (RuntimeException failure) {
 				AirdropLogger.log(Level.WARNING,
 						"Could not activate recovered paid crate " + candidate.persisted().crateId(), failure);
@@ -655,8 +893,12 @@ public class CrateManager {
 					recovery.lease().close();
 				}
 				retireCrateId(candidate.persisted().crateId());
-				purgeMarkedBarrel(candidate.barrel(), "runtime recovery failed");
+				purgeRecoveryBarrel(candidate.barrel(), "runtime recovery failed");
 				saveAgain = true;
+			}
+			publishRecovered(recoveredView);
+			if (!isCurrentRecovery(plugin, admission)) {
+				return;
 			}
 		}
 		if (saveAgain) {
@@ -664,22 +906,29 @@ public class CrateManager {
 		}
 	}
 
-	public static synchronized void removeCratesInWorld(World world) {
+	private static boolean isCurrentRecovery(Airdrop plugin, DropAdmissionController admission) {
+		// Each enable creates a new admission controller, even for the same plugin instance.
+		return !Airdrop.isShuttingDown() && Airdrop.getPluginInstance() == plugin
+				&& Airdrop.getDropAdmissionController() == admission;
+	}
+
+	public static void removeCratesInWorld(World world) {
 		if (world == null) {
 			return;
 		}
-		removeFallingCratesInWorld(world);
+		removeFallingCratesInWorld(world, RetirementReason.WORLD_UNLOAD);
 		for (Map.Entry<DropLocationKey, Crate> entry : landedEntriesInWorld(world.getUID())) {
-			removeTrackedAndDestroy(entry.getKey(), entry.getValue());
+			removeTrackedAndDestroy(
+					entry.getKey(), entry.getValue(), RetirementReason.WORLD_UNLOAD);
 		}
 	}
 
-	public static synchronized void purgeForHotDisable(Airdrop plugin) {
+	public static void purgeForHotDisable(Airdrop plugin) {
 		Set<World> changedWorlds = Collections.newSetFromMap(new IdentityHashMap<>());
 		try {
 			for (FallingBlock fallingBlock : new ArrayList<>(crateMap.keySet())) {
 				try {
-					removeCrateAndDestroy(fallingBlock);
+					removeCrateAndDestroy(fallingBlock, RetirementReason.HOT_DISABLE);
 				} catch (RuntimeException failure) {
 					AirdropLogger.log(Level.WARNING,
 							"Could not remove falling crate during plugin disable", failure);
@@ -688,7 +937,8 @@ public class CrateManager {
 			for (Map.Entry<DropLocationKey, Crate> entry
 					: new ArrayList<>(landedCrateMap.entrySet())) {
 				Location landed = safeLandedLocation(entry.getValue());
-				removeTrackedAndDestroy(entry.getKey(), entry.getValue());
+				removeTrackedAndDestroy(
+						entry.getKey(), entry.getValue(), RetirementReason.HOT_DISABLE);
 				if (landed != null && landed.getWorld() != null) {
 					changedWorlds.add(landed.getWorld());
 				}
@@ -718,10 +968,13 @@ public class CrateManager {
 		} catch (RuntimeException | LinkageError failure) {
 			AirdropLogger.log(Level.SEVERE, "Unexpected hot-disable crate cleanup failure", failure);
 		} finally {
-			for (Crate crate : distinctTrackedCrates()) {
+			Set<Crate> remaining = distinctTrackedCrates();
+			ClearedState cleared = clearMaps();
+			publishRetired(cleared.views(), RetirementReason.HOT_DISABLE);
+			closeSuspendedLeases(cleared.suspendedLeases());
+			for (Crate crate : remaining) {
 				safeDestroy(crate);
 			}
-			clearMaps();
 		}
 	}
 
@@ -750,13 +1003,17 @@ public class CrateManager {
 		}
 	}
 
-	public static synchronized void clearAll() {
-		try {
-			for (Crate crate : distinctTrackedCrates()) {
-				safeDestroy(crate);
-			}
-		} finally {
-			clearMaps();
+	public static void clearAll() {
+		Set<Crate> crates;
+		ClearedState cleared;
+		synchronized (CrateManager.class) {
+			crates = distinctTrackedCrates();
+			cleared = clearMaps();
+		}
+		publishRetired(cleared.views(), RetirementReason.FAILED);
+		closeSuspendedLeases(cleared.suspendedLeases());
+		for (Crate crate : crates) {
+			safeDestroy(crate);
 		}
 	}
 
@@ -850,7 +1107,11 @@ public class CrateManager {
 		return lease;
 	}
 
-	private static void detachForRecovery(DropLocationKey key, Crate crate, boolean preserveIdentity) {
+	private static void detachForRecovery(
+			DropLocationKey key,
+			Crate crate,
+			boolean preserveIdentity,
+			RetirementReason reason) {
 		String crateId = indexedCrateIds.get(crate);
 		if (preserveIdentity && crateId == null) {
 			throw new IllegalStateException("Paid crate identity is not indexed");
@@ -867,6 +1128,7 @@ public class CrateManager {
 		}
 
 		landedCrateMap.remove(key, crate);
+		AirdropView removedView = removeActiveView(crate);
 		indexedCrateIds.remove(crate);
 		if (crateId != null) {
 			activeCrateIds.remove(crateId, crate);
@@ -874,14 +1136,25 @@ public class CrateManager {
 				knownCrateLocations.remove(crateId, key);
 			}
 		}
+		publishRetired(removedView, reason);
 	}
 
 	private static void removeTrackedAndDestroy(DropLocationKey key, Crate crate) {
+		removeTrackedAndDestroy(key, crate, RetirementReason.FAILED);
+	}
+
+	private static void removeTrackedAndDestroy(
+			DropLocationKey key, Crate crate, RetirementReason reason) {
 		boolean paid = isPaid(crate);
 		String crateId = paid ? getCrateId(crate) : null;
 		Location landed = paid ? safeLandedLocation(crate) : null;
-		landedCrateMap.remove(key, crate);
-		retireIdentity(crate, key);
+		AirdropView removedView;
+		synchronized (CrateManager.class) {
+			landedCrateMap.remove(key, crate);
+			retireIdentity(crate, key);
+			removedView = removeActiveView(crate);
+		}
+		publishRetired(removedView, reason);
 		safeDestroy(crate);
 		if (paid) {
 			purgeOwnedPaidMarker(landed, crateId);
@@ -889,14 +1162,19 @@ public class CrateManager {
 	}
 
 	private static void removeTrackedAndDetach(DropLocationKey key, Crate crate) {
-		landedCrateMap.remove(key, crate);
-		retireIdentity(crate, key);
+		AirdropView removedView;
+		synchronized (CrateManager.class) {
+			landedCrateMap.remove(key, crate);
+			retireIdentity(crate, key);
+			removedView = removeActiveView(crate);
+		}
+		publishRetired(removedView, RetirementReason.RECOVERY_PURGED);
 		if (crate != null) {
 			crate.detachLandedBarrel();
 		}
 	}
 
-	private static void removeFallingCratesInWorld(World world) {
+	private static void removeFallingCratesInWorld(World world, RetirementReason reason) {
 		UUID worldId = world.getUID();
 		List<FallingBlock> fallingBlocks = new ArrayList<>();
 		for (FallingBlock block : crateMap.keySet()) {
@@ -906,7 +1184,7 @@ public class CrateManager {
 			}
 		}
 		for (FallingBlock block : fallingBlocks) {
-			removeCrateAndDestroy(block);
+			removeCrateAndDestroy(block, reason);
 		}
 	}
 
@@ -942,19 +1220,29 @@ public class CrateManager {
 	}
 
 	private static void compromiseCrateId(String crateId) {
-		compromisedCrateIds.add(crateId);
-		retiredCrateIds.add(crateId);
-		DropAdmissionController.Lease suspended = suspendedLeases.remove(crateId);
+		DropAdmissionController.Lease suspended;
+		Crate active;
+		AirdropView removedView;
+		DropLocationKey knownLocation;
+		synchronized (CrateManager.class) {
+			compromisedCrateIds.add(crateId);
+			retiredCrateIds.add(crateId);
+			suspended = suspendedLeases.remove(crateId);
+			knownLocation = knownCrateLocations.remove(crateId);
+			active = activeCrateIds.remove(crateId);
+			removedView = removeActiveView(active);
+			if (active != null) {
+				indexedCrateIds.remove(active);
+				if (knownLocation != null) {
+					landedCrateMap.remove(knownLocation, active);
+				}
+			}
+		}
+		publishRetired(removedView, RetirementReason.RECOVERY_PURGED);
 		if (suspended != null) {
 			suspended.close();
 		}
-		DropLocationKey knownLocation = knownCrateLocations.remove(crateId);
-		Crate active = activeCrateIds.remove(crateId);
 		if (active != null) {
-			indexedCrateIds.remove(active);
-			if (knownLocation != null) {
-				landedCrateMap.remove(knownLocation, active);
-			}
 			Location activeLocation = safeLandedLocation(active);
 			World affectedWorld = activeLocation == null ? null : activeLocation.getWorld();
 			safeDestroy(active);
@@ -965,14 +1253,29 @@ public class CrateManager {
 		AirdropLogger.warning("Removed duplicate paid crate identity " + crateId + " fail-closed");
 	}
 
-	private static void purgeMarkedBarrel(Barrel barrel, String reason) {
+	private static boolean purgeMarkedBarrel(Barrel barrel, String reason) {
 		if (barrel == null || barrel.getBlock().getType() != Material.BARREL
 				|| !Crate.hasAirdropMarker((Barrel) barrel.getBlock().getState())) {
-			return;
+			return false;
 		}
 		barrel.getBlock().setType(Material.AIR);
 		AirdropLogger.warning("Removed Airdrop barrel at " + format(barrel.getLocation())
 				+ " fail-closed: " + reason);
+		return true;
+	}
+
+	private static void purgeRecoveryBarrel(Barrel barrel, String reason) {
+		if (purgeMarkedBarrel(barrel, reason)) {
+			recordPurgedCrate(reason);
+		}
+	}
+
+	private static synchronized void recordRecoveredCrate() {
+		recoveryReport = recoveryReport.withRecoveredCrate();
+	}
+
+	private static synchronized void recordPurgedCrate(String diagnostic) {
+		recoveryReport = recoveryReport.withPurgedCrate(diagnostic);
 	}
 
 	private static void saveWorld(World world) {
@@ -1063,14 +1366,9 @@ public class CrateManager {
 		return crates;
 	}
 
-	private static void clearMaps() {
-		for (DropAdmissionController.Lease lease : suspendedLeases.values()) {
-			try {
-				lease.close();
-			} catch (RuntimeException failure) {
-				AirdropLogger.log(Level.WARNING, "Could not release suspended paid crate lease", failure);
-			}
-		}
+	private static ClearedState clearMaps() {
+		List<DropAdmissionController.Lease> leases = List.copyOf(suspendedLeases.values());
+		List<AirdropView> removedViews = activeDropRegistry.clear();
 		crateMap.clear();
 		landedCrateMap.clear();
 		activeCrateIds.clear();
@@ -1079,6 +1377,66 @@ public class CrateManager {
 		suspendedLeases.clear();
 		compromisedCrateIds.clear();
 		retiredCrateIds.clear();
+		recoveryReport = RecoveryReport.empty();
+		activeViewIds.clear();
+		return new ClearedState(removedViews, leases);
+	}
+
+	private static void closeSuspendedLeases(List<DropAdmissionController.Lease> leases) {
+		for (DropAdmissionController.Lease lease : leases) {
+			try {
+				lease.close();
+			} catch (RuntimeException failure) {
+				AirdropLogger.log(Level.WARNING, "Could not release suspended paid crate lease", failure);
+			}
+		}
+	}
+
+	private static Removal removeCrateTracking(Crate crate) {
+		if (crate == null) {
+			return new Removal(null, null, false);
+		}
+		boolean removed = crateMap.entrySet().removeIf(entry -> entry.getValue() == crate);
+		List<DropLocationKey> landedKeys = landedCrateMap.entrySet().stream()
+				.filter(entry -> entry.getValue() == crate)
+				.map(Map.Entry::getKey)
+				.toList();
+		for (DropLocationKey key : landedKeys) {
+			landedCrateMap.remove(key, crate);
+			retireIdentity(crate, key);
+			removed = true;
+		}
+		AirdropView removedView = removeActiveView(crate);
+		return new Removal(crate, removedView, removed || removedView != null);
+	}
+
+	private static AirdropView removeActiveView(Crate crate) {
+		if (crate == null) {
+			return null;
+		}
+		UUID crateId = activeViewIds.remove(crate);
+		if (crateId == null) {
+			return null;
+		}
+		return activeDropRegistry.remove(crateId).orElse(null);
+	}
+
+	private static void publishRetired(AirdropView view, RetirementReason reason) {
+		if (view != null) {
+			Bukkit.getPluginManager().callEvent(new AirdropRetiredEvent(view, reason));
+		}
+	}
+
+	private static void publishRetired(List<AirdropView> views, RetirementReason reason) {
+		for (AirdropView view : views) {
+			publishRetired(view, reason);
+		}
+	}
+
+	private static void publishRecovered(LandedAirdropView view) {
+		if (view != null) {
+			Bukkit.getPluginManager().callEvent(new AirdropRecoveredEvent(view));
+		}
 	}
 
 	private static String getCrateId(Crate crate) {

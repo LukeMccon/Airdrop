@@ -1,8 +1,8 @@
 package com.airdropmc.controllers;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.lang.LanguageManager;
@@ -99,7 +99,7 @@ class PackageControllerPermissionsTest {
 		player.setOp(true);
 
 		for (String name : List.of(
-				"all", "*", "package", "packages", "version", "reload", "create", "DELETE", "ReLoAd")) {
+				"all", "*", "package", "packages", "version", "status", "reload", "create", "DELETE", "ReLoAd")) {
 			PackageController.createPackageCommand(player,
 					new String[]{"package", "create", name, "10.0"});
 

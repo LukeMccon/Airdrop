@@ -39,11 +39,10 @@ class StarterDropIT {
 		AirdropIntegrationSupport.awaitReady(framework);
 
 		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
-		PlayerHandle player = AirdropIntegrationSupport.createPlayer(framework, world);
+		PlayerHandle player = AirdropIntegrationSupport.createPlayer(
+				framework, world, PACKAGE_PERMISSION);
 
 		try {
-			grantPermission(framework, player, PACKAGE_PERMISSION);
-
 			try (var dropCapture = framework.events().capture(DROP_EVENT);
 				 var landCapture = framework.events().capture(LAND_EVENT)) {
 				player.executeCommand("airdrop starter");
@@ -70,7 +69,6 @@ class StarterDropIT {
 			AirdropIntegrationSupport.awaitNoDropEntities(world);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			unsetPermission(framework, player, PACKAGE_PERMISSION);
 			player.remove();
 		}
 	}
@@ -116,19 +114,6 @@ class StarterDropIT {
 		} finally {
 			Files.writeString(packagesFile, originalPackages, StandardCharsets.UTF_8);
 		}
-	}
-
-	private void grantPermission(ILightkeeperFramework framework, PlayerHandle player, String permission) {
-		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
-				"lp user %s permission set %s true".formatted(player.name(), permission));
-		assertThat(result.success()).as("LuckPerms grant for %s", permission).isTrue();
-		eventually(Duration.ofSeconds(20), () ->
-				assertThat(player.permissions().has(permission)).as(permission).isTrue());
-	}
-
-	private void unsetPermission(ILightkeeperFramework framework, PlayerHandle player, String permission) {
-		framework.server().executeCommand(CommandSource.CONSOLE,
-				"lp user %s permission unset %s".formatted(player.name(), permission));
 	}
 
 	private void assertLandingEvent(

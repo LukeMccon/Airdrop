@@ -9,8 +9,13 @@ import nl.pim16aap2.lightkeeper.framework.WorldSpec;
 import nl.pim16aap2.lightkeeper.protocol.CommandSource;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.eventually;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,7 +23,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 final class AirdropIntegrationSupport {
 	static final String DROP_EVENT = "com.airdropmc.events.PackageDropEvent";
 	static final String LAND_EVENT = "com.airdropmc.events.PackageLandEvent";
+	static final String CONSUMER_READY = "AIRDR_CONSUMER_READY";
+	static final String CONSUMER_REQUEST = "AIRDR_CONSUMER_REQUEST";
+	static final String CONSUMER_SPAWNED = "AIRDR_CONSUMER_SPAWNED";
+	static final String CONSUMER_LANDING_ATTEMPT = "AIRDR_CONSUMER_LANDING_ATTEMPT";
+	static final String CONSUMER_LANDED = "AIRDR_CONSUMER_LANDED";
+	static final String CONSUMER_OUTCOME = "AIRDR_CONSUMER_OUTCOME";
+	static final List<String> FREE_MARKER_TYPES = List.of(
+			"READY", "REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME");
+	static final List<String> REJECTED_MARKER_TYPES = List.of("REQUEST", "OUTCOME");
 	static final String PACKAGE_PERMISSION = "airdrop.package.starter";
+	static final String PAID_PACKAGE_PERMISSION = "airdrop.package.paid";
 	static final int LANDING_X = 0;
 	static final int PLATFORM_Y = 80;
 	static final int BARREL_Y = PLATFORM_Y + 1;
@@ -28,6 +43,16 @@ final class AirdropIntegrationSupport {
 
 	private static final BlockPos DROP_ENTITY_MIN = new BlockPos(-64, PLATFORM_Y - 8, -64);
 	private static final BlockPos DROP_ENTITY_MAX = new BlockPos(64, PLATFORM_Y + 80, 64);
+	private static final Pattern CONSUMER_MARKER = Pattern.compile(
+			"\\b(" + String.join("|", List.of(
+					CONSUMER_READY,
+					CONSUMER_REQUEST,
+					CONSUMER_SPAWNED,
+					CONSUMER_LANDING_ATTEMPT,
+					CONSUMER_LANDED,
+					CONSUMER_OUTCOME)) + ")\\b");
+	private static final Pattern MARKER_ATTRIBUTE = Pattern.compile(
+			"\\b(requestId|sequence|primaryThread|delivery|payment|reason)=([^\\s]+)");
 	private static final String STARTER_ITEMS_EXACT = "{Items:["
 			+ "{Slot:0b,id:\"minecraft:iron_helmet\",count:1},"
 			+ "{Slot:1b,id:\"minecraft:iron_chestplate\",count:1},"
@@ -54,15 +79,32 @@ final class AirdropIntegrationSupport {
 	static void awaitReady(ILightkeeperFramework framework) {
 		eventually(Duration.ofSeconds(20), () ->
 				assertThat(framework.server().output())
-						.anyMatch(line -> line.contains("Using economy provider: LightKeeper Economy")));
+						.anyMatch(line -> line.contains(
+								"No economy provider is available; paid drops are blocked")));
 		nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.assertThat(framework)
 				.isPaper();
 		assertThat(framework.server().plugin("Airdrop"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
-		assertThat(framework.server().plugin("LuckPerms"))
+		assertThat(framework.server().plugin("AirdropConsumerFixture"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
 		assertThat(framework.server().plugin("Vault"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
+		assertThat(framework.server().plugin("LuckPerms")).isEmpty();
+		awaitConsumerMarkers(framework, 0, List.of("READY"));
+	}
+
+	static void enableEconomyProvider(ILightkeeperFramework framework) {
+		int outputLineCount = framework.server().output().size();
+		CommandResult enable = framework.server().executeCommand(
+				CommandSource.CONSOLE, "lkeconomy enable");
+		assertThat(enable.success()).as("enable fixture economy provider").isTrue();
+		CommandResult reload = framework.server().executeCommand(
+				CommandSource.CONSOLE, "airdrop reload");
+		assertThat(reload.success()).as("reload Airdrop economy provider").isTrue();
+		eventually(Duration.ofSeconds(20), () ->
+				assertThat(newOutput(framework, outputLineCount))
+						.anyMatch(line -> line.contains(
+								"Using economy provider: LightKeeper Economy")));
 	}
 
 	static WorldHandle createLandingWorld(ILightkeeperFramework framework) {
@@ -78,6 +120,13 @@ final class AirdropIntegrationSupport {
 			}
 		}
 		return world;
+	}
+
+	static void keepLandingChunkLoaded(ILightkeeperFramework framework, WorldHandle world) {
+		CommandResult result = framework.server().executeCommand(
+				CommandSource.CONSOLE,
+				"minecraft:execute in minecraft:%s run forceload add 0 0".formatted(world.name()));
+		assertThat(result.success()).as("force-load consumer lifecycle landing chunk").isTrue();
 	}
 
 	static PlayerHandle createPlayer(
@@ -216,10 +265,70 @@ final class AirdropIntegrationSupport {
 
 	static void assertNoUnexpectedServerErrors(ILightkeeperFramework framework) {
 		nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.assertThat(framework)
-				.hasNoServerErrors(error ->
-						// Paper emits this while LightKeeper creates a valid flat test world.
-						"net.minecraft.server.dedicated.DedicatedServerProperties".equals(error.loggerName())
-								&& "No key layers in MapLike[{}]".equals(error.message()));
+				.hasNoServerErrors(error -> isExpectedServerError(error.loggerName(), error.message()));
+	}
+
+	static boolean isExpectedServerError(String loggerName, String message) {
+		// Paper emits this while LightKeeper creates a valid flat test world.
+		if ("net.minecraft.server.dedicated.DedicatedServerProperties".equals(loggerName)
+				&& "No key layers in MapLike[{}]".equals(message)) {
+			return true;
+		}
+		// Offline-mode integration tests do not use Paper's background Mojang key fetch.
+		return "com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo".equals(loggerName)
+				&& "Failed to request yggdrasil public key".equals(message);
+	}
+
+	static List<ConsumerMarker> awaitConsumerMarkers(
+			ILightkeeperFramework framework,
+			int outputLineCount,
+			List<String> expectedTypes
+	) {
+		eventually(Duration.ofSeconds(30), () ->
+				assertThat(consumerMarkers(framework, outputLineCount))
+						.extracting(ConsumerMarker::type)
+						.containsExactlyElementsOf(expectedTypes));
+		return consumerMarkers(framework, outputLineCount);
+	}
+
+	static List<ConsumerMarker> consumerMarkers(
+			ILightkeeperFramework framework,
+			int outputLineCount
+	) {
+		List<ConsumerMarker> markers = new ArrayList<>();
+		for (String line : newOutput(framework, outputLineCount)) {
+			Matcher markerMatcher = CONSUMER_MARKER.matcher(line);
+			if (!markerMatcher.find()) {
+				continue;
+			}
+
+			Map<String, String> values = new LinkedHashMap<>();
+			Matcher attributeMatcher = MARKER_ATTRIBUTE.matcher(line.substring(markerMatcher.end()));
+			while (attributeMatcher.find()) {
+				values.put(attributeMatcher.group(1), attributeMatcher.group(2));
+			}
+			markers.add(new ConsumerMarker(
+					markerMatcher.group(1).substring("AIRDR_CONSUMER_".length()),
+					Map.copyOf(values)));
+		}
+		return List.copyOf(markers);
+	}
+
+	static void assertCorrelatedPrimaryThreadSequence(List<ConsumerMarker> markers) {
+		List<ConsumerMarker> requestMarkers = markers.stream()
+				.filter(marker -> !"READY".equals(marker.type()))
+				.toList();
+		assertThat(requestMarkers).isNotEmpty();
+		assertThat(requestMarkers)
+				.extracting(ConsumerMarker::requestId)
+				.containsOnly(requestMarkers.getFirst().requestId());
+		assertThat(markers)
+				.extracting(ConsumerMarker::sequence)
+				.doesNotHaveDuplicates()
+				.isSorted();
+		assertThat(markers)
+				.extracting(marker -> marker.required("primaryThread"))
+				.containsOnly("true");
 	}
 
 	private static void assertStarterExplosionDrops(
@@ -273,11 +382,31 @@ final class AirdropIntegrationSupport {
 
 	private static List<String> newOutput(ILightkeeperFramework framework, int outputLineCount) {
 		List<String> lines = framework.server().output();
-		assertThat(lines).hasSizeGreaterThan(outputLineCount);
+		assertThat(lines).hasSizeGreaterThanOrEqualTo(outputLineCount);
 		return lines.subList(outputLineCount, lines.size());
 	}
 
 	private static String uniqueMarker(String description) {
 		return "AIRDR_26_" + description + "_" + Long.toUnsignedString(System.nanoTime(), 36);
+	}
+
+	record ConsumerMarker(String type, Map<String, String> values) {
+		ConsumerMarker {
+			values = Map.copyOf(values);
+		}
+
+		String required(String key) {
+			String value = values.get(key);
+			assertThat(value).as("%s attribute on %s marker", key, type).isNotBlank();
+			return value;
+		}
+
+		UUID requestId() {
+			return UUID.fromString(required("requestId"));
+		}
+
+		long sequence() {
+			return Long.parseLong(required("sequence"));
+		}
 	}
 }

@@ -28,6 +28,7 @@ import org.bukkit.plugin.Plugin;
 
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
+import com.airdropmc.api.RetirementReason;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.limits.DropAdmissionController;
@@ -64,7 +65,8 @@ public class CrateCleanupListener implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onBlockBurn(BlockBurnEvent e) {
 		if (e.getBlock().getType() == Material.BARREL) {
-			CrateManager.removeCrateAndDestroy(e.getBlock().getLocation());
+			CrateManager.removeCrateAndDestroy(
+					e.getBlock().getLocation(), RetirementReason.BURNED);
 		}
 	}
 
@@ -153,7 +155,8 @@ public class CrateCleanupListener implements Listener {
 		try {
 			Bukkit.getScheduler().runTask(schedulerPlugin, () -> {
 				for (PendingCrateRemoval removal : pending) {
-					CrateManager.finalizeCrateBreak(removal.location(), removal.crate());
+					CrateManager.finalizeCrateBreak(
+							removal.location(), removal.crate(), RetirementReason.EXPLODED);
 				}
 			});
 		} catch (RuntimeException failure) {

@@ -46,6 +46,7 @@ class PaidEconomyIT {
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void paidPackageUsesModernAsyncProviderAndWithdrawsExactPrice(ILightkeeperFramework framework) {
 		AirdropIntegrationSupport.awaitReady(framework);
+		AirdropIntegrationSupport.enableEconomyProvider(framework);
 		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
 		PlayerHandle player = AirdropIntegrationSupport.createPlayer(framework, world, PREMIUM_PERMISSION);
 
@@ -83,6 +84,7 @@ class PaidEconomyIT {
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void cancelledPaidLandingRefundsExactlyOnceAndReleasesLocation(ILightkeeperFramework framework) {
 		AirdropIntegrationSupport.awaitReady(framework);
+		AirdropIntegrationSupport.enableEconomyProvider(framework);
 		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
 		PlayerHandle rejectedPlayer = AirdropIntegrationSupport.createPlayer(
 				framework, world, PREMIUM_PERMISSION);

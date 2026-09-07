@@ -1,0 +1,231 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PROJECT_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+DOCUMENT="$PROJECT_ROOT/docs/modrinth.md"
+PRODUCTION_API_BASE="https://api.modrinth.com/v2"
+USER_AGENT="Airdrop-Modrinth-Docs/1.0 (+https://github.com/LukeMccon/Airdrop)"
+TEMP_DIRECTORY=""
+AUTH_HEADER=""
+
+cleanup() {
+	if [ -n "$TEMP_DIRECTORY" ] && [ -d "$TEMP_DIRECTORY" ]; then
+		rm -rf -- "$TEMP_DIRECTORY"
+	fi
+}
+trap cleanup EXIT HUP INT TERM
+
+fail() {
+	printf 'modrinth-docs: %s\n' "$1" >&2
+	exit 1
+}
+
+require_command() {
+	command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
+}
+
+require_line() {
+	grep -Fqx -- "$1" "$DOCUMENT" || fail "canonical body is missing heading: $1"
+}
+
+require_text() {
+	grep -Fq -- "$1" "$DOCUMENT" || fail "canonical body is missing required link: $1"
+}
+
+check_local() {
+	[ -s "$DOCUMENT" ] || fail "canonical body is missing or empty: docs/modrinth.md"
+
+	require_line "# Airdrop"
+	require_line "## Quick links"
+	require_line "## Compatibility"
+	require_line "## Installation"
+	require_line "### Free quick start"
+	require_line "### Paid setup"
+	require_line "## Commands and permissions"
+	require_line "## Configuration"
+	require_line "## Package files"
+	require_line "## Troubleshooting"
+	require_line "## Developer integration"
+	require_line "### Compile against Airdrop without shading it"
+	require_line "### Discover the service, then schedule Bukkit work"
+	require_line "### Requests return typed spawn and terminal stages"
+	require_line "### Queries return immutable active-drop snapshots"
+	require_line "### Events expose ordering and cancellation boundaries"
+	require_line "### Treat delivery and payment as separate results"
+	require_line "## Project and support"
+
+	require_text "https://modrinth.com/plugin/airdrop#installation"
+	require_text "https://modrinth.com/plugin/airdrop#configuration"
+	require_text "https://modrinth.com/plugin/airdrop#troubleshooting"
+	require_text "https://modrinth.com/plugin/airdrop#developer-integration"
+	require_text "https://github.com/LukeMccon/Airdrop"
+	require_text "https://modrinth.com/plugin/airdrop/versions"
+	require_text "https://github.com/LukeMccon/Airdrop/issues/new?labels=bug"
+	require_text "https://github.com/LukeMccon/Airdrop/issues/new?labels=enhancement"
+	require_text "maven.modrinth:airdrop:4.1.0"
+	require_text "getServicesManager().load(AirdropApi.class)"
+	require_text "requestPlayerDrop"
+	require_text "AirdropOutcomeEvent"
+	require_text "PackageRegistryChangedEvent"
+	require_text 'never retry an `UNKNOWN` payment automatically'
+
+	if grep -Fqi -- "github.com/LukeMccon/Airdrop/wiki" "$DOCUMENT"; then
+		fail "canonical body must not link to the obsolete GitHub wiki"
+	fi
+	printf '%s\n' "Modrinth documentation is valid: docs/modrinth.md" >&2
+}
+
+render_payload() {
+	check_local
+	require_command jq
+	jq -cn --rawfile body "$DOCUMENT" '{body: $body}'
+}
+
+ensure_temporary_directory() {
+	if [ -z "$TEMP_DIRECTORY" ]; then
+		TEMP_DIRECTORY=$(mktemp -d "${TMPDIR:-/tmp}/airdrop-modrinth-docs.XXXXXX")
+		chmod 700 "$TEMP_DIRECTORY"
+	fi
+}
+
+configure_remote() {
+	MODRINTH_API_BASE=${MODRINTH_API_BASE:-$PRODUCTION_API_BASE}
+	case "$MODRINTH_API_BASE" in
+		"$PRODUCTION_API_BASE")
+			CURL_PROTOCOL="=https"
+			;;
+		http://127.0.0.1:*/v2)
+			[ "${MODRINTH_DOCS_ALLOW_LOOPBACK:-}" = "1" ] \
+				|| fail "a loopback API override requires MODRINTH_DOCS_ALLOW_LOOPBACK=1"
+			loopback_port=${MODRINTH_API_BASE#http://127.0.0.1:}
+			loopback_port=${loopback_port%/v2}
+			case "$loopback_port" in
+				[1-9]|[1-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]|[1-9][0-9][0-9][0-9][0-9]) ;;
+				*) fail "MODRINTH_API_BASE must be the production API or guarded 127.0.0.1 test endpoint" ;;
+			esac
+			[ "$loopback_port" -le 65535 ] \
+				|| fail "MODRINTH_API_BASE loopback port is outside the valid range"
+			CURL_PROTOCOL="=http"
+			;;
+		*)
+			fail "MODRINTH_API_BASE must be the production API or guarded 127.0.0.1 test endpoint"
+			;;
+	esac
+
+	[ -n "${MODRINTH_PROJECT_ID:-}" ] || fail "MODRINTH_PROJECT_ID is required"
+	case "$MODRINTH_PROJECT_ID" in
+		*[!A-Za-z0-9_-]*) fail "MODRINTH_PROJECT_ID contains unsupported characters" ;;
+	esac
+	PROJECT_URL="$MODRINTH_API_BASE/project/$MODRINTH_PROJECT_ID"
+	require_command curl
+	require_command jq
+	ensure_temporary_directory
+}
+
+configure_authentication() {
+	[ -n "${MODRINTH_TOKEN:-}" ] || fail "MODRINTH_TOKEN is required for publish"
+	case "$MODRINTH_TOKEN" in
+		*[!A-Za-z0-9._-]*) fail "MODRINTH_TOKEN contains unsupported characters" ;;
+	esac
+	umask 077
+	AUTH_HEADER="$TEMP_DIRECTORY/authorization-header"
+	printf 'Authorization: %s\n' "$MODRINTH_TOKEN" > "$AUTH_HEADER"
+	unset MODRINTH_TOKEN
+}
+
+get_project() {
+	response_file=$1
+	status_file=$2
+	if [ -n "$AUTH_HEADER" ]; then
+		curl --disable --fail-with-body --silent --show-error \
+			--connect-timeout 10 --max-time 30 --max-redirs 0 \
+			--proto "$CURL_PROTOCOL" --request GET \
+			--header "Accept: application/json" \
+			--header "User-Agent: $USER_AGENT" \
+			--header "@$AUTH_HEADER" \
+			--output "$response_file" --write-out '%{http_code}' \
+			"$PROJECT_URL" > "$status_file"
+	else
+		curl --disable --fail-with-body --silent --show-error \
+			--connect-timeout 10 --max-time 30 --max-redirs 0 \
+			--proto "$CURL_PROTOCOL" --request GET \
+			--header "Accept: application/json" \
+			--header "User-Agent: $USER_AGENT" \
+			--output "$response_file" --write-out '%{http_code}' \
+			"$PROJECT_URL" > "$status_file"
+	fi
+	grep -qx -- "200" "$status_file" || fail "Modrinth project GET did not return HTTP 200"
+}
+
+extract_remote_body() {
+	response_file=$1
+	body_file=$2
+	jq -e -j '.body | strings' "$response_file" > "$body_file" \
+		|| fail "Modrinth project response does not contain a string body"
+}
+
+fetch_remote_body() {
+	body_file=$1
+	get_project "$TEMP_DIRECTORY/get-response.json" "$TEMP_DIRECTORY/get-status"
+	extract_remote_body "$TEMP_DIRECTORY/get-response.json" "$body_file"
+}
+
+patch_project() {
+	payload_file=$1
+	curl --disable --fail-with-body --silent --show-error \
+		--connect-timeout 10 --max-time 30 --max-redirs 0 \
+		--proto "$CURL_PROTOCOL" --request PATCH \
+		--header "Accept: application/json" \
+		--header "Content-Type: application/json" \
+		--header "User-Agent: $USER_AGENT" \
+		--header "@$AUTH_HEADER" \
+		--data-binary "@$payload_file" \
+		--output "$TEMP_DIRECTORY/patch-response.json" --write-out '%{http_code}' \
+		"$PROJECT_URL" > "$TEMP_DIRECTORY/patch-status"
+	case "$(tr -d '\r\n' < "$TEMP_DIRECTORY/patch-status")" in
+		200|204) ;;
+		*) fail "Modrinth project PATCH did not return HTTP 200 or 204" ;;
+	esac
+}
+
+check_remote() {
+	check_local
+	configure_remote
+	fetch_remote_body "$TEMP_DIRECTORY/remote-body.md"
+	cmp -s -- "$DOCUMENT" "$TEMP_DIRECTORY/remote-body.md" \
+		|| fail "published Modrinth body differs from docs/modrinth.md"
+	printf '%s\n' "Published Modrinth body matches docs/modrinth.md" >&2
+}
+
+publish() {
+	check_local
+	configure_remote
+	configure_authentication
+	fetch_remote_body "$TEMP_DIRECTORY/remote-before.md"
+	if cmp -s -- "$DOCUMENT" "$TEMP_DIRECTORY/remote-before.md"; then
+		printf '%s\n' "Published Modrinth body already matches docs/modrinth.md; no PATCH needed" >&2
+		return
+	fi
+
+	render_payload > "$TEMP_DIRECTORY/payload.json"
+	patch_project "$TEMP_DIRECTORY/payload.json"
+	fetch_remote_body "$TEMP_DIRECTORY/remote-after.md"
+	cmp -s -- "$DOCUMENT" "$TEMP_DIRECTORY/remote-after.md" \
+		|| fail "Modrinth body still differs after PATCH"
+	printf '%s\n' "Published and verified docs/modrinth.md" >&2
+}
+
+usage() {
+	printf '%s\n' "Usage: scripts/modrinth-docs {check-local|render-payload|check-remote|publish}" >&2
+	exit 2
+}
+
+[ "$#" -eq 1 ] || usage
+case "$1" in
+	check-local) check_local ;;
+	render-payload) render_payload ;;
+	check-remote) check_remote ;;
+	publish) publish ;;
+	*) usage ;;
+esac

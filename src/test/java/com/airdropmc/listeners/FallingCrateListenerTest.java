@@ -1,8 +1,8 @@
 package com.airdropmc.listeners;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.WorldMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
 import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
 import org.bukkit.Location;
@@ -62,6 +62,7 @@ class FallingCrateListenerTest {
 		when(event.getEntity()).thenReturn(fallingBlock);
 		when(event.getBlock()).thenReturn(eventBlock);
 		when(fallingBlock.getLocation()).thenReturn(entityLocation);
+		when(crate.beginLanding(any())).thenReturn(true);
 		CrateManager.addCrate(fallingBlock, crate);
 
 		listener.onEntityChangeBlockEvent(event);
@@ -69,6 +70,7 @@ class FallingCrateListenerTest {
 		assertFalse(CrateManager.hasCrate(fallingBlock));
 		verify(event).setCancelled(true);
 		verify(crate).land(eventBlock);
+		verify(crate).completeLanding();
 	}
 
 	@Test
@@ -85,7 +87,7 @@ class FallingCrateListenerTest {
 		server.getPluginManager().callEvent(event);
 
 		assertFalse(CrateManager.hasCrate(fallingBlock));
-		verify(crate).destroy();
+		verify(crate).cancelLanding();
 		verify(crate, never()).land(any());
 	}
 
@@ -106,7 +108,7 @@ class FallingCrateListenerTest {
 		assertEquals(1, protectionListener.invocations);
 		assertTrue(event.isCancelled());
 		assertFalse(CrateManager.hasCrate(fallingBlock));
-		verify(crate).destroy();
+		verify(crate).cancelLanding();
 		verify(crate, never()).land(any());
 	}
 
@@ -132,6 +134,7 @@ class FallingCrateListenerTest {
 
 		when(event.getEntity()).thenReturn(fallingBlock);
 		when(event.getBlock()).thenReturn(eventBlock);
+		when(crate.beginLanding(any())).thenReturn(true);
 		doThrow(new IllegalStateException("failed to land")).when(crate).land(any());
 		CrateManager.addCrate(fallingBlock, crate);
 

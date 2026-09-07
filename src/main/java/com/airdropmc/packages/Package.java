@@ -9,11 +9,13 @@ import com.airdropmc.helpers.ChatTheme;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Represents a package within the airdrop
  * Which includes the name, price, and items
  */
+@ApiStatus.Internal
 public class Package {
 
 	private List<ItemStack> items;

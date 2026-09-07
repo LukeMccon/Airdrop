@@ -1,9 +1,27 @@
-# Airdrop 4.1 release note: exception contracts become explicit
+# Airdrop 4.1.0 establishes a supported extension API
 
-Airdrop 4.1 deliberately makes two source- and binary-incompatible API changes
-one day after 4.0. The project is not currently aware of any integrations
-consuming the 4.x API, so it is accepting this break in 4.1 without a
-major-version release.
+Airdrop 4.1.0 introduces the independently versioned `com.airdropmc.api`
+boundary at API `1.0.0`. Consumers can discover `AirdropApi` through Bukkit,
+await readiness, submit typed drop requests, observe lifecycle events and
+outcomes, and query immutable package and active-drop snapshots.
+
+- Plugin, extension API, Paper, and Java versions now have distinct generated
+  metadata and command labels.
+- Deterministic API signatures and optional explicit JApiCmp comparisons guard
+  binary and source compatibility.
+- Controllers, managers, `Crate`, raw configuration wrappers, and
+  `com.airdropmc.events` are implementation details. `PackageDropEvent` and
+  `PackageLandEvent` are unsupported deprecated adapters; consumers should use
+  the supported lifecycle events under `com.airdropmc.api.event`.
+
+See `docs/migration-4.1.md` before rebuilding an existing integration.
+
+## The 4.1 cleanup intentionally changes the old Java surface
+
+Airdrop 4.1 deliberately makes source- and binary-incompatible changes to
+previously public implementation types. The project has no known integrations
+with the 4.0 Java surface, so 4.1 establishes the supported API directly and
+does not add compatibility shims for that accidental surface.
 
 - `CannotAffordException` has been removed because version 4 no longer throws
   it. Insufficient funds use `EconomyResult.REJECTED` in the asynchronous

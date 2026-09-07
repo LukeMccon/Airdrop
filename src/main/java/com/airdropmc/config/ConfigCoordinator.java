@@ -1,6 +1,7 @@
 package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.PackageRegistryCause;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.packages.Package;
@@ -11,6 +12,7 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -45,10 +48,12 @@ public final class ConfigCoordinator implements AutoCloseable {
 	private final ConfigFileStore store;
 	private final ExecutorService executor;
 	private final MainThreadDispatcher mainThread;
+	private final BukkitTask dispatchFailureWatchdog;
 	private final Function<ConfigurationCandidate, EconomyProviderRefreshResult> configurationCommit;
 	private final Consumer<PackageCandidate> packageCommit;
 	private final Object queueLock = new Object();
 	private final ArrayDeque<QueuedOperation<?>> queue = new ArrayDeque<>();
+	private final AtomicReference<Throwable> pendingDispatchFailure = new AtomicReference<>();
 
 	private QueuedOperation<?> active;
 	private boolean closed;
@@ -69,6 +74,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 					return thread;
 				}),
 				task -> Bukkit.getScheduler().runTask(plugin, task),
+				task -> Bukkit.getScheduler().runTaskTimer(plugin, task, 1L, 1L),
 				configurationCommit,
 				packageCommit);
 	}
@@ -79,6 +85,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 			ConfigFileStore store,
 			ExecutorService executor,
 			MainThreadDispatcher mainThread,
+			MainThreadWatchdogScheduler watchdogScheduler,
 			Function<ConfigurationCandidate, EconomyProviderRefreshResult> configurationCommit,
 			Consumer<PackageCandidate> packageCommit) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -88,6 +95,10 @@ public final class ConfigCoordinator implements AutoCloseable {
 		this.mainThread = Objects.requireNonNull(mainThread, "mainThread");
 		this.configurationCommit = Objects.requireNonNull(configurationCommit, "configurationCommit");
 		this.packageCommit = Objects.requireNonNull(packageCommit, "packageCommit");
+		this.dispatchFailureWatchdog = Objects.requireNonNull(
+				Objects.requireNonNull(watchdogScheduler, "watchdogScheduler")
+						.schedule(this::drainDispatchFailure),
+				"dispatchFailureWatchdog");
 	}
 
 	public CompletionStage<EconomyProviderRefreshResult> startup() {
@@ -106,7 +117,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 					readPackages(), detachedPackage);
 			Map<String, Package> materialized = PackageManager.materializePackages(candidate);
 			store.write(packagesPath(), candidate);
-			PackageCandidate prepared = new PackageCandidate(candidate, materialized, true);
+			PackageCandidate prepared = new PackageCandidate(
+					candidate, materialized, true, PackageRegistryCause.CREATE);
 			return () -> {
 				packageCommit.accept(prepared);
 				return true;
@@ -122,7 +134,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 					readPackages(), detachedName, detachedItems);
 			Map<String, Package> materialized = PackageManager.materializePackages(candidate);
 			store.write(packagesPath(), candidate);
-			PackageCandidate prepared = new PackageCandidate(candidate, materialized, false);
+			PackageCandidate prepared = new PackageCandidate(
+					candidate, materialized, false, PackageRegistryCause.UPDATE);
 			return () -> {
 				packageCommit.accept(prepared);
 				return true;
@@ -137,7 +150,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 					readPackages(), detachedName);
 			Map<String, Package> materialized = PackageManager.materializePackages(candidate);
 			store.write(packagesPath(), candidate);
-			PackageCandidate prepared = new PackageCandidate(candidate, materialized, true);
+			PackageCandidate prepared = new PackageCandidate(
+					candidate, materialized, true, PackageRegistryCause.DELETE);
 			return () -> {
 				packageCommit.accept(prepared);
 				return true;
@@ -167,7 +181,8 @@ public final class ConfigCoordinator implements AutoCloseable {
 		boolean economyEnabled = ConfigKeys.isEconomyEnabled(mainConfig);
 		mainConfig.set(ConfigKeys.DROP_SMOKE_ENABLED, ConfigKeys.isSmokeEnabled(mainConfig));
 		ConfigurationCandidate candidate = new ConfigurationCandidate(
-				mainConfig, packagesConfig, packages, language, economyEnabled, startup);
+				mainConfig, packagesConfig, packages, language, economyEnabled, startup,
+				startup ? PackageRegistryCause.STARTUP : PackageRegistryCause.RELOAD);
 		return () -> configurationCommit.apply(candidate);
 	}
 
@@ -217,7 +232,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 				new ItemStack(Material.IRON_LEGGINGS, 1),
 				new ItemStack(Material.IRON_BOOTS, 1),
 				new ItemStack(Material.BREAD, 2)));
-		configuration.set(PackageManager.PACKAGES_SECTION + ".starter.price", 10.0);
+		configuration.set(PackageManager.PACKAGES_SECTION + ".starter.price", 0.0);
 		return configuration;
 	}
 
@@ -294,11 +309,43 @@ public final class ConfigCoordinator implements AutoCloseable {
 		try {
 			mainThread.dispatch(() -> finish(operation, operationGeneration, commit, failure));
 		} catch (RuntimeException schedulingFailure) {
-			plugin.getLogger().log(Level.SEVERE,
-					"Could not schedule configuration completion on the server thread; "
-							+ "the operation will remain pending until shutdown",
-					schedulingFailure);
+			pendingDispatchFailure.compareAndSet(null, schedulingFailure);
 		}
+	}
+
+	private void drainDispatchFailure() {
+		Throwable schedulingFailure = pendingDispatchFailure.getAndSet(null);
+		if (schedulingFailure == null) {
+			return;
+		}
+		failAndClose(schedulingFailure);
+		plugin.getLogger().log(Level.SEVERE,
+				"Could not schedule configuration completion on the server thread; "
+						+ "the configuration coordinator is now closed",
+				schedulingFailure);
+	}
+
+	private void failAndClose(Throwable failure) {
+		List<CompletableFuture<?>> failed = new ArrayList<>();
+		synchronized (queueLock) {
+			if (closed) {
+				return;
+			}
+			closed = true;
+			generation++;
+			if (active != null) {
+				failed.add(active.future);
+				active = null;
+			}
+			while (!queue.isEmpty()) {
+				failed.add(queue.removeFirst().future);
+			}
+		}
+		dispatchFailureWatchdog.cancel();
+		for (CompletableFuture<?> future : failed) {
+			future.completeExceptionally(failure);
+		}
+		executor.shutdownNow();
 	}
 
 	private <T> void finish(
@@ -355,6 +402,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 				cancelled.add(queue.removeFirst().future);
 			}
 		}
+		dispatchFailureWatchdog.cancel();
 		executor.shutdownNow();
 		for (CompletableFuture<?> future : cancelled) {
 			future.completeExceptionally(new CancellationException("Configuration coordinator is closed"));
@@ -367,28 +415,43 @@ public final class ConfigCoordinator implements AutoCloseable {
 			Map<String, Package> packages,
 			LanguageManager.LanguageCandidate language,
 			boolean economyEnabled,
-			boolean startup) {
+			boolean startup,
+			PackageRegistryCause cause) {
 		public ConfigurationCandidate {
 			Objects.requireNonNull(configuration, "configuration");
 			Objects.requireNonNull(packagesConfiguration, "packagesConfiguration");
 			packages = Map.copyOf(Objects.requireNonNull(packages, "packages"));
 			Objects.requireNonNull(language, "language");
+			Objects.requireNonNull(cause, "cause");
+			if (startup != (cause == PackageRegistryCause.STARTUP)) {
+				throw new IllegalArgumentException("startup and package publication cause disagree");
+			}
 		}
 	}
 
 	public record PackageCandidate(
 			FileConfiguration configuration,
 			Map<String, Package> packages,
-			boolean refreshBrowser) {
+			boolean refreshBrowser,
+			PackageRegistryCause cause) {
 		public PackageCandidate {
 			Objects.requireNonNull(configuration, "configuration");
 			packages = Map.copyOf(Objects.requireNonNull(packages, "packages"));
+			Objects.requireNonNull(cause, "cause");
+			if (cause == PackageRegistryCause.STARTUP || cause == PackageRegistryCause.RELOAD) {
+				throw new IllegalArgumentException("Package mutation requires a mutation cause");
+			}
 		}
 	}
 
 	@FunctionalInterface
 	interface MainThreadDispatcher {
 		void dispatch(Runnable task);
+	}
+
+	@FunctionalInterface
+	interface MainThreadWatchdogScheduler {
+		BukkitTask schedule(Runnable task);
 	}
 
 	@FunctionalInterface

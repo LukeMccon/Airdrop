@@ -22,6 +22,10 @@ class LightkeeperIntegrationConfigurationTest {
 			"lightkeeper", "src", "test", "resources", "overlay", "plugins", "Airdrop", "config.yml");
 	private static final Path LIGHTKEEPER_PACKAGES = Path.of(
 			"lightkeeper", "src", "test", "resources", "overlay", "plugins", "Airdrop", "packages.yml");
+	private static final Path README = Path.of("README.md");
+	private static final Path RELEASE_WORKFLOW = Path.of(".github", "workflows", "release.yml");
+	private static final Path INTEGRATION_TESTS = Path.of(
+			"lightkeeper", "src", "test", "java", "com", "airdropmc", "integration");
 	private static final String LIGHTKEEPER_COMMIT = "be585af08221c37bcbc8c9d7f5a40a27dbd2dff1";
 
 	@Test
@@ -34,7 +38,7 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(pom, "https://repo.papermc.io/repository/maven-public/");
 		assertContains(pom, "maven-failsafe-plugin");
 		assertContains(pom, "airdrop.jar.path");
-		assertContains(pom, "b0mk8uS6");
+		assertContains(pom, "airdrop.consumer.jar.path");
 		assertContains(pom, "runtime-manifest.json");
 		assertContains(pom, "lightkeeper-server");
 	}
@@ -77,6 +81,47 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(bootstrap, "defff158d56b215c9756e0042dc456fc09b76e1f13cfc23d6a3941aefac444e7");
 		assertContains(bootstrap, "META-INF/maven/plugin.xml");
 		assertContains(bootstrap, "sha256sum");
+		assertContains(bootstrap, "adapter_is_valid");
+		assertContains(bootstrap, "cmp -s");
+		assertTrue(bootstrap.indexOf("adapter_is_valid") < bootstrap.indexOf("curl -fsSL"),
+				"The existing adapter must be validated before a replacement is downloaded");
+	}
+
+	@Test
+	void bareLightkeeperRunsArchiveDiagnosticsAndResetOnlyRuntimeState() throws IOException {
+		String build = requiredContents(Path.of("build.gradle.kts"));
+
+		assertContains(build, "register<Copy>(\"archiveLightkeeperDiagnostics\")");
+		assertContains(build, "from(\"lightkeeper/target/lightkeeper-server\")");
+		assertContains(build, "include(\"**/logs/**\", \"**/crash-reports/**\")");
+		assertContains(build, "lightkeeper-reports/previous-server");
+		assertFalse(build.contains("register<Sync>(\"archiveLightkeeperDiagnostics\")"),
+				"Copy must retain diagnostics from earlier runs");
+
+		assertContains(build, "register<Delete>(\"resetLightkeeperRuntime\")");
+		assertContains(build, "lightkeeper/target/lightkeeper-server");
+		assertContains(build, "lightkeeper/target/lightkeeper/runtime-manifest.json");
+		assertContains(build, "dependsOn(archiveLightkeeperDiagnostics)");
+		assertContains(build, "dependsOn(resetLightkeeperRuntime)");
+	}
+
+	@Test
+	void adapterValidationRunsForEveryLightkeeperInvocation() throws IOException {
+		String build = requiredContents(Path.of("build.gradle.kts"));
+
+		assertContains(build, "outputs.upToDateWhen { false }");
+		assertContains(build, "dependsOn(prepareLightkeeperPluginAdapter)");
+	}
+
+	@Test
+	void readmeDistinguishesFullCleanupFromDiagnosticPreservingReruns() throws IOException {
+		String readme = requiredContents(README);
+
+		assertContains(readme, "./gradlew --dependency-verification=strict clean lightkeeperTest");
+		assertContains(readme, "./gradlew --dependency-verification=strict lightkeeperTest");
+		assertContains(readme, "Failsafe reports");
+		assertContains(readme, "previous-server");
+		assertContains(readme, "adapter repository");
 	}
 
 	@Test
@@ -91,11 +136,84 @@ class LightkeeperIntegrationConfigurationTest {
 	}
 
 	@Test
+	void lightkeeperUsesBothExactPackagedJarsAndGatesTheTaggedRelease() throws IOException {
+		String build = requiredContents(Path.of("build.gradle.kts"));
+		String release = requiredContents(RELEASE_WORKFLOW);
+
+		assertContains(build, "dependsOn(consumerFixtureTest)");
+		assertContains(build, "inputs.file(consumerFixtureJar)");
+		assertContains(build, "-Dairdrop.consumer.jar.path=${consumerJar.path}");
+		assertContains(release,
+				"--dependency-verification=strict clean test build verifyApiCompatibility "
+						+ "verifyReleaseArtifact lightkeeperTest");
+	}
+
+	@Test
+	void sidecarLoadsThePackagedRuntimeAndConsumerWithoutLuckPerms() throws IOException {
+		String pom = requiredContents(LIGHTKEEPER_POM);
+
+		assertContains(pom, "${airdrop.jar.path}");
+		assertContains(pom, "${airdrop.consumer.jar.path}");
+		assertContains(pom, "<renameTo>Airdrop.jar</renameTo>");
+		assertContains(pom, "<renameTo>AirdropConsumerFixture.jar</renameTo>");
+		assertFalse(pom.contains("LuckPerms"), "The default real-server lane must exercise optional LuckPerms absence");
+		assertFalse(pom.contains("<sourceType>modrinth</sourceType>"),
+				"Every plugin under test must come from an exact packaged path");
+	}
+
+	@Test
+	void sidecarEnablesEconomyWithoutAProviderAndDefinesFreeAndPaidPackages() throws IOException {
+		String config = requiredContents(LIGHTKEEPER_CONFIG);
+		String packages = requiredContents(LIGHTKEEPER_PACKAGES);
+
+		assertTrue(Pattern.compile("(?m)^economy:\\R  enabled: true$").matcher(config).find(),
+				"Economy must be enabled so provider absence is observable");
+		assertTrue(Pattern.compile("(?m)^  starter:\\R(?s:.*?\\R)    price: 0\\.0$").matcher(packages).find(),
+				"The starter package must remain free");
+		assertTrue(Pattern.compile("(?m)^  paid:\\R(?s:.*?\\R)    price: (?!0(?:\\.0+)?$)[0-9]+(?:\\.[0-9]+)?$")
+				.matcher(packages).find(), "A priced package is required for the no-provider scenario");
+		assertTrue(Pattern.compile("(?m)^  premium:\\R(?s:.*?\\R)    price: 10\\.25$")
+				.matcher(packages).find(), "Provider-backed paid coverage must retain its exact decimal package");
+	}
+
+	@Test
+	void providerBackedAndNoProviderRealServerScenariosCoexist() throws IOException {
+		String support = requiredContents(INTEGRATION_TESTS.resolve("AirdropIntegrationSupport.java"));
+		String providerBacked = requiredContents(INTEGRATION_TESTS.resolve("PaidEconomyIT.java"));
+		String noProvider = requiredContents(INTEGRATION_TESTS.resolve("EconomyNoProviderIT.java"));
+
+		assertContains(support, "No economy provider is available; paid drops are blocked");
+		assertContains(support, "lkeconomy enable");
+		assertContains(support, "Using economy provider: LightKeeper Economy");
+		assertContains(providerBacked, "enableEconomyProvider");
+		assertContains(noProvider, "ECONOMY_PROVIDER_UNAVAILABLE");
+	}
+
+	@Test
+	void realServerScenariosAssertTheSupportedConsumerMarkerContract() throws IOException {
+		String support = requiredContents(INTEGRATION_TESTS.resolve("AirdropIntegrationSupport.java"));
+		String free = requiredContents(INTEGRATION_TESTS.resolve("ApiConsumerIT.java"));
+		String paid = requiredContents(INTEGRATION_TESTS.resolve("EconomyNoProviderIT.java"));
+
+		for (String marker : new String[]{
+				"READY", "REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME"}) {
+			assertContains(support, "AIRDR_CONSUMER_" + marker);
+		}
+		for (String field : new String[]{
+				"requestId", "sequence", "primaryThread", "delivery", "payment", "reason"}) {
+			assertContains(support, field);
+		}
+		assertContains(free, "READY, REQUEST, SPAWNED, LANDING_ATTEMPT, LANDED, OUTCOME");
+		assertContains(paid, "REQUEST, OUTCOME");
+		assertContains(paid, "ECONOMY_PROVIDER_UNAVAILABLE");
+	}
+
+	@Test
 	void ciRunsLightkeeperSeparatelyAndAlwaysCollectsDiagnostics() throws IOException {
 		String workflow = requiredContents(Path.of(".github", "workflows", "ci.yml"));
 
 		assertContains(workflow, "lightkeeper-test:");
-		assertContains(workflow, "./gradlew --no-daemon lightkeeperTest");
+		assertContains(workflow, "./gradlew --no-daemon --dependency-verification=strict lightkeeperTest");
 		assertContains(workflow, "lightkeeper/target/failsafe-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-diagnostics");
@@ -106,12 +224,15 @@ class LightkeeperIntegrationConfigurationTest {
 	@Test
 	void activePaperCompatibilityMetadataTargets12111() throws IOException {
 		String build = requiredContents(Path.of("build.gradle.kts"));
+		String properties = requiredContents(Path.of("gradle.properties"));
 		String release = requiredContents(Path.of(".github", "workflows", "release.yml"));
 
 		assertFalse(build.contains("1.21.8"), "Gradle must not retain the old Paper floor");
-		assertContains(build, "paper-api:1.21.11-R0.1-SNAPSHOT");
-		assertContains(build, "minecraftVersion(\"1.21.11\")");
-		assertContains(build, "apiVersion = \"1.21.11\"");
+		assertContains(properties, "airdropPaperVersion=1.21.11");
+		assertContains(build, "supportedPaperApiVersion = \"$supportedPaperVersion-R0.1-SNAPSHOT\"");
+		assertContains(build, "paper-api:$supportedPaperApiVersion");
+		assertContains(build, "minecraftVersion(supportedPaperVersion)");
+		assertContains(build, "apiVersion = supportedPaperVersion");
 		assertContains(release, "GAME_VERSIONS=\"1.21.11\"");
 	}
 

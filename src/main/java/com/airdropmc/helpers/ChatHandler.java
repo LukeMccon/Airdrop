@@ -35,16 +35,34 @@ public class ChatHandler {
 
 	public static String get(MessageKey key) {
 		if (lang == null) {
-			return key.getDefault();
+			return formatFallback(key.getDefault(), Map.of());
 		}
 		return lang.get(key);
 	}
 
 	public static String get(MessageKey key, Map<String, String> placeholders) {
 		if (lang == null) {
-			return key.getDefault();
+			return formatFallback(key.getDefault(), placeholders);
 		}
 		return lang.get(key, placeholders);
+	}
+
+	private static String formatFallback(String message, Map<String, String> placeholders) {
+		String formatted = message;
+		for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+			if (entry.getValue() != null) {
+				formatted = formatted.replace("{" + entry.getKey() + "}", entry.getValue());
+			}
+		}
+		formatted = formatted
+				.replace("{primary}", ChatTheme.primary().toString())
+				.replace("{text}", ChatTheme.text().toString())
+				.replace("{accent}", ChatTheme.accent().toString())
+				.replace("{success}", ChatTheme.success().toString())
+				.replace("{warning}", ChatTheme.warning().toString())
+				.replace("{error}", ChatTheme.error().toString())
+				.replace("{error-detail}", ChatTheme.errorDetail().toString());
+		return formatMessage(formatted);
 	}
 
 	public static void send(CommandSender sender, MessageKey key) {

@@ -46,6 +46,20 @@ class PluginYmlPermissionsTest {
 	}
 
 	@Test
+	void generatedPluginYml_treatsLuckPermsAndVaultAsOptional() throws Exception {
+		Map<?, ?> root = loadPluginYml();
+
+		Object softDepend = root.get("softdepend");
+		assertTrue(softDepend instanceof Iterable<?>);
+		String optionalDependencies = String.valueOf(softDepend);
+		assertTrue(optionalDependencies.contains("LuckPerms"));
+		assertTrue(optionalDependencies.contains("Vault"));
+
+		Object hardDepend = root.get("depend");
+		assertTrue(hardDepend == null || !String.valueOf(hardDepend).contains("LuckPerms"));
+	}
+
+	@Test
 	void generatedPluginYml_matchesProjectVersion() throws Exception {
 		Map<?, ?> root = loadPluginYml();
 		String projectVersion = System.getProperty("airdrop.projectVersion");
@@ -59,6 +73,15 @@ class PluginYmlPermissionsTest {
 		Map<?, ?> root = loadPluginYml();
 
 		assertEquals("1.21.11", String.valueOf(root.get("api-version")));
+		assertFalse("1.0.0".equals(String.valueOf(root.get("api-version"))),
+				"plugin.yml api-version is Paper compatibility, not the extension API version");
+	}
+
+	@Test
+	void generatedPluginYmlUsesCanonicalModrinthWebsite() throws Exception {
+		Map<?, ?> root = loadPluginYml();
+
+		assertEquals("https://modrinth.com/plugin/airdrop", String.valueOf(root.get("website")));
 	}
 
 	private Map<?, ?> loadPluginYml() throws Exception {

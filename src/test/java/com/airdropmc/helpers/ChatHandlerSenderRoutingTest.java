@@ -1,6 +1,6 @@
 package com.airdropmc.helpers;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.MockBukkit;
 import com.airdropmc.lang.MessageKey;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -53,8 +53,11 @@ class ChatHandlerSenderRoutingTest {
 		ConsoleCommandSender sender = mock(ConsoleCommandSender.class);
 
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.SYSTEM_VERSION_INFO, Map.of(
-				"version", "4.0.0",
-				"api_version", "1.21.11"));
+				"plugin_version", "4.0.0",
+				"extension_api_version", "unavailable",
+				"paper_version", "1.21.11",
+				"java_version", "21",
+				"docs_url", "https://modrinth.com/plugin/airdrop"));
 
 		verify(sender).sendMessage(anyString());
 	}

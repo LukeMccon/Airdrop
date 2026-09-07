@@ -1,234 +1,70 @@
-<div style="text-align: center;" align="center">
+<div align="center">
 
-<img src="readme/airdrop-banner.png" height="270px" width="200px"/>
+<img src="readme/airdrop-banner.png" height="270px" width="200px" alt="Airdrop logo" />
 
-<h3> <i> From the skies! </i> </h3>
+### *From the skies!*
 
-<br />
-
-![Paper SVG](https://img.shields.io/badge/Paper-1.21.11+-blue.svg) ![Java SVG](https://img.shields.io/badge/Java-21-orange.svg)
-
+![Paper 1.21.11](https://img.shields.io/badge/Paper-1.21.11-blue.svg)
+![Java 21](https://img.shields.io/badge/Java-21-orange.svg)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11+-brightgreen.svg)](https://www.minecraft.net) ![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg) [![Download](https://img.shields.io/badge/download-latest-brightgreen.svg)](https://github.com/LukeMccon/Airdrop/releases/latest)
+![CI](https://github.com/LukeMccon/Airdrop/actions/workflows/ci.yml/badge.svg)
+[![Download from Modrinth](https://img.shields.io/badge/Modrinth-download-1bd96a.svg)](https://modrinth.com/plugin/airdrop/versions)
 
-A Paper plugin for customizable care packages with parachutes, effects, economy support, and in-game package editing.
+A Paper plugin for customizable care packages with parachutes, effects,
+economy support, and in-game package editing.
 
 </div>
 
-## Features
+## Compatibility
 
-- Configurable parachute drops with custom chicken count, fall speed, and drop height
-- Landing, flare, glow, and optional smoke particle effects
-- In-game GUI package creation and editing
-- Economy support through VaultUnlocked's native async API, with original Vault compatibility
-- Best-effort refunds for confirmed paid-drop failures while Airdrop remains active
-- Bounded request rate, falling entities, landed crates, and landed lifetime
-- Language file support (`lang/<language>.yml`) and configurable chat theme colors
-- Runtime reload command for config, language, and packages
+| Airdrop | Extension API | Paper | Java | Automated lanes |
+| --- | --- | --- | --- | --- |
+| Current source (`4.1.0-SNAPSHOT`) | `1.0.0` | `1.21.11` | `21` | unit + LightKeeper |
 
-## Requirements
+Paper `1.21.11` and Java `21` are the exact supported runtime. LuckPerms,
+VaultUnlocked, Vault, and an economy provider are optional; the first-start
+`starter` package is free and works without them.
 
-- Paper `1.21.11+`
-- Java `21`
-- [LuckPerms](https://luckperms.net/) (required)
-- Economy provider for player-requested packages priced above zero when `economy.enabled: true` (default):
-  - [VaultUnlocked](https://github.com/TheNewEconomy/VaultUnlocked) with a compatible economy plugin (preferred), or
-  - [Vault](https://github.com/milkbowl/Vault) with a Vault-compatible economy plugin (legacy fallback)
+Plugin developers should use only `com.airdropmc.api`. See the
+[Airdrop 4.1 migration guide](docs/migration-4.1.md) and
+[extension API version policy](docs/development/api-versioning.md).
 
-If no economy provider is installed, Airdrop still starts. Zero-priced packages remain available, but packages priced above zero are blocked. Setting `economy.enabled: false` also blocks packages priced above zero, even when a provider is installed.
+## Get started
 
-## Installation
+The [canonical Modrinth documentation](https://modrinth.com/plugin/airdrop)
+contains the maintained installation, configuration, command, troubleshooting,
+and developer integration guide:
 
-1. Install plugin dependencies into your server `plugins/` directory:
-   - LuckPerms
-   - Optional: VaultUnlocked or Vault, plus your economy plugin (required for player-requested packages priced above zero)
-2. Download the latest Airdrop release from [Releases](https://github.com/LukeMccon/Airdrop/releases/latest).
-3. Place the Airdrop `.jar` in `plugins/`.
-4. Start or restart the server.
+- [Install and run the free starter](https://modrinth.com/plugin/airdrop#installation)
+- [Configure Airdrop](https://modrinth.com/plugin/airdrop#configuration)
+- [Troubleshoot a server](https://modrinth.com/plugin/airdrop#troubleshooting)
+- [Integrate a plugin](https://modrinth.com/plugin/airdrop#developer-integration)
 
-## Quick Start
-
-1. Create a package:
+## Build locally
 
 ```bash
-/airdrop package create starter 10
+./gradlew clean build
+./gradlew test
+./gradlew runServer
+./gradlew --dependency-verification=strict lightkeeperTest
 ```
 
-2. Add items in the package editor GUI and click `Save`.
-3. Grant players package permissions, for example:
+A bare `lightkeeperTest` rerun archives the previous generated server's `logs`
+and `crash-reports` under
+`lightkeeper/target/lightkeeper-reports/previous-server`, then resets only the
+generated server and runtime manifest. It retains Failsafe reports, LightKeeper
+reports, and the pinned adapter repository for diagnosis and reuse. Use
+`./gradlew --dependency-verification=strict clean lightkeeperTest` for a full
+reset of `lightkeeper/target`.
+
+The canonical Modrinth body is repository-owned. Validate it without network
+access with:
 
 ```bash
-/lp group default permission set airdrop.package.starter true
+./gradlew verifyModrinthDocs
 ```
 
-4. Call in the package:
-
-```bash
-/airdrop starter
-```
-
-## Commands
-
-All commands start with `/airdrop` (aliases: `/drop`, `/ad`).
-
-- `/airdrop <packageName>`
-  - Player-only
-  - Drops a package at your location
-  - Requires package permission
-- `/airdrop package <name>`
-  - Shows package details and item list
-- `/airdrop package create <name> <price>`
-  - Admin-only
-  - Player-only (opens GUI)
-- `/airdrop package delete <name>`
-  - Admin-only
-- `/airdrop packages`
-  - Admin-only
-  - Player-only (opens package management GUI)
-- `/airdrop reload`
-  - Admin-only
-  - Reloads main config, language, and packages
-- `/airdrop version`
-  - Shows plugin and API versions
-
-## Permissions
-
-- `airdrop.admin`
-  - Full administrative access
-- `airdrop.package.all`
-  - Use all packages
-- `airdrop.package.<packageName>`
-  - Use one specific package
-- `airdrop.package.*`
-  - Wildcard alias for package usage
-- `airdrop.cooldown.bypass`
-  - Bypasses only the per-player request cooldown
-  - Granted to operators by default and included under `airdrop.admin`
-  - Does not bypass falling or landed capacity limits
-
-LuckPerms integration also ensures these groups exist:
-- `airdrop-admin` with `airdrop.admin`
-- `airdrop-user` with `airdrop.package.all`
-
-## Configuration
-
-Main settings are in `plugins/Airdrop/config.yml`.
-
-```yaml
-language: en
-
-drop:
-  parachute:
-    chicken-count: 5
-  particles:
-    landing-effects: true
-    continuous-effects: true
-    flare-effects: true
-    smoke:
-      enabled: false
-      height: 20
-  falling-speed: 0.3
-  height: 100
-  limits:
-    request-cooldown-seconds: 30
-    max-falling: 3
-    max-landed: 10
-    landed-lifetime-seconds: 600
-
-economy:
-  enabled: true
-
-logging:
-  debug: false
-
-ui:
-  chat:
-    colors:
-      primary: BLUE
-      text: WHITE
-      accent: AQUA
-      success: GREEN
-      warning: YELLOW
-      error: RED
-      error-detail: DARK_RED
-```
-
-Validation ranges:
-- `drop.parachute.chicken-count`: `1` to `64`
-- `drop.falling-speed`: `0.01` to `4.0`
-- `drop.height`: `1` to `320`
-- `drop.particles.smoke.height`: `0` to `128`
-- `drop.limits.request-cooldown-seconds`: `1` to `86400`
-- `drop.limits.max-falling`: `1` to `64`
-- `drop.limits.max-landed`: `1` to `256`
-- `drop.limits.landed-lifetime-seconds`: `30` to `86400`
-
-Limit behavior:
-
-- Capacity and landing-location reservations happen before package items are materialized or economy funds are withdrawn.
-- `max-landed` includes landed crates and reserved slots for crates still falling, preventing in-flight overcommit. Existing paid barrels recovered from disk are restored even if they temporarily raise occupancy above the configured value; new drops remain blocked until occupancy falls below it.
-- A UUID-based cooldown starts after the falling crate is spawned and its drop event completes. Earlier rejections or failures do not start one; later failures keep it.
-- Protection plugins can reject landing by cancelling `EntityChangeBlockEvent` at `HIGH` priority or earlier. Airdrop evaluates at `HIGHEST`, removes the rejected crate, and treats it as a known pre-landing failure.
-- At `landed-lifetime-seconds`, unpaid crates and empty paid barrels are removed. A non-empty paid barrel keeps its contents and becomes an ordinary barrel.
-- `/airdrop reload` applies new limits to future requests without deleting active crates or resetting existing cooldown/expiry deadlines. Lowering a cap below current occupancy blocks new drops until usage falls under the cap.
-
-Packages are stored in `plugins/Airdrop/packages.yml` and can be managed in-game.
-Airdrop supports up to `27` configured packages, matching the package browser's capacity; pagination is not supported.
-Each package can contain up to `27` item stacks (barrel capacity).
-The `items` field must be a list of valid item stacks. Free packages may use an empty list (`items: []`); paid packages must contain at least one deliverable stack.
-Invalid package data or more than `27` configured packages cause reload to fail while keeping the current package registry active.
-
-## Paid Drop Failure and Recovery
-
-Paid-drop handling is fail-closed and does not provide an exactly-once transaction guarantee.
-
-- Airdrop does not keep a runtime transaction journal. If an economy operation times out ambiguously or shutdown begins after it may have committed, Airdrop does not retry it, refund it, or deliver a crate later. A player can therefore be charged without receiving a crate in this rare case. This is deliberate: replaying an ambiguous operation could duplicate money or items.
-- A confirmed withdrawal followed by a known pre-landing failure can receive one best-effort refund attempt while Airdrop remains active.
-- Paid crates that are still falling are not persisted or recovered.
-- A landed paid barrel is recovered only when a graceful chunk save, world unload, or server shutdown persists it as `RECOVERABLE`. Recovery claims that same barrel and its existing inventory; it never reconstructs or inserts items.
-- If another plugin suppresses the final chunk or world save, Airdrop rejects the stale `LIVE` disk copy instead of replaying old contents. This can cause charge-without-delivery, but prevents item duplication.
-- A hot plugin disable removes paid barrels fail-closed where their worlds are accessible instead of leaving recoverable contents available while Airdrop is inactive.
-- Untracked `LIVE` barrels, malformed metadata, and duplicate crate identities are removed fail-closed instead of being recovered.
-- At expiry, an empty paid barrel is removed. A non-empty paid barrel keeps its contents, loses its Airdrop metadata, and becomes an ordinary barrel.
-- Breaking a landed barrel remains a normal Paper block break. Airdrop releases its tracking without replacing Paper's normal block and inventory drops.
-
-## Version 4.1 deliberately tightens the exception API
-
-Airdrop 4.1 accepts two source- and binary-incompatible API corrections one day
-after 4.0. The project is not currently aware of any integrations consuming the
-4.x API, so it is accepting this break in 4.1 without a major-version release.
-
-- `CannotAffordException` has been removed. No version 4 drop path threw it,
-  and insufficient funds now produce `EconomyResult.REJECTED` within the
-  asynchronous paid-drop flow. Integrations that reference the removed class
-  must remove those references and recompile.
-- The no-argument `EconomyUnavailableException` constructor has been replaced
-  by `EconomyUnavailableException(Reason)`. Its `DISABLED` and `NO_PROVIDER`
-  reasons let integrations distinguish configuration from provider discovery
-  failures. Integrations that construct this exception must supply a reason and
-  recompile.
-
-Permission, economy-availability, sky-clearance, and admission-limit failures
-remain synchronous checked rejections from `playerInitiatedDropPackage(...)`.
-For a priced package, economy outcomes are handled asynchronously; returning
-from the method confirms neither payment nor delivery.
-`PackageManager` also continues to reject missing names synchronously with
-`PackageNotFoundException`.
-
-## Version 4 integration notes
-
-The 4.0 API intentionally includes these source and binary compatibility changes:
-
-- Package affordability and charging are now handled asynchronously by `DropController`; the old `Package.canAfford(Player)` and `Package.chargeUser(Player)` methods were removed.
-- `Crate` construction requires a `DropAdmissionController.Lease` so every crate owns and releases its capacity and location reservations.
-- Public `DropController` drop methods now declare the checked `DropLimitException` rejection type.
-- Both public `CrateManager.addCrate(...)` overloads now return `boolean` so callers can detect collision-safe registration failure; existing source calls may ignore the result, but previously compiled integrations must be rebuilt.
-
-`airdrop.cooldown.bypass` is new in version 4. No cooldown- or limit-bypass permission shipped in a pre-v4 release, so there is no legacy permission migration or alias to configure.
-
-## Build and Test
-
-- Build plugin jar: `./gradlew clean build`
-- Run tests: `./gradlew test`
-- Run the real-Paper LightKeeper integration test: `./gradlew lightkeeperTest`
-- Start local Paper test server: `./gradlew runServer`
+Source is available under the [MIT license](LICENSE). Use the
+[bug](https://github.com/LukeMccon/Airdrop/issues/new?labels=bug) and
+[feature](https://github.com/LukeMccon/Airdrop/issues/new?labels=enhancement)
+forms for project feedback.

@@ -1,16 +1,30 @@
 package com.airdropmc.helpers;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.WorldMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
+import com.airdropmc.api.AirdropPackage;
+import com.airdropmc.api.AirdropView;
+import com.airdropmc.api.DropRequestDescriptor;
+import com.airdropmc.api.DropSource;
+import com.airdropmc.api.RecoveredDropDescriptor;
+import com.airdropmc.api.RetirementReason;
+import com.airdropmc.api.ResolvedDropContext;
+import com.airdropmc.api.ResolvedDropSettings;
+import com.airdropmc.api.event.AirdropRecoveredEvent;
+import com.airdropmc.api.event.AirdropRetiredEvent;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.exceptions.DropLimitException;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLimitSettings;
 import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.listeners.CrateCleanupListener;
+import com.airdropmc.internal.api.ApiModelMapper;
+import com.airdropmc.internal.recovery.DropContextPersistence;
+import com.airdropmc.packages.Package;
+import com.airdropmc.packages.PackageManager;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -22,18 +36,24 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.ArrayList;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -118,6 +138,11 @@ class PaidCrateRecoveryTest {
 		Crate recovered = CrateManager.getCrate(barrelBlock.getLocation());
 		assertNotNull(recovered);
 		assertNotSame(original, recovered);
+		AirdropView legacyView = CrateManager.findByCrateId(
+				UUID.fromString(before.crateId())).orElseThrow();
+		assertTrue(legacyView.recovered());
+		assertTrue(legacyView.requestId().isEmpty());
+		assertTrue(legacyView.recoveryDescriptor().isEmpty());
 		assertEquals(1, admission.snapshot().landedClaims());
 		Barrel barrel = (Barrel) barrelBlock.getState();
 		assertEquals(new ItemStack(Material.DIAMOND), barrel.getInventory().getItem(0));
@@ -252,7 +277,9 @@ class PaidCrateRecoveryTest {
 		doThrow(new IllegalStateException("save failed"))
 				.when(recoveryFixture.savedWorld()).save();
 
-		CrateManager.recoverCratesInChunk(plugin, admission, recoveryFixture.chunk());
+		assertThrows(IllegalStateException.class,
+				() -> CrateManager.recoverCratesInChunk(
+						plugin, admission, recoveryFixture.chunk()));
 
 		assertNull(CrateManager.getCrate(barrelBlock.getLocation()));
 		assertEquals(1, admission.snapshot().landedClaims());
@@ -341,7 +368,8 @@ class PaidCrateRecoveryTest {
 		ChunkFixture fixture = chunkFixture(barrelBlock);
 		doThrow(new IllegalStateException("save failed")).when(fixture.savedWorld()).save();
 
-		CrateManager.recoverCratesInChunk(plugin, admission, fixture.chunk());
+		assertThrows(IllegalStateException.class,
+				() -> CrateManager.recoverCratesInChunk(plugin, admission, fixture.chunk()));
 
 		assertEquals(Material.AIR, barrelBlock.getType());
 		assertNull(CrateManager.getCrate(barrelBlock.getLocation()));
@@ -451,6 +479,199 @@ class PaidCrateRecoveryTest {
 		verify(fixture.savedWorld()).save();
 	}
 
+	@Test
+	void schemaOneRecoveryUsesPersistedContextWithoutItemsOrCurrentPackageRegistry() throws Exception {
+		RecoveredDropDescriptor expected = landSchemaOnePaidCrate(barrelBlock);
+		Crate.PersistedBarrelData live = Crate.readPaidPersistence((Barrel) barrelBlock.getState());
+		assertNotNull(live);
+		assertEquals(expected, live.recoveryDescriptor().orElseThrow());
+		assertTrue(((Barrel) barrelBlock.getState()).getPersistentDataContainer().getKeys().stream()
+				.noneMatch(key -> key.getKey().contains("item")));
+		assertTrue(CrateManager.prepareChunkForUnload(chunkFixture(barrelBlock).chunk()));
+		Crate.PersistedBarrelData recoverable = Crate.readPaidPersistence(
+				(Barrel) barrelBlock.getState());
+		assertNotNull(recoverable);
+		assertEquals(Crate.RecoveryState.RECOVERABLE, recoverable.recoveryState());
+		assertEquals(expected, recoverable.recoveryDescriptor().orElseThrow());
+		PackageManager.publishPackages(java.util.Map.of(
+				"precise", new Package("precise", 999.0, List.of(new ItemStack(Material.DIRT)))));
+
+		ChunkFixture recovery = chunkFixture(barrelBlock);
+		CrateManager.recoverCratesInChunk(plugin, admission, recovery.chunk());
+
+		AirdropView view = CrateManager.findByRequestId(expected.requestId()).orElseThrow();
+		assertTrue(view.recovered());
+		assertEquals(expected, view.recoveryDescriptor().orElseThrow());
+		assertEquals(new BigDecimal("12.3400"), view.packagePrice().orElseThrow());
+		assertEquals(new ItemStack(Material.DIAMOND),
+				((Barrel) barrelBlock.getState()).getInventory().getItem(0));
+	}
+
+	@ParameterizedTest
+	@ValueSource(doubles = { 10_000_000d, 1_234_000_000_000d, 12.34d, 0.000000125d })
+	void schemaOneConfiguredPricesSurviveChunkUnloadAndRecovery(double price) throws Exception {
+		AirdropPackage pkg = ApiModelMapper.packageSnapshot(new Package(
+				"priced", price, List.of(new ItemStack(Material.DIAMOND))));
+		RecoveredDropDescriptor expected = landSchemaOnePaidCrate(barrelBlock, pkg);
+		Crate.PersistedBarrelData before = Crate.readPaidPersistence((Barrel) barrelBlock.getState());
+		assertNotNull(before);
+
+		assertTrue(CrateManager.prepareChunkForUnload(chunkFixture(barrelBlock).chunk()));
+
+		assertEquals(Material.BARREL, barrelBlock.getType());
+		Barrel barrel = (Barrel) barrelBlock.getState();
+		assertEquals(new ItemStack(Material.DIAMOND), barrel.getInventory().getItem(0));
+		Crate.PersistedBarrelData recoverable = Crate.readPaidPersistence(barrel);
+		assertNotNull(recoverable);
+		assertEquals(Crate.RecoveryState.RECOVERABLE, recoverable.recoveryState());
+		assertEquals(expected, recoverable.recoveryDescriptor().orElseThrow());
+		assertEquals(before.expiresAtMillis(), recoverable.expiresAtMillis());
+		assertNull(CrateManager.getCrate(barrelBlock.getLocation()));
+		assertEquals(1, admission.snapshot().landedClaims());
+
+		CrateManager.recoverCratesInChunk(plugin, admission, chunkFixture(barrelBlock).chunk());
+
+		AirdropView view = CrateManager.findByRequestId(expected.requestId()).orElseThrow();
+		assertTrue(view.recovered());
+		assertEquals(expected, view.recoveryDescriptor().orElseThrow());
+		assertEquals(pkg.price(), view.packagePrice().orElseThrow());
+		assertEquals(1, admission.snapshot().landedClaims());
+		assertEquals(new ItemStack(Material.DIAMOND),
+				((Barrel) barrelBlock.getState()).getInventory().getItem(0));
+	}
+
+	@ParameterizedTest
+	@ValueSource(doubles = { 10_000_000d, 1_234_000_000_000d, 12.34d, 0.000000125d })
+	void schemaOneConfiguredPricesSurviveGracefulShutdown(double price) throws Exception {
+		AirdropPackage pkg = ApiModelMapper.packageSnapshot(new Package(
+				"priced", price, List.of(new ItemStack(Material.DIAMOND))));
+		RecoveredDropDescriptor expected = landSchemaOnePaidCrate(barrelBlock, pkg);
+		Crate.PersistedBarrelData before = Crate.readPaidPersistence((Barrel) barrelBlock.getState());
+		assertNotNull(before);
+		CrateManager.setWorldSaverForTesting(ignored -> { });
+
+		CrateManager.prepareForShutdown(plugin);
+
+		assertEquals(Material.BARREL, barrelBlock.getType());
+		Barrel barrel = (Barrel) barrelBlock.getState();
+		assertEquals(new ItemStack(Material.DIAMOND), barrel.getInventory().getItem(0));
+		Crate.PersistedBarrelData persisted = Crate.readPaidPersistence(barrel);
+		assertNotNull(persisted);
+		assertEquals(Crate.RecoveryState.RECOVERABLE, persisted.recoveryState());
+		assertEquals(expected, persisted.recoveryDescriptor().orElseThrow());
+		assertEquals(before.expiresAtMillis(), persisted.expiresAtMillis());
+		assertNull(CrateManager.getCrate(barrelBlock.getLocation()));
+		assertEquals(0, admission.snapshot().landedClaims());
+	}
+
+	@Test
+	void partialAndUnknownContextSchemasArePurgedFailClosed() {
+		writeRecoverableBarrel(barrelBlock, UUID.randomUUID().toString(),
+				System.currentTimeMillis() + 60_000L, new ItemStack(Material.DIAMOND));
+		Barrel partial = (Barrel) barrelBlock.getState();
+		partial.getPersistentDataContainer().set(
+				DropContextPersistence.SCHEMA_KEY, PersistentDataType.INTEGER, 1);
+		assertTrue(partial.update(true, false));
+
+		CrateManager.recoverCratesInChunk(plugin, admission, chunkFixture(barrelBlock).chunk());
+		assertEquals(Material.AIR, barrelBlock.getType());
+		assertTrue(CrateManager.recoveryReport().degraded());
+		assertEquals("stale or invalid lifecycle marker",
+				CrateManager.recoveryReport().diagnostics().getLast());
+
+		Block unknownBlock = world.getBlockAt(9, 64, 8);
+		writeRecoverableBarrel(unknownBlock, UUID.randomUUID().toString(),
+				System.currentTimeMillis() + 60_000L, new ItemStack(Material.EMERALD));
+		Barrel unknown = (Barrel) unknownBlock.getState();
+		unknown.getPersistentDataContainer().set(
+				DropContextPersistence.SCHEMA_KEY, PersistentDataType.INTEGER, 99);
+		assertTrue(unknown.update(true, false));
+
+		CrateManager.recoverCratesInChunk(plugin, admission, chunkFixture(unknownBlock).chunk());
+		assertEquals(Material.AIR, unknownBlock.getType());
+	}
+
+	@Test
+	void duplicateRecoveredRequestIdsAreBothPurgedBeforeAdmissionClaims() {
+		Block otherBlock = world.getBlockAt(9, 64, 8);
+		UUID duplicateRequest = UUID.randomUUID();
+		writeSchemaRecoverableBarrel(barrelBlock, UUID.randomUUID(), duplicateRequest);
+		writeSchemaRecoverableBarrel(otherBlock, UUID.randomUUID(), duplicateRequest);
+
+		CrateManager.recoverCratesInChunk(
+				plugin, admission, chunkFixture(barrelBlock, otherBlock).chunk());
+
+		assertEquals(Material.AIR, barrelBlock.getType());
+		assertEquals(Material.AIR, otherBlock.getType());
+		assertEquals(0, admission.snapshot().landedClaims());
+		assertTrue(CrateManager.activeDrops().isEmpty());
+	}
+
+	@Test
+	void recoveredEventFiresOnceAfterTheReadModelIsCommittedAndOutsideManagerLock() {
+		UUID crateId = UUID.randomUUID();
+		UUID requestId = UUID.randomUUID();
+		writeSchemaRecoverableBarrel(barrelBlock, crateId, requestId);
+		List<AirdropRecoveredEvent> events = new ArrayList<>();
+		List<Boolean> postCommit = new ArrayList<>();
+		List<Boolean> managerLocks = new ArrayList<>();
+		Listener observer = new Listener() {
+			@EventHandler
+			public void onRecovered(AirdropRecoveredEvent event) {
+				events.add(event);
+				postCommit.add(CrateManager.findByCrateId(event.airdrop().crateId()).isPresent());
+				managerLocks.add(Thread.holdsLock(CrateManager.class));
+			}
+		};
+		server.getPluginManager().registerEvents(
+				observer, MockBukkit.createMockPlugin("RecoveryObserver"));
+		ChunkFixture fixture = chunkFixture(barrelBlock);
+
+		CrateManager.recoverCratesInChunk(plugin, admission, fixture.chunk());
+		CrateManager.recoverCratesInChunk(plugin, admission, chunkFixture(barrelBlock).chunk());
+
+		assertEquals(1, events.size());
+		assertEquals(crateId, events.getFirst().airdrop().crateId());
+		assertEquals(requestId, events.getFirst().airdrop().requestId().orElseThrow());
+		assertEquals(List.of(true), postCommit);
+		assertEquals(List.of(false), managerLocks);
+	}
+
+	@Test
+	void trackedPaidChunkSuspensionRetiresAfterAbsenceAndCanRecoverAgain() {
+		UUID crateId = UUID.randomUUID();
+		UUID requestId = UUID.randomUUID();
+		writeSchemaRecoverableBarrel(barrelBlock, crateId, requestId);
+		List<RetirementReason> reasons = new ArrayList<>();
+		List<Boolean> postRemoval = new ArrayList<>();
+		List<Boolean> managerLocks = new ArrayList<>();
+		Listener observer = new Listener() {
+			@EventHandler
+			public void onRetired(AirdropRetiredEvent event) {
+				reasons.add(event.reason());
+				postRemoval.add(CrateManager.findByCrateId(event.airdrop().crateId()).isEmpty());
+				managerLocks.add(Thread.holdsLock(CrateManager.class));
+			}
+		};
+		server.getPluginManager().registerEvents(
+				observer, MockBukkit.createMockPlugin("SuspensionObserver"));
+
+		CrateManager.recoverCratesInChunk(
+				plugin, admission, chunkFixture(barrelBlock).chunk());
+		assertTrue(CrateManager.findByCrateId(crateId).isPresent());
+
+		assertTrue(CrateManager.prepareChunkForUnload(chunkFixture(barrelBlock).chunk()));
+
+		assertEquals(List.of(RetirementReason.CHUNK_UNLOAD), reasons);
+		assertEquals(List.of(true), postRemoval);
+		assertEquals(List.of(false), managerLocks);
+		assertTrue(CrateManager.findByCrateId(crateId).isEmpty());
+
+		CrateManager.recoverCratesInChunk(
+				plugin, admission, chunkFixture(barrelBlock).chunk());
+		assertTrue(CrateManager.findByCrateId(crateId).isPresent());
+	}
+
 	private Crate landPaidCrate(Block block, List<ItemStack> contents) throws Exception {
 		DropAdmissionController.Lease lease = admission.acquireSystem(
 				DropLocationKey.from(block.getLocation()),
@@ -466,6 +687,62 @@ class PaidCrateRecoveryTest {
 				world, contents, options, lease, true, ignored -> { });
 		crate.land(block);
 		return crate;
+	}
+
+	private RecoveredDropDescriptor landSchemaOnePaidCrate(Block block) throws Exception {
+		return landSchemaOnePaidCrate(block, new AirdropPackage(
+				"precise", new BigDecimal("12.3400"), List.of(new ItemStack(Material.DIAMOND))));
+	}
+
+	private RecoveredDropDescriptor landSchemaOnePaidCrate(Block block, AirdropPackage pkg)
+			throws Exception {
+		ResolvedDropSettings settings = new ResolvedDropSettings(
+				2, 0.3, 25, false, false, false, false, 9,
+				Duration.ofMillis(12_345L), 4, 8, Duration.ofMinutes(10));
+		UUID requestId = UUID.randomUUID();
+		ResolvedDropContext context = new ResolvedDropContext(
+				new DropRequestDescriptor(
+						requestId, DropSource.PLAYER, UUID.randomUUID(), pkg.name(),
+						new Location(world, block.getX(), 100, block.getZ())),
+				pkg,
+				new Location(world, block.getX(), 100, block.getZ()),
+				block.getLocation(),
+				settings);
+		DropAdmissionController.Lease lease = admission.acquireSystem(
+				DropLocationKey.from(block.getLocation()),
+				new DropLimitSettings(Duration.ofSeconds(30), 3, 10, Duration.ofSeconds(600)));
+		lease.commitSpawn();
+		Crate crate = new Crate(
+				new Location(world, block.getX() + 0.5, 100, block.getZ() + 0.5),
+				world,
+				context.airdropPackage().items(),
+				settings,
+				lease,
+				true,
+				requestId,
+				context,
+				ignored -> { });
+		crate.land(block);
+		return RecoveredDropDescriptor.from(context);
+	}
+
+	private void writeSchemaRecoverableBarrel(
+			Block block, UUID crateId, UUID requestId) {
+		writeRecoverableBarrel(
+				block, crateId.toString(), System.currentTimeMillis() + 60_000L,
+				new ItemStack(Material.DIAMOND));
+		Barrel barrel = (Barrel) block.getState();
+		DropContextPersistence.write(barrel.getPersistentDataContainer(),
+				new RecoveredDropDescriptor(
+						requestId,
+						DropSource.SYSTEM,
+						null,
+						"starter",
+						BigDecimal.ZERO,
+						new ResolvedDropSettings(
+								2, 0.3, 25, false, false, false, false, 0,
+								Duration.ofSeconds(30), 3, 10, Duration.ofMinutes(10))));
+		assertTrue(barrel.update(true, false));
 	}
 
 	private void writeRecoverableBarrel(Block block, String crateId, long expiresAt, ItemStack item) {

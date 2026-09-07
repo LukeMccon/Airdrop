@@ -15,7 +15,10 @@ import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.CrateManager;
-import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.integrations.OptionalIntegrations;
+import com.airdropmc.internal.api.AirdropServiceLifecycle;
+import com.airdropmc.internal.api.AirdropVersionMetadata;
+import com.airdropmc.internal.diagnostics.AirdropDiagnostics;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.listeners.CrateDestroyListener;
 import com.airdropmc.listeners.CrateCloseListener;
@@ -29,26 +32,26 @@ import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageGui;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackagesGui;
-import net.luckperms.api.LuckPerms;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.ApiStatus;
 
 import com.airdropmc.commands.CmdAirdrop;
 
 /**
  * Main plugin class
  */
+@ApiStatus.Internal
 public class Airdrop extends JavaPlugin {
 
 	public static final String PLUGIN_NAME = "Airdrop";
 	public static final String AIRDROP_COMMAND = "airdrop";
 	private static Airdrop pluginInstance;
 	private static String pluginVersion;
-	private static String pluginApiVersion;
-	private static LuckPerms luckPerms;
+	private static String paperCompatibilityVersion;
 	private static PackagesGui packagesGui;
 	private static volatile EconomyProvider economyProvider;
 	private static volatile Config configuration;
@@ -58,6 +61,7 @@ public class Airdrop extends JavaPlugin {
 	private static volatile boolean ready;
 	private LanguageManager languageManager;
 	private ConfigCoordinator configurationCoordinator;
+	private AirdropServiceLifecycle airdropServiceLifecycle;
 
 	@Override
 	public void onEnable() {
@@ -67,42 +71,58 @@ public class Airdrop extends JavaPlugin {
 
 		pluginInstance = this;
 		pluginVersion = pdf.getVersion();
-		pluginApiVersion = pdf.getAPIVersion();
+		paperCompatibilityVersion = pdf.getAPIVersion();
 		dropAdmissionController = new DropAdmissionController();
 
-		languageManager = new LanguageManager(this);
-		ChatHandler.init(languageManager);
-
-		Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setExecutor(new CmdAirdrop());
-		Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setTabCompleter(new AirdropTabCompleter());
-
-		Bukkit.getPluginManager().registerEvents(new EconomyProviderListener(this), this);
-		Bukkit.getPluginManager().registerEvents(new FallingCrateListener(), this);
-		Bukkit.getPluginManager().registerEvents(new CrateCloseListener(), this);
-		Bukkit.getPluginManager().registerEvents(new CrateHopperListener(this), this);
-		Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
-		Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(this), this);
-		Bukkit.getPluginManager().registerEvents(new CrateCleanupListener(this), this);
-
-		configurationCoordinator = new ConfigCoordinator(
-				this,
-				languageManager,
-				this::commitConfiguration,
-				this::commitPackages);
-		configurationCoordinator.startup().whenComplete((ignored, failure) -> {
-			if (failure == null || shuttingDown || pluginInstance != this) {
+		try {
+			AirdropServiceLifecycle serviceLifecycle = new AirdropServiceLifecycle(this);
+			airdropServiceLifecycle = serviceLifecycle;
+			serviceLifecycle.register();
+			// Service registration listeners can synchronously disable or restart this plugin.
+			if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
 				return;
 			}
-			getLogger().log(Level.SEVERE,
-					"Airdrop startup configuration failed; the plugin will be disabled", unwrap(failure));
-			Bukkit.getPluginManager().disablePlugin(this);
-		});
+
+			languageManager = new LanguageManager(this);
+			ChatHandler.init(languageManager);
+
+			Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setExecutor(new CmdAirdrop());
+			Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setTabCompleter(new AirdropTabCompleter());
+
+			Bukkit.getPluginManager().registerEvents(new EconomyProviderListener(this), this);
+			Bukkit.getPluginManager().registerEvents(new FallingCrateListener(), this);
+			Bukkit.getPluginManager().registerEvents(new CrateCloseListener(), this);
+			Bukkit.getPluginManager().registerEvents(new CrateHopperListener(this), this);
+			Bukkit.getPluginManager().registerEvents(new CrateOpenListener(), this);
+			Bukkit.getPluginManager().registerEvents(new CrateDestroyListener(this), this);
+			Bukkit.getPluginManager().registerEvents(new CrateCleanupListener(this), this);
+
+			configurationCoordinator = new ConfigCoordinator(
+					this,
+					languageManager,
+					this::commitConfiguration,
+					this::commitPackages);
+			configurationCoordinator.startup().whenComplete((ignored, failure) -> {
+				if (failure != null) {
+					failStartup(unwrap(failure));
+				}
+			});
+		} catch (RuntimeException | LinkageError failure) {
+			failStartup(failure);
+		}
 	}
 
 	@Override
 	public void onDisable() {
 		shuttingDown = true;
 		ready = false;
+		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
+		airdropServiceLifecycle = null;
+		runDisableStep("unregister Airdrop extension service", () -> {
+			if (serviceLifecycle != null) {
+				serviceLifecycle.stop();
+			}
+		});
 		runDisableStep("close package editors", PackageGui::closeOpenEditors);
 		runDisableStep("close package browser", () -> {
 			if (packagesGui != null) {
@@ -150,8 +170,7 @@ public class Airdrop extends JavaPlugin {
 			packagesGui = null;
 			pluginInstance = null;
 			pluginVersion = null;
-			pluginApiVersion = null;
-			luckPerms = null;
+			paperCompatibilityVersion = null;
 			economyProvider = null;
 			configuration = null;
 			packagesConfiguration = null;
@@ -172,6 +191,7 @@ public class Airdrop extends JavaPlugin {
 	}
 
 	private EconomyProviderRefreshResult commitConfiguration(ConfigCoordinator.ConfigurationCandidate candidate) {
+		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
 		EconomySelection selection = selectEconomyProvider(candidate.economyEnabled());
 		Config replacementConfiguration = new Config(candidate.configuration());
 		PackagesConfig replacementPackagesConfiguration = new PackagesConfig(candidate.packagesConfiguration());
@@ -180,13 +200,37 @@ public class Airdrop extends JavaPlugin {
 		packagesConfiguration = replacementPackagesConfiguration;
 		languageManager.publishLanguage(candidate.language());
 		ChatHandler.init(languageManager);
+		OptionalIntegrations.State optionalIntegrations = candidate.startup()
+				? initializeStartupIntegrations()
+				: null;
+		// Recovery listeners can synchronously disable or restart this plugin.
+		if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
+			return selection.result();
+		}
 		PackageManager.publishPackages(candidate.packages());
+		// Registry callbacks must observe this configuration's selected economy.
 		publishEconomyProvider(selection);
-
+		if (serviceLifecycle != null) {
+			serviceLifecycle.publishLimits(ConfigKeys.getDropLimitSettings());
+			long revision = serviceLifecycle.publishPackages(
+					candidate.packages(), candidate.cause());
+			// Registry listeners can synchronously disable or restart this plugin.
+			if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
+				return selection.result();
+			}
+			AirdropLogger.debugPublication(
+					AirdropLogger.Publication.CONFIGURATION,
+					candidate.cause(),
+					revision,
+					candidate.packages().size());
+		}
 		refreshPackageBrowser();
 		if (candidate.startup()) {
-			initializeStartupIntegrations();
 			ready = true;
+			serviceLifecycle = airdropServiceLifecycle;
+			if (serviceLifecycle != null) {
+				serviceLifecycle.publishReady(selection.result(), optionalIntegrations);
+			}
 		}
 		return selection.result();
 	}
@@ -194,6 +238,10 @@ public class Airdrop extends JavaPlugin {
 	private void commitPackages(ConfigCoordinator.PackageCandidate candidate) {
 		packagesConfiguration = new PackagesConfig(candidate.configuration());
 		PackageManager.publishPackages(candidate.packages());
+		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
+		if (serviceLifecycle != null) {
+			serviceLifecycle.publishPackages(candidate.packages(), candidate.cause());
+		}
 		if (candidate.refreshBrowser() && packagesGui != null) {
 			try {
 				packagesGui.initializeItems();
@@ -211,17 +259,9 @@ public class Airdrop extends JavaPlugin {
 		}
 	}
 
-	private void initializeStartupIntegrations() {
-		try {
-			CrateManager.recoverLoadedCrates(this, dropAdmissionController);
-		} catch (RuntimeException failure) {
-			getLogger().log(Level.WARNING, "Could not recover saved crates", failure);
-		}
-		try {
-			PermissionsHelper.initialize();
-		} catch (RuntimeException failure) {
-			getLogger().log(Level.WARNING, "Could not initialize permissions", failure);
-		}
+	private OptionalIntegrations.State initializeStartupIntegrations() {
+		CrateManager.recoverLoadedCrates(this, dropAdmissionController);
+		return OptionalIntegrations.initialize(getServer());
 	}
 
 	public CompletionStage<EconomyProviderRefreshResult> reloadConfiguration() {
@@ -229,7 +269,11 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.reload();
+		return observeOperation(
+				coordinator.reload(),
+				AirdropDiagnostics.Category.CONFIGURATION,
+				AirdropDiagnostics.Category.CONFIGURATION,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}
 
 	public CompletionStage<Boolean> createPackageAsync(Package pkg) {
@@ -237,7 +281,10 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.createPackage(pkg);
+		return observeOperation(
+				coordinator.createPackage(pkg),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}
 
 	public CompletionStage<Boolean> updatePackageInventoryAsync(String packageName, List<ItemStack> items) {
@@ -245,7 +292,10 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.updatePackageInventory(packageName, items);
+		return observeOperation(
+				coordinator.updatePackageInventory(packageName, items),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}
 
 	public CompletionStage<Boolean> deletePackageAsync(String packageName) {
@@ -253,7 +303,29 @@ public class Airdrop extends JavaPlugin {
 		if (coordinator == null || shuttingDown || !ready) {
 			return unavailableStage();
 		}
-		return coordinator.deletePackage(packageName);
+		return observeOperation(
+				coordinator.deletePackage(packageName),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
+	}
+
+	private <T> CompletionStage<T> observeOperation(
+			CompletionStage<T> operation,
+			AirdropDiagnostics.Category failureCategory,
+			AirdropDiagnostics.Category... successfulPublications) {
+		return operation.whenComplete((result, failure) -> {
+			AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
+			if (serviceLifecycle == null) {
+				return;
+			}
+			if (failure == null) {
+				for (AirdropDiagnostics.Category category : successfulPublications) {
+					serviceLifecycle.clearDiagnostic(category);
+				}
+			} else {
+				serviceLifecycle.recordDiagnostic(failureCategory, unwrap(failure));
+			}
+		});
 	}
 
 	private static <T> CompletionStage<T> unavailableStage() {
@@ -278,7 +350,8 @@ public class Airdrop extends JavaPlugin {
 				replacement = EconomyProviderDiscovery.discover(getServer().getServicesManager()).orElse(null);
 				result = replacement == null
 						? EconomyProviderRefreshResult.unavailable()
-						: EconomyProviderRefreshResult.active(providerName(replacement));
+						: EconomyProviderRefreshResult.active(
+								AirdropDiagnostics.sanitizeLabel(providerName(replacement)));
 			}
 		} catch (LinkageError | RuntimeException exception) {
 			replacement = null;
@@ -290,6 +363,16 @@ public class Airdrop extends JavaPlugin {
 
 	private void publishEconomyProvider(EconomySelection selection) {
 		economyProvider = selection.provider();
+		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
+		if (serviceLifecycle != null) {
+			serviceLifecycle.publishEconomy(selection.result());
+		}
+		com.airdropmc.api.EconomyState economyState = switch (selection.result().outcome()) {
+			case ACTIVE -> com.airdropmc.api.EconomyState.ACTIVE;
+			case DISABLED -> com.airdropmc.api.EconomyState.DISABLED;
+			case UNAVAILABLE -> com.airdropmc.api.EconomyState.UNAVAILABLE;
+		};
+		AirdropLogger.debugEconomy(economyState, selection.result().providerName());
 		switch (selection.result().outcome()) {
 			case ACTIVE -> AirdropLogger.info("Using economy provider: " + selection.result().providerName());
 			case DISABLED -> AirdropLogger.info("Economy support is disabled");
@@ -302,6 +385,23 @@ public class Airdrop extends JavaPlugin {
 				}
 			}
 		}
+	}
+
+	private void failStartup(Throwable failure) {
+		if (shuttingDown || pluginInstance != this) {
+			return;
+		}
+		AirdropServiceLifecycle serviceLifecycle = airdropServiceLifecycle;
+		if (serviceLifecycle != null) {
+			serviceLifecycle.publishFailure(failure);
+		}
+		// Readiness callbacks can synchronously disable or restart this plugin.
+		if (shuttingDown || pluginInstance != this || airdropServiceLifecycle != serviceLifecycle) {
+			return;
+		}
+		getLogger().log(Level.SEVERE,
+				"Airdrop startup failed; the plugin will be disabled", failure);
+		Bukkit.getPluginManager().disablePlugin(this);
 	}
 
 	private static String providerName(EconomyProvider provider) {
@@ -343,16 +443,32 @@ public class Airdrop extends JavaPlugin {
 		Airdrop.pluginInstance = pluginInstance;
 	}
 
+	/**
+	 * @deprecated This value describes Paper compatibility, not Airdrop's extension API.
+	 *             Use {@link #getPaperApiVersion()}.
+	 */
+	@Deprecated
 	public static String getPluginApiVersion() {
-		return pluginApiVersion;
+		return getPaperApiVersion();
 	}
 
-	public static LuckPerms getLuckPerms() {
-		return luckPerms;
+	/**
+	 * Returns the Paper API compatibility declared in the generated plugin metadata.
+	 *
+	 * @return declared Paper API compatibility, or {@code null} while disabled
+	 */
+	public static String getPaperApiVersion() {
+		return paperCompatibilityVersion;
 	}
 
-	public static void setLuckPerms(LuckPerms luckPerms) {
-		Airdrop.luckPerms = luckPerms;
+	/** Returns the independently versioned supported extension API contract. */
+	public static String getExtensionApiVersion() {
+		return AirdropVersionMetadata.versions().extensionApiVersion();
+	}
+
+	/** Returns the Java feature version required by this build. */
+	public static String getJavaCompatibilityVersion() {
+		return AirdropVersionMetadata.versions().javaVersion();
 	}
 
 	public static PackagesGui getPackagesGui() {

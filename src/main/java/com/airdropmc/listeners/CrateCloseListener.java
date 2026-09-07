@@ -13,6 +13,7 @@ import org.bukkit.event.inventory.InventoryType;
 
 import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.api.RetirementReason;
 
 public class CrateCloseListener implements Listener {
 
@@ -40,8 +41,9 @@ public class CrateCloseListener implements Listener {
 			return;
 		}
 
-		if (CrateManager.removeCrateAndDestroy(barrelLocation, expectedCrate)) {
-			barrel.getWorld().playEffect(barrelLocation, Effect.STEP_SOUND, Material.BARREL);
+		if (CrateManager.removeCrateAndDestroy(
+				barrelLocation, expectedCrate, RetirementReason.CLOSED_EMPTY)) {
+			barrel.getWorld().playEffect(barrelLocation, Effect.STEP_SOUND, barrel.getBlockData());
 		}
 	}
 }

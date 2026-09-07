@@ -1,8 +1,8 @@
 package com.airdropmc.commands;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.packages.PackageManager;
@@ -50,12 +50,12 @@ class CmdAirdropArgumentCountTest {
 
 	@ParameterizedTest(name = "{0}")
 	@MethodSource("invalidGenericCommandForms")
-	void genericCommandFormsRejectInvalidArgumentCounts(String description, String[] args) {
+	void genericCommandFormsRenderHandledHelpForInvalidArgumentCounts(String description, String[] args) {
 		PlayerMock player = server.addPlayer();
 		Command command = mock(Command.class);
 		CmdAirdrop executor = new CmdAirdrop();
 
-		assertFalse(executor.onCommand(player, command, "airdrop", args), description);
+		assertTrue(executor.onCommand(player, command, "airdrop", args), description);
 	}
 
 	@ParameterizedTest(name = "{0}")
@@ -89,6 +89,7 @@ class CmdAirdropArgumentCountTest {
 		return Stream.of(
 				Arguments.of("missing command", new String[]{}),
 				Arguments.of("version with extra argument", new String[]{"version", "extra"}),
+				Arguments.of("status with extra argument", new String[]{"status", "extra"}),
 				Arguments.of("packages with extra argument", new String[]{"packages", "extra"}),
 				Arguments.of("reload with extra argument", new String[]{"reload", "extra"}),
 				Arguments.of("direct drop with extra argument", new String[]{"starter", "extra"}),
@@ -99,6 +100,7 @@ class CmdAirdropArgumentCountTest {
 	private static Stream<Arguments> validCommandForms() {
 		return Stream.of(
 				Arguments.of("version", new String[]{"version"}),
+				Arguments.of("status", new String[]{"status"}),
 				Arguments.of("packages", new String[]{"packages"}),
 				Arguments.of("reload", new String[]{"reload"}),
 				Arguments.of("direct drop", new String[]{"starter"}),

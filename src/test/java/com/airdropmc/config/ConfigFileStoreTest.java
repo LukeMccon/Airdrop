@@ -1,6 +1,6 @@
 package com.airdropmc.config;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.MockBukkit;
 import com.airdropmc.Config;
 import com.airdropmc.PackagesConfig;
 import org.bukkit.Material;

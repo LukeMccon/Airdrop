@@ -18,6 +18,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.Plugin;
 
 import com.airdropmc.Crate;
+import com.airdropmc.api.RetirementReason;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.limits.DropLocationKey;
 
@@ -74,13 +75,15 @@ public class CrateHopperListener implements Listener {
 		Block block = world.getBlockAt(locationKey.x(), locationKey.y(), locationKey.z());
 		if (block.getType() != Material.BARREL || !(block.getState() instanceof Barrel barrel)
 				|| !expectedCrate.ownsLandedBarrel(barrel)) {
-			CrateManager.removeCrateAndDestroy(barrelLocation, expectedCrate);
+			CrateManager.removeCrateAndDestroy(
+					barrelLocation, expectedCrate, RetirementReason.HOPPER_EMPTY);
 			return;
 		}
 		if (!barrel.getInventory().isEmpty()) {
 			return;
 		}
 
-		CrateManager.removeCrateAndDestroy(barrelLocation, expectedCrate);
+		CrateManager.removeCrateAndDestroy(
+				barrelLocation, expectedCrate, RetirementReason.HOPPER_EMPTY);
 	}
 }

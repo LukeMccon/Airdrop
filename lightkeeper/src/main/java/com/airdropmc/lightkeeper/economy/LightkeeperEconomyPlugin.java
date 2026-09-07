@@ -22,6 +22,7 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 
 	private final EconomyLedger ledger = new EconomyLedger();
 	private ExecutorService executor;
+	private Economy provider;
 
 	@Override
 	public void onEnable() {
@@ -34,10 +35,6 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 			thread.setDaemon(true);
 			return thread;
 		});
-		Economy economy = VaultUnlockedEconomyService.create(
-				ledger, executor, operation -> getServer().getPluginManager()
-						.callEvent(new EconomyOperationEvent(operation)));
-		getServer().getServicesManager().register(Economy.class, economy, this, ServicePriority.Normal);
 		Objects.requireNonNull(getCommand("lkeconomy"), "lkeconomy command")
 				.setExecutor(this::onEconomyCommand);
 	}
@@ -45,6 +42,7 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		getServer().getServicesManager().unregisterAll(this);
+		provider = null;
 		if (executor != null) {
 			executor.shutdownNow();
 			executor = null;
@@ -57,6 +55,9 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 			String label,
 			String[] arguments
 	) {
+		if (arguments.length == 1 && "enable".equalsIgnoreCase(arguments[0])) {
+			return enableProvider(sender);
+		}
 		if (arguments.length != 3) {
 			return false;
 		}
@@ -71,6 +72,18 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 			sender.sendMessage("Invalid LightKeeper economy command: " + failure.getMessage());
 			return false;
 		}
+	}
+
+	private boolean enableProvider(CommandSender sender) {
+		if (provider == null) {
+			provider = VaultUnlockedEconomyService.create(
+					ledger, executor, operation -> getServer().getPluginManager()
+							.callEvent(new EconomyOperationEvent(operation)));
+			getServer().getServicesManager().register(
+					Economy.class, provider, this, ServicePriority.Normal);
+		}
+		sender.sendMessage("Enabled LightKeeper economy provider");
+		return true;
 	}
 
 	private boolean resetAccount(CommandSender sender, String rawPlayerId, String rawBalance) {

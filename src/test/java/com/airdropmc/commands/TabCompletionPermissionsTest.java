@@ -1,8 +1,8 @@
 package com.airdropmc.commands;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.AirdropTabCompleter;
 import com.airdropmc.packages.PackageManager;
@@ -132,6 +132,12 @@ class TabCompletionPermissionsTest {
 				completer.onTabComplete(player, command, "airdrop", new String[]{"VeR"}));
 		assertEquals(List.of(),
 				completer.onTabComplete(player, command, "airdrop", new String[]{"re"}));
+		assertEquals(List.of(),
+				completer.onTabComplete(player, command, "airdrop", new String[]{"st"}));
+
+		player.setOp(true);
+		assertEquals(List.of("status"),
+				completer.onTabComplete(player, command, "airdrop", new String[]{"ST"}));
 	}
 
 	@Test
@@ -186,7 +192,7 @@ class TabCompletionPermissionsTest {
 		List<String> createTargets = new PackageTabCompletion().onTabComplete(
 				sender, command, "airdrop", new String[]{"package", "create", ""});
 
-		assertEquals(List.of("package", "reload", "version"), topLevel);
+		assertEquals(List.of("package", "reload", "status", "version"), topLevel);
 		assertTrue(nested.contains("delete"));
 		assertFalse(nested.contains("create"));
 		assertEquals(List.of("starter"), deleteTargets);
@@ -270,7 +276,7 @@ class TabCompletionPermissionsTest {
 		assertEquals(1, results.stream().filter("Premium"::equals).count());
 		assertFalse(results.contains("premium"));
 		assertFalse(results.contains("all"));
-		for (String commandName : List.of("package", "packages", "version", "reload")) {
+		for (String commandName : List.of("package", "packages", "version", "status", "reload")) {
 			assertEquals(1, results.stream().filter(commandName::equals).count(), commandName);
 		}
 	}
@@ -288,7 +294,7 @@ class TabCompletionPermissionsTest {
 
 		assertEquals(1, results.stream().filter("Premium"::equals).count());
 		assertFalse(results.contains("premium"));
-		for (String reserved : List.of("all", "package", "packages", "version", "reload")) {
+		for (String reserved : List.of("all", "package", "packages", "version", "status", "reload")) {
 			assertFalse(results.contains(reserved), reserved);
 		}
 		for (String subcommand : List.of("create", "delete")) {
@@ -307,7 +313,8 @@ class TabCompletionPermissionsTest {
 
 	private YamlConfiguration configWithReservedPackages() {
 		YamlConfiguration config = validPackagesConfig();
-		for (String reserved : List.of("all", "package", "packages", "version", "reload", "create", "delete")) {
+		for (String reserved : List.of(
+				"all", "package", "packages", "version", "status", "reload", "create", "delete")) {
 			config.set("packages." + reserved + ".price", 1.0);
 			config.set("packages." + reserved + ".items", List.of());
 		}

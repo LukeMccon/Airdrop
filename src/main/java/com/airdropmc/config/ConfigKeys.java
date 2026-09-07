@@ -7,12 +7,14 @@ import com.airdropmc.limits.DropLimitSettings;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.time.Duration;
 
 /**
  * Stores all configuration keys and provides methods to access config values
  */
+@ApiStatus.Internal
 public final class ConfigKeys {
     private static final FileConfiguration FALLBACK_CONFIG = new YamlConfiguration();
     private static final int DEFAULT_PARACHUTE_CHICKEN_COUNT = 5;

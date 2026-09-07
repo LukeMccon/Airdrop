@@ -19,8 +19,10 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
@@ -42,6 +44,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
 
+@ExtendWith(MockBukkitExtension.class)
 class CrateDestroyTest {
 
 	@Test

@@ -5,10 +5,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.logging.Logger;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.WorldMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
 import com.airdropmc.config.DropOptions;
@@ -49,7 +49,7 @@ class CrateOpenListenerTest {
 
 	private ServerMock server;
 	private WorldMock world;
-	private MockPlugin eventPlugin;
+	private PluginMock eventPlugin;
 	private Airdrop airdropPlugin;
 	private DropAdmissionController admission;
 	private Block barrelBlock;

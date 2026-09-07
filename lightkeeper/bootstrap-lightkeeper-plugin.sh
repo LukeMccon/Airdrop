@@ -13,6 +13,37 @@ adapter_jar="$artifact_directory/lightkeeper-maven-plugin-$adapter_version.jar"
 adapter_pom="$artifact_directory/lightkeeper-maven-plugin-$adapter_version.pom"
 source_url="https://jitpack.io/com/github/PimvanderLoos/LightKeeper/lightkeeper-maven-plugin/$lightkeeper_commit/lightkeeper-maven-plugin-$lightkeeper_commit.jar"
 
+checksum_matches() {
+	checksum_command=$1
+	artifact=$2
+	checksum_file=$3
+
+	[ -f "$artifact" ] && [ -f "$checksum_file" ] || return 1
+	expected_checksum=$(awk 'NR == 1 { print $1 }' "$checksum_file")
+	actual_checksum=$($checksum_command "$artifact" | awk '{ print $1 }')
+	[ -n "$expected_checksum" ] && [ "$actual_checksum" = "$expected_checksum" ]
+}
+
+adapter_is_valid() {
+	[ -f "$adapter_jar" ] &&
+		[ -f "$adapter_pom" ] &&
+		cmp -s "$script_dir/lightkeeper-maven-plugin-adapter.pom.xml" "$adapter_pom" &&
+		unzip -tqq "$adapter_jar" &&
+		unzip -p "$adapter_jar" META-INF/maven/plugin.xml |
+			grep -q "<groupId>$adapter_group</groupId>" &&
+		unzip -p "$adapter_jar" META-INF/maven/plugin.xml |
+			grep -q "<version>$adapter_version</version>" &&
+		checksum_matches sha1sum "$adapter_jar" "$adapter_jar.sha1" &&
+		checksum_matches sha256sum "$adapter_jar" "$adapter_jar.sha256" &&
+		checksum_matches sha1sum "$adapter_pom" "$adapter_pom.sha1" &&
+		checksum_matches sha256sum "$adapter_pom" "$adapter_pom.sha256"
+}
+
+if adapter_is_valid; then
+	printf 'Validated pinned LightKeeper Maven plugin adapter at %s\n' "$adapter_jar"
+	exit 0
+fi
+
 temporary_directory=$(mktemp -d)
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
 source_jar="$temporary_directory/lightkeeper-maven-plugin.jar"
@@ -25,7 +56,7 @@ if [ "$actual_sha256" != "$source_sha256" ]; then
 	exit 1
 fi
 
-mkdir -p "$extracted_directory" "$artifact_directory"
+mkdir -p "$extracted_directory"
 unzip -q "$source_jar" META-INF/maven/plugin.xml -d "$extracted_directory"
 plugin_descriptor="$extracted_directory/META-INF/maven/plugin.xml"
 
@@ -39,14 +70,26 @@ sed -i.adapter \
 	"$plugin_descriptor"
 rm -f "$plugin_descriptor.bak" "$plugin_descriptor.adapter"
 
-cp "$source_jar" "$adapter_jar"
-jar --update --file "$adapter_jar" -C "$extracted_directory" META-INF/maven/plugin.xml
-cp "$script_dir/lightkeeper-maven-plugin-adapter.pom.xml" "$adapter_pom"
-for artifact in "$adapter_jar" "$adapter_pom"; do
+prepared_jar="$temporary_directory/lightkeeper-maven-plugin-$adapter_version.jar"
+prepared_pom="$temporary_directory/lightkeeper-maven-plugin-$adapter_version.pom"
+cp "$source_jar" "$prepared_jar"
+jar --update --file "$prepared_jar" -C "$extracted_directory" META-INF/maven/plugin.xml
+cp "$script_dir/lightkeeper-maven-plugin-adapter.pom.xml" "$prepared_pom"
+for artifact in "$prepared_jar" "$prepared_pom"; do
 	sha1sum "$artifact" | awk '{print $1}' > "$artifact.sha1"
 	sha256sum "$artifact" | awk '{print $1}' > "$artifact.sha256"
 done
 
-unzip -p "$adapter_jar" META-INF/maven/plugin.xml | grep -q "<groupId>$adapter_group</groupId>"
-unzip -p "$adapter_jar" META-INF/maven/plugin.xml | grep -q "<version>$adapter_version</version>"
+unzip -p "$prepared_jar" META-INF/maven/plugin.xml | grep -q "<groupId>$adapter_group</groupId>"
+unzip -p "$prepared_jar" META-INF/maven/plugin.xml | grep -q "<version>$adapter_version</version>"
+
+mkdir -p "$artifact_directory"
+cp "$prepared_jar" "$adapter_jar"
+cp "$prepared_pom" "$adapter_pom"
+cp "$prepared_jar.sha1" "$adapter_jar.sha1"
+cp "$prepared_jar.sha256" "$adapter_jar.sha256"
+cp "$prepared_pom.sha1" "$adapter_pom.sha1"
+cp "$prepared_pom.sha256" "$adapter_pom.sha256"
+
+adapter_is_valid
 printf 'Prepared pinned LightKeeper Maven plugin adapter at %s\n' "$adapter_jar"

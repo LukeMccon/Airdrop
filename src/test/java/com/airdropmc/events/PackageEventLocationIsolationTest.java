@@ -1,8 +1,8 @@
 package com.airdropmc.events;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.WorldMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
 import com.airdropmc.Crate;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -32,7 +34,7 @@ class PackageEventLocationIsolationTest {
 	void setUp() {
 		server = MockBukkit.mock();
 		world = server.addSimpleWorld("event_location_world");
-		plugin = MockBukkit.createMockPlugin("EventLocationHarness");
+		plugin = MockBukkit.createMockPlugin();
 		crate = mock(Crate.class);
 	}
 
@@ -69,12 +71,11 @@ class PackageEventLocationIsolationTest {
 	void dropListenerCannotChangeLocationSeenByLaterListener() {
 		DropLocationMutator mutator = new DropLocationMutator();
 		DropLocationObserver observer = new DropLocationObserver();
-		server.getPluginManager().registerEvents(mutator, plugin);
-		server.getPluginManager().registerEvents(observer, plugin);
 		PackageDropEvent event = new PackageDropEvent(
 				crate, world, new Location(world, 10.5, 100, 20.5));
 
-		server.getPluginManager().callEvent(event);
+		mutator.mutate(event);
+		observer.observe(event);
 
 		assertEquals(100, observer.observed.getY());
 	}
@@ -83,13 +84,12 @@ class PackageEventLocationIsolationTest {
 	void landListenerCannotChangeLocationSeenByLaterListener() {
 		LandLocationMutator mutator = new LandLocationMutator();
 		LandLocationObserver observer = new LandLocationObserver();
-		server.getPluginManager().registerEvents(mutator, plugin);
-		server.getPluginManager().registerEvents(observer, plugin);
 		Block landedBlock = world.getBlockAt(10, 64, 20);
 		PackageLandEvent event = new PackageLandEvent(
 				crate, world, landedBlock.getLocation(), landedBlock);
 
-		server.getPluginManager().callEvent(event);
+		mutator.mutate(event);
+		observer.observe(event);
 
 		assertEquals(64, observer.observed.getY());
 	}
@@ -150,6 +150,19 @@ class PackageEventLocationIsolationTest {
 
 		new PackageDropEvent(crate, sameWorldWrapper, location);
 		new PackageLandEvent(crate, sameWorldWrapper, location, world.getBlockAt(10, 64, 20));
+	}
+
+	@Test
+	void legacyEventsCarryTheFourOneMigrationAnnotation() {
+		Deprecated dropped = PackageDropEvent.class.getAnnotation(Deprecated.class);
+		Deprecated landed = PackageLandEvent.class.getAnnotation(Deprecated.class);
+
+		assertNotNull(dropped);
+		assertNotNull(landed);
+		assertEquals("4.1", dropped.since());
+		assertEquals("4.1", landed.since());
+		assertFalse(dropped.forRemoval());
+		assertFalse(landed.forRemoval());
 	}
 
 	private static class DropLocationMutator implements Listener {
