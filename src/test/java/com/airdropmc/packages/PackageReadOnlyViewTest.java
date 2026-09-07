@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -90,6 +91,29 @@ class PackageReadOnlyViewTest {
 		assertTrue(inventory.getItem(32).getItemMeta().getLore().stream().anyMatch(line -> line.contains("Read-only")));
 		assertTrue(inventory.getItem(27).getItemMeta().getLore().stream().anyMatch(line -> line.contains("/airdrop starter")));
 		assertTrue(inventory.getItem(27).getItemMeta().getLore().stream().anyMatch(line -> line.contains("Free")));
+	}
+
+	@Test
+	void idleFreshnessChecksDoNotCloneRewardStacks() {
+		AtomicInteger clones = new AtomicInteger();
+		ItemStack reward = new CloneCountingItemStack(pkg.getItems().getFirst(), clones);
+		pkg = new Package("starter", 0, Collections.nCopies(27, reward));
+		PackageManager.publishPackages(Map.of("starter", pkg));
+		PlayerMock reader = reader();
+		assertTrue(new PackageGui(pkg).openInventory(reader));
+		Inventory preview = reader.getOpenInventory().getTopInventory();
+		PlayerMock admin = reader();
+		admin.setOp(true);
+		assertTrue(new PackageGui(pkg).openInventory(admin));
+		Inventory editor = admin.getOpenInventory().getTopInventory();
+		assertTrue(clones.get() > 0, "Opening views must still detach their reward stacks");
+		clones.set(0);
+
+		server.getScheduler().performTicks(20);
+
+		assertSame(preview, reader.getOpenInventory().getTopInventory());
+		assertSame(editor, admin.getOpenInventory().getTopInventory());
+		assertEquals(0, clones.get(), "Idle reader and admin checks must not clone rewards");
 	}
 
 	@Test
@@ -370,5 +394,21 @@ class PackageReadOnlyViewTest {
 		Field field = Airdrop.class.getDeclaredField("ready");
 		field.setAccessible(true);
 		field.set(null, ready);
+	}
+
+	private static final class CloneCountingItemStack extends ItemStack {
+		private final AtomicInteger clones;
+
+		private CloneCountingItemStack(ItemStack source, AtomicInteger clones) {
+			super(source.getType(), source.getAmount());
+			setItemMeta(source.getItemMeta());
+			this.clones = clones;
+		}
+
+		@Override
+		public ItemStack clone() {
+			clones.incrementAndGet();
+			return new CloneCountingItemStack(this, clones);
+		}
 	}
 }

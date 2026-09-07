@@ -47,10 +47,7 @@ public class PackageGui extends PackageEditorGui {
 	protected boolean isDefinitionCurrent() {
 		try {
 			// Unrelated writes rematerialize every package, so compare the displayed values.
-			Package current = PackageManager.get(getName());
-			return current.getName().equals(pkg.getName())
-					&& Double.compare(current.getPrice(), pkg.getPrice()) == 0
-					&& current.getItems().equals(pkg.getItems());
+			return PackageManager.get(getName()).hasSameDefinition(pkg);
 		} catch (PackageNotFoundException ignored) {
 			return false;
 		}
