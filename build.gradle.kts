@@ -31,7 +31,7 @@ import org.gradle.external.javadoc.StandardJavadocDocletOptions
 plugins {
     `java-library`
     `maven-publish`
-    id("xyz.jpenilla.run-paper") version "3.0.2" // Adds the runServer task for testing
+    id("xyz.jpenilla.run-paper") version "3.1.0" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
 
@@ -126,7 +126,7 @@ dependencies {
     testRuntimeOnly("net.luckperms:api:5.4")
     
     // Annotations
-    compileOnly("org.jetbrains:annotations:24.1.0")
+    compileOnly("org.jetbrains:annotations:26.1.0")
     
     // Test dependencies
     testImplementation("io.papermc.paper:paper-api:$supportedPaperApiVersion")
@@ -134,8 +134,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:$supportedJUnitVersion"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.yaml:snakeyaml:2.7")
-    testImplementation("org.mockito:mockito-core:5.14.2")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.23.0")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.116.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
