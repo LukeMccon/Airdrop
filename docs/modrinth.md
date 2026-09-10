@@ -97,10 +97,20 @@ failures can be diagnosed.
 | `/airdrop package <name>` | Inspect a package and its price | Everyone, including console |
 | `/airdrop package create <name> <price>` | Create a package and open its editor | In-game player with `airdrop.admin` |
 | `/airdrop package delete <name>` | Delete a package | `airdrop.admin`; console is allowed |
-| `/airdrop packages` | Open package management | In-game player with `airdrop.admin` |
+| `/airdrop packages` | Browse packages, prices, and item previews; admins can edit in the same view | In-game players |
 | `/airdrop reload` | Atomically reload config, locale, packages, and economy discovery | `airdrop.admin`; console is allowed |
 | `/airdrop version` | Show plugin, API, Paper, Java, and docs signals | Everyone, including console |
 | `/airdrop status` | Show bounded operational state and the last sanitized diagnostic | `airdrop.admin`; console is allowed |
+
+`/airdrop packages` lists packages you have permission to request. Click a package
+to inspect its items and their original names, enchantments, and lore. The same
+item view enables editing automatically for administrators; other players can
+only preview the rewards. Zero-price packages are labeled **Free**.
+
+Use the `/airdrop <package>` command shown in the item view to request a drop.
+Browsing does not charge you or request a package. Balance, cooldown, and server
+limits are checked when you request it. If a package or your permissions change,
+the catalog refreshes or the item view closes so you can reopen the current view.
 
 The generated Bukkit permissions are:
 

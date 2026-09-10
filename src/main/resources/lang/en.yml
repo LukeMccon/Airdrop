@@ -9,6 +9,7 @@ commands:
     header: "{primary}Airdrop commands"
     drop: "{text}/airdrop <package>{primary} — request a package; press Tab to see packages you can use"
     package: "{text}/airdrop package <name>{primary} — inspect a package"
+    packages: "{text}/airdrop packages{primary} — browse packages and view their items"
     version: "{text}/airdrop version{primary} — show compatibility information"
     admin-create: "{text}/airdrop package create <name> <price>{primary} — create a package"
     admin-delete: "{text}/airdrop package delete <name>{primary} — delete a package"
@@ -80,6 +81,15 @@ gui:
   editor-help-remove-one: "Right-click package: remove 1"
   packages-title: "Packages"
   package-price: "${price}"
+  catalog-free: "Free"
+  catalog-open: "Click to view items"
+  catalog-empty: "No packages available with your permissions"
+  package-request: "Request: /airdrop {name}"
+  package-availability: "Balance, cooldown, and server limits are checked when requesting"
+  package-read-only: "Read-only preview"
+  close: "Close"
+  catalog-changed: "Packages or permissions changed. Reopen the catalog to continue."
+  package-open-error: "Unable to open this package right now"
 
 admin:
   permission-required: "You must have {accent}airdrop.admin{error} permission to do this"

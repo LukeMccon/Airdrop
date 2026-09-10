@@ -74,6 +74,7 @@ public class CmdAirdrop implements CommandExecutor {
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_HEADER, Map.of());
 		if (sender instanceof Player) {
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_DROP, Map.of());
+			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_PACKAGES, Map.of());
 		}
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_PACKAGE, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_VERSION, Map.of());
@@ -83,7 +84,6 @@ public class CmdAirdrop implements CommandExecutor {
 		}
 		if (sender instanceof Player) {
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_CREATE, Map.of());
-			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_PACKAGES, Map.of());
 		}
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_DELETE, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_RELOAD, Map.of());

@@ -70,5 +70,8 @@ class PackageNamePolicyTest {
 				AirdropCommandNames.topLevel());
 		assertTrue(AirdropCommandNames.topLevel().stream()
 				.noneMatch(name -> PackageNamePolicy.validate(name).accepted()));
+		for (String name : List.of("catalog", "browse", "preview", "edit")) {
+			assertTrue(PackageNamePolicy.validate(name).accepted(), name);
+		}
 	}
 }

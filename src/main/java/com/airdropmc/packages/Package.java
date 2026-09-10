@@ -47,6 +47,13 @@ public class Package {
 		return this.name;
 	}
 
+	/** Compares captured definitions without copying or exposing their item stacks. */
+	boolean hasSameDefinition(Package other) {
+		return name.equals(other.name)
+				&& Double.compare(price, other.price) == 0
+				&& items.equals(other.items);
+	}
+
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		for (ItemStack item : this.items) {

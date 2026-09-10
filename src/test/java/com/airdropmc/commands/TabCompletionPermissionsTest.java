@@ -75,7 +75,27 @@ class TabCompletionPermissionsTest {
 		List<String> results = completer.onTabComplete(
 				player, mock(Command.class), "airdrop", new String[]{""});
 
-		assertEquals(List.of("package", "starter", "version"), results);
+		assertEquals(List.of("package", "packages", "starter", "version"), results);
+	}
+
+	@Test
+	void catalogIsDiscoverableBeforeAnyPackagePermissionIsGranted() {
+		Player player = mock(Player.class);
+
+		List<String> results = new AirdropTabCompleter().onTabComplete(
+				player, mock(Command.class), "airdrop", new String[]{""});
+
+		assertEquals(List.of("package", "packages", "version"), results);
+	}
+
+	@Test
+	void ordinaryNonPlayerCompletionOmitsInventoryCatalog() {
+		BlockCommandSender sender = mock(BlockCommandSender.class);
+
+		List<String> results = new AirdropTabCompleter().onTabComplete(
+				sender, mock(Command.class), "airdrop", new String[]{""});
+
+		assertEquals(List.of("package", "version"), results);
 	}
 
 	@Test
