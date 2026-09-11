@@ -36,7 +36,7 @@ class FirstRunOnboardingTest {
 	}
 
 	@Test
-	void missingFilesProvisionOneFreeStarterAndAllowAnOperatorDropWithoutOptionalDependencies()
+	void missingFilesProvisionPaidStarterAndBlockDropsWithoutEconomy()
 			throws Exception {
 		Airdrop plugin = loadUnconfiguredPlugin();
 
@@ -46,23 +46,24 @@ class FirstRunOnboardingTest {
 		assertTrue(Airdrop.isReady());
 		assertEquals(Set.of("starter"), PackageManager.getPackages());
 		Package starter = PackageManager.get("starter");
-		assertEquals(0.0, starter.getPrice());
+		assertEquals(10.0, starter.getPrice());
 
 		Path packagesFile = plugin.getDataFolder().toPath().resolve("packages.yml");
 		assertTrue(Files.exists(packagesFile));
 		YamlConfiguration persisted = YamlConfiguration.loadConfiguration(packagesFile.toFile());
-		assertEquals(0.0, persisted.getDouble("packages.starter.price"));
+		assertNotNull(persisted.getConfigurationSection("packages"));
+		assertEquals(10.0, persisted.getDouble("packages.starter.price"));
 		assertEquals(1, persisted.getConfigurationSection("packages").getKeys(false).size());
 
 		PlayerMock operator = server.addPlayer();
 		operator.setOp(true);
 		assertTrue(server.dispatchCommand(operator, "airdrop starter"));
-		assertEquals(1, Airdrop.getDropAdmissionController().snapshot().falling(),
-				"the free starter should reach the real drop path without an economy provider");
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().falling(),
+				"the starter must not become free when no economy provider is available");
 	}
 
 	@Test
-	void startupKeepsAnExistingPackageRegistryAndDoesNotDuplicateStarter() throws Exception {
+	void startupKeepsExistingPackageContentsAndPrices() throws Exception {
 		server = MockBukkit.mock();
 		Airdrop plugin = (Airdrop) server.getPluginManager().loadPlugin(Airdrop.class, new Object[0]);
 		Path dataDirectory = plugin.getDataFolder().toPath();
@@ -89,6 +90,8 @@ class FirstRunOnboardingTest {
 
 		assertEquals(List.of("custom", "starter"), PackageManager.getPackages().stream().sorted().toList());
 		assertEquals(7.5, PackageManager.get("starter").getPrice());
+		assertEquals(0.0, PackageManager.get("custom").getPrice());
+		assertEquals(packages, Files.readString(dataDirectory.resolve("packages.yml"), StandardCharsets.UTF_8));
 		YamlConfiguration persisted = YamlConfiguration.loadConfiguration(
 				dataDirectory.resolve("packages.yml").toFile());
 		assertEquals(2, persisted.getConfigurationSection("packages").getKeys(false).size());
