@@ -120,10 +120,10 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:$supportedPaperApiVersion")
     
     // Plugin dependencies
-    compileOnly("net.luckperms:api:5.4")
+    compileOnly("net.luckperms:api:5.5")
     compileOnly("net.milkbowl.vault:VaultUnlockedAPI:2.20")
-    testCompileOnly("net.luckperms:api:5.4")
-    testRuntimeOnly("net.luckperms:api:5.4")
+    testCompileOnly("net.luckperms:api:5.5")
+    testRuntimeOnly("net.luckperms:api:5.5")
     
     // Annotations
     compileOnly("org.jetbrains:annotations:26.1.0")
