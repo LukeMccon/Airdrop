@@ -51,22 +51,23 @@ Protection plugins do not need a private Airdrop hook. They may cancel Paper's
 5. Run `/airdrop status` as an operator to check readiness, package counts,
    economy discovery, active-drop counts, limits, and the last safe diagnostic.
 
-### Free quick start
+### Starter package costs 10
 
-When `plugins/Airdrop/packages.yml` is absent on the first startup, Airdrop
-creates a free `starter` package with iron armor and bread. Request it in game:
+When `plugins/Airdrop/packages.yml` is missing at startup, Airdrop creates a
+`starter` package with iron armor and bread, priced at `10.0`. Request it in game:
 
 ```text
 /airdrop starter
 ```
 
-Operators can use every package. To let another player request the starter,
+The starter requires enabled economy support, VaultUnlocked or Vault, and a
+compatible economy provider. Without them, Airdrop rejects the request.
+Operators can request every package. To let another player request the starter,
 grant `airdrop.package.starter` with any Bukkit-compatible permission manager.
-This path needs neither LuckPerms nor an economy plugin.
 
-First-start provisioning occurs only when `packages.yml` is absent. An existing
-file containing `packages: {}` is an intentionally empty registry and is not
-silently populated.
+Startup creates the starter only when `packages.yml` is missing. Existing files
+keep their packages and prices, including any free packages. An existing file
+containing `packages: {}` stays empty.
 
 ### Paid setup
 
@@ -77,6 +78,12 @@ silently populated.
 4. In game as an operator, run `/airdrop package create premium 10`.
 5. Add items in the editor, save the package, and grant
    `airdrop.package.premium` to the intended players.
+6. Request it with `/airdrop premium`. Each successful request costs `10` in
+   your economy provider's currency.
+
+Choose a price that fits your server's economy. If you want to offer a free
+package, explicitly set its price to `0`; free packages work without an economy
+plugin.
 
 Airdrop does not turn a missing provider into a free purchase. After a confirmed
 charge and a known delivery failure, it makes one best-effort refund attempt.
@@ -173,13 +180,14 @@ paid contents.
 
 Package definitions live in `plugins/Airdrop/packages.yml`. Prefer the in-game
 editor because it writes valid Bukkit item metadata and prevents editor control
-items from becoming rewards. Manual definitions use this shape:
+items from becoming rewards. Manual definitions use this shape; adjust the
+prices and rewards for your server:
 
 <!-- packages-example:start -->
 ```yaml
 packages:
   starter:
-    price: 0.0
+    price: 10.0
     items:
       - ==: org.bukkit.inventory.ItemStack
         schema_version: 1
@@ -237,9 +245,9 @@ Back up the Airdrop JAR, `config.yml`, `packages.yml`, and custom files under
 `plugins/Airdrop/` so startup cannot mistake it for a live file.
 
 On startup only, a missing `config.yml` is recreated from the shipped defaults,
-a missing `packages.yml` gets the free starter package, and a missing bundled
-`lang/en.yml` is copied into place. `/airdrop reload` does not regenerate a
-missing main or package file; it fails and retains the live state.
+a missing `packages.yml` gets the starter package priced at `10.0`, and a
+missing bundled `lang/en.yml` is copied into place. `/airdrop reload` does not
+regenerate a missing main or package file; it fails and retains the live state.
 
 To regenerate one file safely:
 
@@ -252,10 +260,12 @@ To regenerate one file safely:
 To roll back, stop Paper, restore a mutually matching JAR and data-directory
 backup, then start the server. Do not overwrite live files while Paper is
 running. For an upgrade, stop the server, back up the old JAR and data, replace
-the JAR, start it, review startup diagnostics and new defaults, and test one free
-drop before enabling paid traffic. Missing English locale keys are merged from
-the bundled file. New main-config defaults can be active without being written
-into an older `config.yml`, so compare that file with the shipped template.
+the JAR, start it, review startup diagnostics and new defaults, and test a
+configured package with an administrator account before allowing player requests.
+Priced test requests charge the administrator too. Missing English locale keys
+are merged from the bundled file. New main-config defaults can be active without
+being written into an older `config.yml`, so compare that file with the shipped
+template.
 
 ## Localization
 

@@ -62,7 +62,7 @@ class ModrinthDocsContractTest {
 				"## Quick links",
 				"## Compatibility",
 				"## Installation",
-				"### Free quick start",
+				"### Starter package costs 10",
 				"### Paid setup",
 				"## Commands and permissions",
 				"## Configuration",
@@ -224,7 +224,7 @@ class ModrinthDocsContractTest {
 		assertEquals(Set.of("starter", "premium"), packages.keySet());
 		Package starter = packages.get("starter");
 		assertEquals("starter", starter.getName());
-		assertEquals(0.0, starter.getPrice());
+		assertEquals(10.0, starter.getPrice());
 		assertEquals(List.of(Material.BREAD, Material.TORCH), starter.getItems().stream()
 				.map(item -> item.getType())
 				.toList());
