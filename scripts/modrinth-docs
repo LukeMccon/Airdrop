@@ -40,7 +40,7 @@ check_local() {
 	require_line "## Quick links"
 	require_line "## Compatibility"
 	require_line "## Installation"
-	require_line "### Free quick start"
+	require_line "### Starter package costs 10"
 	require_line "### Paid setup"
 	require_line "## Commands and permissions"
 	require_line "## Configuration"

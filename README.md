@@ -22,8 +22,9 @@ economy support, and in-game package editing.
 | Current source (`4.1.0-SNAPSHOT`) | `1.0.0` | `1.21.11` | `21` | unit + LightKeeper |
 
 Paper `1.21.11` and Java `21` are the exact supported runtime. LuckPerms,
-VaultUnlocked, Vault, and an economy provider are optional; the first-start
-`starter` package is free and works without them.
+VaultUnlocked, Vault, and an economy provider are optional. The first-start
+`starter` package costs `10.0`; paid player requests require enabled economy
+support, a Vault-compatible bridge, and an economy provider.
 
 Plugin developers should use only `com.airdropmc.api`. See the
 [Airdrop 4.1 migration guide](docs/migration-4.1.md) and
@@ -35,7 +36,7 @@ The [canonical Modrinth documentation](https://modrinth.com/plugin/airdrop)
 contains the maintained installation, configuration, command, troubleshooting,
 and developer integration guide:
 
-- [Install and run the free starter](https://modrinth.com/plugin/airdrop#installation)
+- [Install and configure the starter package](https://modrinth.com/plugin/airdrop#installation)
 - [Configure Airdrop](https://modrinth.com/plugin/airdrop#configuration)
 - [Troubleshoot a server](https://modrinth.com/plugin/airdrop#troubleshooting)
 - [Integrate a plugin](https://modrinth.com/plugin/airdrop#developer-integration)
