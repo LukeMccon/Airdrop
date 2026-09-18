@@ -6,11 +6,11 @@ You choose the items, the price, and who can request each package.
 ## Install Airdrop and try the starter package
 
 1. [Download Airdrop](https://modrinth.com/plugin/airdrop/versions) for Paper
-   **1.21.11** and **Java 21**. Put the JAR in your server's `plugins/` folder
-   and restart the server.
-2. For paid packages, install **VaultUnlocked or Vault** and an economy plugin,
-   such as EssentialsX. Run `/airdrop status` as an operator to check the setup.
-3. As an operator with at least **10** in your server's currency, stand under
+   **1.21.11** and **Java 21**. Put the JAR in your server's `plugins/` folder.
+2. For paid packages, including the starter, add **VaultUnlocked or Vault** and
+   an economy plugin, such as EssentialsX, to the `plugins/` folder.
+3. Restart the server. Run `/airdrop status` as an operator to check the setup.
+4. As an operator with at least **10** in your server's currency, stand under
    clear sky and run `/airdrop starter`. Open the crate after it lands.
 
 On a fresh installation, the starter contains iron armor and bread and costs
