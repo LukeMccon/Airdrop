@@ -116,10 +116,13 @@ gh release edit v4.1.0 --repo LukeMccon/Airdrop --verify-tag --draft=false --pre
 
 This starts the release workflow's build, tests, API/artifact checks, and
 LightKeeper run. Once its build passes, it uploads the runtime JAR to GitHub
-and the runtime, sources, and Javadocs to Modrinth. The short Modrinth project
-description is maintained separately. Publishing the detailed reference is
-disabled unless the repository variable `PUBLISH_MODRINTH_DOCS` is explicitly
-set to `true`; leave it unset or `false` to preserve the project description.
+and the runtime, sources, and Javadocs to Modrinth. Release automation does not
+update the project description. The short overview lives in
+`docs/modrinth-description.md`; setup and developer guides live in `docs/`.
+
+To deliberately update the short overview, edit and review that file, then use
+`./scripts/modrinth-docs publish` with the project ID and token available in the
+environment. This command publishes only the overview.
 
 `MODRINTH_TOKEN` and `MODRINTH_PROJECT_ID` must remain configured in GitHub.
 Both were present during preparation; publishing credentials were not exercised.
@@ -128,17 +131,13 @@ The workflow's default loader and game version are `paper` and `1.21.11`.
 ## Verify hosted artifacts before calling the release complete
 
 - Confirm `build`, `publish-github`, and `publish-modrinth` pass (AIRDR-45).
-  `publish-modrinth-docs` is skipped unless reference publication was explicitly
-  enabled.
 - Download the GitHub and Modrinth runtime JARs and compare their SHA-256 hashes
   with the verified release build. Confirm their metadata and install one of
   the downloaded artifacts for a final startup check.
 - Confirm the Modrinth sources and Javadoc downloads are available and the
   published Maven coordinates resolve for the integration guide (AIRDR-41).
-- Check that documentation links reach the repository guide. Only when
-  reference publication was explicitly enabled, run
-  `MODRINTH_PROJECT_ID=wslZpHU2 ./scripts/modrinth-docs check-remote`
-  from the tag checkout.
+- Check that documentation links reach the [GitHub documentation home](../README.md).
+  Keep the detailed reference out of the Modrinth description.
 - Bring the main release merge back into develop through a normal PR so the
   release notes and history carry forward. Keep PR #92 out of the 4.1 tag.
 

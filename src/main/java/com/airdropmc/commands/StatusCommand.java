@@ -16,7 +16,7 @@ import java.util.OptionalInt;
 
 /** Renders the supported, immutable operational status snapshot. */
 public final class StatusCommand {
-	private static final String MODRINTH_URL = "https://modrinth.com/plugin/airdrop";
+	private static final String DOCS_URL = "https://github.com/LukeMccon/Airdrop/tree/develop/docs";
 
 	private StatusCommand() {
 	}
@@ -61,7 +61,7 @@ public final class StatusCommand {
 				.map(category -> category + " — ")
 				.orElse(""));
 		placeholders.put("diagnostic", status.lastDiagnostic().orElse(none));
-		placeholders.put("docs_url", MODRINTH_URL);
+		placeholders.put("docs_url", DOCS_URL);
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.SYSTEM_STATUS_INFO, placeholders);
 	}
 

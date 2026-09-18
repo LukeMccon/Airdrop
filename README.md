@@ -30,15 +30,18 @@ Plugin developers should use only `com.airdropmc.api`. See the
 [Airdrop 4.1 migration guide](docs/migration-4.1.md) and
 [extension API version policy](docs/development/api-versioning.md).
 
-## Get started
+## Documentation
+
+[Start with the Airdrop documentation](docs/README.md) to install the plugin,
+set up your first package, and choose who can request it.
+
+- [Install Airdrop](docs/README.md#install-airdrop-and-try-the-starter-package)
+- [Commands and permissions](docs/reference.md#commands-and-permissions)
+- [Packages and configuration](docs/reference.md#configuration)
+- [Troubleshooting](docs/reference.md#troubleshooting)
+- [Plugin development](docs/README.md#connect-another-plugin-to-airdrop)
 
 See [Airdrop on Modrinth](https://modrinth.com/plugin/airdrop) for an overview and downloads.
-The detailed setup and developer guides are maintained in this repository:
-
-- [Install and configure the starter package](docs/modrinth.md#installation)
-- [Configure Airdrop](docs/modrinth.md#configuration)
-- [Troubleshoot a server](docs/modrinth.md#troubleshooting)
-- [Integrate a plugin](docs/modrinth.md#developer-integration)
 
 ## Build locally
 

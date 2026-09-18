@@ -39,9 +39,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(MockBukkitExtension.class)
 class ModrinthDocsContractTest {
 	private static final Path PROJECT_ROOT = Path.of("").toAbsolutePath().normalize();
-	private static final Path DOCUMENT = PROJECT_ROOT.resolve("docs/modrinth.md");
+	private static final Path DOCUMENT = PROJECT_ROOT.resolve("docs/reference.md");
+	private static final Path DESCRIPTION = PROJECT_ROOT.resolve("docs/modrinth-description.md");
 	private static final Path SCRIPT = PROJECT_ROOT.resolve("scripts/modrinth-docs");
-	private static final String CANONICAL_URL = "https://modrinth.com/plugin/airdrop";
+	private static final String MODRINTH_URL = "https://modrinth.com/plugin/airdrop";
 	private static final String TEST_TOKEN = "modrinth-test-token-that-must-not-leak";
 	private static final Pattern CONFIG_REFERENCE = Pattern.compile(
 			"(?m)^\\|\\s*<a id=\"config-([a-z0-9-]+)\"></a>\\s*`([^`]+)`\\s*"
@@ -52,8 +53,8 @@ class ModrinthDocsContractTest {
 					+ "<!-- packages-example:end -->");
 
 	@Test
-	void canonicalBodyHasStableSectionsAndProjectLinks() throws IOException {
-		assertTrue(Files.isRegularFile(DOCUMENT), "docs/modrinth.md must be the canonical project body");
+	void referenceHasStableSectionsAndProjectLinks() throws IOException {
+		assertTrue(Files.isRegularFile(DOCUMENT), "docs/reference.md must contain the detailed guide");
 		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
 		assertFalse(body.isBlank());
 
@@ -70,20 +71,20 @@ class ModrinthDocsContractTest {
 				"## Troubleshooting",
 				"## Developer integration",
 				"## Project and support")) {
-			assertTrue(body.contains(heading), () -> "Missing canonical heading: " + heading);
+			assertTrue(body.contains(heading), () -> "Missing reference heading: " + heading);
 		}
 
 		for (String link : List.of(
-				CANONICAL_URL,
+				MODRINTH_URL,
 				"#installation",
 				"#configuration",
 				"#troubleshooting",
 				"#developer-integration",
 				"https://github.com/LukeMccon/Airdrop",
-				CANONICAL_URL + "/versions",
+				MODRINTH_URL + "/versions",
 				"https://github.com/LukeMccon/Airdrop/issues/new?labels=bug",
 				"https://github.com/LukeMccon/Airdrop/issues/new?labels=enhancement")) {
-			assertTrue(body.contains(link), () -> "Missing canonical link: " + link);
+			assertTrue(body.contains(link), () -> "Missing reference link: " + link);
 		}
 
 		assertFalse(body.toLowerCase().contains("github.com/lukemccon/airdrop/wiki"));
@@ -261,9 +262,9 @@ class ModrinthDocsContractTest {
 	}
 
 	@Test
-	void publisherRendersTheExactBodyAsDeterministicJson() throws Exception {
+	void publisherRendersOnlyTheShortDescriptionAsDeterministicJson() throws Exception {
 		assertPublisherAvailable();
-		String body = Files.readString(DOCUMENT, StandardCharsets.UTF_8);
+		String body = Files.readString(DESCRIPTION, StandardCharsets.UTF_8);
 
 		ProcessResult first = runScript(Map.of(), "render-payload");
 		ProcessResult second = runScript(Map.of(), "render-payload");
@@ -272,6 +273,7 @@ class ModrinthDocsContractTest {
 		assertEquals(first.stdout(), second.stdout());
 		Map<?, ?> payload = yamlMap(new Yaml(new SafeConstructor(new LoaderOptions())).load(first.stdout()));
 		assertEquals(body, payload.get("body"));
+		assertFalse(body.contains("## Developer integration"), "The technical guide must stay off Modrinth");
 
 		String source = Files.readString(SCRIPT, StandardCharsets.UTF_8);
 		assertTrue(source.contains("jq -cn --rawfile"), "Payload must read the body as raw file bytes");
@@ -286,7 +288,7 @@ class ModrinthDocsContractTest {
 		ProcessResult result = runScript(Map.of(), "check-local");
 
 		assertEquals(0, result.exitCode(), result.combinedOutput());
-		assertTrue(result.combinedOutput().contains("Modrinth documentation is valid"));
+		assertTrue(result.combinedOutput().contains("GitHub documentation is valid"));
 	}
 
 	@Test
@@ -366,21 +368,21 @@ class ModrinthDocsContractTest {
 	}
 
 	@Test
-	void buildReadmePluginMetadataAndReleaseWorkflowUseTheCanonicalSource() throws Exception {
+	void readmeLinksToGithubDocsAndReleasesLeaveTheDescriptionAlone() throws Exception {
 		String build = Files.readString(PROJECT_ROOT.resolve("build.gradle.kts"), StandardCharsets.UTF_8);
 		assertTrue(build.contains("verifyModrinthDocs"));
 		assertTrue(build.contains("commandLine(\"./scripts/modrinth-docs\", \"check-local\")"));
 		assertTrue(build.contains("dependsOn(verifyModrinthDocs)"));
 
 		String readme = Files.readString(PROJECT_ROOT.resolve("README.md"), StandardCharsets.UTF_8);
-		assertTrue(readme.contains(CANONICAL_URL));
-		assertTrue(readme.contains("docs/modrinth.md#installation"));
+		assertTrue(readme.contains(MODRINTH_URL));
+		assertTrue(readme.contains("docs/README.md#install-airdrop-and-try-the-starter-package"));
 		assertTrue(readme.contains("./gradlew clean build"));
-		assertFalse(readme.contains("## Configuration"), "Detailed reference belongs in the canonical body");
+		assertFalse(readme.contains("## Configuration"), "Detailed reference belongs in docs/");
 		assertFalse(readme.toLowerCase().contains("github.com/lukemccon/airdrop/wiki"));
 
 		Map<?, ?> plugin = loadYamlResource("plugin.yml");
-		assertEquals(CANONICAL_URL, plugin.get("website"));
+		assertEquals(MODRINTH_URL, plugin.get("website"));
 		assertTrue(MessageKey.SYSTEM_VERSION_INFO.getDefault().contains("Docs and support:"));
 		Map<?, ?> language = loadYamlResource("lang/en.yml");
 		Map<?, ?> system = yamlMap(language.get("system"));
@@ -388,24 +390,8 @@ class ModrinthDocsContractTest {
 
 		Map<?, ?> workflow = loadYaml(PROJECT_ROOT.resolve(".github/workflows/release.yml"));
 		Map<?, ?> jobs = yamlMap(workflow.get("jobs"));
-		Map<?, ?> docsJob = yamlMap(jobs.get("publish-modrinth-docs"));
-		assertEquals("publish-modrinth", docsJob.get("needs"));
-		assertEquals("${{ github.event.release.prerelease == false && vars.PUBLISH_MODRINTH_DOCS == 'true' }}",
-				docsJob.get("if"), "Publishing the technical guide requires explicit repository opt-in");
-		assertFalse(docsJob.containsKey("env"), "The token must only be available to the publication step");
-		assertTrue(docsJob.get("steps") instanceof List<?>);
-		Map<?, ?> publicationStep = ((List<?>) docsJob.get("steps")).stream()
-				.map(this::yamlMap)
-				.filter(step -> String.valueOf(step.get("run")).contains("./scripts/modrinth-docs publish"))
-				.findFirst()
-				.orElseThrow();
-		Map<?, ?> environment = yamlMap(publicationStep.get("env"));
-		assertEquals("${{ vars.MODRINTH_PROJECT_ID }}", environment.get("MODRINTH_PROJECT_ID"));
-		assertEquals("${{ secrets.MODRINTH_TOKEN }}", environment.get("MODRINTH_TOKEN"));
-		String docsJobText = String.valueOf(docsJob);
-		assertTrue(docsJobText.contains("${{ github.event.release.tag_name }}"));
-		assertTrue(docsJobText.contains("./scripts/modrinth-docs publish"));
-		assertTrue(docsJobText.contains("./scripts/modrinth-docs check-remote"));
+		assertFalse(jobs.containsKey("publish-modrinth-docs"),
+				"Releases must not overwrite the project description");
 	}
 
 	private void assertPublisherAvailable() {
