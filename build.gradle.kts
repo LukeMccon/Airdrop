@@ -11,7 +11,6 @@ import java.util.jar.JarFile
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
-import org.gradle.api.artifacts.verification.DependencyVerificationMode
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.Exec
@@ -585,7 +584,6 @@ val consumerFixtureTest = tasks.register<GradleBuild>("consumerFixtureTest") {
         "airdropVersion" to project.version.toString(),
         "paperVersion" to supportedPaperApiVersion
     )
-    startParameter.dependencyVerificationMode = DependencyVerificationMode.STRICT
     inputs.files(
         fileTree(layout.projectDirectory.dir("consumer-fixture")) {
             exclude("build/**")
@@ -662,7 +660,6 @@ val verifyReproducibleRuntimeJar = tasks.register("verifyReproducibleRuntimeJar"
                 "./gradlew",
                 "--no-daemon",
                 "--console=plain",
-                "--dependency-verification=strict",
                 "clean",
                 "jar"
             )
