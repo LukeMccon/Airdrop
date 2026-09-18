@@ -32,14 +32,13 @@ Plugin developers should use only `com.airdropmc.api`. See the
 
 ## Get started
 
-The [canonical Modrinth documentation](https://modrinth.com/plugin/airdrop)
-contains the maintained installation, configuration, command, troubleshooting,
-and developer integration guide:
+See [Airdrop on Modrinth](https://modrinth.com/plugin/airdrop) for an overview and downloads.
+The detailed setup and developer guides are maintained in this repository:
 
-- [Install and configure the starter package](https://modrinth.com/plugin/airdrop#installation)
-- [Configure Airdrop](https://modrinth.com/plugin/airdrop#configuration)
-- [Troubleshoot a server](https://modrinth.com/plugin/airdrop#troubleshooting)
-- [Integrate a plugin](https://modrinth.com/plugin/airdrop#developer-integration)
+- [Install and configure the starter package](docs/modrinth.md#installation)
+- [Configure Airdrop](docs/modrinth.md#configuration)
+- [Troubleshoot a server](docs/modrinth.md#troubleshooting)
+- [Integrate a plugin](docs/modrinth.md#developer-integration)
 
 ## Build locally
 
@@ -58,8 +57,7 @@ reports, and the pinned adapter repository for diagnosis and reuse. Use
 `./gradlew clean lightkeeperTest` for a full
 reset of `lightkeeper/target`.
 
-The canonical Modrinth body is repository-owned. Validate it without network
-access with:
+Validate the detailed reference without network access with:
 
 ```bash
 ./gradlew verifyModrinthDocs

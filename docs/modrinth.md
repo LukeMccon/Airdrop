@@ -5,17 +5,16 @@ land as barrels. Server owners can edit package inventories in game, set free or
 paid access, limit active drops, localize messages, and adjust landing effects.
 A small Java API lets other plugins request drops and observe their lifecycle.
 
-This file is the canonical source for
-[the Airdrop Modrinth project page](https://modrinth.com/plugin/airdrop). Release
-automation can publish these exact bytes; the repository does not maintain a
-second hand-edited project description.
+This is the detailed administrator and developer reference. The
+[Modrinth project page](https://modrinth.com/plugin/airdrop) provides a short
+overview and downloads.
 
 ## Quick links
 
-- [Installation](https://modrinth.com/plugin/airdrop#installation)
-- [Configuration](https://modrinth.com/plugin/airdrop#configuration)
-- [Troubleshooting](https://modrinth.com/plugin/airdrop#troubleshooting)
-- [Developer integration](https://modrinth.com/plugin/airdrop#developer-integration)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Developer integration](#developer-integration)
 - [Source](https://github.com/LukeMccon/Airdrop)
 - [Releases](https://modrinth.com/plugin/airdrop/versions)
 - [Report a bug](https://github.com/LukeMccon/Airdrop/issues/new?labels=bug)

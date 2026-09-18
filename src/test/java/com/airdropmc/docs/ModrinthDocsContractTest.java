@@ -75,10 +75,10 @@ class ModrinthDocsContractTest {
 
 		for (String link : List.of(
 				CANONICAL_URL,
-				CANONICAL_URL + "#installation",
-				CANONICAL_URL + "#configuration",
-				CANONICAL_URL + "#troubleshooting",
-				CANONICAL_URL + "#developer-integration",
+				"#installation",
+				"#configuration",
+				"#troubleshooting",
+				"#developer-integration",
 				"https://github.com/LukeMccon/Airdrop",
 				CANONICAL_URL + "/versions",
 				"https://github.com/LukeMccon/Airdrop/issues/new?labels=bug",
@@ -374,7 +374,7 @@ class ModrinthDocsContractTest {
 
 		String readme = Files.readString(PROJECT_ROOT.resolve("README.md"), StandardCharsets.UTF_8);
 		assertTrue(readme.contains(CANONICAL_URL));
-		assertTrue(readme.contains(CANONICAL_URL + "#installation"));
+		assertTrue(readme.contains("docs/modrinth.md#installation"));
 		assertTrue(readme.contains("./gradlew clean build"));
 		assertFalse(readme.contains("## Configuration"), "Detailed reference belongs in the canonical body");
 		assertFalse(readme.toLowerCase().contains("github.com/lukemccon/airdrop/wiki"));
@@ -390,8 +390,8 @@ class ModrinthDocsContractTest {
 		Map<?, ?> jobs = yamlMap(workflow.get("jobs"));
 		Map<?, ?> docsJob = yamlMap(jobs.get("publish-modrinth-docs"));
 		assertEquals("publish-modrinth", docsJob.get("needs"));
-		assertEquals("${{ github.event.release.prerelease == false }}", docsJob.get("if"),
-				"Prereleases must not publish stable-only dependency examples");
+		assertEquals("${{ github.event.release.prerelease == false && vars.PUBLISH_MODRINTH_DOCS == 'true' }}",
+				docsJob.get("if"), "Publishing the technical guide requires explicit repository opt-in");
 		assertFalse(docsJob.containsKey("env"), "The token must only be available to the publication step");
 		assertTrue(docsJob.get("steps") instanceof List<?>);
 		Map<?, ?> publicationStep = ((List<?>) docsJob.get("steps")).stream()
