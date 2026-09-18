@@ -1,8 +1,8 @@
 package com.airdropmc.economy;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
 import net.milkbowl.vault2.economy.AsyncEconomy;
 import org.bukkit.plugin.ServicePriority;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 class EconomyProviderDiscoveryTest {
 
 	private ServerMock server;
-	private MockPlugin registrar;
+	private PluginMock registrar;
 
 	@BeforeEach
 	void setUp() {

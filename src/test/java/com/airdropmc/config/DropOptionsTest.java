@@ -1,12 +1,17 @@
 package com.airdropmc.config;
 
+import com.airdropmc.api.ResolvedDropSettings;
+import com.airdropmc.limits.DropLimitSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class DropOptionsTest {
@@ -285,4 +290,47 @@ class DropOptionsTest {
             assertEquals(15, options.getSmokeHeight());
         }
     }
+
+	@Test
+	void resolveSnapshotsEveryVisualAndLimitValueExactlyOnce() {
+		DropOptions options = DropOptions.createDefault();
+		DropLimitSettings limits = new DropLimitSettings(
+				Duration.ofSeconds(11), 4, 12, Duration.ofSeconds(45));
+
+		try (MockedStatic<ConfigKeys> configKeys = Mockito.mockStatic(ConfigKeys.class)) {
+			configKeys.when(ConfigKeys::getParachuteChickenCount).thenReturn(2);
+			configKeys.when(ConfigKeys::getDropFallingSpeed).thenReturn(0.25);
+			configKeys.when(ConfigKeys::getDropHeight).thenReturn(75);
+			configKeys.when(ConfigKeys::shouldShowLandingParticleEffects).thenReturn(true);
+			configKeys.when(ConfigKeys::shouldShowContinuousParticleEffects).thenReturn(false);
+			configKeys.when(ConfigKeys::shouldShowFlareParticleEffects).thenReturn(true);
+			configKeys.when(ConfigKeys::isSmokeEnabled).thenReturn(false);
+			configKeys.when(ConfigKeys::getSmokeHeight).thenReturn(18);
+
+			ResolvedDropSettings resolved = options.resolve(limits);
+			options.withChickenCount(9).withDropHeight(200).withSmokeEnabled(true);
+
+			assertEquals(2, resolved.chickenCount());
+			assertEquals(0.25, resolved.fallingSpeed());
+			assertEquals(75, resolved.dropHeight());
+			assertTrue(resolved.landingEffects());
+			assertFalse(resolved.continuousEffects());
+			assertTrue(resolved.flareEffects());
+			assertFalse(resolved.smokeEnabled());
+			assertEquals(18, resolved.smokeHeight());
+			assertEquals(limits.requestCooldown(), resolved.requestCooldown());
+			assertEquals(limits.maxFalling(), resolved.maxFalling());
+			assertEquals(limits.maxLanded(), resolved.maxLanded());
+			assertEquals(limits.landedLifetime(), resolved.landedLifetime());
+
+			configKeys.verify(ConfigKeys::getParachuteChickenCount, times(1));
+			configKeys.verify(ConfigKeys::getDropFallingSpeed, times(1));
+			configKeys.verify(ConfigKeys::getDropHeight, times(1));
+			configKeys.verify(ConfigKeys::shouldShowLandingParticleEffects, times(1));
+			configKeys.verify(ConfigKeys::shouldShowContinuousParticleEffects, times(1));
+			configKeys.verify(ConfigKeys::shouldShowFlareParticleEffects, times(1));
+			configKeys.verify(ConfigKeys::isSmokeEnabled, times(1));
+			configKeys.verify(ConfigKeys::getSmokeHeight, times(1));
+		}
+	}
 }

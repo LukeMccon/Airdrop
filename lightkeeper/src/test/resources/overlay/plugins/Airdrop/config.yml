@@ -2,7 +2,7 @@ drop:
   parachute:
     chicken-count: 1
   particles:
-    landing-effects: false
+    landing-effects: true
     continuous-effects: false
     flare-effects: false
     smoke:
@@ -11,4 +11,4 @@ drop:
   height: 8
 
 economy:
-  enabled: false
+  enabled: true

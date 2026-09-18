@@ -8,6 +8,15 @@ public enum MessageKey {
 			"Uses inventory GUI, not available to the console"),
 	COMMANDS_PACKAGE_SPECIFY("commands.package-specify", "Must specify a package name"),
 	COMMANDS_PACKAGE_EXAMPLE("commands.package-example", "Example: /airdrop starter"),
+	COMMANDS_HELP_HEADER("commands.help.header", "{primary}Airdrop commands"),
+	COMMANDS_HELP_DROP("commands.help.drop", "{text}/airdrop <package>{primary} — request a package; press Tab to see packages you can use"),
+	COMMANDS_HELP_PACKAGE("commands.help.package", "{text}/airdrop package <name>{primary} — inspect a package"),
+	COMMANDS_HELP_VERSION("commands.help.version", "{text}/airdrop version{primary} — show compatibility information"),
+	COMMANDS_HELP_ADMIN_CREATE("commands.help.admin-create", "{text}/airdrop package create <name> <price>{primary} — create a package"),
+	COMMANDS_HELP_ADMIN_DELETE("commands.help.admin-delete", "{text}/airdrop package delete <name>{primary} — delete a package"),
+	COMMANDS_HELP_ADMIN_PACKAGES("commands.help.admin-packages", "{text}/airdrop packages{primary} — open package management"),
+	COMMANDS_HELP_ADMIN_RELOAD("commands.help.admin-reload", "{text}/airdrop reload{primary} — reload configuration"),
+	COMMANDS_HELP_ADMIN_STATUS("commands.help.admin-status", "{text}/airdrop status{primary} — show operational status"),
 
 	PACKAGES_INFO("packages.info",
 			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Package: {accent}{name}\n{text}  Price: {accent}${price}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{info}"),
@@ -23,15 +32,19 @@ public enum MessageKey {
 	PACKAGES_CREATE_USAGE("packages.create-usage", "Usage: /airdrop package create <name> <price>"),
 	PACKAGES_CREATE_EXAMPLE("packages.create-example", "Example: /airdrop package create starter 12.0"),
 	PACKAGES_NAME_REQUIRED("packages.name-required", "You must provide a name for the package"),
-	PACKAGES_NAME_INVALID("packages.name-invalid",
-			"Package names may only contain letters, numbers, underscores, and dashes"),
-	PACKAGES_NAME_RESERVED("packages.name-reserved",
-			"Package names cannot use reserved names: all, *, package, packages, version, reload"),
+		PACKAGES_NAME_INVALID("packages.name-invalid",
+				"Package names may only contain letters, numbers, underscores, and dashes"),
+		PACKAGES_NAME_RESERVED("packages.name-reserved",
+				"Package names cannot use reserved names: all, *, package, packages, version, status, reload"),
+		PACKAGES_NAME_SUBCOMMAND_RESERVED("packages.name-subcommand-reserved",
+				"The package names create and delete are reserved because they are package subcommands"),
 	PACKAGES_PRICE_REQUIRED("packages.price-required", "You must provide the package price as a double"),
 	PACKAGES_PRICE_INVALID("packages.price-invalid", "Package price must be a finite non-negative number"),
 	PACKAGES_CREATE_OPEN_ERROR("packages.create-open-error", "Unable to open package editor right now"),
 	PACKAGES_ITEM_LIMIT("packages.item-limit",
 			"Package can only hold {accent}{max}{error} item stacks (barrel capacity). Remove extra items before saving."),
+	PACKAGES_CAPACITY_LIMIT("packages.capacity-limit",
+			"Cannot configure {accent}{count}{error} packages; the limit is {accent}{limit}{error}. Delete an existing package first."),
 
 	ERROR_CANNOT_AFFORD("errors.cannot-afford",
 			"{accent}{player}{error} cannot afford package price of {accent}{price}{error}"),
@@ -42,13 +55,14 @@ public enum MessageKey {
 	ERROR_PLUGIN_NOT_READY("errors.plugin-not-ready",
 			"Airdrop is still starting or is shutting down. Try again shortly."),
 	ERROR_RELOAD_UNAVAILABLE("errors.reload-unavailable", "Reload unavailable while plugin is shutting down"),
+	ERROR_STATUS_UNAVAILABLE("errors.status-unavailable", "Airdrop status is unavailable"),
 	ERROR_RELOAD_FAILED_RETAINED("errors.reload-failed-retained",
 			"Reload failed. The previous configuration remains active. Check the server log."),
 	ERROR_PACKAGES_RELOAD_FAILED("errors.packages-reload-failed",
 			"Reload failed because packages configuration is unavailable"),
 	ERROR_SKY_NOT_CLEAR("errors.sky-not-clear", "Sky must be clear above your location to call an airdrop"),
 	ERROR_PACKAGE_NOT_FOUND("errors.package-not-found",
-			"Package {accent}{name}{error} not found. Use {warning}/airdrop packages{error} to see available packages"),
+			"Package {accent}{name}{error} not found. Type {warning}/airdrop{error} and press Tab to see packages you can use, or inspect one with {warning}/airdrop package <name>"),
 	ERROR_PACKAGE_EXISTS("errors.package-exists", "A package named {accent}{name}{error} already exists"),
 	ERROR_PACKAGE_DELETE_NOT_FOUND("errors.package-delete-not-found",
 			"Unable to delete package: {error-detail}{name}{error} not found"),
@@ -67,6 +81,13 @@ public enum MessageKey {
 			"Airdrops are unavailable while the plugin is shutting down"),
 
 	DROP_CHARGED("drop.charged", "{accent}${amount}{primary} has been taken from your account"),
+	DROP_INCOMING("drop.incoming", "Your {accent}{name}{primary} package is on its way."),
+	DROP_INCOMING_CHARGED("drop.incoming-charged",
+			"Your {accent}{name}{primary} package is on its way. {accent}${amount}{primary} has been taken from your account."),
+	DROP_LANDED("drop.landed",
+			"Your {accent}{name}{primary} package landed at {accent}X: {x}, Y: {y}, Z: {z}{primary}."),
+	DROP_LANDED_OTHER_WORLD("drop.landed-other-world",
+			"Your {accent}{name}{primary} package landed at {accent}X: {x}, Y: {y}, Z: {z}{primary} in {accent}{world}{primary}."),
 	DROP_FAILED("drop.failed", "Airdrop failed; no crate was created"),
 	DROP_REFUNDED("drop.refunded", "Airdrop failed; your payment was refunded"),
 
@@ -94,9 +115,26 @@ public enum MessageKey {
 			"Reload completed, but no economy provider is available; paid drops are blocked"),
 	SYSTEM_PACKAGE_PRICE_MISSING("system.package-price-missing", "Could not find price for package: {accent}{name}"),
 	SYSTEM_PACKAGE_PRICE_INVALID("system.package-price-invalid",
-			"Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Falling back to 0.0"),
+			"Invalid package price for {accent}{name}{primary}: {accent}{price}{primary}. Package configuration rejected"),
 	SYSTEM_VERSION_INFO("system.version-info",
-			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Airdrop {accent}v{version}\n{text}  Paper API {accent}{api_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Found a bug? Report it here:\n{text}  {accent}airdropmc.com/report-bug\n{text}  Have an idea? Request a feature:\n{text}  {accent}airdropmc.com/request-feature");
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java compatibility: {accent}{java_version}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs and support: {accent}{docs_url}"),
+	SYSTEM_STATUS_VALUE_NONE("system.status-values.none", "none"),
+	SYSTEM_STATUS_VALUE_NOT_PUBLISHED("system.status-values.not-published", "not published"),
+	SYSTEM_STATUS_INFO("system.status-info",
+			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n"
+					+ "{text}  Plugin: {accent}{plugin_version}\n"
+					+ "{text}  Extension API: {accent}{extension_api_version}\n"
+					+ "{text}  Paper compatibility: {accent}{paper_version}\n"
+					+ "{text}  Java compatibility: {accent}{java_version}\n"
+					+ "{text}  Readiness: {accent}{readiness}\n"
+					+ "{text}  Economy: {accent}{economy}{text} (provider: {accent}{economy_provider}{text})\n"
+					+ "{text}  Packages: {accent}{package_count}{text} (revision {accent}{package_revision}{text})\n"
+					+ "{text}  Pending requests: {accent}{pending_count}\n"
+					+ "{text}  Falling drops: {accent}{falling_count}{text} / {accent}{max_falling}\n"
+					+ "{text}  Landed drops: {accent}{landed_count}{text} / {accent}{max_landed}\n"
+					+ "{text}  Diagnostic: {accent}{diagnostic_category}{diagnostic}\n"
+					+ "{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n"
+					+ "{text}  Docs: {accent}{docs_url}");
 
 	private final String key;
 	private final String defaultValue;

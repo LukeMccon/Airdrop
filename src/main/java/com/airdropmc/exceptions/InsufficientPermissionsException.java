@@ -1,16 +1,22 @@
 package com.airdropmc.exceptions;
 
+/** Indicates that a player cannot request the named package. */
 public class InsufficientPermissionsException extends Exception {
-    /**
-     * Indicates that a player does not have permissions to carry out an operation
-     */
-    public InsufficientPermissionsException(String packageName) {
-        this.packageName = packageName;
-    }
 
-    private final String packageName;
+	/**
+	 * Creates a package-permission rejection.
+	 *
+	 * @param packageName package the player cannot request
+	 */
+	public InsufficientPermissionsException(String packageName) {
+		super("Insufficient permissions for package: " + packageName);
+		this.packageName = packageName;
+	}
 
-    public String getPackageName() {
-        return packageName;
-    }
+	private final String packageName;
+
+	/** @return package the player cannot request */
+	public String getPackageName() {
+		return packageName;
+	}
 }

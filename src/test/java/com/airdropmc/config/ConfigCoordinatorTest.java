@@ -1,21 +1,35 @@
 package com.airdropmc.config;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.AirdropApi;
+import com.airdropmc.api.PackageRegistryCause;
+import com.airdropmc.api.ReadinessState;
 import com.airdropmc.economy.EconomyProviderRefreshResult;
+import com.airdropmc.exceptions.PackageCapacityException;
+import com.airdropmc.internal.api.AirdropServiceLifecycle;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
+import com.airdropmc.packages.PackageMaterializationException;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.scheduler.BukkitTask;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
@@ -23,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
@@ -30,9 +45,11 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ConfigCoordinatorTest {
@@ -48,6 +65,9 @@ class ConfigCoordinatorTest {
 			coordinator.close();
 		}
 		PackageManager.clear();
+		if (MockBukkit.isMocked()) {
+			MockBukkit.unmock();
+		}
 	}
 
 	@Test
@@ -104,6 +124,113 @@ class ConfigCoordinatorTest {
 	}
 
 	@Test
+	void packageTwentyEightIsRejectedBeforeDiskWriteOrPublication() throws Exception {
+		Files.createDirectories(temporaryDirectory);
+		YamlConfiguration full = configurationWithPackages(PackageManager.MAX_PACKAGES);
+		String originalYaml = full.saveToString();
+		Files.writeString(packagesPath(), originalYaml, StandardCharsets.UTF_8);
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger publications = new AtomicInteger();
+		coordinator = fileCoordinator(
+				mock(LanguageManager.class),
+				mainTasks,
+				ignored -> EconomyProviderRefreshResult.disabled(),
+				ignored -> publications.incrementAndGet());
+
+		CompletionStage<Boolean> rejected = coordinator.createPackage(pkg("overflow"));
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+
+		var rejectedFuture = rejected.toCompletableFuture();
+		CompletionException failure = assertThrows(CompletionException.class, rejectedFuture::join);
+		assertTrue(failure.getCause() instanceof PackageCapacityException);
+		assertEquals(originalYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
+		assertEquals(0, publications.get());
+	}
+
+	@Test
+	void reloadOverPackageLimitPreservesLastKnownGoodRegistryAndSkipsCommit() throws Exception {
+		Files.createDirectories(temporaryDirectory);
+		Files.writeString(temporaryDirectory.resolve("config.yml"), "language: en\neconomy:\n  enabled: false\n",
+				StandardCharsets.UTF_8);
+		YamlConfiguration overCapacity = configurationWithPackages(PackageManager.MAX_PACKAGES + 1);
+		String rejectedYaml = overCapacity.saveToString();
+		Files.writeString(packagesPath(), rejectedYaml, StandardCharsets.UTF_8);
+		YamlConfiguration liveConfiguration = configurationWithPackages(1);
+		PackageManager.publishPackages(PackageManager.materializePackages(liveConfiguration));
+		Package livePackage = PackageManager.get("pkg0");
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger configurationCommits = new AtomicInteger();
+		LanguageManager languageManager = mock(LanguageManager.class);
+		coordinator = fileCoordinator(
+				languageManager,
+				mainTasks,
+				ignored -> {
+					configurationCommits.incrementAndGet();
+					return EconomyProviderRefreshResult.disabled();
+				},
+				ignored -> { });
+
+		CompletionStage<EconomyProviderRefreshResult> rejected = coordinator.reload();
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+
+		var rejectedFuture = rejected.toCompletableFuture();
+		CompletionException failure = assertThrows(CompletionException.class, rejectedFuture::join);
+		assertTrue(failure.getCause() instanceof PackageMaterializationException);
+		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES + 1)));
+		assertTrue(failure.getCause().getMessage().contains(String.valueOf(PackageManager.MAX_PACKAGES)));
+		assertEquals(0, configurationCommits.get());
+		assertEquals(rejectedYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
+		assertSame(livePackage, PackageManager.get("pkg0"));
+		assertEquals(1, PackageManager.getPackageCount());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"incompatible.ItemStack", "null", "42"})
+	void reloadIncompatibleSerializedItemRetainsRegistryAndReportsPackageIndex(String serializedAlias)
+			throws Exception {
+		Files.writeString(temporaryDirectory.resolve("config.yml"), "language: en\neconomy:\n  enabled: false\n",
+				StandardCharsets.UTF_8);
+		String rejectedYaml = """
+				packages:
+				  paid:
+				    price: 10.0
+				    items:
+				    - ==: %s
+				      type: DIAMOND
+				""".formatted(serializedAlias);
+		Files.writeString(packagesPath(), rejectedYaml, StandardCharsets.UTF_8);
+		PackageManager.publishPackages(PackageManager.materializePackages(configurationWithPackages(1)));
+		Package livePackage = PackageManager.get("pkg0");
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger configurationCommits = new AtomicInteger();
+		coordinator = fileCoordinator(
+				mock(LanguageManager.class), mainTasks,
+				ignored -> {
+					configurationCommits.incrementAndGet();
+					return EconomyProviderRefreshResult.disabled();
+				},
+				ignored -> { });
+
+		CompletionStage<EconomyProviderRefreshResult> rejected = coordinator.reload();
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+
+		var rejectedFuture = rejected.toCompletableFuture();
+		CompletionException failure = assertThrows(CompletionException.class, rejectedFuture::join);
+		assertTrue(failure.getCause().getMessage().contains("Package 'paid'"), failure::toString);
+		assertTrue(failure.getCause().getMessage().contains("index 0"), failure::toString);
+		assertEquals(0, configurationCommits.get());
+		assertEquals(rejectedYaml, Files.readString(packagesPath(), StandardCharsets.UTF_8));
+		assertSame(livePackage, PackageManager.get("pkg0"));
+		assertEquals(1, PackageManager.getPackageCount());
+	}
+
+	@Test
 	void closeRejectsPreparedLateCommit() throws Exception {
 		AtomicInteger reads = new AtomicInteger();
 		CountDownLatch firstRead = new CountDownLatch(1);
@@ -126,17 +253,33 @@ class ConfigCoordinatorTest {
 	}
 
 	@Test
-	void dispatchFailureLeavesOperationPendingUntilClose() throws Exception {
+	void dispatchFailureTerminatesStartupOnWatchdogThreadAndRejectsLaterOperations() throws Exception {
 		AtomicInteger reads = new AtomicInteger();
 		CountDownLatch firstRead = new CountDownLatch(1);
 		CountDownLatch secondRead = new CountDownLatch(1);
 		CountDownLatch dispatchAttempt = new CountDownLatch(1);
-		AtomicReference<String> completionThread = new AtomicReference<>();
+		AtomicBoolean readinessCompletedOnPrimaryThread = new AtomicBoolean();
+		AtomicBoolean lifecycleCallbackOnPrimaryThread = new AtomicBoolean();
+		AtomicReference<ReadinessState> readinessAtFailure = new AtomicReference<>();
+		AtomicReference<Runnable> dispatchFailureWatchdog = new AtomicReference<>();
+		BukkitTask watchdogTask = mock(BukkitTask.class);
+		ServerMock server = MockBukkit.mock();
+		Airdrop lifecyclePlugin = (Airdrop) server.getPluginManager()
+				.loadPlugin(Airdrop.class, new Object[0]);
+		AirdropServiceLifecycle lifecycle = new AirdropServiceLifecycle(lifecyclePlugin);
+		lifecycle.register();
+		AirdropApi api = server.getServicesManager().getRegistrations(lifecyclePlugin).stream()
+				.filter(candidate -> candidate.getService() == AirdropApi.class)
+				.map(candidate -> (AirdropApi) candidate.getProvider())
+				.findFirst()
+				.orElseThrow();
+		api.readiness().whenComplete((ignored, failure) ->
+				readinessCompletedOnPrimaryThread.set(Bukkit.isPrimaryThread()));
 		ConfigFileStore store = store(reads, firstRead, secondRead, new AtomicReference<>());
 		Files.writeString(packagesPath(), """
 				packages:
 				  starter:
-				    price: 10.0
+				    price: 0.0
 				    items: []
 				""", StandardCharsets.UTF_8);
 
@@ -154,25 +297,103 @@ class ConfigCoordinatorTest {
 					dispatchAttempt.countDown();
 					throw new IllegalStateException("scheduler unavailable");
 				},
+				task -> {
+					dispatchFailureWatchdog.set(task);
+					return watchdogTask;
+				},
+				ignored -> EconomyProviderRefreshResult.disabled(),
+				ignored -> { });
+		Runnable failureDrain = dispatchFailureWatchdog.get();
+		assertNotNull(failureDrain, "the main-thread failure drain must exist before worker dispatch");
+
+		CompletableFuture<EconomyProviderRefreshResult> first = coordinator.startup().toCompletableFuture();
+		CompletableFuture<Boolean> second = coordinator.createPackage(pkg("second")).toCompletableFuture();
+		first.whenComplete((ignored, failure) -> {
+			lifecycleCallbackOnPrimaryThread.set(Bukkit.isPrimaryThread());
+			lifecycle.publishFailure(failure);
+			readinessAtFailure.set(api.state());
+			lifecycle.stop();
+		});
+
+		assertTrue(dispatchAttempt.await(5, TimeUnit.SECONDS));
+		assertFalse(first.isDone(),
+				"worker dispatch rejection must wait for the main-thread watchdog");
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (!first.isDone() && System.nanoTime() < deadline) {
+			failureDrain.run();
+			Thread.sleep(1L);
+		}
+		assertTrue(first.isDone(), "the watchdog must complete startup before the deadline");
+		assertTrue(second.isDone(), "the watchdog must also reject the queued operation");
+		CompletionException startupFailure = assertThrows(
+				CompletionException.class, first::join);
+		assertEquals("scheduler unavailable", startupFailure.getCause().getMessage());
+		assertThrows(CompletionException.class, second::join);
+		assertFalse(secondRead.await(100, TimeUnit.MILLISECONDS));
+		assertEquals(ReadinessState.FAILED, readinessAtFailure.get());
+		assertEquals(ReadinessState.STOPPING, api.state());
+		assertTrue(readinessCompletedOnPrimaryThread.get(),
+				"readiness failure must originate from the pre-established main-thread handoff");
+		assertTrue(lifecycleCallbackOnPrimaryThread.get(),
+				"the lifecycle disable callback must not run on the configuration worker");
+		assertTrue(server.getServicesManager().getRegistrations(lifecyclePlugin).stream()
+				.noneMatch(candidate -> candidate.getProvider() == api));
+		verify(watchdogTask).cancel();
+		CompletableFuture<Boolean> late = coordinator.createPackage(pkg("late")).toCompletableFuture();
+		assertTrue(late.isDone(), "a closed coordinator must reject later operations immediately");
+		assertThrows(java.util.concurrent.CancellationException.class,
+				late::join);
+	}
+
+	@Test
+	void dispatchFailureLeavesOperationPendingUntilClose() throws Exception {
+		AtomicInteger reads = new AtomicInteger();
+		CountDownLatch firstRead = new CountDownLatch(1);
+		CountDownLatch secondRead = new CountDownLatch(1);
+		CountDownLatch dispatchAttempt = new CountDownLatch(1);
+		AtomicReference<String> completionThread = new AtomicReference<>();
+		ConfigFileStore store = store(reads, firstRead, secondRead, new AtomicReference<>());
+		Files.writeString(packagesPath(), """
+				packages:
+				  starter:
+				    price: 0.0
+				    items: []
+				""", StandardCharsets.UTF_8);
+
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ConfigCoordinatorTest"));
+		ExecutorService executor = Executors.newSingleThreadExecutor(
+				task -> new Thread(task, "config-test-worker"));
+		coordinator = new ConfigCoordinator(
+				plugin,
+				mock(LanguageManager.class),
+				store,
+				executor,
+				task -> {
+					dispatchAttempt.countDown();
+					throw new IllegalStateException("scheduler unavailable");
+				},
+				ignored -> mock(BukkitTask.class),
 				ignored -> EconomyProviderRefreshResult.disabled(),
 				ignored -> { });
 
-		CompletionStage<Boolean> first = coordinator.createPackage(pkg("first"));
-		CompletionStage<Boolean> second = coordinator.createPackage(pkg("second"));
+		CompletableFuture<Boolean> first = coordinator.createPackage(pkg("first")).toCompletableFuture();
+		CompletableFuture<Boolean> second = coordinator.createPackage(pkg("second")).toCompletableFuture();
 		first.whenComplete((ignored, failure) -> completionThread.set(Thread.currentThread().getName()));
 
 		assertTrue(firstRead.await(5, TimeUnit.SECONDS));
 		assertTrue(dispatchAttempt.await(5, TimeUnit.SECONDS));
-		assertFalse(first.toCompletableFuture().isDone());
+		assertFalse(first.isDone());
 		assertFalse(secondRead.await(100, TimeUnit.MILLISECONDS));
 
 		String closingThread = Thread.currentThread().getName();
 		coordinator.close();
 
-		assertThrows(java.util.concurrent.CancellationException.class,
-				() -> first.toCompletableFuture().join());
-		assertThrows(java.util.concurrent.CancellationException.class,
-				() -> second.toCompletableFuture().join());
+		assertTrue(first.isDone(), "close must complete the failed dispatch before the watchdog runs");
+		assertTrue(second.isDone(), "close must also complete queued requests");
+		assertThrows(java.util.concurrent.CancellationException.class, first::join);
+		assertThrows(java.util.concurrent.CancellationException.class, second::join);
 		assertEquals(closingThread, completionThread.get());
 	}
 
@@ -184,10 +405,14 @@ class ConfigCoordinatorTest {
 		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
 		AtomicReference<String> readThread = new AtomicReference<>();
 		AtomicReference<String> publishThread = new AtomicReference<>();
+		AtomicReference<PackageRegistryCause> publishCause = new AtomicReference<>();
 		AtomicReference<Boolean> publishedBeforeCompletion = new AtomicReference<>(false);
 
 		ConfigFileStore store = store(reads, firstRead, secondRead, readThread);
-		coordinator = coordinator(store, mainTasks, ignored -> publishThread.set(Thread.currentThread().getName()));
+		coordinator = coordinator(store, mainTasks, candidate -> {
+			publishThread.set(Thread.currentThread().getName());
+			publishCause.set(candidate.cause());
+		});
 		CompletionStage<Boolean> stage = coordinator.createPackage(pkg("threaded"));
 		stage.whenComplete((result, failure) -> publishedBeforeCompletion.set(publishThread.get() != null));
 
@@ -200,7 +425,32 @@ class ConfigCoordinatorTest {
 		assertNotNull(readThread.get());
 		assertFalse(commitThread.equals(readThread.get()));
 		assertEquals(commitThread, publishThread.get());
+		assertEquals(PackageRegistryCause.CREATE, publishCause.get());
 		assertTrue(publishedBeforeCompletion.get());
+	}
+
+	private ConfigCoordinator fileCoordinator(
+			LanguageManager languageManager,
+			BlockingQueue<Runnable> mainTasks,
+			java.util.function.Function<ConfigCoordinator.ConfigurationCandidate, EconomyProviderRefreshResult>
+					configurationCommit,
+			java.util.function.Consumer<ConfigCoordinator.PackageCandidate> packageCommit) {
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		when(plugin.getLogger()).thenReturn(Logger.getLogger("ConfigCoordinatorTest"));
+		when(plugin.getResource("config.yml")).thenReturn(new ByteArrayInputStream(
+				"language: en\neconomy:\n  enabled: false\n".getBytes(StandardCharsets.UTF_8)));
+		ExecutorService executor = Executors.newSingleThreadExecutor(
+				task -> new Thread(task, "config-test-worker"));
+		return new ConfigCoordinator(
+				plugin,
+				languageManager,
+				new ConfigFileStore(),
+				executor,
+				mainTasks::add,
+				ignored -> mock(BukkitTask.class),
+				configurationCommit,
+				packageCommit);
 	}
 
 	private ConfigCoordinator coordinator(
@@ -223,7 +473,7 @@ class ConfigCoordinatorTest {
 		Files.writeString(packagesPath(), """
 				packages:
 				  starter:
-				    price: 10.0
+				    price: 0.0
 				    items: []
 				""", StandardCharsets.UTF_8);
 
@@ -237,6 +487,7 @@ class ConfigCoordinatorTest {
 				store,
 				executor,
 				mainTasks::add,
+				ignored -> mock(BukkitTask.class),
 				ignored -> EconomyProviderRefreshResult.disabled(),
 				packageCommit);
 	}
@@ -272,7 +523,19 @@ class ConfigCoordinatorTest {
 		return temporaryDirectory.resolve("packages.yml");
 	}
 
+	private static YamlConfiguration configurationWithPackages(int count) {
+		YamlConfiguration configuration = new YamlConfiguration();
+		configuration.createSection(PackageManager.PACKAGES_SECTION);
+		for (int index = 0; index < count; index++) {
+			String path = PackageManager.PACKAGES_SECTION + ".pkg" + index;
+			configuration.createSection(path);
+			configuration.set(path + ".price", 0.0);
+			configuration.set(path + ".items", List.of());
+		}
+		return configuration;
+	}
+
 	private static Package pkg(String name) {
-		return new Package(name, 1.0, List.of());
+		return new Package(name, 0.0, List.of());
 	}
 }

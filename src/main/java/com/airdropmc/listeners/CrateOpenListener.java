@@ -13,9 +13,8 @@ import com.airdropmc.helpers.CrateManager;
 
 public class CrateOpenListener implements Listener {
 
-	@EventHandler(priority = EventPriority.LOW)
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onInventoryOpen(InventoryOpenEvent e) {
-
 		if (e.getInventory().getType() != InventoryType.BARREL)
 			return;
 
@@ -25,8 +24,17 @@ public class CrateOpenListener implements Listener {
 
 		Location barrelLocation = barrel.getBlock().getLocation();
 		Crate landedCrate = CrateManager.getCrate(barrelLocation);
-        if (landedCrate != null) {
-            landedCrate.setOpened(true);
-        }
-    }
+		if (landedCrate == null || !landedCrate.ownsLandedBarrel(barrel)) {
+			return;
+		}
+
+		if (!(barrelLocation.getBlock().getState() instanceof Barrel currentBarrel)
+				|| CrateManager.getCrate(currentBarrel.getLocation()) != landedCrate
+				|| !landedCrate.ownsLandedBarrel(currentBarrel)
+				|| !e.getInventory().equals(currentBarrel.getInventory())) {
+			return;
+		}
+
+		landedCrate.setOpened(true);
+	}
 }

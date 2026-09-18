@@ -1,9 +1,16 @@
 package com.airdropmc.config;
 
+import com.airdropmc.api.ResolvedDropSettings;
+import com.airdropmc.limits.DropLimitSettings;
+import org.jetbrains.annotations.ApiStatus;
+
+import java.util.Objects;
+
 /**
  * Configuration options for individual drop operations.
  * When a property is null, the default value from config.yml will be used.
  */
+@ApiStatus.Internal
 public class DropOptions {
     private Integer chickenCount;
     private Double fallingSpeed;
@@ -103,4 +110,26 @@ public class DropOptions {
         }
         return ConfigKeys.sanitizeSmokeHeight(smokeHeight);
     }
+
+	/**
+	 * Resolves every mutable/config-backed option into one detached request
+	 * snapshot. Callers should retain the returned value for the complete drop
+	 * lifecycle rather than reading this object or {@link ConfigKeys} again.
+	 */
+	public ResolvedDropSettings resolve(DropLimitSettings limits) {
+		DropLimitSettings requiredLimits = Objects.requireNonNull(limits, "limits");
+		return new ResolvedDropSettings(
+				getChickenCount(),
+				getFallingSpeed(),
+				getDropHeight(),
+				shouldShowLandingEffects(),
+				shouldShowContinuousEffects(),
+				shouldShowFlareEffects(),
+				isSmokeEnabled(),
+				getSmokeHeight(),
+				requiredLimits.requestCooldown(),
+				requiredLimits.maxFalling(),
+				requiredLimits.maxLanded(),
+				requiredLimits.landedLifetime());
+	}
 }

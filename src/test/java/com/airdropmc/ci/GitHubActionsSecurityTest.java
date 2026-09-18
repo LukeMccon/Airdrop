@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -25,7 +26,12 @@ class GitHubActionsSecurityTest {
 	private static final Path WORKFLOWS_DIRECTORY = Path.of(".github", "workflows");
 	private static final Path RELEASE_WORKFLOW = WORKFLOWS_DIRECTORY.resolve("release.yml");
 	private static final String RELEASE_TAG = "${{ github.event.release.tag_name }}";
-	private static final String PUBLISHED_ARTIFACT = "release-jar/${{ needs.build.outputs.artifact_name }}";
+	private static final String RUNTIME_ARTIFACT =
+			"release-artifacts/${{ needs.build.outputs.artifact_name }}";
+	private static final String SOURCES_ARTIFACT =
+			"release-artifacts/${{ needs.build.outputs.sources_artifact_name }}";
+	private static final String JAVADOC_ARTIFACT =
+			"release-artifacts/${{ needs.build.outputs.javadoc_artifact_name }}";
 	private static final Pattern VERSION_COMMENT = Pattern.compile(
 			"^v\\d+(?:\\.\\d+)*(?:[-+][0-9A-Za-z.-]+)?$"
 	);
@@ -62,27 +68,36 @@ class GitHubActionsSecurityTest {
 	}
 
 	@Test
-	void releasePublishesOnlyTheVerifiedArtifact() throws IOException {
+	void releasePublishesOnlyTheVerifiedRuntimeSourcesAndJavadocs() throws IOException {
 		String contents = Files.readString(RELEASE_WORKFLOW);
 		Map<?, ?> workflow = requiredMap(loadYaml(contents), "release workflow");
 		Map<?, ?> build = job(workflow, "build");
 
 		Map<?, ?> release = findStep(build, "id", "release", false);
 		assertEquals(
-				RELEASE_TAG,
+				"${{ steps.version.outputs.version }}",
 				value(requiredMap(value(release, "env"), "release environment"),
 						"ORG_GRADLE_PROJECT_releaseTag")
 		);
 		assertTrue(String.valueOf(value(release, "run")).contains("verifyReleaseArtifact"));
+		Map<?, ?> outputs = requiredMap(value(build, "outputs"), "build outputs");
+		assertEquals("${{ steps.release.outputs.artifact_name }}", value(outputs, "artifact_name"));
 		assertEquals(
-				"${{ steps.release.outputs.artifact_name }}",
-				value(requiredMap(value(build, "outputs"), "build outputs"), "artifact_name")
-		);
+				"${{ steps.release.outputs.sources_artifact_name }}",
+				value(outputs, "sources_artifact_name"));
+		assertEquals(
+				"${{ steps.release.outputs.javadoc_artifact_name }}",
+				value(outputs, "javadoc_artifact_name"));
 
 		Map<?, ?> upload = findStep(build, "uses", "actions/upload-artifact@", true);
+		Map<?, ?> uploadInputs = requiredMap(value(upload, "with"), "artifact upload inputs");
+		assertEquals("release-artifacts", value(uploadInputs, "name"));
 		assertEquals(
-				"${{ steps.release.outputs.artifact_path }}",
-				value(requiredMap(value(upload, "with"), "artifact upload inputs"), "path")
+				List.of(
+						"${{ steps.release.outputs.artifact_path }}",
+						"${{ steps.release.outputs.sources_artifact_path }}",
+						"${{ steps.release.outputs.javadoc_artifact_path }}"),
+				lines(value(uploadInputs, "path"))
 		);
 
 		Map<?, ?> githubPublisher = job(workflow, "publish-github");
@@ -92,15 +107,64 @@ class GitHubActionsSecurityTest {
 
 		Map<?, ?> githubUpload = findStep(githubPublisher, "uses", "softprops/action-gh-release@", true);
 		assertEquals(
-				PUBLISHED_ARTIFACT,
+				RUNTIME_ARTIFACT,
 				value(requiredMap(value(githubUpload, "with"), "GitHub release inputs"), "files")
 		);
 		Map<?, ?> modrinthUpload = findStep(modrinthPublisher, "uses", "Kira-NT/mc-publish@", true);
 		assertEquals(
-				PUBLISHED_ARTIFACT,
-				value(requiredMap(value(modrinthUpload, "with"), "Modrinth inputs"), "modrinth-files")
+				List.of(RUNTIME_ARTIFACT, SOURCES_ARTIFACT, JAVADOC_ARTIFACT),
+				lines(value(requiredMap(value(modrinthUpload, "with"), "Modrinth inputs"),
+						"modrinth-files"))
 		);
 		assertFalse(contents.contains("*.jar"));
+	}
+
+	@Test
+	void releaseNormalizesVPrefixedTagOnceAndReusesVersion() throws Exception {
+		Process process = new ProcessBuilder("./scripts/normalize-release-version", "v4.1.0")
+				.redirectErrorStream(true)
+				.start();
+		assertTrue(process.waitFor(5, TimeUnit.SECONDS), "Release version normalizer timed out");
+		String output = new String(process.getInputStream().readAllBytes()).strip();
+		assertEquals(0, process.exitValue(), output);
+		assertEquals("4.1.0", output);
+
+		String contents = Files.readString(RELEASE_WORKFLOW);
+		assertEquals(1, contents.lines()
+				.filter(line -> line.contains("./scripts/normalize-release-version"))
+				.count());
+		Map<?, ?> workflow = requiredMap(
+				loadYaml(contents),
+				"release workflow"
+		);
+		Map<?, ?> build = job(workflow, "build");
+		Map<?, ?> version = findStep(build, "id", "version", false);
+		assertEquals(
+				RELEASE_TAG,
+				value(requiredMap(value(version, "env"), "version environment"), "RAW_TAG")
+		);
+		assertTrue(String.valueOf(value(version, "run"))
+				.contains("./scripts/normalize-release-version \"$RAW_TAG\""));
+
+		Map<?, ?> outputs = requiredMap(value(build, "outputs"), "build outputs");
+		assertEquals("${{ steps.version.outputs.version }}", value(outputs, "release_version"));
+		Map<?, ?> release = findStep(build, "id", "release", false);
+		assertEquals(
+				"${{ steps.version.outputs.version }}",
+				value(requiredMap(value(release, "env"), "release environment"),
+						"ORG_GRADLE_PROJECT_releaseTag")
+		);
+
+		Map<?, ?> modrinth = job(workflow, "publish-modrinth");
+		Map<?, ?> upload = findStep(modrinth, "uses", "Kira-NT/mc-publish@", true);
+		assertEquals(
+				"${{ needs.build.outputs.release_version }}",
+				value(requiredMap(value(upload, "with"), "Modrinth inputs"), "modrinth-version")
+		);
+	}
+
+	private static List<String> lines(Object value) {
+		return String.valueOf(value).lines().filter(line -> !line.isBlank()).toList();
 	}
 
 	@Test

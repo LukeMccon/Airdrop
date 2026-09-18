@@ -1,9 +1,9 @@
 package com.airdropmc.listeners;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.WorldMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
 import org.bukkit.Location;
@@ -77,6 +77,7 @@ class CrateDestroyListenerTest {
 		Location barrelLocation = block.getLocation();
 
 		Crate crate = mock(Crate.class);
+		when(crate.ownsLandedBarrel(any(Barrel.class))).thenReturn(true);
 		CrateManager.addCrate(barrelLocation, crate);
 
 		server.getPluginManager().callEvent(new BlockBreakEvent(block, player));

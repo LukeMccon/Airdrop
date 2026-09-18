@@ -52,6 +52,16 @@ public final class DropAdmissionController {
 		this.nanoTime = nanoTime;
 	}
 
+	/**
+	 * Reserves capacity and a landing location for a player request.
+	 *
+	 * @param playerId requesting player's unique ID
+	 * @param cooldownBypass whether to skip the player's cooldown check
+	 * @param location requested landing location
+	 * @param settings active admission settings
+	 * @return lease owning the reservation
+	 * @throws DropLimitException if any {@link Reason} rejects the request
+	 */
 	public synchronized Lease acquirePlayer(UUID playerId, boolean cooldownBypass,
 			DropLocationKey location, DropLimitSettings settings) throws DropLimitException {
 		if (playerId == null) {
@@ -60,6 +70,16 @@ public final class DropAdmissionController {
 		return acquire(playerId, cooldownBypass, location, settings);
 	}
 
+	/**
+	 * Reserves capacity and a landing location for a system request.
+	 *
+	 * @param location requested landing location
+	 * @param settings active admission settings
+	 * @return lease owning the reservation
+	 * @throws DropLimitException for {@link Reason#FALLING_CAPACITY},
+	 *         {@link Reason#LANDED_CAPACITY}, {@link Reason#LOCATION_RESERVED}, or
+	 *         {@link Reason#SHUTTING_DOWN}
+	 */
 	public synchronized Lease acquireSystem(DropLocationKey location, DropLimitSettings settings)
 			throws DropLimitException {
 		return acquire(null, true, location, settings);

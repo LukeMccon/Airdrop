@@ -1,71 +1,79 @@
 package com.airdropmc.events;
 
+import java.util.Objects;
+
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.block.Block;
 import com.airdropmc.Crate;
+import com.airdropmc.api.event.AirdropLandedEvent;
+import com.airdropmc.helpers.LocationHelper;
 
 /**
- * Event that is called when a package lands and transforms into a barrel
+ * Event that is called when a package lands and transforms into a barrel.
+ *
+ * @deprecated since 4.1; listen for {@link AirdropLandedEvent}, which exposes
+ *             only supported immutable API snapshots
  */
+@Deprecated(since = "4.1", forRemoval = false)
 public class PackageLandEvent extends Event {
-    private static final HandlerList HANDLERS = new HandlerList();
-    private final Crate crate;
-    private final World world;
-    private final Location landingLocation;
-    private final Block landedBlock;
+	private static final HandlerList HANDLERS = new HandlerList();
+	private final Crate crate;
+	private final World world;
+	private final Location landingLocation;
+	private final Block landedBlock;
 
-    public PackageLandEvent(Crate crate, World world, Location landingLocation, Block landedBlock) {
-        this.crate = crate;
-        this.world = world;
-        this.landingLocation = landingLocation;
-        this.landedBlock = landedBlock;
-    }
+	public PackageLandEvent(Crate crate, World world, Location landingLocation, Block landedBlock) {
+		this.crate = crate;
+		this.world = Objects.requireNonNull(world, "world");
+		this.landingLocation = LocationHelper.copyInWorld(landingLocation, this.world, "landingLocation");
+		this.landedBlock = landedBlock;
+	}
 
     /**
      * Gets the crate that landed
      * 
      * @return The crate
      */
-    public Crate getCrate() {
-        return crate;
-    }
+	public Crate getCrate() {
+		return crate;
+	}
 
     /**
      * Gets the world where the package landed
      * 
      * @return The world
      */
-    public World getWorld() {
-        return world;
-    }
+	public World getWorld() {
+		return world;
+	}
 
     /**
      * Gets the location where the package landed
      * 
      * @return The landing location
      */
-    public Location getLandingLocation() {
-        return landingLocation;
-    }
+	public Location getLandingLocation() {
+		return landingLocation.clone();
+	}
 
     /**
      * Gets the block that the package turned into (usually a barrel)
      * 
      * @return The landed block
      */
-    public Block getLandedBlock() {
-        return landedBlock;
-    }
+	public Block getLandedBlock() {
+		return landedBlock;
+	}
 
-    @Override
-    public HandlerList getHandlers() {
-        return HANDLERS;
-    }
+	@Override
+	public HandlerList getHandlers() {
+		return HANDLERS;
+	}
 
-    public static HandlerList getHandlerList() {
-        return HANDLERS;
-    }
+	public static HandlerList getHandlerList() {
+		return HANDLERS;
+	}
 }

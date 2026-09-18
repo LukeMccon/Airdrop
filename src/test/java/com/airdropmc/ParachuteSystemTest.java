@@ -171,6 +171,24 @@ class ParachuteSystemTest {
 	}
 
 	@Test
+	void legacyOptionsAreSnapshottedBeforeCallerMutation() {
+		World world = mock(World.class);
+		Slime slime = mock(Slime.class);
+		Chicken chicken = mock(Chicken.class);
+		FallingBlock fallingCrate = mock(FallingBlock.class);
+		Airdrop plugin = mock(Airdrop.class);
+		when(world.spawnEntity(any(Location.class), eq(EntityType.SLIME))).thenReturn(slime);
+		when(world.spawnEntity(any(Location.class), eq(EntityType.CHICKEN))).thenReturn(chicken);
+		DropOptions options = DropOptions.createDefault().withChickenCount(1);
+		ParachuteSystem parachuteSystem = new ParachuteSystem(world, options);
+
+		options.withChickenCount(3);
+		parachuteSystem.initialize(new Location(world, 0, 100, 0), fallingCrate, plugin);
+
+		verify(world, times(1)).spawnEntity(any(Location.class), eq(EntityType.CHICKEN));
+	}
+
+	@Test
 	void fallingCrateDeath_releasesParachutesWithoutCancellingTaskFromWithinRun() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);

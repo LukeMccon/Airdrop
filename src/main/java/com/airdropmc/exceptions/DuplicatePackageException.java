@@ -1,11 +1,12 @@
 package com.airdropmc.exceptions;
 
+/** Indicates that a package name is already present in Airdrop. */
 public class DuplicatePackageException extends Exception {
 
 	/**
-	 * Indicates that a package already exists in Airdrop
+	 * Creates a duplicate-package rejection.
 	 *
-	 * @param packageName package's name
+	 * @param packageName conflicting package name
 	 */
 	public DuplicatePackageException(String packageName) {
 		super("Package already exists: " + packageName);
@@ -14,6 +15,7 @@ public class DuplicatePackageException extends Exception {
 
 	private final String packageName;
 
+	/** @return conflicting package name */
 	public String getPackageName() {
 		return packageName;
 	}

@@ -1,8 +1,8 @@
 package com.airdropmc.helpers;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.WorldMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
 import com.airdropmc.Airdrop;
 import com.airdropmc.Crate;
 import com.airdropmc.limits.DropAdmissionController;
@@ -206,6 +206,30 @@ class CrateManagerTest {
 		assertTrue(removed);
 		assertNull(CrateManager.getCrate(location));
 		verify(mockCrate).destroy();
+	}
+
+	@Test
+	void removeCrateAndDestroy_withExpectedCrate_removesMatchingMapping() {
+		Location location = new Location(world, 100, 64, 200);
+		CrateManager.addCrate(location, mockCrate);
+
+		boolean removed = CrateManager.removeCrateAndDestroy(location, mockCrate);
+
+		assertTrue(removed);
+		assertNull(CrateManager.getCrate(location));
+		verify(mockCrate).destroy();
+	}
+
+	@Test
+	void removeCrateAndDestroy_withExpectedCrate_preservesReboundMapping() {
+		Location location = new Location(world, 100, 64, 200);
+		CrateManager.addCrate(location, mockCrate2);
+
+		boolean removed = CrateManager.removeCrateAndDestroy(location, mockCrate);
+
+		assertFalse(removed);
+		assertSame(mockCrate2, CrateManager.getCrate(location));
+		verifyNoInteractions(mockCrate, mockCrate2);
 	}
 
 	@Test

@@ -1,0 +1,13 @@
+// Use only with --write-verification-metadata sha256 help, then run normal strict verification.
+// Gradle's snapshot metadata writer can fail with duplicate Paper component keys:
+// https://github.com/gradle/gradle/issues/32739
+// Keep the reviewed Paper checksums in verification-metadata.xml while refreshing releases.
+if (gradle.startParameter.writeDependencyVerifications != ['sha256']) {
+    throw new GradleException('This init script requires --write-verification-metadata sha256')
+}
+
+gradle.beforeProject { project ->
+    project.configurations.configureEach {
+        exclude group: 'io.papermc.paper', module: 'paper-api'
+    }
+}

@@ -4,15 +4,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
+import com.airdropmc.api.ResolvedDropSettings;
+import com.airdropmc.api.ResolvedDropContext;
+import com.airdropmc.api.WorldPosition;
+import com.airdropmc.api.FallingAirdropView;
+import com.airdropmc.api.LandedAirdropView;
+import com.airdropmc.api.RecoveredDropDescriptor;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.config.DropOptions;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.CrateManager;
+import com.airdropmc.helpers.LocationHelper;
+import com.airdropmc.internal.recovery.DropContextPersistence;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.tasks.RenderFlareTask;
@@ -35,11 +45,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Represents a crate that can be dropped from the sky
  * A.K.A an Airdrop
  */
+@ApiStatus.Internal
 public class Crate {
 	private static final NamespacedKey CRATE_ID_KEY = Objects.requireNonNull(
 			NamespacedKey.fromString("airdrop:crate_id"));
@@ -58,7 +70,8 @@ public class Crate {
 
 	public enum Outcome {
 		LANDED,
-		FAILED
+		FAILED,
+		CANCELLED
 	}
 
 	public enum RecoveryState {
@@ -69,17 +82,33 @@ public class Crate {
 	public record PersistedBarrelData(
 			String crateId,
 			long expiresAtMillis,
-			RecoveryState recoveryState) {
+			RecoveryState recoveryState,
+			Optional<RecoveredDropDescriptor> recoveryDescriptor) {
+
+		public PersistedBarrelData {
+			recoveryDescriptor = Objects.requireNonNull(recoveryDescriptor, "recoveryDescriptor");
+		}
+
+		public PersistedBarrelData(
+				String crateId, long expiresAtMillis, RecoveryState recoveryState) {
+			this(crateId, expiresAtMillis, recoveryState, Optional.empty());
+		}
 	}
 
 	private final World world;
 	private final ArrayList<ItemStack> contents;
 	private final String crateId;
 	private State state;
-	private final DropOptions options;
+	private final ResolvedDropSettings settings;
 	private final DropAdmissionController.Lease lease;
-	private final Consumer<Outcome> outcomeListener;
+	private Consumer<Outcome> outcomeListener;
+	private final Predicate<WorldPosition> landingAttemptListener;
+	private Consumer<Crate> landedCommitListener;
 	private final boolean paid;
+	private final UUID requestId;
+	private final ResolvedDropContext resolvedContext;
+	private final boolean recoveredFromPersistence;
+	private final RecoveredDropDescriptor persistedDescriptor;
 	private Outcome outcome;
 
 	// Falling state fields
@@ -110,43 +139,116 @@ public class Crate {
 	 * @param world    where it will drop in
 	 * @param contents of the crate
 	 */
-	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease) {
-		this(location, world, contents, options, lease, false, ignored -> { });
+		this(location, world, contents, settings, lease, false, ignored -> { });
 	}
 
-	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease, Consumer<Outcome> outcomeListener) {
-		this(location, world, contents, options, lease, false, outcomeListener);
+		this(location, world, contents, settings, lease, false, outcomeListener);
 	}
 
-	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
 			DropAdmissionController.Lease lease, boolean paid, Consumer<Outcome> outcomeListener) {
-		this.dropLocation = Objects.requireNonNull(location, "location").clone();
+		this(location, world, contents, settings, lease, paid, null, null, outcomeListener);
+	}
+
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
+			DropAdmissionController.Lease lease, boolean paid, UUID requestId,
+			ResolvedDropContext resolvedContext, Consumer<Outcome> outcomeListener) {
+		this(location, world, contents, settings, lease, paid, requestId, resolvedContext,
+				ignored -> true, null, outcomeListener);
+	}
+
+	public Crate(Location location, World world, List<ItemStack> contents, ResolvedDropSettings settings,
+			DropAdmissionController.Lease lease, boolean paid, UUID requestId,
+			ResolvedDropContext resolvedContext,
+			Predicate<WorldPosition> landingAttemptListener,
+			Consumer<Crate> landedCommitListener,
+			Consumer<Outcome> outcomeListener) {
 		this.world = Objects.requireNonNull(world, "world");
+		this.dropLocation = LocationHelper.copyInWorld(location, this.world, "location");
 		this.contents = cloneContents(contents);
 		this.crateId = UUID.randomUUID().toString();
 		this.state = State.FALLING;
-		this.options = Objects.requireNonNull(options, "options");
+		this.settings = Objects.requireNonNull(settings, "settings");
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.paid = paid;
+		if ((requestId == null) != (resolvedContext == null)) {
+			throw new IllegalArgumentException("requestId and resolvedContext must be supplied together");
+		}
+		if (requestId != null && !requestId.equals(resolvedContext.descriptor().requestId())) {
+			throw new IllegalArgumentException("resolvedContext must belong to requestId");
+		}
+		this.requestId = requestId;
+		this.resolvedContext = resolvedContext;
+		this.recoveredFromPersistence = false;
+		this.persistedDescriptor = resolvedContext == null
+				? null
+				: RecoveredDropDescriptor.from(resolvedContext);
+		this.landingAttemptListener = Objects.requireNonNull(
+				landingAttemptListener, "landingAttemptListener");
+		this.landedCommitListener = landedCommitListener;
 		this.outcomeListener = Objects.requireNonNull(outcomeListener, "outcomeListener");
 		this.parachuteSystem = new ParachuteSystem(
-				world, options, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
+				world, settings, () -> CrateManager.removeCrateAndDestroy(fallingCrate));
+	}
+
+	/**
+	 * @deprecated implementation adapter for callers migrating from mutable
+	 *             {@link DropOptions}; resolves the options immediately
+	 */
+	@Deprecated(forRemoval = false)
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease) {
+		this(location, world, contents, resolveLegacyOptions(options), lease);
+	}
+
+	/**
+	 * @deprecated implementation adapter for callers migrating from mutable
+	 *             {@link DropOptions}; resolves the options immediately
+	 */
+	@Deprecated(forRemoval = false)
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease, Consumer<Outcome> outcomeListener) {
+		this(location, world, contents, resolveLegacyOptions(options), lease, outcomeListener);
+	}
+
+	/**
+	 * @deprecated implementation adapter for callers migrating from mutable
+	 *             {@link DropOptions}; resolves the options immediately
+	 */
+	@Deprecated(forRemoval = false)
+	public Crate(Location location, World world, List<ItemStack> contents, DropOptions options,
+			DropAdmissionController.Lease lease, boolean paid, Consumer<Outcome> outcomeListener) {
+		this(location, world, contents, resolveLegacyOptions(options), lease, paid, outcomeListener);
 	}
 
 	private Crate(World world, Barrel barrel, PersistedBarrelData persisted,
 			DropAdmissionController.Lease lease) {
 		this.world = Objects.requireNonNull(world, "world");
+		Location recoveredLocation = LocationHelper.copyInWorld(
+				Objects.requireNonNull(barrel, "barrel").getLocation(), this.world, "barrel location");
 		this.contents = new ArrayList<>();
 		this.crateId = persisted.crateId();
 		this.state = State.LANDED;
-		this.options = DropOptions.createDefault();
+		this.settings = persisted.recoveryDescriptor()
+				.map(RecoveredDropDescriptor::settings)
+				.orElseGet(() -> DropOptions.createDefault().resolve(ConfigKeys.getDropLimitSettings()));
 		this.lease = Objects.requireNonNull(lease, "lease");
 		this.paid = true;
+		this.requestId = persisted.recoveryDescriptor()
+				.map(RecoveredDropDescriptor::requestId)
+				.orElse(null);
+		this.resolvedContext = null;
+		this.recoveredFromPersistence = true;
+		this.persistedDescriptor = persisted.recoveryDescriptor().orElse(null);
+		this.landingAttemptListener = ignored -> true;
+		this.landedCommitListener = null;
 		this.outcomeListener = ignored -> { };
 		this.outcome = Outcome.LANDED;
-		this.landedLocation = barrel.getLocation().clone();
+		this.landedLocation = recoveredLocation;
 		this.blockChest = barrel.getBlock();
 		this.expiresAtMillis = persisted.expiresAtMillis();
 		this.barrelIdentityPersisted = true;
@@ -174,6 +276,10 @@ public class Crate {
 		return clonedContents;
 	}
 
+	private static ResolvedDropSettings resolveLegacyOptions(DropOptions options) {
+		return Objects.requireNonNull(options, "options").resolve(ConfigKeys.getDropLimitSettings());
+	}
+
 	/**
 	 * Drop the crate
 	 */
@@ -187,8 +293,8 @@ public class Crate {
 		}
 
 		Location groundLocation = dropLocation.clone();
-		groundLocation.setY(dropLocation.getY() - options.getDropHeight() + 1);
-		if (options.shouldShowFlareEffects()) {
+		groundLocation.setY(dropLocation.getY() - settings.dropHeight() + 1);
+		if (settings.flareEffects()) {
 			flareEffect = new RenderFlareTask(groundLocation, world);
 			flareEffect.runTaskTimer(plugin, 0L, 1L);
 		}
@@ -197,7 +303,11 @@ public class Crate {
 		});
 		parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
 
-		if (!CrateManager.addCrate(fallingCrate, this)) {
+		FallingAirdropView activeView = snapshotFallingView(fallingCrate);
+		boolean registered = activeView == null
+				? CrateManager.addCrate(fallingCrate, this)
+				: CrateManager.addActiveCrate(fallingCrate, this, activeView);
+		if (!registered) {
 			throw new IllegalStateException("Falling crate entity is already tracked");
 		}
 	}
@@ -215,7 +325,7 @@ public class Crate {
 			if (block == null) {
 				throw new IllegalArgumentException("Landing block is required");
 			}
-			Location candidate = block.getLocation().clone();
+			Location candidate = LocationHelper.copyInWorld(block.getLocation(), world, "landing location");
 			DropLocationKey actualKey = DropLocationKey.from(candidate);
 			if (!lease.owns(actualKey)) {
 				throw new IllegalStateException("Landed block does not match the reserved location");
@@ -224,7 +334,7 @@ public class Crate {
 			if (plugin == null) {
 				throw new IllegalStateException("Cannot land crate while plugin is unavailable");
 			}
-			if (!CrateManager.addLandedCrate(candidate, this)) {
+			if (!CrateManager.canAddLandedCrate(candidate, this)) {
 				throw new IllegalStateException("Another crate already owns the landed location");
 			}
 
@@ -232,13 +342,16 @@ public class Crate {
 			this.landedLocation = candidate;
 			this.state = State.LANDED;
 			this.expiresAtMillis = Math.addExact(
-					System.currentTimeMillis(), ConfigKeys.getDropLimitSettings().landedLifetime().toMillis());
+					System.currentTimeMillis(), settings.landedLifetime().toMillis());
 			blockChest.setType(Material.BARREL);
 			BlockState barrelState = blockChest.getState();
 			if (!(barrelState instanceof Barrel barrel)) {
 				throw new IllegalStateException("Failed to create barrel at landed location");
 			}
 			initializeLandedBarrel(barrel);
+			if (!CrateManager.addLandedCrate(candidate, this)) {
+				throw new IllegalStateException("Another crate already owns the landed location");
+			}
 			lease.markLanded();
 			scheduleExpiry(plugin);
 			startLandedEffects(plugin);
@@ -247,11 +360,55 @@ public class Crate {
 				flareEffect.cancel();
 				flareEffect = null;
 			}
-			reportOutcome(Outcome.LANDED);
+			if (landedCommitListener == null) {
+				reportOutcome(Outcome.LANDED);
+			}
 		} catch (RuntimeException failure) {
-			CrateManager.removeCrateAndDestroy(this);
+			CrateManager.removeCrate(this);
+			destroyWithOutcome(Outcome.FAILED);
 			throw failure;
 		}
+	}
+
+	/**
+	 * Gives the owning request process a chance to cancel a candidate landing
+	 * before crate state is mutated.
+	 *
+	 * @param candidatePosition pure candidate landing position
+	 * @return whether landing may proceed
+	 */
+	public boolean beginLanding(WorldPosition candidatePosition) {
+		Predicate<WorldPosition> listener;
+		synchronized (this) {
+			if (destroyed || state != State.FALLING || outcome != null) {
+				return false;
+			}
+			WorldPosition candidate = Objects.requireNonNull(
+					candidatePosition, "candidatePosition");
+			if (!candidate.worldId().equals(world.getUID())) {
+				throw new IllegalArgumentException("Candidate landing must belong to the crate world");
+			}
+			listener = landingAttemptListener;
+		}
+		return listener.test(candidatePosition);
+	}
+
+	/** Completes a coordinator-managed landing after its post-commit events. */
+	public void completeLanding() {
+		Consumer<Crate> listener;
+		synchronized (this) {
+			if (destroyed || state != State.LANDED || outcome != null) {
+				return;
+			}
+			listener = landedCommitListener;
+			if (listener == null) {
+				return;
+			}
+			landedCommitListener = null;
+			outcome = Outcome.LANDED;
+			outcomeListener = null;
+		}
+		listener.accept(this);
 	}
 
 	private void initializeLandedBarrel(Barrel barrel) {
@@ -261,6 +418,9 @@ public class Crate {
 			data.set(PAID_KEY, PersistentDataType.BYTE, PAID_VALUE);
 			data.set(EXPIRES_AT_KEY, PersistentDataType.LONG, expiresAtMillis);
 			data.set(RECOVERY_STATE_KEY, PersistentDataType.STRING, RecoveryState.LIVE.name());
+			if (persistedDescriptor != null) {
+				DropContextPersistence.write(data, persistedDescriptor);
+			}
 		}
 		Inventory snapshotInventory = barrel.getSnapshotInventory();
 		if (paid) {
@@ -322,7 +482,7 @@ public class Crate {
 			Barrel barrel = getOwnedLandedBarrel();
 			return barrel != null && transitionRecoveryState(
 					barrel,
-					new PersistedBarrelData(crateId, expiresAtMillis, RecoveryState.LIVE),
+					persistedData(RecoveryState.LIVE),
 					RecoveryState.RECOVERABLE);
 		} catch (RuntimeException failure) {
 			AirdropLogger.log(Level.WARNING,
@@ -339,7 +499,7 @@ public class Crate {
 			Barrel barrel = getOwnedLandedBarrel();
 			return barrel != null && transitionRecoveryState(
 					barrel,
-					new PersistedBarrelData(crateId, expiresAtMillis, RecoveryState.RECOVERABLE),
+					persistedData(RecoveryState.RECOVERABLE),
 					RecoveryState.LIVE);
 		} catch (RuntimeException failure) {
 			AirdropLogger.log(Level.WARNING,
@@ -374,7 +534,8 @@ public class Crate {
 		return keys.contains(CRATE_ID_KEY)
 				|| keys.contains(PAID_KEY)
 				|| keys.contains(EXPIRES_AT_KEY)
-				|| keys.contains(RECOVERY_STATE_KEY);
+				|| keys.contains(RECOVERY_STATE_KEY)
+				|| DropContextPersistence.hasAny(barrel.getPersistentDataContainer());
 	}
 
 	public static PersistedBarrelData readPaidPersistence(Barrel barrel) {
@@ -392,8 +553,15 @@ public class Crate {
 		}
 		try {
 			UUID.fromString(crateId);
+			DropContextPersistence.ReadResult context = DropContextPersistence.read(data);
+			if (context instanceof DropContextPersistence.Invalid) {
+				return null;
+			}
+			Optional<RecoveredDropDescriptor> descriptor = context instanceof DropContextPersistence.Complete complete
+					? Optional.of(complete.descriptor())
+					: Optional.empty();
 			return new PersistedBarrelData(
-					crateId, expiresAt, RecoveryState.valueOf(stateName));
+					crateId, expiresAt, RecoveryState.valueOf(stateName), descriptor);
 		} catch (IllegalArgumentException invalid) {
 			return null;
 		}
@@ -429,7 +597,16 @@ public class Crate {
 		data.remove(PAID_KEY);
 		data.remove(EXPIRES_AT_KEY);
 		data.remove(RECOVERY_STATE_KEY);
+		DropContextPersistence.clear(data);
 		return barrel.update(true, false);
+	}
+
+	private PersistedBarrelData persistedData(RecoveryState recoveryState) {
+		return new PersistedBarrelData(
+				crateId,
+				expiresAtMillis,
+				recoveryState,
+				Optional.ofNullable(persistedDescriptor));
 	}
 
 	private void scheduleExpiry(Airdrop plugin) {
@@ -447,16 +624,20 @@ public class Crate {
 	}
 
 	private void startLandedEffects(Airdrop plugin) {
-		if (options.shouldShowLandingEffects()) {
+		if (opened) {
+			return;
+		}
+		if (settings.landingEffects()) {
 			RenderPackageLandedTask landedEffect = new RenderPackageLandedTask(landedLocation.clone(), world);
+			// A single landing burst is intentional; repeating frames creates an inward-moving particle wave.
 			landingEffectTask = landedEffect.runTask(plugin);
 		}
-		if (options.shouldShowContinuousEffects()) {
+		if (settings.continuousEffects()) {
 			glowEffect = new RenderPackageGlowTask(landedLocation.clone(), world);
 			glowTask = glowEffect.runTaskTimer(plugin, 0L, 10L);
 		}
-		if (options.isSmokeEnabled()) {
-			smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, options.getSmokeHeight());
+		if (settings.smokeEnabled()) {
+			smokeEffect = new RenderPackageSmokeTask(landedLocation.clone(), world, settings.smokeHeight());
 			smokeTask = smokeEffect.runTaskTimer(plugin, 0L, 100L);
 		}
 	}
@@ -465,6 +646,11 @@ public class Crate {
 	 * Stop particle effects
 	 */
 	public synchronized void stopEffects() {
+		cleanupResource("landing effect", () -> {
+			if (landingEffectTask != null && !landingEffectTask.isCancelled()) {
+				landingEffectTask.cancel();
+			}
+		});
 		cleanupResource("glow task", () -> {
 			if (glowTask != null && !glowTask.isCancelled()) {
 				glowTask.cancel();
@@ -475,6 +661,7 @@ public class Crate {
 				smokeTask.cancel();
 			}
 		});
+		landingEffectTask = null;
 		glowTask = null;
 		smokeTask = null;
 	}
@@ -483,6 +670,15 @@ public class Crate {
 	 * Cleans up resources used by this crate.
 	 */
 	public synchronized void destroy() {
+		destroyWithOutcome(Outcome.FAILED);
+	}
+
+	/** Removes a falling crate after another plugin cancels Paper landing. */
+	public synchronized void cancelLanding() {
+		destroyWithOutcome(Outcome.CANCELLED);
+	}
+
+	private void destroyWithOutcome(Outcome terminalOutcome) {
 		if (destroyed) {
 			return;
 		}
@@ -491,7 +687,7 @@ public class Crate {
 		boolean deliveryAbsent = state != State.LANDED || removeOwnedLandedBarrelConfirmed();
 		lease.close();
 		if (deliveryAbsent) {
-			reportOutcome(Outcome.FAILED);
+			reportOutcome(terminalOutcome);
 		} else {
 			AirdropLogger.warning("Could not confirm removal of crate " + crateId
 					+ "; no failure outcome will be reported automatically");
@@ -575,12 +771,6 @@ public class Crate {
 			}
 		});
 		expiryTask = null;
-		cleanupResource("landing effect", () -> {
-			if (landingEffectTask != null && !landingEffectTask.isCancelled()) {
-				landingEffectTask.cancel();
-			}
-		});
-		landingEffectTask = null;
 	}
 
 	private void reportOutcome(Outcome reported) {
@@ -588,8 +778,13 @@ public class Crate {
 			return;
 		}
 		outcome = reported;
+		Consumer<Outcome> listener = outcomeListener;
+		outcomeListener = null;
+		if (listener == null) {
+			return;
+		}
 		try {
-			outcomeListener.accept(reported);
+			listener.accept(reported);
 		} catch (RuntimeException failure) {
 			try {
 				AirdropLogger.log(Level.WARNING, "Failed to report crate outcome " + reported, failure);
@@ -597,6 +792,11 @@ public class Crate {
 				failure.addSuppressed(loggingFailure);
 			}
 		}
+	}
+
+	/** Stops lifecycle reporting after the owning request has terminated. */
+	public synchronized void clearOutcomeListener() {
+		outcomeListener = null;
 	}
 
 	private Barrel getOwnedLandedBarrel() {
@@ -663,25 +863,65 @@ public class Crate {
 	 * Gets the current location of the crate based on its state
 	 */
 	public Location getLocation() {
-		return state == State.FALLING ? dropLocation : landedLocation;
+		Location location = state == State.FALLING ? dropLocation : landedLocation;
+		return location.clone();
 	}
 
 	/**
 	 * Gets the original drop location of the crate
 	 */
 	public Location getDropLocation() {
-		return dropLocation;
+		return dropLocation.clone();
 	}
 
 	/**
 	 * Gets the landed location of the crate if it has landed, null otherwise
 	 */
 	public Location getLandedLocation() {
-		return state == State.LANDED ? landedLocation : null;
+		return state == State.LANDED ? landedLocation.clone() : null;
 	}
 
 	public String getCrateId() {
 		return crateId;
+	}
+
+	public UUID getRequestId() {
+		return requestId;
+	}
+
+	public ResolvedDropContext getResolvedContext() {
+		return resolvedContext;
+	}
+
+	/** Returns a detached supported falling view when request context is known. */
+	public synchronized FallingAirdropView snapshotFallingView(FallingBlock entity) {
+		if (resolvedContext == null || state != State.FALLING || entity == null) {
+			return null;
+		}
+		return new FallingAirdropView(
+				UUID.fromString(crateId),
+				entity.getUniqueId(),
+				WorldPosition.from(entity.getLocation()),
+				resolvedContext);
+	}
+
+	/** Returns a detached supported landed view when request or recovery data is known. */
+	public synchronized LandedAirdropView snapshotLandedView() {
+		if (state != State.LANDED || landedLocation == null || expiresAtMillis <= 0L) {
+			return null;
+		}
+		UUID id = UUID.fromString(crateId);
+		WorldPosition position = WorldPosition.from(landedLocation);
+		if (resolvedContext != null) {
+			return new LandedAirdropView(
+					id, position, resolvedContext, expiresAtMillis, opened);
+		}
+		return recoveredFromPersistence
+				? persistedDescriptor == null
+						? LandedAirdropView.recovered(id, position, expiresAtMillis, opened)
+						: LandedAirdropView.recovered(
+								id, position, expiresAtMillis, opened, persistedDescriptor)
+				: null;
 	}
 
 	public boolean isPaid() {
@@ -705,9 +945,15 @@ public class Crate {
 	}
 
 	public void setOpened(boolean opened) {
-		this.opened = opened;
-		if (opened) {
-			this.stopEffects();
+		synchronized (this) {
+			if (this.opened == opened) {
+				return;
+			}
+			this.opened = opened;
+			if (opened) {
+				this.stopEffects();
+			}
 		}
+		CrateManager.refreshLandedView(this);
 	}
 }

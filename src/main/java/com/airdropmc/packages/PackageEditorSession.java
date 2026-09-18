@@ -4,17 +4,10 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
 final class PackageEditorSession {
-	private static final Set<PackageEditorSession> OPEN_SESSIONS =
-			Collections.newSetFromMap(new IdentityHashMap<>());
 	enum State {
 		NEW,
 		ACTIVE,
@@ -46,9 +39,6 @@ final class PackageEditorSession {
 		}
 
 		state = State.ACTIVE;
-		synchronized (OPEN_SESSIONS) {
-			OPEN_SESSIONS.add(this);
-		}
 		return true;
 	}
 
@@ -115,29 +105,7 @@ final class PackageEditorSession {
 		}
 
 		state = State.CLOSED;
-		synchronized (OPEN_SESSIONS) {
-			OPEN_SESSIONS.remove(this);
-		}
 		return true;
-	}
-
-	static void closeOpenEditors() {
-		List<PackageEditorSession> sessions;
-		synchronized (OPEN_SESSIONS) {
-			sessions = new ArrayList<>(OPEN_SESSIONS);
-			OPEN_SESSIONS.clear();
-			for (PackageEditorSession session : sessions) {
-				session.state = State.CLOSED;
-			}
-		}
-
-		for (PackageEditorSession session : sessions) {
-			for (HumanEntity viewer : List.copyOf(session.inventory.getViewers())) {
-				if (viewer.getOpenInventory().getTopInventory() == session.inventory) {
-					viewer.closeInventory();
-				}
-			}
-		}
 	}
 
 	State state() {

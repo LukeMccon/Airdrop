@@ -9,11 +9,13 @@ import com.airdropmc.helpers.ChatTheme;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Represents a package within the airdrop
  * Which includes the name, price, and items
  */
+@ApiStatus.Internal
 public class Package {
 
 	private List<ItemStack> items;
@@ -138,10 +140,18 @@ public class Package {
 		return String.valueOf(number);
 	}
 
+	/**
+	 * Returns a detached copy of this package's items. Null entries are preserved,
+	 * while every non-null item stack is cloned.
+	 */
 	public List<ItemStack> getItems() {
 		return cloneItems(this.items);
 	}
 
+	/**
+	 * Replaces this package's items with detached copies. A null list is treated as
+	 * empty; null entries are preserved and every non-null item stack is cloned.
+	 */
 	public void setItems(List<ItemStack> items) {
 		if (items != null && !items.isEmpty()) {
 			this.items = cloneItems(items);

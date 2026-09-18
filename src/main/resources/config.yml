@@ -17,9 +17,9 @@ drop:
     # Whether to show the flare effect when the package is dropped
     flare-effects: true
     smoke:
-      # Whether to show the smoke trail effect
+      # Whether to show a repeating smoke column above a landed, tracked crate
       enabled: false
-      # Height of the smoke trail effect in blocks
+      # Height of the landed smoke column in blocks
       height: 20
   # How fast the crate falls when dropped
   falling-speed: 0.3

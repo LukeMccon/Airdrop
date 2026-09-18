@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+project_root=$(CDPATH= cd -- "$script_directory/.." && pwd)
+properties_file="$project_root/gradle.properties"
+
+fail() {
+	printf 'verify-release-line: %s\n' "$1" >&2
+	exit 1
+}
+
+read_property() {
+	local property_name=$1
+	local -a values=()
+	mapfile -t values < <(sed -n "s/^${property_name}=//p" "$properties_file")
+	if [[ ${#values[@]} -ne 1 || -z "${values[0]}" ]]; then
+		fail "gradle.properties must define exactly one non-empty ${property_name}"
+	fi
+	printf '%s\n' "${values[0]}"
+}
+
+require_file() {
+	local relative_path=$1
+	[[ -f "$project_root/$relative_path" ]] \
+		|| fail "missing release-line file: $relative_path"
+}
+
+require_text() {
+	local relative_path=$1
+	local expected=$2
+	require_file "$relative_path"
+	grep -Fq -- "$expected" "$project_root/$relative_path" \
+		|| fail "$relative_path is missing current release text: $expected"
+}
+
+plugin_development_version=$(read_property airdropPluginVersion)
+extension_api_version=$(read_property airdropExtensionApiVersion)
+
+if [[ ! "$plugin_development_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)-SNAPSHOT$ ]]; then
+	fail "airdropPluginVersion must be MAJOR.MINOR.PATCH-SNAPSHOT"
+fi
+plugin_major=${BASH_REMATCH[1]}
+plugin_minor=${BASH_REMATCH[2]}
+plugin_patch=${BASH_REMATCH[3]}
+plugin_release_version="$plugin_major.$plugin_minor.$plugin_patch"
+plugin_release_line="$plugin_major.$plugin_minor"
+
+if [[ ! "$extension_api_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+	fail "airdropExtensionApiVersion must be MAJOR.MINOR.PATCH"
+fi
+
+require_text "README.md" \
+	"| Current source (\`$plugin_development_version\`) | \`$extension_api_version\` |"
+
+changelog_heading=$(sed -n '1p' "$project_root/CHANGELOG.md")
+[[ "$changelog_heading" == "# Airdrop $plugin_release_version"* ]] \
+	|| fail "CHANGELOG.md must start with an Airdrop $plugin_release_version heading"
+require_text "CHANGELOG.md" "API \`$extension_api_version\`"
+
+require_text "docs/development/api-versioning.md" \
+	"| Airdrop plugin | \`$plugin_development_version\` |"
+require_text "docs/development/api-versioning.md" \
+	"| Extension API | \`$extension_api_version\` |"
+require_text "docs/development/api-versioning.md" \
+	"-PreleaseTag=$plugin_release_version"
+
+require_text "docs/modrinth.md" "v$plugin_release_version"
+require_text "docs/modrinth.md" \
+	"maven.modrinth:airdrop:$plugin_release_version"
+require_text "docs/modrinth.md" "<version>$plugin_release_version</version>"
+require_text "scripts/modrinth-docs" \
+	"maven.modrinth:airdrop:$plugin_release_version"
+
+require_text "lightkeeper/pom.xml" "<version>$plugin_development_version</version>"
+require_text "lightkeeper/pom.xml" "<userAgent>Airdrop/$plugin_release_line "
+
+printf 'Release line is consistent: plugin %s, extension API %s\n' \
+	"$plugin_development_version" "$extension_api_version"

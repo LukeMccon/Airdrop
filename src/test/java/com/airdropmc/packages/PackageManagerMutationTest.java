@@ -1,13 +1,18 @@
 package com.airdropmc.packages;
 
 import com.airdropmc.exceptions.DuplicatePackageException;
+import com.airdropmc.exceptions.PackageCapacityException;
 import com.airdropmc.exceptions.PackageNotFoundException;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ExtendWith(MockBukkitExtension.class)
 class PackageManagerMutationTest {
 
 	@AfterEach
@@ -62,6 +68,30 @@ class PackageManagerMutationTest {
 	}
 
 	@Test
+	void createPackageCandidate_rejectsPackageTwentyEightWithoutMutatingSource() throws Exception {
+		YamlConfiguration source = configurationWithPackages(PackageManager.MAX_PACKAGES);
+		String sourceYaml = source.saveToString();
+		Package overflow = new Package("overflow", 3.0, List.of(new ItemStack(Material.DIAMOND)));
+
+		PackageCapacityException failure = assertThrows(PackageCapacityException.class,
+				() -> PackageManager.createPackageCandidate(source, overflow));
+
+		assertEquals(PackageManager.MAX_PACKAGES + 1, failure.getRequestedCount());
+		assertEquals(PackageManager.MAX_PACKAGES, failure.getLimit());
+		assertEquals(sourceYaml, source.saveToString());
+		assertFalse(source.isSet("packages.overflow"));
+	}
+
+	@Test
+	void duplicateNameTakesPrecedenceWhenRegistryIsAtCapacity() {
+		YamlConfiguration source = configurationWithPackages(PackageManager.MAX_PACKAGES);
+
+		assertThrows(DuplicatePackageException.class,
+				() -> PackageManager.createPackageCandidate(
+						source, new Package("PKG0", 3.0, List.of())));
+	}
+
+	@Test
 	void updatePackageInventoryCandidate_usesStoredYamlCaseAndDoesNotMutateSource() throws Exception {
 		YamlConfiguration source = configurationWithStarter("Starter");
 		String sourceYaml = source.saveToString();
@@ -78,6 +108,25 @@ class PackageManagerMutationTest {
 		Package updated = PackageManager.materializePackages(candidate).get("starter");
 		assertEquals(Material.DIRT, updated.getItems().getFirst().getType());
 		assertEquals(2, updated.getItems().getFirst().getAmount());
+	}
+
+	@Test
+	void updateMaterializeAndPublishPreserveItemCopyBoundaries() throws Exception {
+		YamlConfiguration source = configurationWithStarter("starter");
+		ItemStack callerItem = namedItem(Material.STONE, 2, "original");
+
+		YamlConfiguration candidate = PackageManager.updatePackageInventoryCandidate(
+				source, "starter", List.of(callerItem));
+		mutate(callerItem);
+		assertUnchanged((ItemStack) candidate.getList("packages.starter.items").getFirst());
+
+		Map<String, Package> materialized = PackageManager.materializePackages(candidate);
+		mutate((ItemStack) candidate.getList("packages.starter.items").getFirst());
+		assertUnchanged(materialized.get("starter").getItems().getFirst());
+
+		PackageManager.publishPackages(materialized);
+		mutate(PackageManager.get("starter").getItems().getFirst());
+		assertUnchanged(PackageManager.get("starter").getItems().getFirst());
 	}
 
 	@Test
@@ -155,6 +204,22 @@ class PackageManagerMutationTest {
 		assertEquals(Material.DIAMOND, PackageManager.get("other").getItems().getFirst().getType());
 	}
 
+	@Test
+	void publishPackagesRetainsLastKnownGoodOnCapacityFailure() throws Exception {
+		Package starter = new Package("starter", 1.0, List.of());
+		PackageManager.publishPackages(Map.of("starter", starter));
+		Map<String, Package> oversizedCandidate = new LinkedHashMap<>();
+		for (int index = 0; index < PackageManager.MAX_PACKAGES + 1; index++) {
+			String name = "pkg" + index;
+			oversizedCandidate.put(name, new Package(name, 1.0, List.of()));
+		}
+
+		assertThrows(IllegalArgumentException.class,
+				() -> PackageManager.publishPackages(oversizedCandidate));
+		assertEquals(1, PackageManager.getPackageCount());
+		assertSame(starter, PackageManager.get("starter"));
+	}
+
 	private static YamlConfiguration emptyConfiguration() {
 		YamlConfiguration config = new YamlConfiguration();
 		config.createSection("packages");
@@ -164,8 +229,41 @@ class PackageManagerMutationTest {
 	private static YamlConfiguration configurationWithStarter(String storedName) {
 		YamlConfiguration config = emptyConfiguration();
 		config.createSection("packages." + storedName);
-		config.set("packages." + storedName + ".price", 10.0);
+		config.set("packages." + storedName + ".price", 0.0);
 		config.set("packages." + storedName + ".items", List.of());
 		return config;
+	}
+
+	private static YamlConfiguration configurationWithPackages(int count) {
+		YamlConfiguration config = emptyConfiguration();
+		for (int index = 0; index < count; index++) {
+			String path = "packages.pkg" + index;
+			config.createSection(path);
+			config.set(path + ".price", 0.0);
+			config.set(path + ".items", List.of());
+		}
+		return config;
+	}
+
+	private static void mutate(ItemStack item) {
+		item.setAmount(9);
+		item.setType(Material.GOLD_BLOCK);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName("mutated");
+		item.setItemMeta(meta);
+	}
+
+	private static ItemStack namedItem(Material material, int amount, String name) {
+		ItemStack item = new ItemStack(material, amount);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(name);
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	private static void assertUnchanged(ItemStack item) {
+		assertEquals(Material.STONE, item.getType());
+		assertEquals(2, item.getAmount());
+		assertEquals("original", item.getItemMeta().getDisplayName());
 	}
 }

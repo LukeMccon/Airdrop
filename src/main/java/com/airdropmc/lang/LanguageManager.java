@@ -29,6 +29,10 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class LanguageManager {
 	private static final String DEFAULT_LANGUAGE = "en";
+	private static final String LEGACY_VERSION_INFO = """
+			{text}
+			Airdrop Version: {accent}{version}{text}
+			Spigot API Version: {accent}{api_version}""";
 	private static final Pattern SAFE_LANGUAGE_CODE_PATTERN = Pattern.compile("^[a-z]{2}(?:-[A-Z]{2})?$");
 
 	private final Airdrop plugin;
@@ -165,7 +169,7 @@ public class LanguageManager {
 	}
 
 	private boolean mergeMissingDefaults(YamlConfiguration configuration, YamlConfiguration defaults) {
-		boolean updated = false;
+		boolean updated = migrateStockVersionInfo(configuration, defaults);
 		for (String key : defaults.getKeys(true)) {
 			if (!configuration.isSet(key)) {
 				configuration.set(key, defaults.get(key));
@@ -173,6 +177,17 @@ public class LanguageManager {
 			}
 		}
 		return updated;
+	}
+
+	private boolean migrateStockVersionInfo(YamlConfiguration configuration, YamlConfiguration defaults) {
+		String key = MessageKey.SYSTEM_VERSION_INFO.getKey();
+		String replacement = defaults.getString(key);
+		// Refresh only the unchanged old default; customized translations keep their text.
+		if (replacement != null && LEGACY_VERSION_INFO.equals(configuration.getString(key))) {
+			configuration.set(key, replacement);
+			return true;
+		}
+		return false;
 	}
 
 	void writeAtomically(Path target, byte[] contents, boolean replaceExisting) throws IOException {

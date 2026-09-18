@@ -1,0 +1,431 @@
+FIELD 0x4019 com.airdropmc.api.DeliveryStatus.CANCELLED DESCRIPTOR Lcom/airdropmc/api/DeliveryStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DeliveryStatus.FAILED DESCRIPTOR Lcom/airdropmc/api/DeliveryStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DeliveryStatus.LANDED DESCRIPTOR Lcom/airdropmc/api/DeliveryStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DeliveryStatus.REJECTED DESCRIPTOR Lcom/airdropmc/api/DeliveryStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DeliveryStatus.SHUTDOWN DESCRIPTOR Lcom/airdropmc/api/DeliveryStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.AFFORDABILITY_UNKNOWN DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.CANCELLED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.COOLDOWN DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.ECONOMY_DISABLED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.ECONOMY_PROVIDER_UNAVAILABLE DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.FALLING_CAPACITY DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.INSUFFICIENT_FUNDS DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.INSUFFICIENT_PERMISSION DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.INVALID_TARGET DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.LANDED_CAPACITY DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.LOCATION_RESERVED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.PAYMENT_REJECTED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.REQUEST_PENDING DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.SERVICE_UNAVAILABLE DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.SHUTTING_DOWN DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.SKY_NOT_CLEAR DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.UNKNOWN_PACKAGE DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropSource.PLAYER DESCRIPTOR Lcom/airdropmc/api/DropSource; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropSource.SYSTEM DESCRIPTOR Lcom/airdropmc/api/DropSource; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropState.FALLING DESCRIPTOR Lcom/airdropmc/api/DropState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropState.LANDED DESCRIPTOR Lcom/airdropmc/api/DropState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.EconomyState.ACTIVE DESCRIPTOR Lcom/airdropmc/api/EconomyState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.EconomyState.DISABLED DESCRIPTOR Lcom/airdropmc/api/EconomyState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.EconomyState.STARTING DESCRIPTOR Lcom/airdropmc/api/EconomyState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.EconomyState.UNAVAILABLE DESCRIPTOR Lcom/airdropmc/api/EconomyState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PackageRegistryCause.CREATE DESCRIPTOR Lcom/airdropmc/api/PackageRegistryCause; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PackageRegistryCause.DELETE DESCRIPTOR Lcom/airdropmc/api/PackageRegistryCause; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PackageRegistryCause.RELOAD DESCRIPTOR Lcom/airdropmc/api/PackageRegistryCause; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PackageRegistryCause.STARTUP DESCRIPTOR Lcom/airdropmc/api/PackageRegistryCause; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PackageRegistryCause.UPDATE DESCRIPTOR Lcom/airdropmc/api/PackageRegistryCause; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PaymentStatus.CHARGED DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PaymentStatus.NOT_APPLICABLE DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PaymentStatus.REFUNDED DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PaymentStatus.REFUND_FAILED DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PaymentStatus.REJECTED DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.PaymentStatus.UNKNOWN DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.ReadinessState.FAILED DESCRIPTOR Lcom/airdropmc/api/ReadinessState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.ReadinessState.READY DESCRIPTOR Lcom/airdropmc/api/ReadinessState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.ReadinessState.STARTING DESCRIPTOR Lcom/airdropmc/api/ReadinessState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.ReadinessState.STOPPING DESCRIPTOR Lcom/airdropmc/api/ReadinessState; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.BROKEN DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.BURNED DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.CANCELLED DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.CHUNK_UNLOAD DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.CLOSED_EMPTY DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.EXPIRED DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.EXPLODED DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.FAILED DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.HOPPER_EMPTY DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.HOT_DISABLE DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.RECOVERY_PURGED DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.SHUTDOWN DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.RetirementReason.WORLD_UNLOAD DESCRIPTOR Lcom/airdropmc/api/RetirementReason; GENERIC - CONSTANT -
+METHOD 0x0001 com.airdropmc.api.AirdropPackage.<init>(Ljava/lang/String;Ljava/math/BigDecimal;Ljava/util/List;)V GENERIC (Ljava/lang/String;Ljava/math/BigDecimal;Ljava/util/List<Lorg/bukkit/inventory/ItemStack;>;)V THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropPackage.items()Ljava/util/List; GENERIC ()Ljava/util/List<Lorg/bukkit/inventory/ItemStack;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropPackage.name()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropPackage.price()Ljava/math/BigDecimal; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.<init>(Lcom/airdropmc/api/ReadinessState;Lcom/airdropmc/api/EconomyState;Ljava/lang/String;IIILjava/util/List;)V GENERIC (Lcom/airdropmc/api/ReadinessState;Lcom/airdropmc/api/EconomyState;Ljava/lang/String;IIILjava/util/List<Ljava/lang/String;>;)V THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.<init>(Lcom/airdropmc/api/ReadinessState;Lcom/airdropmc/api/EconomyState;Ljava/lang/String;JIIIILjava/util/OptionalInt;Ljava/util/OptionalInt;Ljava/util/Optional;Ljava/util/Optional;Ljava/util/List;)V GENERIC (Lcom/airdropmc/api/ReadinessState;Lcom/airdropmc/api/EconomyState;Ljava/lang/String;JIIIILjava/util/OptionalInt;Ljava/util/OptionalInt;Ljava/util/Optional<Ljava/lang/String;>;Ljava/util/Optional<Ljava/lang/String;>;Ljava/util/List<Ljava/lang/String;>;)V THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.<init>(Lcom/airdropmc/api/ReadinessState;Lcom/airdropmc/api/EconomyState;Ljava/lang/String;JIIILjava/util/List;)V GENERIC (Lcom/airdropmc/api/ReadinessState;Lcom/airdropmc/api/EconomyState;Ljava/lang/String;JIIILjava/util/List<Ljava/lang/String;>;)V THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.degradedReasons()Ljava/util/List; GENERIC ()Ljava/util/List<Ljava/lang/String;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.economy()Lcom/airdropmc/api/EconomyState; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.economyProviderName()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/String;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.fallingCount()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.landedCount()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.lastDiagnostic()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/String;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.lastDiagnosticCategory()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/String;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.maxFalling()Ljava/util/OptionalInt; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.maxLanded()Ljava/util/OptionalInt; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.packageCount()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.packageRevision()J GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.pendingCount()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropStatus.readiness()Lcom/airdropmc/api/ReadinessState; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropVersions.<init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropVersions.extensionApiVersion()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropVersions.javaVersion()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropVersions.paperApiVersion()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.AirdropVersions.pluginVersion()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Failed.<init>(Lcom/airdropmc/api/ResolvedDropContext;Lcom/airdropmc/api/DeliveryStatus;Lcom/airdropmc/api/PaymentStatus;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Failed.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Failed.delivery()Lcom/airdropmc/api/DeliveryStatus; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Failed.descriptor()Lcom/airdropmc/api/DropRequestDescriptor; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Failed.payment()Lcom/airdropmc/api/PaymentStatus; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Failed.resolvedContext()Lcom/airdropmc/api/ResolvedDropContext; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Landed.<init>(Lcom/airdropmc/api/ResolvedDropContext;Lcom/airdropmc/api/LandedAirdropView;Lcom/airdropmc/api/PaymentStatus;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Landed.airdrop()Lcom/airdropmc/api/LandedAirdropView; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Landed.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Landed.delivery()Lcom/airdropmc/api/DeliveryStatus; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Landed.descriptor()Lcom/airdropmc/api/DropRequestDescriptor; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Landed.payment()Lcom/airdropmc/api/PaymentStatus; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Landed.resolvedContext()Lcom/airdropmc/api/ResolvedDropContext; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Rejected.<init>(Lcom/airdropmc/api/DropRequestDescriptor;Ljava/util/Optional;Lcom/airdropmc/api/DropRejection;Lcom/airdropmc/api/PaymentStatus;)V GENERIC (Lcom/airdropmc/api/DropRequestDescriptor;Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>;Lcom/airdropmc/api/DropRejection;Lcom/airdropmc/api/PaymentStatus;)V THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Rejected.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Rejected.delivery()Lcom/airdropmc/api/DeliveryStatus; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Rejected.descriptor()Lcom/airdropmc/api/DropRequestDescriptor; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Rejected.payment()Lcom/airdropmc/api/PaymentStatus; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Rejected.rejection()Lcom/airdropmc/api/DropRejection; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome$Rejected.resolvedContext()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropOutcome.requestId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRejection.<init>(Lcom/airdropmc/api/DropRejectionReason;Ljava/lang/String;Ljava/util/Optional;)V GENERIC (Lcom/airdropmc/api/DropRejectionReason;Ljava/lang/String;Ljava/util/Optional<Ljava/time/Duration;>;)V THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRejection.diagnostic()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRejection.reason()Lcom/airdropmc/api/DropRejectionReason; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRejection.retryAfter()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/time/Duration;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestDescriptor.<init>(Ljava/util/UUID;Lcom/airdropmc/api/DropSource;Ljava/util/UUID;Ljava/lang/String;Lorg/bukkit/Location;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestDescriptor.playerId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestDescriptor.requestId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestDescriptor.requestedLocation()Lorg/bukkit/Location; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestDescriptor.requestedPackageName()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestDescriptor.requestedPosition()Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestDescriptor.source()Lcom/airdropmc/api/DropSource; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.chickenCount()Ljava/util/OptionalInt; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.continuousEffects()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/Boolean;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.dropHeight()Ljava/util/OptionalInt; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.fallingSpeed()Ljava/util/OptionalDouble; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.flareEffects()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/Boolean;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.hashCode()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.landingEffects()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/Boolean;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.smokeEnabled()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/Boolean;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.smokeHeight()Ljava/util/OptionalInt; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withChickenCount(I)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withContinuousEffects(Z)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withDropHeight(I)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withFallingSpeed(D)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withFlareEffects(Z)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withLandingEffects(Z)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withSmokeEnabled(Z)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropRequestOptions.withSmokeHeight(I)Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$NotSpawned.<init>(Lcom/airdropmc/api/DropOutcome;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$NotSpawned.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$NotSpawned.outcome()Lcom/airdropmc/api/DropOutcome; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$NotSpawned.requestId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$Spawned.<init>(Lcom/airdropmc/api/ResolvedDropContext;Lcom/airdropmc/api/FallingAirdropView;Lcom/airdropmc/api/PaymentStatus;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$Spawned.airdrop()Lcom/airdropmc/api/FallingAirdropView; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$Spawned.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$Spawned.payment()Lcom/airdropmc/api/PaymentStatus; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$Spawned.requestId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.DropSpawnResult$Spawned.resolvedContext()Lcom/airdropmc/api/ResolvedDropContext; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.<init>(Ljava/util/UUID;Ljava/util/UUID;Lcom/airdropmc/api/WorldPosition;Lcom/airdropmc/api/ResolvedDropContext;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.crateId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.fallingEntityId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.packageName()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/String;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.packagePrice()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/math/BigDecimal;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.playerId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.position()Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.recovered()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.recoveryDescriptor()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/RecoveredDropDescriptor;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.requestId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.source()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/DropSource;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.FallingAirdropView.state()Lcom/airdropmc/api/DropState; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.<init>(Ljava/util/UUID;Lcom/airdropmc/api/WorldPosition;Lcom/airdropmc/api/ResolvedDropContext;JZ)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.crateId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.expiresAtMillis()J GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.opened()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.packageName()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/String;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.packagePrice()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/math/BigDecimal;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.playerId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.position()Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.recovered()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.recoveryDescriptor()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/RecoveredDropDescriptor;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.requestId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.source()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/DropSource;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.LandedAirdropView.state()Lcom/airdropmc/api/DropState; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.PackageRegistryChange.<init>(JLcom/airdropmc/api/PackageRegistryCause;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;)V GENERIC (JLcom/airdropmc/api/PackageRegistryCause;Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>;Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>;Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>;Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>;)V THROWS -
+METHOD 0x0001 com.airdropmc.api.PackageRegistryChange.cause()Lcom/airdropmc/api/PackageRegistryCause; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.PackageRegistryChange.created()Ljava/util/Map; GENERIC ()Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.PackageRegistryChange.deleted()Ljava/util/Map; GENERIC ()Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.PackageRegistryChange.packages()Ljava/util/Map; GENERIC ()Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.PackageRegistryChange.revision()J GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.PackageRegistryChange.updated()Ljava/util/Map; GENERIC ()Ljava/util/Map<Ljava/lang/String;Lcom/airdropmc/api/AirdropPackage;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.<init>(Ljava/util/UUID;Lcom/airdropmc/api/DropSource;Ljava/util/UUID;Ljava/lang/String;Ljava/math/BigDecimal;Lcom/airdropmc/api/ResolvedDropSettings;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.hashCode()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.packageName()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.packagePrice()Ljava/math/BigDecimal; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.playerId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.requestId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.settings()Lcom/airdropmc/api/ResolvedDropSettings; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.RecoveredDropDescriptor.source()Lcom/airdropmc/api/DropSource; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.<init>(Lcom/airdropmc/api/DropRequestDescriptor;Lcom/airdropmc/api/AirdropPackage;Lorg/bukkit/Location;Lorg/bukkit/Location;Lcom/airdropmc/api/ResolvedDropSettings;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.airdropPackage()Lcom/airdropmc/api/AirdropPackage; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.descriptor()Lcom/airdropmc/api/DropRequestDescriptor; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.landingLocation()Lorg/bukkit/Location; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.landingPosition()Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.settings()Lcom/airdropmc/api/ResolvedDropSettings; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.spawnLocation()Lorg/bukkit/Location; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropContext.spawnPosition()Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.<init>(IDIZZZZILjava/time/Duration;IILjava/time/Duration;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.chickenCount()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.continuousEffects()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.dropHeight()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.fallingSpeed()D GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.flareEffects()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.landedLifetime()Ljava/time/Duration; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.landingEffects()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.maxFalling()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.maxLanded()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.requestCooldown()Ljava/time/Duration; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.smokeEnabled()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.ResolvedDropSettings.smokeHeight()I GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.<init>(Ljava/util/UUID;DDDFF)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.isSameWorld(Lcom/airdropmc/api/WorldPosition;)Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.pitch()F GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.toLocation(Lorg/bukkit/World;)Lorg/bukkit/Location; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.worldId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.x()D GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.y()D GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.yaw()F GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.WorldPosition.z()D GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandedEvent.<init>(Lcom/airdropmc/api/ResolvedDropContext;Lcom/airdropmc/api/LandedAirdropView;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandedEvent.airdrop()Lcom/airdropmc/api/LandedAirdropView; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandedEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandingAttemptEvent.<init>(Lcom/airdropmc/api/ResolvedDropContext;Lcom/airdropmc/api/FallingAirdropView;Lcom/airdropmc/api/WorldPosition;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandingAttemptEvent.airdrop()Lcom/airdropmc/api/FallingAirdropView; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandingAttemptEvent.candidatePosition()Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandingAttemptEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandingAttemptEvent.isCancelled()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropLandingAttemptEvent.setCancelled(Z)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropOutcomeEvent.<init>(Lcom/airdropmc/api/ResolvedDropContext;Lcom/airdropmc/api/DropOutcome;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropOutcomeEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropOutcomeEvent.outcome()Lcom/airdropmc/api/DropOutcome; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRecoveredEvent.<init>(Lcom/airdropmc/api/LandedAirdropView;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRecoveredEvent.airdrop()Lcom/airdropmc/api/LandedAirdropView; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRecoveredEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRequestEvent.<init>(Lcom/airdropmc/api/ResolvedDropContext;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRequestEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRequestEvent.isCancelled()Z GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRequestEvent.setCancelled(Z)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRetiredEvent.<init>(Lcom/airdropmc/api/AirdropView;Lcom/airdropmc/api/RetirementReason;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRetiredEvent.airdrop()Lcom/airdropmc/api/AirdropView; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRetiredEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropRetiredEvent.reason()Lcom/airdropmc/api/RetirementReason; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropSpawnedEvent.<init>(Lcom/airdropmc/api/ResolvedDropContext;Lcom/airdropmc/api/FallingAirdropView;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropSpawnedEvent.airdrop()Lcom/airdropmc/api/FallingAirdropView; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.AirdropSpawnedEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.PackageRegistryChangedEvent.<init>(Lcom/airdropmc/api/PackageRegistryChange;)V GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.PackageRegistryChangedEvent.cause()Lcom/airdropmc/api/PackageRegistryCause; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.PackageRegistryChangedEvent.change()Lcom/airdropmc/api/PackageRegistryChange; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.PackageRegistryChangedEvent.getHandlers()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0001 com.airdropmc.api.event.PackageRegistryChangedEvent.revision()J GENERIC - THROWS -
+METHOD 0x0004 com.airdropmc.api.event.AbstractAirdropEvent.<init>(Lcom/airdropmc/api/ResolvedDropContext;)V GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DeliveryStatus.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/DeliveryStatus; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DeliveryStatus.values()[Lcom/airdropmc/api/DeliveryStatus; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropRejection.cooldown(Ljava/time/Duration;)Lcom/airdropmc/api/DropRejection; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropRejection.of(Lcom/airdropmc/api/DropRejectionReason;Ljava/lang/String;)Lcom/airdropmc/api/DropRejection; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropRejectionReason.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/DropRejectionReason; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropRejectionReason.values()[Lcom/airdropmc/api/DropRejectionReason; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropRequestOptions.defaults()Lcom/airdropmc/api/DropRequestOptions; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropSource.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/DropSource; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropSource.values()[Lcom/airdropmc/api/DropSource; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropState.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/DropState; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.DropState.values()[Lcom/airdropmc/api/DropState; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.EconomyState.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/EconomyState; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.EconomyState.values()[Lcom/airdropmc/api/EconomyState; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.LandedAirdropView.recovered(Ljava/util/UUID;Lcom/airdropmc/api/WorldPosition;JZ)Lcom/airdropmc/api/LandedAirdropView; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.LandedAirdropView.recovered(Ljava/util/UUID;Lcom/airdropmc/api/WorldPosition;JZLcom/airdropmc/api/RecoveredDropDescriptor;)Lcom/airdropmc/api/LandedAirdropView; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.PackageRegistryCause.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/PackageRegistryCause; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.PackageRegistryCause.values()[Lcom/airdropmc/api/PackageRegistryCause; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.PaymentStatus.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/PaymentStatus; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.PaymentStatus.values()[Lcom/airdropmc/api/PaymentStatus; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.ReadinessState.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/ReadinessState; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.ReadinessState.values()[Lcom/airdropmc/api/ReadinessState; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.RecoveredDropDescriptor.from(Lcom/airdropmc/api/ResolvedDropContext;)Lcom/airdropmc/api/RecoveredDropDescriptor; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.RetirementReason.valueOf(Ljava/lang/String;)Lcom/airdropmc/api/RetirementReason; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.RetirementReason.values()[Lcom/airdropmc/api/RetirementReason; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.WorldPosition.from(Lorg/bukkit/Location;)Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.AirdropLandedEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.AirdropLandingAttemptEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.AirdropOutcomeEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.AirdropRecoveredEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.AirdropRequestEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.AirdropRetiredEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.AirdropSpawnedEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0009 com.airdropmc.api.event.PackageRegistryChangedEvent.getHandlerList()Lorg/bukkit/event/HandlerList; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.AirdropVersions.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.AirdropVersions.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.AirdropVersions.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Failed.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Failed.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Failed.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Landed.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Landed.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Landed.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Rejected.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Rejected.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropOutcome$Rejected.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropRejection.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropRejection.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropRejection.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropSpawnResult$NotSpawned.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropSpawnResult$NotSpawned.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropSpawnResult$NotSpawned.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropSpawnResult$Spawned.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropSpawnResult$Spawned.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.DropSpawnResult$Spawned.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.ResolvedDropSettings.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.ResolvedDropSettings.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.ResolvedDropSettings.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.WorldPosition.equals(Ljava/lang/Object;)Z GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.WorldPosition.hashCode()I GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.WorldPosition.toString()Ljava/lang/String; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.event.AbstractAirdropEvent.context()Lcom/airdropmc/api/ResolvedDropContext; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.event.AbstractAirdropEvent.descriptor()Lcom/airdropmc/api/DropRequestDescriptor; GENERIC - THROWS -
+METHOD 0x0011 com.airdropmc.api.event.AbstractAirdropEvent.requestId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.activeDrops()Ljava/util/Collection; GENERIC ()Ljava/util/Collection<Lcom/airdropmc/api/AirdropView;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.findByCrateId(Ljava/util/UUID;)Ljava/util/Optional; GENERIC (Ljava/util/UUID;)Ljava/util/Optional<Lcom/airdropmc/api/AirdropView;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.findByFallingEntity(Lorg/bukkit/entity/FallingBlock;)Ljava/util/Optional; GENERIC (Lorg/bukkit/entity/FallingBlock;)Ljava/util/Optional<Lcom/airdropmc/api/AirdropView;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.findByLandedBlock(Lorg/bukkit/block/Block;)Ljava/util/Optional; GENERIC (Lorg/bukkit/block/Block;)Ljava/util/Optional<Lcom/airdropmc/api/AirdropView;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.findByRequestId(Ljava/util/UUID;)Ljava/util/Optional; GENERIC (Ljava/util/UUID;)Ljava/util/Optional<Lcom/airdropmc/api/AirdropView;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.findPackage(Ljava/lang/String;)Ljava/util/Optional; GENERIC (Ljava/lang/String;)Ljava/util/Optional<Lcom/airdropmc/api/AirdropPackage;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.listPackages()Ljava/util/List; GENERIC ()Ljava/util/List<Lcom/airdropmc/api/AirdropPackage;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.packageRevision()J GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.readiness()Ljava/util/concurrent/CompletionStage; GENERIC ()Ljava/util/concurrent/CompletionStage<Lcom/airdropmc/api/AirdropApi;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.requestPlayerDrop(Lorg/bukkit/entity/Player;Ljava/lang/String;Lcom/airdropmc/api/DropRequestOptions;)Lcom/airdropmc/api/DropHandle; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.requestSystemDrop(Lorg/bukkit/Location;Ljava/lang/String;Lcom/airdropmc/api/DropRequestOptions;)Lcom/airdropmc/api/DropHandle; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.state()Lcom/airdropmc/api/ReadinessState; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.status()Lcom/airdropmc/api/AirdropStatus; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropApi.versions()Lcom/airdropmc/api/AirdropVersions; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.crateId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.packageName()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/lang/String;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.packagePrice()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/math/BigDecimal;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.playerId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.position()Lcom/airdropmc/api/WorldPosition; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.recovered()Z GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.recoveryDescriptor()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/RecoveredDropDescriptor;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.requestId()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Ljava/util/UUID;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.source()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/DropSource;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.AirdropView.state()Lcom/airdropmc/api/DropState; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.DropHandle.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.DropHandle.descriptor()Lcom/airdropmc/api/DropRequestDescriptor; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.DropHandle.outcome()Ljava/util/concurrent/CompletionStage; GENERIC ()Ljava/util/concurrent/CompletionStage<Lcom/airdropmc/api/DropOutcome;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.DropHandle.requestId()Ljava/util/UUID; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.DropHandle.spawn()Ljava/util/concurrent/CompletionStage; GENERIC ()Ljava/util/concurrent/CompletionStage<Lcom/airdropmc/api/DropSpawnResult;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.DropOutcome.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.DropOutcome.delivery()Lcom/airdropmc/api/DeliveryStatus; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.DropOutcome.descriptor()Lcom/airdropmc/api/DropRequestDescriptor; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.DropOutcome.payment()Lcom/airdropmc/api/PaymentStatus; GENERIC - THROWS -
+METHOD 0x0401 com.airdropmc.api.DropSpawnResult.context()Ljava/util/Optional; GENERIC ()Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>; THROWS -
+METHOD 0x0401 com.airdropmc.api.DropSpawnResult.requestId()Ljava/util/UUID; GENERIC - THROWS -
+PERMITS com.airdropmc.api.AirdropView com.airdropmc.api.FallingAirdropView
+PERMITS com.airdropmc.api.AirdropView com.airdropmc.api.LandedAirdropView
+PERMITS com.airdropmc.api.DropOutcome com.airdropmc.api.DropOutcome$Failed
+PERMITS com.airdropmc.api.DropOutcome com.airdropmc.api.DropOutcome$Landed
+PERMITS com.airdropmc.api.DropOutcome com.airdropmc.api.DropOutcome$Rejected
+PERMITS com.airdropmc.api.DropSpawnResult com.airdropmc.api.DropSpawnResult$NotSpawned
+PERMITS com.airdropmc.api.DropSpawnResult com.airdropmc.api.DropSpawnResult$Spawned
+RECORD_COMPONENT com.airdropmc.api.AirdropVersions.extensionApiVersion DESCRIPTOR Ljava/lang/String; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.AirdropVersions.javaVersion DESCRIPTOR Ljava/lang/String; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.AirdropVersions.paperApiVersion DESCRIPTOR Ljava/lang/String; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.AirdropVersions.pluginVersion DESCRIPTOR Ljava/lang/String; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Failed.delivery DESCRIPTOR Lcom/airdropmc/api/DeliveryStatus; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Failed.payment DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Failed.resolvedContext DESCRIPTOR Lcom/airdropmc/api/ResolvedDropContext; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Landed.airdrop DESCRIPTOR Lcom/airdropmc/api/LandedAirdropView; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Landed.payment DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Landed.resolvedContext DESCRIPTOR Lcom/airdropmc/api/ResolvedDropContext; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Rejected.descriptor DESCRIPTOR Lcom/airdropmc/api/DropRequestDescriptor; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Rejected.payment DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Rejected.rejection DESCRIPTOR Lcom/airdropmc/api/DropRejection; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropOutcome$Rejected.resolvedContext DESCRIPTOR Ljava/util/Optional; GENERIC Ljava/util/Optional<Lcom/airdropmc/api/ResolvedDropContext;>;
+RECORD_COMPONENT com.airdropmc.api.DropRejection.diagnostic DESCRIPTOR Ljava/lang/String; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropRejection.reason DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropRejection.retryAfter DESCRIPTOR Ljava/util/Optional; GENERIC Ljava/util/Optional<Ljava/time/Duration;>;
+RECORD_COMPONENT com.airdropmc.api.DropSpawnResult$NotSpawned.outcome DESCRIPTOR Lcom/airdropmc/api/DropOutcome; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropSpawnResult$Spawned.airdrop DESCRIPTOR Lcom/airdropmc/api/FallingAirdropView; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropSpawnResult$Spawned.payment DESCRIPTOR Lcom/airdropmc/api/PaymentStatus; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.DropSpawnResult$Spawned.resolvedContext DESCRIPTOR Lcom/airdropmc/api/ResolvedDropContext; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.chickenCount DESCRIPTOR I GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.continuousEffects DESCRIPTOR Z GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.dropHeight DESCRIPTOR I GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.fallingSpeed DESCRIPTOR D GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.flareEffects DESCRIPTOR Z GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.landedLifetime DESCRIPTOR Ljava/time/Duration; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.landingEffects DESCRIPTOR Z GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.maxFalling DESCRIPTOR I GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.maxLanded DESCRIPTOR I GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.requestCooldown DESCRIPTOR Ljava/time/Duration; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.smokeEnabled DESCRIPTOR Z GENERIC -
+RECORD_COMPONENT com.airdropmc.api.ResolvedDropSettings.smokeHeight DESCRIPTOR I GENERIC -
+RECORD_COMPONENT com.airdropmc.api.WorldPosition.pitch DESCRIPTOR F GENERIC -
+RECORD_COMPONENT com.airdropmc.api.WorldPosition.worldId DESCRIPTOR Ljava/util/UUID; GENERIC -
+RECORD_COMPONENT com.airdropmc.api.WorldPosition.x DESCRIPTOR D GENERIC -
+RECORD_COMPONENT com.airdropmc.api.WorldPosition.y DESCRIPTOR D GENERIC -
+RECORD_COMPONENT com.airdropmc.api.WorldPosition.yaw DESCRIPTOR F GENERIC -
+RECORD_COMPONENT com.airdropmc.api.WorldPosition.z DESCRIPTOR D GENERIC -
+TYPE 0x0011 com.airdropmc.api.AirdropPackage SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.AirdropStatus SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.AirdropVersions SUPER java.lang.Record INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.DropRejection SUPER java.lang.Record INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.DropRequestDescriptor SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.DropRequestOptions SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.FallingAirdropView SUPER java.lang.Object INTERFACES com.airdropmc.api.AirdropView GENERIC -
+TYPE 0x0011 com.airdropmc.api.LandedAirdropView SUPER java.lang.Object INTERFACES com.airdropmc.api.AirdropView GENERIC -
+TYPE 0x0011 com.airdropmc.api.PackageRegistryChange SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.RecoveredDropDescriptor SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.ResolvedDropContext SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.ResolvedDropSettings SUPER java.lang.Record INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.WorldPosition SUPER java.lang.Record INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.AirdropLandedEvent SUPER com.airdropmc.api.event.AbstractAirdropEvent INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.AirdropLandingAttemptEvent SUPER com.airdropmc.api.event.AbstractAirdropEvent INTERFACES org.bukkit.event.Cancellable GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.AirdropOutcomeEvent SUPER com.airdropmc.api.event.AbstractAirdropEvent INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.AirdropRecoveredEvent SUPER org.bukkit.event.Event INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.AirdropRequestEvent SUPER com.airdropmc.api.event.AbstractAirdropEvent INTERFACES org.bukkit.event.Cancellable GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.AirdropRetiredEvent SUPER org.bukkit.event.Event INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.AirdropSpawnedEvent SUPER com.airdropmc.api.event.AbstractAirdropEvent INTERFACES  GENERIC -
+TYPE 0x0011 com.airdropmc.api.event.PackageRegistryChangedEvent SUPER org.bukkit.event.Event INTERFACES  GENERIC -
+TYPE 0x0019 com.airdropmc.api.DropOutcome$Failed SUPER java.lang.Record INTERFACES com.airdropmc.api.DropOutcome GENERIC -
+TYPE 0x0019 com.airdropmc.api.DropOutcome$Landed SUPER java.lang.Record INTERFACES com.airdropmc.api.DropOutcome GENERIC -
+TYPE 0x0019 com.airdropmc.api.DropOutcome$Rejected SUPER java.lang.Record INTERFACES com.airdropmc.api.DropOutcome GENERIC -
+TYPE 0x0019 com.airdropmc.api.DropSpawnResult$NotSpawned SUPER java.lang.Record INTERFACES com.airdropmc.api.DropSpawnResult GENERIC -
+TYPE 0x0019 com.airdropmc.api.DropSpawnResult$Spawned SUPER java.lang.Record INTERFACES com.airdropmc.api.DropSpawnResult GENERIC -
+TYPE 0x0401 com.airdropmc.api.event.AbstractAirdropEvent SUPER org.bukkit.event.Event INTERFACES  GENERIC -
+TYPE 0x0601 com.airdropmc.api.AirdropApi SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0601 com.airdropmc.api.AirdropView SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0601 com.airdropmc.api.DropHandle SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0601 com.airdropmc.api.DropOutcome SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x0601 com.airdropmc.api.DropSpawnResult SUPER java.lang.Object INTERFACES  GENERIC -
+TYPE 0x4011 com.airdropmc.api.DeliveryStatus SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/DeliveryStatus;>;
+TYPE 0x4011 com.airdropmc.api.DropRejectionReason SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/DropRejectionReason;>;
+TYPE 0x4011 com.airdropmc.api.DropSource SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/DropSource;>;
+TYPE 0x4011 com.airdropmc.api.DropState SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/DropState;>;
+TYPE 0x4011 com.airdropmc.api.EconomyState SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/EconomyState;>;
+TYPE 0x4011 com.airdropmc.api.PackageRegistryCause SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/PackageRegistryCause;>;
+TYPE 0x4011 com.airdropmc.api.PaymentStatus SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/PaymentStatus;>;
+TYPE 0x4011 com.airdropmc.api.ReadinessState SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/ReadinessState;>;
+TYPE 0x4011 com.airdropmc.api.RetirementReason SUPER java.lang.Enum INTERFACES  GENERIC Ljava/lang/Enum<Lcom/airdropmc/api/RetirementReason;>;

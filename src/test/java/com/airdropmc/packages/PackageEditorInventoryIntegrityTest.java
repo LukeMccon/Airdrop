@@ -1,9 +1,9 @@
 package com.airdropmc.packages;
 
-import be.seeseemelk.mockbukkit.MockBukkit;
-import be.seeseemelk.mockbukkit.MockPlugin;
-import be.seeseemelk.mockbukkit.ServerMock;
-import be.seeseemelk.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.plugin.PluginMock;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.airdropmc.Airdrop;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -20,11 +20,15 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -36,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -43,12 +48,13 @@ import static org.mockito.Mockito.when;
 
 class PackageEditorInventoryIntegrityTest {
 	private ServerMock server;
+	private Airdrop plugin;
 
 	@BeforeEach
 	void setUp() {
 		server = MockBukkit.mock();
-		MockPlugin eventPlugin = MockBukkit.createMockPlugin("AirdropTestHarness");
-		Airdrop plugin = mock(Airdrop.class);
+		PluginMock eventPlugin = MockBukkit.createMockPlugin("AirdropTestHarness");
+		plugin = mock(Airdrop.class);
 		when(plugin.isEnabled()).thenReturn(true);
 		when(plugin.getPluginLoader()).thenReturn(eventPlugin.getPluginLoader());
 		when(plugin.getName()).thenReturn("Airdrop");
@@ -97,6 +103,28 @@ class PackageEditorInventoryIntegrityTest {
 	}
 
 	@Test
+	void packageGuiReplacementClosesActiveEditorAndBrowserBeforeReplacingThem() throws Exception {
+		PlayerMock editorViewer = operator();
+		PackageGui editor = new PackageGui(packageWithStone());
+		assertTrue(editor.openInventory(editorViewer));
+		Inventory editorInventory = editorViewer.getOpenInventory().getTopInventory();
+		PlayerMock browserViewer = operator();
+		PackagesGui oldBrowser = new PackagesGui();
+		oldBrowser.openInventory(browserViewer);
+		Inventory browserInventory = browserViewer.getOpenInventory().getTopInventory();
+		setPackagesGui(oldBrowser);
+		doCallRealMethod().when(plugin).setupPackageGuis();
+
+		plugin.setupPackageGuis();
+
+		assertNotSame(editorInventory, editorViewer.getOpenInventory().getTopInventory());
+		assertNotSame(browserInventory, browserViewer.getOpenInventory().getTopInventory());
+		assertFalse(isClickListenerRegistered(editor));
+		assertFalse(isBrowserClickListenerRegistered(oldBrowser));
+		assertNotSame(oldBrowser, Airdrop.getPackagesGui());
+	}
+
+	@Test
 	void closeOpenEditorsClosesEveryTrackedEditorOnly() {
 		PlayerMock existingViewer = operator();
 		PlayerMock createViewer = operator();
@@ -105,6 +133,8 @@ class PackageEditorInventoryIntegrityTest {
 		CreatePackageGui create = new CreatePackageGui("newpkg", 3.0);
 		assertTrue(existing.openInventory(existingViewer));
 		assertTrue(create.openInventory(createViewer));
+		assertTrue(isClickListenerRegistered(existing));
+		assertTrue(isClickListenerRegistered(create));
 		Inventory existingInventory = existingViewer.getOpenInventory().getTopInventory();
 		Inventory createInventory = createViewer.getOpenInventory().getTopInventory();
 		Inventory unrelated = org.bukkit.Bukkit.createInventory(null, 9, "unrelated");
@@ -115,6 +145,8 @@ class PackageEditorInventoryIntegrityTest {
 		assertNotSame(existingInventory, existingViewer.getOpenInventory().getTopInventory());
 		assertNotSame(createInventory, createViewer.getOpenInventory().getTopInventory());
 		assertSame(unrelated, unrelatedViewer.getOpenInventory().getTopInventory());
+		assertFalse(isClickListenerRegistered(existing));
+		assertFalse(isClickListenerRegistered(create));
 	}
 
 	@Test
@@ -150,11 +182,11 @@ class PackageEditorInventoryIntegrityTest {
 
 		InventoryClickEvent event = bottomClick(player, ClickType.LEFT, InventoryAction.PICKUP_ALL);
 		assertSame(player.getInventory(), event.getClickedInventory());
-		assertSame(source, event.getCurrentItem());
+		assertEquals(source, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(source, player.getInventory().getItem(0));
+		assertEquals(source, player.getInventory().getItem(0));
 		assertEquals(5, source.getAmount());
 		assertNotSame(source, editor.getItem(0));
 		assertEquals(new ItemStack(Material.DIAMOND, 5), editor.getItem(0));
@@ -171,11 +203,11 @@ class PackageEditorInventoryIntegrityTest {
 
 		InventoryClickEvent event = bottomClick(player, ClickType.RIGHT, InventoryAction.PICKUP_HALF);
 		assertSame(player.getInventory(), event.getClickedInventory());
-		assertSame(source, event.getCurrentItem());
+		assertEquals(source, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(source, player.getInventory().getItem(0));
+		assertEquals(source, player.getInventory().getItem(0));
 		assertEquals(5, source.getAmount());
 		assertNotSame(source, editor.getItem(0));
 		assertEquals(new ItemStack(Material.DIAMOND, 1), editor.getItem(0));
@@ -195,11 +227,11 @@ class PackageEditorInventoryIntegrityTest {
 				ClickType.SHIFT_LEFT,
 				InventoryAction.MOVE_TO_OTHER_INVENTORY);
 		assertSame(player.getInventory(), event.getClickedInventory());
-		assertSame(source, event.getCurrentItem());
+		assertEquals(source, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(source, player.getInventory().getItem(0));
+		assertEquals(source, player.getInventory().getItem(0));
 		assertNull(editor.getItem(0));
 	}
 
@@ -213,11 +245,11 @@ class PackageEditorInventoryIntegrityTest {
 
 		InventoryClickEvent event = topClick(player, 0, ClickType.NUMBER_KEY, InventoryAction.HOTBAR_SWAP);
 		assertSame(editor, event.getClickedInventory());
-		assertSame(original, event.getCurrentItem());
+		assertEquals(original, event.getCurrentItem());
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(original, editor.getItem(0));
+		assertEquals(original, editor.getItem(0));
 		assertEquals(2, editor.getItem(0).getAmount());
 	}
 
@@ -237,7 +269,7 @@ class PackageEditorInventoryIntegrityTest {
 		gui.onInventoryClick(event);
 
 		verify(event).setCancelled(true);
-		assertSame(original, editor.getItem(0));
+		assertEquals(original, editor.getItem(0));
 		assertEquals(3, editor.getItem(0).getAmount());
 	}
 
@@ -259,6 +291,76 @@ class PackageEditorInventoryIntegrityTest {
 			verify(event).setCancelled(true);
 			assertNull(editor.getItem(0));
 		}
+	}
+
+	@Test
+	void editorControlsUseStableMarkersAndExpectedMaterials() {
+		PlayerMock player = operator();
+		PackageGui gui = new PackageGui(packageWithStone());
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+
+		assertEquals("airdrop:gui_control", Gui.CONTROL_MARKER_KEY.toString());
+		assertControl(editor.getItem(editor.getSize() - 4), Material.BOOK, "help");
+		assertControl(editor.getItem(editor.getSize() - 3), Material.BLUE_WOOL, "back");
+		assertControl(editor.getItem(editor.getSize() - 2), Material.GREEN_WOOL, "save");
+		assertControl(editor.getItem(editor.getSize() - 1), Material.RED_WOOL, "cancel");
+	}
+
+	@Test
+	void unmarkedItemsNamedLikeControlsCannotSaveCancelOrNavigateBack() throws Exception {
+		PlayerMock createPlayer = operator();
+		CreatePackageGui create = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(create.openInventory(createPlayer));
+		Inventory createEditor = createPlayer.getOpenInventory().getTopInventory();
+		createEditor.setItem(createEditor.getSize() - 2, unmarkedItem(Material.GREEN_WOOL, "Save"));
+		createEditor.setItem(createEditor.getSize() - 1, unmarkedItem(Material.RED_WOOL, "Cancel"));
+
+		create.onInventoryClick(topClick(
+				createPlayer, createEditor.getSize() - 2, ClickType.LEFT, InventoryAction.PICKUP_ALL));
+		create.onInventoryClick(topClick(
+				createPlayer, createEditor.getSize() - 1, ClickType.LEFT, InventoryAction.PICKUP_ALL));
+		server.getScheduler().performOneTick();
+
+		verify(plugin, never()).createPackageAsync(any());
+		assertSame(createEditor, createPlayer.getOpenInventory().getTopInventory());
+
+		PlayerMock editPlayer = operator();
+		PackageGui edit = new PackageGui(packageWithStone());
+		assertTrue(edit.openInventory(editPlayer));
+		Inventory editInventory = editPlayer.getOpenInventory().getTopInventory();
+		editInventory.setItem(editInventory.getSize() - 3, unmarkedItem(Material.BLUE_WOOL, "Back"));
+		PackagesGui browser = mock(PackagesGui.class);
+		setPackagesGui(browser);
+
+		edit.onInventoryClick(topClick(
+				editPlayer, editInventory.getSize() - 3, ClickType.LEFT, InventoryAction.PICKUP_ALL));
+		server.getScheduler().performOneTick();
+
+		verify(browser, never()).openInventory(editPlayer);
+		assertSame(editInventory, editPlayer.getOpenInventory().getTopInventory());
+	}
+
+	@Test
+	void controlRequiresExpectedMaterialAndMarkerForItsExactSlot() {
+		PlayerMock player = operator();
+		CreatePackageGui gui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(gui.openInventory(player));
+		Inventory editor = player.getOpenInventory().getTopInventory();
+		ItemStack wrongMaterial = markedControl(Material.STONE, "save");
+		editor.setItem(editor.getSize() - 2, wrongMaterial);
+
+		gui.onInventoryClick(topClick(
+				player, editor.getSize() - 2, ClickType.LEFT, InventoryAction.PICKUP_ALL));
+
+		ItemStack cancel = editor.getItem(editor.getSize() - 1).clone();
+		editor.setItem(editor.getSize() - 3, cancel);
+		gui.onInventoryClick(topClick(
+				player, editor.getSize() - 3, ClickType.LEFT, InventoryAction.PICKUP_ALL));
+		server.getScheduler().performOneTick();
+
+		verify(plugin, never()).createPackageAsync(any());
+		assertSame(editor, player.getOpenInventory().getTopInventory());
 	}
 
 	@Test
@@ -378,6 +480,61 @@ class PackageEditorInventoryIntegrityTest {
 		}
 	}
 
+	@Test
+	void packageEditorsShareInheritedLifecycleHandlers() throws Exception {
+		Class<?> sharedEditor = Class.forName("com.airdropmc.packages.PackageEditorGui");
+		assertSame(sharedEditor, CreatePackageGui.class.getSuperclass());
+		assertSame(sharedEditor, PackageGui.class.getSuperclass());
+
+		List<Method> lifecycleMethods = List.of(
+				CreatePackageGui.class.getMethod("openInventory", Player.class),
+				CreatePackageGui.class.getMethod("onInventoryClick", InventoryClickEvent.class),
+				CreatePackageGui.class.getMethod("onInventoryClick", InventoryDragEvent.class),
+				CreatePackageGui.class.getMethod("onInventoryClose", InventoryCloseEvent.class),
+				CreatePackageGui.class.getMethod("onPlayerQuit", org.bukkit.event.player.PlayerQuitEvent.class),
+				CreatePackageGui.class.getMethod("onPlayerKick", PlayerKickEvent.class),
+				CreatePackageGui.class.getMethod("getName"),
+				CreatePackageGui.class.getMethod("save", InventoryClickEvent.class),
+				CreatePackageGui.class.getMethod("cancel", InventoryClickEvent.class));
+
+		for (Method method : lifecycleMethods) {
+			assertSame(sharedEditor, method.getDeclaringClass());
+			assertTrue(Modifier.isPublic(method.getModifiers()));
+			assertFalse(Modifier.isFinal(method.getModifiers()));
+		}
+	}
+
+	@Test
+	void inheritedClickHandlersAreDispatchedForBothEditors() {
+		PlayerMock createPlayer = operator();
+		CreatePackageGui createGui = new CreatePackageGui("newpkg", 3.0);
+		assertTrue(createGui.openInventory(createPlayer));
+		createPlayer.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 2));
+		InventoryClickEvent createClick = bottomClick(
+				createPlayer, ClickType.LEFT, InventoryAction.PICKUP_ALL);
+		when(createClick.getHandlers()).thenReturn(InventoryClickEvent.getHandlerList());
+
+		server.getPluginManager().callEvent(createClick);
+
+		verify(createClick).setCancelled(true);
+		assertEquals(new ItemStack(Material.DIAMOND, 2),
+				createPlayer.getOpenInventory().getTopInventory().getItem(0));
+
+		PlayerMock updatePlayer = operator();
+		PackageGui updateGui = new PackageGui(new Package("starter", 3.0, List.of()));
+		assertTrue(updateGui.openInventory(updatePlayer));
+		updatePlayer.getInventory().setItem(0, new ItemStack(Material.EMERALD, 3));
+		InventoryClickEvent updateClick = bottomClick(
+				updatePlayer, ClickType.RIGHT, InventoryAction.PICKUP_HALF);
+		when(updateClick.getHandlers()).thenReturn(InventoryClickEvent.getHandlerList());
+
+		server.getPluginManager().callEvent(updateClick);
+
+		verify(updateClick).setCancelled(true);
+		assertEquals(new ItemStack(Material.EMERALD, 1),
+				updatePlayer.getOpenInventory().getTopInventory().getItem(0));
+	}
+
 	private void assertPreservedAfterClose(PlayerMock player, java.util.function.Consumer<InventoryCloseEvent> closeHandler) {
 		player.getInventory().setItem(0, new ItemStack(Material.GOLD_INGOT, 4));
 		ItemStack unrelated = player.getInventory().getItem(0);
@@ -387,7 +544,7 @@ class PackageEditorInventoryIntegrityTest {
 		when(closeEvent.getInventory()).thenReturn(player.getOpenInventory().getTopInventory());
 		closeHandler.accept(closeEvent);
 
-		assertSame(unrelated, player.getInventory().getItem(0));
+		assertEquals(unrelated, player.getInventory().getItem(0));
 	}
 
 	private Player mockPlayer() {
@@ -475,6 +632,49 @@ class PackageEditorInventoryIntegrityTest {
 		PlayerMock player = server.addPlayer();
 		player.setOp(true);
 		return player;
+	}
+
+	private static boolean isBrowserClickListenerRegistered(PackagesGui gui) {
+		for (org.bukkit.plugin.RegisteredListener listener
+				: InventoryClickEvent.getHandlerList().getRegisteredListeners()) {
+			if (listener.getListener() == gui) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean isClickListenerRegistered(PackageEditorGui gui) {
+		for (org.bukkit.plugin.RegisteredListener listener
+				: InventoryClickEvent.getHandlerList().getRegisteredListeners()) {
+			if (listener.getListener() == gui) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static void assertControl(ItemStack item, Material material, String marker) {
+		assertEquals(material, item.getType());
+		assertEquals(marker, item.getItemMeta().getPersistentDataContainer().get(
+				Gui.CONTROL_MARKER_KEY, PersistentDataType.STRING));
+	}
+
+	private static ItemStack unmarkedItem(Material material, String name) {
+		ItemStack item = new ItemStack(material);
+		ItemMeta meta = item.getItemMeta();
+		meta.setDisplayName(name);
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	private static ItemStack markedControl(Material material, String marker) {
+		ItemStack item = new ItemStack(material);
+		ItemMeta meta = item.getItemMeta();
+		meta.getPersistentDataContainer().set(
+				Gui.CONTROL_MARKER_KEY, PersistentDataType.STRING, marker);
+		item.setItemMeta(meta);
+		return item;
 	}
 
 	private Package packageWithStone() {

@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
 build/
+!src/test/java/com/airdropmc/build/
+!src/test/java/com/airdropmc/build/**
 .gradle-tmp/
 
 # Gradle Run/Server working dirs (if using run-task or local test server)
@@ -55,3 +57,11 @@ CLAUDE.md
 AGENTS.md
 .claude/
 docs/
+!docs/
+docs/*
+!docs/development/
+docs/development/*
+!docs/development/api-versioning.md
+!docs/development/releasing-4.1.md
+!docs/migration-4.1.md
+!docs/modrinth.md
