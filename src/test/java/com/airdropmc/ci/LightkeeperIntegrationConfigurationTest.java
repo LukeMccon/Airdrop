@@ -128,7 +128,11 @@ class LightkeeperIntegrationConfigurationTest {
 	void gradleExposesAnIsolatedLightkeeperTask() throws IOException {
 		String build = requiredContents(Path.of("build.gradle.kts"));
 
-		assertContains(build, "register<Exec>(\"lightkeeperTest\")");
+		assertContains(build, "register(\"lightkeeperTest\")");
+		assertContains(build, "\"lightkeeperScenarioTest\" to \"scenarios\"");
+		assertContains(build, "\"lightkeeperFreshInstallTest\" to \"fresh-install\"");
+		assertContains(build, "mustRunAfter(lightkeeperLanes[0])");
+		assertContains(build, "dependsOn(lightkeeperLanes)");
 		assertContains(build, "dependsOn(\"jar\")");
 		assertContains(build, "-Dairdrop.jar.path=");
 		assertFalse(Pattern.compile("(?s)(named|register).*\\(\"(test|check|build)\"\\).*dependsOn\\(.*lightkeeperTest")
@@ -159,6 +163,37 @@ class LightkeeperIntegrationConfigurationTest {
 		assertFalse(pom.contains("LuckPerms"), "The default real-server lane must exercise optional LuckPerms absence");
 		assertFalse(pom.contains("<sourceType>modrinth</sourceType>"),
 				"Every plugin under test must come from an exact packaged path");
+	}
+
+	@Test
+	void freshInstallProvisioningOmitsOverlayAndOptionalPluginsWithIsolatedOutputs() throws Exception {
+		var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+		factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+		var document = factory.newDocumentBuilder().parse(LIGHTKEEPER_POM.toFile());
+		var xpath = javax.xml.xpath.XPathFactory.newInstance().newXPath();
+		String fresh = xpath.evaluate("/project/profiles/profile[id='fresh-install']", document);
+		String scenarios = xpath.evaluate("/project/profiles/profile[id='scenarios']", document);
+		String common = xpath.evaluate(
+				"/project/build/plugins/plugin[artifactId='lightkeeper-maven-plugin']/configuration", document);
+
+		assertContains(fresh, "Airdrop.jar");
+		assertContains(fresh, "AirdropConsumerFixture.jar");
+		assertContains(fresh, "**/FreshInstallIT.java");
+		assertContains(fresh, "runtime-manifest-fresh-install.json");
+		assertContains(fresh, "lightkeeper-server/fresh-install");
+		assertContains(fresh, "failsafe-reports/fresh-install");
+		assertFalse(fresh.contains("Vault.jar"));
+		assertFalse(fresh.contains("overlay"));
+		assertFalse(common.contains("Vault.jar"));
+		assertFalse(common.contains("overlay"));
+		assertContains(scenarios, "Vault.jar");
+		assertContains(scenarios, "src/test/resources/overlay");
+		assertContains(xpath.evaluate(
+				"/project/profiles/profile[id='scenarios']//excludes", document), "**/FreshInstallIT.java");
+		assertContains(requiredContents(Path.of("build.gradle.kts")),
+				"lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json");
+		assertContains(requiredContents(Path.of(".github", "workflows", "ci.yml")),
+				"lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json");
 	}
 
 	@Test

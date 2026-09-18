@@ -69,7 +69,11 @@ class StarterDropIT {
 			AirdropIntegrationSupport.awaitNoDropEntities(world);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			player.remove();
+			try {
+				player.remove();
+			} finally {
+				AirdropIntegrationSupport.cleanupCrate(framework, world);
+			}
 		}
 	}
 
@@ -80,39 +84,90 @@ class StarterDropIT {
 			throws Exception {
 		AirdropIntegrationSupport.awaitReady(framework);
 		Path packagesFile = framework.server().pluginDataDirectory("Airdrop").resolve("packages.yml");
-		String originalPackages = Files.readString(packagesFile, StandardCharsets.UTF_8);
-		String malformedPackages = originalPackages.replace(
-				"    price: 0.0",
-				"    - not-an-item\n    price: 0.0");
-		assertThat(malformedPackages).isNotEqualTo(originalPackages);
+		byte[] originalBytes = Files.readAllBytes(packagesFile);
+		String originalPackages = new String(originalBytes, StandardCharsets.UTF_8);
+		var baseline = ConsumerIntegrationSupport.snapshot(framework, "starter");
+		assertThat(baseline.price()).isEqualTo("0.0");
+		assertThat(baseline.items()).containsExactly(
+				"IRON_HELMET:1", "IRON_CHESTPLATE:1", "IRON_LEGGINGS:1", "IRON_BOOTS:1", "BREAD:2");
+		String repairedPackages = originalPackages.replaceFirst("    price: 0\\.0", "    price: 3.5")
+				.replaceFirst("      count: 2", "      count: 3");
+		assertThat(repairedPackages).isNotEqualTo(originalPackages);
+		String malformedPackages = repairedPackages.replace("    price: 3.5",
+				"    - not-an-item\n    price: 3.5");
+		assertThat(malformedPackages).isNotEqualTo(repairedPackages);
+		byte[] rejectedBytes = malformedPackages.getBytes(StandardCharsets.UTF_8);
 
 		try {
-			Files.writeString(packagesFile, malformedPackages, StandardCharsets.UTF_8);
-			int outputLineCount = framework.server().output().size();
+			Files.write(packagesFile, rejectedBytes);
+			int rejectedOffset = framework.server().output().size();
 			CommandResult reload = framework.server().executeCommand(CommandSource.CONSOLE, "airdrop reload");
-			assertThat(reload.success()).as("malformed package reload command").isTrue();
-
+			assertThat(reload.success()).as("malformed package reload command dispatch").isTrue();
 			eventually(Duration.ofSeconds(20), () -> {
-				List<String> output = framework.server().output();
-				List<String> newOutput = output.subList(outputLineCount, output.size());
-				assertThat(newOutput).anyMatch(line -> line.contains(
+				List<String> output = GuiReloadIntegrationSupport.outputSince(framework, rejectedOffset);
+				assertThat(output).anyMatch(line -> line.contains(
 						"Reload failed. The previous configuration remains active"));
-				assertThat(newOutput).anyMatch(line -> line.contains(
+				assertThat(output).anyMatch(line -> line.contains(
 						"Package 'starter' has invalid item at index 5"));
 			});
+			assertThat(ConsumerIntegrationSupport.snapshot(framework, "starter"))
+					.as("rejected reload preserves the complete public definition and revision").isEqualTo(baseline);
+			assertThat(ConsumerIntegrationSupport.registryMarkers(framework, rejectedOffset)).isEmpty();
+			assertThat(Files.readAllBytes(packagesFile))
+					.as("rejected operator input is not rewritten").isEqualTo(rejectedBytes);
 
-			WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
-			PlayerHandle player = AirdropIntegrationSupport.createPlayer(
-					framework, world, PACKAGE_PERMISSION);
-			try (var drops = framework.events().capture(DROP_EVENT)) {
+			// Preserve the original live-drop regression: invalid input must not just leave
+			// the API snapshot intact, but must leave the free starter usable as well.
+			assertRetainedStarterDrops(framework);
+			assertThat(ConsumerIntegrationSupport.snapshot(framework, "starter")).isEqualTo(baseline);
+			assertThat(ConsumerIntegrationSupport.registryMarkers(framework, rejectedOffset)).isEmpty();
+			assertThat(Files.readAllBytes(packagesFile)).isEqualTo(rejectedBytes);
+
+			Files.writeString(packagesFile, repairedPackages, StandardCharsets.UTF_8);
+			int repairedOffset = framework.server().output().size();
+			GuiReloadIntegrationSupport.reloadSuccessfully(framework);
+			var repaired = ConsumerIntegrationSupport.snapshot(framework, "starter");
+			assertThat(repaired.revision()).isEqualTo(baseline.revision() + 1);
+			assertThat(repaired.name()).isEqualTo(baseline.name());
+			assertThat(repaired.price()).isEqualTo("3.5");
+			assertThat(repaired.items()).containsExactly(
+					"IRON_HELMET:1", "IRON_CHESTPLATE:1", "IRON_LEGGINGS:1", "IRON_BOOTS:1", "BREAD:3");
+			assertThat(ConsumerIntegrationSupport.registryMarkers(framework, repairedOffset))
+					.singleElement().satisfies(line -> assertThat(line)
+							.contains("cause=RELOAD", "revision=" + repaired.revision(), "primaryThread=true"));
+			assertThat(Files.readAllBytes(packagesFile))
+					.isEqualTo(repairedPackages.getBytes(StandardCharsets.UTF_8));
+		} finally {
+			Files.write(packagesFile, originalBytes);
+			GuiReloadIntegrationSupport.reloadSuccessfully(framework);
+			var restored = ConsumerIntegrationSupport.snapshot(framework, "starter");
+			assertThat(restored.price()).isEqualTo(baseline.price());
+			assertThat(restored.items()).isEqualTo(baseline.items());
+			assertThat(Files.readAllBytes(packagesFile)).isEqualTo(originalBytes);
+		}
+	}
+
+	private static void assertRetainedStarterDrops(ILightkeeperFramework framework) {
+		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
+		PlayerHandle player = AirdropIntegrationSupport.createPlayer(framework, world, PACKAGE_PERMISSION);
+		try {
+			try (var drops = framework.events().capture(DROP_EVENT);
+				 var lands = framework.events().capture(LAND_EVENT)) {
 				player.executeCommand("airdrop starter");
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(10));
+				AirdropIntegrationSupport.moveAway(player, world);
+				framework.waitUntil(() -> lands.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
+				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
 				assertThat(drops.getCapturedEvents()).hasSize(1);
-			} finally {
-				player.remove();
+				assertThat(lands.getCapturedEvents()).hasSize(1);
 			}
 		} finally {
-			Files.writeString(packagesFile, originalPackages, StandardCharsets.UTF_8);
+			try {
+				player.remove();
+			} finally {
+				// Captures must be closed before cleanup generates a destruction event.
+				AirdropIntegrationSupport.cleanupCrate(framework, world);
+			}
 		}
 	}
 

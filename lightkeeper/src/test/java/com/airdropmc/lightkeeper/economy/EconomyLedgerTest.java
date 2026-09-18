@@ -6,8 +6,25 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EconomyLedgerTest {
+
+	@Test
+	void resetWaitsForAllPendingOperationsOnOnlyThatAccount() {
+		EconomyLedger ledger = new EconomyLedger();
+		UUID player = UUID.randomUUID();
+		UUID other = UUID.randomUUID();
+		ledger.begin(player);
+		ledger.begin(player);
+		assertThatThrownBy(() -> ledger.reset(player, BigDecimal.TEN)).isInstanceOf(IllegalArgumentException.class);
+		ledger.reset(other, BigDecimal.TEN);
+		ledger.finish(player);
+		assertThatThrownBy(() -> ledger.reset(player, BigDecimal.TEN)).isInstanceOf(IllegalArgumentException.class);
+		ledger.finish(player);
+		ledger.reset(player, BigDecimal.TEN);
+		assertThat(ledger.snapshot(player)).isEqualTo(new EconomyLedger.Snapshot(BigDecimal.TEN, 0, 0, 0));
+	}
 
 	@Test
 	void withdrawalAndRefundConserveExactBalanceAndTrackOperations() {

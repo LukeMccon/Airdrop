@@ -22,6 +22,8 @@
         <maven.shade.version>3.6.2</maven.shade.version>
         <lightkeeper.runtime-manifest>${project.build.directory}/lightkeeper/runtime-manifest.json</lightkeeper.runtime-manifest>
         <lightkeeper.server-work-directory>${project.build.directory}/lightkeeper-server</lightkeeper.server-work-directory>
+        <lightkeeper.failsafe-reports>${project.build.directory}/failsafe-reports</lightkeeper.failsafe-reports>
+        <lightkeeper.diagnostics-directory>${project.build.directory}/lightkeeper-reports</lightkeeper.diagnostics-directory>
     </properties>
 
     <repositories>
@@ -96,24 +98,6 @@
                 <version>${lightkeeper.plugin-adapter.version}</version>
                 <configuration>
                     <userAgent>Airdrop/4.1 (https://github.com/LukeMccon/Airdrop)</userAgent>
-                    <configOverlayPath>${project.basedir}/src/test/resources/overlay</configOverlayPath>
-                    <plugins>
-                        <plugin>
-                            <sourceType>path</sourceType>
-                            <path>${project.build.directory}/${project.build.finalName}-fixture.jar</path>
-                            <renameTo>Vault.jar</renameTo>
-                        </plugin>
-                        <plugin>
-                            <sourceType>path</sourceType>
-                            <path>${airdrop.jar.path}</path>
-                            <renameTo>Airdrop.jar</renameTo>
-                        </plugin>
-                        <plugin>
-                            <sourceType>path</sourceType>
-                            <path>${airdrop.consumer.jar.path}</path>
-                            <renameTo>AirdropConsumerFixture.jar</renameTo>
-                        </plugin>
-                    </plugins>
                 </configuration>
                 <executions>
                     <execution>
@@ -137,7 +121,7 @@
                         </goals>
                         <configuration>
                             <deleteTargetServerOnSuccess>true</deleteTargetServerOnSuccess>
-                            <failsafeSummaryPath>${project.build.directory}/failsafe-reports/failsafe-summary.xml</failsafeSummaryPath>
+                            <failsafeSummaryPath>${lightkeeper.failsafe-reports}/failsafe-summary.xml</failsafeSummaryPath>
                             <serverWorkDirectoryRoot>${lightkeeper.server-work-directory}</serverWorkDirectoryRoot>
                         </configuration>
                     </execution>
@@ -192,11 +176,11 @@
                     <includes>
                         <include>**/*IT.java</include>
                     </includes>
-                    <reportsDirectory>${project.build.directory}/failsafe-reports</reportsDirectory>
-                    <summaryFile>${project.build.directory}/failsafe-reports/failsafe-summary.xml</summaryFile>
+                    <reportsDirectory>${lightkeeper.failsafe-reports}</reportsDirectory>
+                    <summaryFile>${lightkeeper.failsafe-reports}/failsafe-summary.xml</summaryFile>
                     <systemPropertyVariables>
                         <lightkeeper.runtimeManifestPath>${lightkeeper.runtime-manifest}</lightkeeper.runtimeManifestPath>
-                        <lightkeeper.diagnosticsDirectory>${project.build.directory}/lightkeeper-reports</lightkeeper.diagnosticsDirectory>
+                        <lightkeeper.diagnosticsDirectory>${lightkeeper.diagnostics-directory}</lightkeeper.diagnosticsDirectory>
                     </systemPropertyVariables>
                 </configuration>
                 <executions>
@@ -210,4 +194,90 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>scenarios</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.airdropmc.lightkeeper-adapter</groupId>
+                        <artifactId>lightkeeper-maven-plugin</artifactId>
+                        <configuration>
+                            <configOverlayPath>${project.basedir}/src/test/resources/overlay</configOverlayPath>
+                            <plugins>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${project.build.directory}/${project.build.finalName}-fixture.jar</path>
+                                    <renameTo>Vault.jar</renameTo>
+                                </plugin>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${airdrop.jar.path}</path>
+                                    <renameTo>Airdrop.jar</renameTo>
+                                </plugin>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${airdrop.consumer.jar.path}</path>
+                                    <renameTo>AirdropConsumerFixture.jar</renameTo>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/FreshInstallIT.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>fresh-install</id>
+            <properties>
+                <lightkeeper.runtime-manifest>${project.build.directory}/lightkeeper/runtime-manifest-fresh-install.json</lightkeeper.runtime-manifest>
+                <lightkeeper.server-work-directory>${project.build.directory}/lightkeeper-server/fresh-install</lightkeeper.server-work-directory>
+                <lightkeeper.failsafe-reports>${project.build.directory}/failsafe-reports/fresh-install</lightkeeper.failsafe-reports>
+                <lightkeeper.diagnostics-directory>${project.build.directory}/lightkeeper-reports/fresh-install</lightkeeper.diagnostics-directory>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.airdropmc.lightkeeper-adapter</groupId>
+                        <artifactId>lightkeeper-maven-plugin</artifactId>
+                        <configuration>
+                            <plugins>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${airdrop.jar.path}</path>
+                                    <renameTo>Airdrop.jar</renameTo>
+                                </plugin>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${airdrop.consumer.jar.path}</path>
+                                    <renameTo>AirdropConsumerFixture.jar</renameTo>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes combine.self="override">
+                                <include>**/FreshInstallIT.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

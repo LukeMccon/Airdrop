@@ -2,6 +2,8 @@ package com.airdropmc.lightkeeper.economy;
 
 import com.airdropmc.integration.support.BlockExplosionCommand;
 import com.airdropmc.integration.support.InventoryReplacementCommand;
+import com.airdropmc.integration.support.MenuCloseCommand;
+import com.airdropmc.integration.support.PaidCrateLifecycleCommand;
 import net.milkbowl.vault2.economy.Economy;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -21,6 +23,8 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 	private static final Pattern CORRELATION_ID = Pattern.compile("[A-Za-z0-9_-]{1,64}");
 
 	private final EconomyLedger ledger = new EconomyLedger();
+	private final EconomyFaultControls controls = new EconomyFaultControls();
+	private EconomyFaultCommand faultCommand;
 	private ExecutorService executor;
 	private Economy provider;
 
@@ -30,6 +34,11 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 				.setExecutor(new BlockExplosionCommand());
 		Objects.requireNonNull(getCommand("airdrop-lightkeeper-inventory-replacement"), "inventory replacement command")
 				.setExecutor(new InventoryReplacementCommand());
+		Objects.requireNonNull(getCommand("lkmenu-close"), "menu close command")
+				.setExecutor(new MenuCloseCommand());
+		Objects.requireNonNull(getCommand("airdrop-lightkeeper-paid-lifecycle"), "paid lifecycle command")
+				.setExecutor(new PaidCrateLifecycleCommand());
+		faultCommand = new EconomyFaultCommand(controls, getLogger()::info);
 		executor = Executors.newSingleThreadExecutor(task -> {
 			Thread thread = new Thread(task, "lightkeeper-economy");
 			thread.setDaemon(true);
@@ -43,6 +52,7 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 	public void onDisable() {
 		getServer().getServicesManager().unregisterAll(this);
 		provider = null;
+		controls.close();
 		if (executor != null) {
 			executor.shutdownNow();
 			executor = null;
@@ -57,6 +67,24 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 	) {
 		if (arguments.length == 1 && "enable".equalsIgnoreCase(arguments[0])) {
 			return enableProvider(sender);
+		}
+		if (arguments.length == 1 && "disable".equalsIgnoreCase(arguments[0])) {
+			if (controls.hasPending()) {
+				sender.sendMessage("Cannot disable LightKeeper economy with pending confirmations");
+				return false;
+			}
+			if (provider != null) {
+				getServer().getServicesManager().unregister(Economy.class, provider);
+				provider = null;
+			}
+			sender.sendMessage("Disabled LightKeeper economy provider");
+			return true;
+		}
+		if (arguments.length > 0 && switch (arguments[0].toLowerCase(Locale.ROOT)) {
+			case "fault", "release", "clear" -> true;
+			default -> false;
+		}) {
+			return faultCommand.execute(sender, arguments);
 		}
 		if (arguments.length != 3) {
 			return false;
@@ -78,7 +106,7 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 		if (provider == null) {
 			provider = VaultUnlockedEconomyService.create(
 					ledger, executor, operation -> getServer().getPluginManager()
-							.callEvent(new EconomyOperationEvent(operation)));
+							.callEvent(new EconomyOperationEvent(operation)), controls);
 			getServer().getServicesManager().register(
 					Economy.class, provider, this, ServicePriority.Normal);
 		}

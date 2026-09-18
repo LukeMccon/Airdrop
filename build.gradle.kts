@@ -709,7 +709,8 @@ val resetLightkeeperRuntime = tasks.register<Delete>("resetLightkeeperRuntime") 
     dependsOn(archiveLightkeeperDiagnostics)
     delete(
         "lightkeeper/target/lightkeeper-server",
-        "lightkeeper/target/lightkeeper/runtime-manifest.json"
+        "lightkeeper/target/lightkeeper/runtime-manifest.json",
+        "lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json"
     )
 }
 
@@ -732,30 +733,44 @@ val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPl
     outputs.upToDateWhen { false }
 }
 
-tasks.register<Exec>("lightkeeperTest") {
-    group = "verification"
-    description = "Runs LightKeeper integration tests against a real Paper server"
-    dependsOn("jar")
-    dependsOn(consumerFixtureTest)
-    dependsOn(resetLightkeeperRuntime)
-    dependsOn(prepareLightkeeperPluginAdapter)
-    workingDir(layout.projectDirectory.dir("lightkeeper"))
-    inputs.file(releaseJar.flatMap { it.archiveFile })
-    inputs.file(consumerFixtureJar)
-    outputs.upToDateWhen { false }
+val lightkeeperLanes = listOf(
+    "lightkeeperScenarioTest" to "scenarios",
+    "lightkeeperFreshInstallTest" to "fresh-install"
+).map { (taskName, profile) ->
+    tasks.register<Exec>(taskName) {
+        group = "verification"
+        description = "Runs the LightKeeper $profile lane against a real Paper server"
+        dependsOn("jar")
+        dependsOn(consumerFixtureTest)
+        dependsOn(resetLightkeeperRuntime)
+        dependsOn(prepareLightkeeperPluginAdapter)
+        workingDir(layout.projectDirectory.dir("lightkeeper"))
+        inputs.file(releaseJar.flatMap { it.archiveFile })
+        inputs.file(consumerFixtureJar)
+        outputs.upToDateWhen { false }
 
-    doFirst {
-        val pluginJar = releaseJar.get().archiveFile.get().asFile.absoluteFile
-        val consumerJar = consumerFixtureJar.asFile.absoluteFile
-        commandLine(
-            "./mvnw",
-            "--batch-mode",
-            "--no-transfer-progress",
-            "verify",
-            "-Dairdrop.jar.path=${pluginJar.path}",
-            "-Dairdrop.consumer.jar.path=${consumerJar.path}"
-        )
+        doFirst {
+            val pluginJar = releaseJar.get().archiveFile.get().asFile.absoluteFile
+            val consumerJar = consumerFixtureJar.asFile.absoluteFile
+            commandLine(
+                "./mvnw",
+                "--batch-mode",
+                "--no-transfer-progress",
+                "verify",
+                "-P$profile",
+                "-Dairdrop.jar.path=${pluginJar.path}",
+                "-Dairdrop.consumer.jar.path=${consumerJar.path}"
+            )
+        }
     }
+}
+
+// Both lanes build the same Maven module, so never run them concurrently.
+lightkeeperLanes[1].configure { mustRunAfter(lightkeeperLanes[0]) }
+tasks.register("lightkeeperTest") {
+    group = "verification"
+    description = "Runs the scenario and dependency-free fresh-install LightKeeper lanes"
+    dependsOn(lightkeeperLanes)
 }
 
 val verifyReleaseLine = tasks.register<Exec>("verifyReleaseLine") {

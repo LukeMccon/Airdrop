@@ -87,6 +87,10 @@ val generatePluginDescription = tasks.register("generatePluginDescription") {
 			main: dev.airdropmc.fixture.AirdropConsumerFixture
 			api-version: '1.21.11'
 			depend: [Airdrop]
+			commands:
+			  airdrop-consumer:
+			    description: Console-only public API integration fixture
+			    usage: /airdrop-consumer <snapshot token package|request token player-uuid package>
 			""".trimIndent() + "\n",
 			StandardCharsets.UTF_8
 		)

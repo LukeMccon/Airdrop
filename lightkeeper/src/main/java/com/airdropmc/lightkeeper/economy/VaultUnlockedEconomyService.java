@@ -31,12 +31,18 @@ final class VaultUnlockedEconomyService {
 	}
 
 	static Economy create(EconomyLedger ledger, Executor executor, Consumer<Operation> observer) {
+		return create(ledger, executor, observer, new EconomyFaultControls());
+	}
+
+	static Economy create(EconomyLedger ledger, Executor executor, Consumer<Operation> observer,
+			EconomyFaultControls controls) {
+		Objects.requireNonNull(controls, "controls");
 		Objects.requireNonNull(ledger, "ledger");
 		Objects.requireNonNull(executor, "executor");
 		Objects.requireNonNull(observer, "observer");
 
 		AsyncEconomy async = proxy(AsyncEconomy.class,
-				(proxy, method, arguments) -> invokeAsync(proxy, method, arguments, ledger, executor, observer));
+				(proxy, method, arguments) -> invokeAsync(proxy, method, arguments, ledger, executor, observer, controls));
 		return proxy(Economy.class, (proxy, method, arguments) -> {
 			if (method.getDeclaringClass() == Object.class) {
 				return invokeObjectMethod(proxy, method, arguments, PROVIDER_NAME);
@@ -56,7 +62,8 @@ final class VaultUnlockedEconomyService {
 			Object[] arguments,
 			EconomyLedger ledger,
 			Executor executor,
-			Consumer<Operation> observer
+			Consumer<Operation> observer,
+			EconomyFaultControls controls
 	) {
 		if (method.getDeclaringClass() == Object.class) {
 			return invokeObjectMethod(proxy, method, arguments, PROVIDER_NAME + " Async");
@@ -69,16 +76,51 @@ final class VaultUnlockedEconomyService {
 			default -> throw unsupported(method);
 		};
 		Request request = Request.from(method, arguments);
-		return CompletableFuture.supplyAsync(() -> {
-			EconomyLedger.Transaction transaction = switch (type) {
-				case CAN_WITHDRAW -> ledger.canWithdraw(request.playerId(), request.amount());
-				case WITHDRAW -> ledger.withdraw(request.playerId(), request.amount());
-				case DEPOSIT -> ledger.deposit(request.playerId(), request.amount());
-			};
-			observer.accept(new Operation(
-					type, request.caller(), request.playerId(), request.amount(), transaction));
-			return response(request.amount(), transaction);
-		}, executor);
+		EconomyFaultControls.Response fault = controls.claim(request.playerId(), type);
+		// Register before scheduling or publishing the operation: an observer may report/reset/release it.
+		ledger.begin(request.playerId());
+		CompletableFuture<EconomyResponse> completion = new CompletableFuture<>();
+		CompletableFuture<EconomyResponse> result = completion.whenComplete((ignored, failure) -> {
+			ledger.finish(request.playerId());
+			controls.finished(completion);
+		});
+		controls.track(completion);
+		try {
+			executor.execute(() -> {
+				if (completion.isDone()) return;
+				try {
+					EconomyLedger.Transaction transaction = switch (type) {
+						case CAN_WITHDRAW -> ledger.canWithdraw(request.playerId(), request.amount());
+						case WITHDRAW -> ledger.withdraw(request.playerId(), request.amount());
+						case DEPOSIT -> switch (fault.mode()) {
+							case REJECT -> ledger.rejectDeposit(request.playerId(), EconomyFaultControls.REJECTED_REFUND);
+							case EXCEPTION -> ledger.rejectDeposit(request.playerId(), EconomyFaultControls.EXCEPTIONAL_REFUND);
+							default -> ledger.deposit(request.playerId(), request.amount());
+						};
+					};
+					observer.accept(new Operation(type, request.caller(), request.playerId(), request.amount(), transaction));
+					if (fault.mode() == EconomyFaultControls.Mode.EXCEPTION) {
+						completion.completeExceptionally(new IllegalStateException(EconomyFaultControls.EXCEPTIONAL_REFUND));
+					} else {
+						// A held confirmation never occupies the provider executor.
+						fault.confirmation().whenComplete((ignored, failure) -> {
+							if (failure != null) {
+								completion.completeExceptionally(failure);
+							} else {
+								completion.complete(response(request.amount(), transaction));
+							}
+						});
+					}
+				} catch (RuntimeException failure) {
+					controls.release(request.playerId(), type);
+					completion.completeExceptionally(failure);
+				}
+			});
+		} catch (RuntimeException failure) {
+			controls.release(request.playerId(), type);
+			completion.completeExceptionally(failure);
+		}
+		return result;
 	}
 
 	private static EconomyResponse response(BigDecimal amount, EconomyLedger.Transaction transaction) {
