@@ -65,3 +65,6 @@ docs/development/*
 !docs/development/releasing-4.1.md
 !docs/migration-4.1.md
 !docs/modrinth.md
+!docs/modrinth-description.md
+!docs/README.md
+!docs/reference.md

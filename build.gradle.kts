@@ -767,7 +767,7 @@ val verifyReleaseLine = tasks.register<Exec>("verifyReleaseLine") {
         layout.projectDirectory.file("scripts/verify-release-line"),
         layout.projectDirectory.file("scripts/modrinth-docs"),
         layout.projectDirectory.file("docs/development/api-versioning.md"),
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
         layout.projectDirectory.file("lightkeeper/pom.xml")
     )
 }
@@ -988,11 +988,11 @@ val verifyDependencyMatrix = tasks.register("verifyDependencyMatrix") {
 
 val verifyModrinthDocs = tasks.register<Exec>("verifyModrinthDocs") {
     group = "verification"
-    description = "Validates the canonical Modrinth project description without network access"
+    description = "Validates the GitHub documentation reference without network access"
     workingDir(layout.projectDirectory)
     commandLine("./scripts/modrinth-docs", "check-local")
     inputs.files(
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
         layout.projectDirectory.file("scripts/modrinth-docs")
     )
 }
@@ -1010,7 +1010,9 @@ tasks.named<Test>("test") {
     dependsOn(consumerFixtureTest)
     inputs.files(
         consumerFixtureJar,
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
+        layout.projectDirectory.file("docs/README.md"),
+        layout.projectDirectory.file("docs/modrinth-description.md"),
         layout.projectDirectory.file("docs/migration-4.1.md")
     )
     inputs.dir(layout.projectDirectory.dir("consumer-fixture/src/main/java/dev/airdropmc/example"))

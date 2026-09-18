@@ -65,10 +65,10 @@ require_text "docs/development/api-versioning.md" \
 require_text "docs/development/api-versioning.md" \
 	"-PreleaseTag=$plugin_release_version"
 
-require_text "docs/modrinth.md" "v$plugin_release_version"
-require_text "docs/modrinth.md" \
+require_text "docs/reference.md" "v$plugin_release_version"
+require_text "docs/reference.md" \
 	"maven.modrinth:airdrop:$plugin_release_version"
-require_text "docs/modrinth.md" "<version>$plugin_release_version</version>"
+require_text "docs/reference.md" "<version>$plugin_release_version</version>"
 require_text "scripts/modrinth-docs" \
 	"maven.modrinth:airdrop:$plugin_release_version"
 

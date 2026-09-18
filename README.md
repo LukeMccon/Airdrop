@@ -30,16 +30,18 @@ Plugin developers should use only `com.airdropmc.api`. See the
 [Airdrop 4.1 migration guide](docs/migration-4.1.md) and
 [extension API version policy](docs/development/api-versioning.md).
 
-## Get started
+## Documentation
 
-The [canonical Modrinth documentation](https://modrinth.com/plugin/airdrop)
-contains the maintained installation, configuration, command, troubleshooting,
-and developer integration guide:
+[Start with the Airdrop documentation](docs/README.md) to install the plugin,
+set up your first package, and choose who can request it.
 
-- [Install and configure the starter package](https://modrinth.com/plugin/airdrop#installation)
-- [Configure Airdrop](https://modrinth.com/plugin/airdrop#configuration)
-- [Troubleshoot a server](https://modrinth.com/plugin/airdrop#troubleshooting)
-- [Integrate a plugin](https://modrinth.com/plugin/airdrop#developer-integration)
+- [Install Airdrop](docs/README.md#install-airdrop-and-try-the-starter-package)
+- [Commands and permissions](docs/reference.md#commands-and-permissions)
+- [Packages and configuration](docs/reference.md#configuration)
+- [Troubleshooting](docs/reference.md#troubleshooting)
+- [Plugin development](docs/README.md#connect-another-plugin-to-airdrop)
+
+See [Airdrop on Modrinth](https://modrinth.com/plugin/airdrop) for an overview and downloads.
 
 ## Build locally
 
@@ -58,8 +60,7 @@ reports, and the pinned adapter repository for diagnosis and reuse. Use
 `./gradlew clean lightkeeperTest` for a full
 reset of `lightkeeper/target`.
 
-The canonical Modrinth body is repository-owned. Validate it without network
-access with:
+Validate the detailed reference without network access with:
 
 ```bash
 ./gradlew verifyModrinthDocs
