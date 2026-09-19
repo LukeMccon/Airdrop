@@ -8,6 +8,7 @@ import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.api.WorldPosition;
 import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.internal.drop.DefaultDropHandle;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.PackageNamePolicy;
 import org.bukkit.Bukkit;
@@ -16,6 +17,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** Translates typed request results into localized command feedback. */
@@ -40,7 +42,7 @@ public final class DropCommand {
 		}
 
 		handle.spawn().thenAccept(result -> sendSpawnFeedback(player, result));
-		handle.outcome().thenAccept(outcome -> sendOutcomeFeedback(player, outcome));
+		handle.outcome().thenAccept(outcome -> sendOutcomeFeedback(player, handle, outcome));
 	}
 
 	private static void sendSpawnFeedback(Player player, DropSpawnResult result) {
@@ -57,7 +59,7 @@ public final class DropCommand {
 		}
 	}
 
-	private static void sendOutcomeFeedback(Player player, DropOutcome outcome) {
+	private static void sendOutcomeFeedback(Player player, DropHandle handle, DropOutcome outcome) {
 		if (!player.isOnline()) {
 			return;
 		}
@@ -66,7 +68,7 @@ public final class DropCommand {
 			return;
 		}
 		if (outcome instanceof DropOutcome.Rejected rejected) {
-			sendRejection(player, rejected);
+			sendRejection(player, handle, rejected);
 			return;
 		}
 		if (outcome instanceof DropOutcome.Failed failed) {
@@ -94,7 +96,7 @@ public final class DropCommand {
 		ChatHandler.send(player, key, placeholders);
 	}
 
-	private static void sendRejection(Player player, DropOutcome.Rejected rejected) {
+	private static void sendRejection(Player player, DropHandle handle, DropOutcome.Rejected rejected) {
 		switch (rejected.rejection().reason()) {
 			case UNKNOWN_PACKAGE -> ChatHandler.sendError(
 					player,
@@ -107,8 +109,8 @@ public final class DropCommand {
 						"permission", PackageNamePolicy.permissionNode(canonical),
 						"package", canonical));
 			}
-			case SKY_NOT_CLEAR, INVALID_TARGET ->
-					ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
+			case SKY_NOT_CLEAR -> sendSkyRejection(player, handle);
+			case INVALID_TARGET -> ChatHandler.sendError(player, MessageKey.ERROR_INVALID_TARGET);
 			case REQUEST_PENDING ->
 					ChatHandler.sendError(player, MessageKey.ERROR_DROP_REQUEST_PENDING);
 			case COOLDOWN -> ChatHandler.sendError(player, MessageKey.ERROR_DROP_COOLDOWN,
@@ -133,6 +135,18 @@ public final class DropCommand {
 					ChatHandler.sendError(player, MessageKey.DROP_FAILED);
 			case SERVICE_UNAVAILABLE, SHUTTING_DOWN ->
 					ChatHandler.sendError(player, MessageKey.ERROR_DROP_SHUTTING_DOWN);
+		}
+	}
+
+	private static void sendSkyRejection(Player player, DropHandle handle) {
+		if (handle instanceof DefaultDropHandle internal) {
+			internal.blockedSurface().ifPresentOrElse(
+					surface -> ChatHandler.sendError(player, MessageKey.ERROR_SKY_BLOCKED_SURFACE, Map.of(
+							"material", surface.material().name().toLowerCase(Locale.ROOT).replace('_', ' '),
+							"y", Integer.toString(surface.y()))),
+					() -> ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR));
+		} else {
+			ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
 		}
 	}
 }

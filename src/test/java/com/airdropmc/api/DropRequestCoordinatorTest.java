@@ -235,6 +235,22 @@ class DropRequestCoordinatorTest {
 	}
 
 	@Test
+	void playerAtSurfaceHeightKeepsExistingSpawnAndLandingTarget() {
+		world.getBlockAt(12, 82, 13).setType(Material.STONE_BRICKS);
+		PlayerMock player = server.addPlayer("ClearSky");
+		player.setOp(true);
+		player.teleport(new Location(world, 12.25, 82, 13.75));
+
+		DropHandle handle = api.requestPlayerDrop(player, "starter", quietOptions());
+
+		DropSpawnResult.Spawned spawned = assertInstanceOf(
+				DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().join());
+		assertEquals(PaymentStatus.NOT_APPLICABLE, spawned.payment());
+		assertEquals(new Location(world, 12.5, 102, 13.5), handle.context().orElseThrow().spawnLocation());
+		assertEquals(new Location(world, 12.5, 83, 13.5), handle.context().orElseThrow().landingLocation());
+	}
+
+	@Test
 	void permissionAndSkyFailuresAreTypedBeforeAdmissionSideEffects() {
 		PlayerMock denied = server.addPlayer("Denied");
 		denied.teleport(new Location(world, 30, 100, 30));
