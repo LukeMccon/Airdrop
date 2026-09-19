@@ -21,7 +21,7 @@ import java.util.logging.Level;
 public class CmdAirdrop implements CommandExecutor {
 	private static final String CREATE = "create";
 	private static final String DELETE = "delete";
-	private static final String MODRINTH_URL = "https://modrinth.com/plugin/airdrop";
+	private static final String DOCS_URL = "https://github.com/LukeMccon/Airdrop/tree/develop/docs";
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
@@ -48,7 +48,7 @@ public class CmdAirdrop implements CommandExecutor {
 					"extension_api_version", known(Airdrop.getExtensionApiVersion()),
 					"paper_version", known(Airdrop.getPaperApiVersion()),
 					"java_version", known(Airdrop.getJavaCompatibilityVersion()),
-					"docs_url", MODRINTH_URL));
+					"docs_url", DOCS_URL));
 			return true;
 		}
 		if (AirdropCommandNames.STATUS.equals(args[0])) {

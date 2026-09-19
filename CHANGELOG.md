@@ -1,41 +1,105 @@
-# Airdrop 4.1.0 establishes a supported extension API
+# Airdrop 4.1.0 adds delivery messages and a supported plugin API
 
-Airdrop 4.1.0 introduces the independently versioned `com.airdropmc.api`
-boundary at API `1.0.0`. Consumers can discover `AirdropApi` through Bukkit,
-await readiness, submit typed drop requests, observe lifecycle events and
-outcomes, and query immutable package and active-drop snapshots.
+Release notes covering changes since 4.0.0.
 
-- Plugin, extension API, Paper, and Java versions now have distinct generated
-  metadata and command labels.
-- Deterministic API signatures and optional explicit JApiCmp comparisons guard
-  binary and source compatibility.
-- Controllers, managers, `Crate`, raw configuration wrappers, and
-  `com.airdropmc.events` are implementation details. `PackageDropEvent` and
-  `PackageLandEvent` are unsupported deprecated adapters; consumers should use
-  the supported lifecycle events under `com.airdropmc.api.event`.
+<!-- AIRDR-79: AIRDR-72 / PR #92 is deferred and excluded from 4.1. -->
+<!-- AIRDR-80: The generated starter retains its 10.0 price. -->
 
-See `docs/migration-4.1.md` before rebuilding an existing integration.
+Airdrop 4.1 tells players when their crate spawns and lands. A new versioned API
+lets other plugins request drops and follow delivery outcomes.
 
-## The 4.1 cleanup intentionally changes the old Java surface
+## Players can follow their deliveries
 
-Airdrop 4.1 deliberately makes source- and binary-incompatible changes to
-previously public implementation types. The project has no known integrations
-with the 4.0 Java surface, so 4.1 establishes the supported API directly and
-does not add compatibility shims for that accidental surface.
+- Players receive an incoming message once their crate spawns, including the
+  amount charged for a paid drop. A landing message gives the crate's block
+  coordinates and names the world if the player has moved to another world.
+- Root help and tab completion show commands and packages available to the
+  sender. Package deletion suggests existing package names.
 
-- `CannotAffordException` has been removed because version 4 no longer throws
-  it. Insufficient funds use `EconomyResult.REJECTED` in the asynchronous
-  paid-drop flow. Integrations that reference the class must remove those
-  references and recompile.
-- `EconomyUnavailableException` now requires a `DISABLED` or `NO_PROVIDER`
-  reason. Integrations that construct the former no-argument exception must
-  choose a reason and recompile.
+## LuckPerms is now optional
 
-The remaining checked exceptions expose stable diagnostic messages and typed
-payloads. `SkyNotClearException` now snapshots its mutable `Location` payload.
-Player drop permission, economy-availability, sky, and admission failures are
-synchronous. Economy outcomes for priced drops are handled asynchronously, so
-the controller's return does not confirm payment or delivery.
+- LuckPerms is now optional. Airdrop uses standard Bukkit permissions when it
+  is absent. Non-operators still need explicit package permissions.
+- The starter package created when `packages.yml` is missing still costs `10.0`.
+  Existing package files, including an intentionally empty `packages: {}`,
+  keep their contents and prices.
+- Packages that administrators price at `0` work without an economy plugin.
+  Paid player requests require enabled economy support, VaultUnlocked or Vault,
+  and a compatible economy provider.
+
+## Status and payment diagnostics help administrators investigate failures
+
+- The new `/airdrop status` command reports readiness, economy availability
+  and provider, package count and revision, pending requests, active drops,
+  capacity limits, and the latest sanitized diagnostic. Administrators and
+  console users can run it while Airdrop is starting.
+- `/airdrop version` identifies the plugin, extension API, Paper target, and
+  Java requirement separately, with a documentation link. The unchanged old
+  English version message upgrades automatically; customized text keeps working
+  with its legacy placeholders.
+- Payment warnings include the request ID, player, amount, and provider to help
+  administrators investigate uncertain withdrawals and failed refunds.
+
+## Package and crate fixes protect rewards
+
+- Reward items named Save, Cancel, Back, or Help are preserved. Editor controls
+  are identified by their metadata rather than their display names.
+- Explosion handling leaves barrel contents for Paper to process instead of
+  deleting them during Airdrop cleanup. Old inventory events cannot remove a
+  replacement barrel or change another crate's state.
+- Crate effects stop after a successful open. A cancelled open leaves the
+  effects running, and a missing or invalid smoke setting keeps smoke disabled.
+- If the destination world unloads before a paid crate can spawn, Airdrop makes
+  one best-effort refund attempt for a confirmed charge while the plugin remains
+  active. Ambiguous payment results and failures during shutdown still do not
+  trigger automatic refunds.
+- Startup and reload callbacks stop publishing state after shutdown begins.
+
+## Plugin integrations get a versioned service and lifecycle events
+
+Airdrop introduces extension API `1.0.0` under `com.airdropmc.api`, versioned
+independently from the plugin and Paper.
+
+- Discover `AirdropApi` through Bukkit's `ServicesManager` and await readiness
+  before requesting drops.
+- Submit typed player or system requests and observe separate spawn and final
+  outcomes through a `DropHandle`, including delivery and payment status.
+- Cancel requests or landing attempts through supported events. Observe
+  completed spawns, landings, outcomes, package registry changes, recovered
+  drops, and the end of crate tracking.
+- Query immutable package and active-drop snapshots, with request and crate
+  IDs for tracking a drop across events.
+- Use the new [integration guide](docs/modrinth.md#developer-integration), API
+  Javadocs, and compatibility policy.
+  Automated signature checks guard the supported API against unintended changes.
+
+Airdrop 4.1 makes source- and binary-incompatible changes to the old public
+implementation classes. Rebuild integrations against the supported API.
+Controllers, managers, `Crate`, and configuration wrappers are outside that
+API. `PackageDropEvent` and `PackageLandEvent` remain deprecated, unsupported
+adapters; use `com.airdropmc.api.event` instead.
+`CannotAffordException` has been removed, and `EconomyUnavailableException` now
+requires a `DISABLED` or `NO_PROVIDER` reason.
+
+See the [4.1 migration guide](docs/migration-4.1.md) and
+[API version policy](docs/development/api-versioning.md) before updating an
+integration.
+
+## Upgrades require valid package files
+
+- The supported runtime is **Paper 1.21.11 with Java 21**.
+- Back up the plugin and its data before upgrading. Rename packages called
+  `create`, `delete`, or `status`, and update their permission grants; these
+  names are now reserved.
+- Airdrop now enforces a maximum of **27 configured packages**. Each package
+  still holds up to 27 reward stacks.
+- Malformed or missing item lists, invalid item entries, and paid packages
+  without deliverable items now reject the configuration. Invalid item entries
+  identify the package and entry index. A failed reload keeps the previous live
+  state; invalid startup data must be corrected before Airdrop becomes ready.
+- No new `config.yml` settings are required. Smoke comments now describe the
+  column above a landed crate. New English message keys are added automatically;
+  custom locales can translate the delivery, help, and status messages.
 
 # Airdrop 4.0 release notes: Safer drops and more control
 

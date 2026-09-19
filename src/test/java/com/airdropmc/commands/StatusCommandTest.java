@@ -66,7 +66,7 @@ class StatusCommandTest {
 	}
 
 	@Test
-	void statusOutputIncludesEveryOperationalSignalAndCanonicalDocs() {
+	void statusOutputIncludesEveryOperationalSignalAndGitHubDocs() {
 		PlayerMock operator = server.addPlayer();
 		operator.setOp(true);
 		AirdropStatus status = status(
@@ -96,7 +96,7 @@ class StatusCommandTest {
 				"Landed drops: 3 / 12",
 				"CONFIGURATION",
 				"Retained the previous valid configuration",
-				"https://modrinth.com/plugin/airdrop")) {
+				"https://github.com/LukeMccon/Airdrop/tree/develop/docs")) {
 			assertTrue(message.contains(required), required + " missing from: " + message);
 		}
 	}

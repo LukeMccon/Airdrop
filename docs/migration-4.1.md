@@ -10,7 +10,7 @@ Integrations should use `com.airdropmc.api`.
 
 Declare `depend: [Airdrop]` when your plugin cannot run without it, or
 `softdepend: [Airdrop]` when the integration is optional. Compile against Airdrop
-without shading it, as shown in the [developer guide](modrinth.md#developer-integration).
+without shading it, as shown in the [developer guide](reference.md#developer-integration).
 A soft dependency controls load order but leaves API classes unavailable when
 Airdrop is absent. Keep all Airdrop API references, including listener types,
 in a separate integration class, and check availability in the plugin entry
