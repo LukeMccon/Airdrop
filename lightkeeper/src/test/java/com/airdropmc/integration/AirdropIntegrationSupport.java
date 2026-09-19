@@ -146,6 +146,18 @@ final class AirdropIntegrationSupport {
 		player.teleport(world, 10.5, BARREL_Y, 10.5);
 	}
 
+	static void cleanupCrate(ILightkeeperFramework framework, WorldHandle world) {
+		// Teardown uses Paper's normal destruction/reconciliation, not a direct retirement call.
+		framework.server().executeCommand(CommandSource.CONSOLE,
+				"airdrop-lightkeeper-block-explode %s 0.5 81.5 0.5 4".formatted(world.name()));
+		awaitBlock(world, BARREL_POSITION, "minecraft:air");
+		long explodedAt = framework.server().currentTick();
+		eventually(Duration.ofSeconds(5), () ->
+				assertThat(framework.server().currentTick()).isGreaterThan(explodedAt + 1));
+		framework.server().executeCommand(CommandSource.CONSOLE,
+				"minecraft:execute in minecraft:%s run kill @e[type=minecraft:item]".formatted(world.name()));
+	}
+
 	static void awaitBlock(WorldHandle world, BlockPos position, String material) {
 		eventually(Duration.ofSeconds(10), () ->
 				nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.assertThat(world)

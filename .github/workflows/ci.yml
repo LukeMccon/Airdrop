@@ -87,12 +87,14 @@ jobs:
         if: always()
         shell: bash
         run: |
-          manifest="lightkeeper/target/lightkeeper/runtime-manifest.json"
-          if [[ -f "$manifest" ]]; then
-            mkdir -p lightkeeper/target/lightkeeper-diagnostics
-            jq 'del(.agentAuthToken)' "$manifest" \
-              > lightkeeper/target/lightkeeper-diagnostics/runtime-manifest.json
-          fi
+          for manifest in lightkeeper/target/lightkeeper/runtime-manifest.json \
+              lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json; do
+            if [[ -f "$manifest" ]]; then
+              mkdir -p lightkeeper/target/lightkeeper-diagnostics
+              jq 'del(.agentAuthToken)' "$manifest" \
+                > "lightkeeper/target/lightkeeper-diagnostics/$(basename "$manifest")"
+            fi
+          done
 
       - name: Upload LightKeeper Diagnostics
         if: always()

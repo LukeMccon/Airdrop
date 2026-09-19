@@ -11,9 +11,15 @@ commands:
   airdrop-lightkeeper-block-explode:
     description: Triggers a source-less Paper block explosion for integration tests
     usage: /airdrop-lightkeeper-block-explode <world> <x> <y> <z> <power>
+  lkmenu-close:
+    description: Closes the player's current inventory through Paper for integration tests
+    usage: /lkmenu-close <playerUUID> <token>
+  airdrop-lightkeeper-paid-lifecycle:
+    description: Observes paid crate persistence and scheduled expiry for integration tests
+    usage: /airdrop-lightkeeper-paid-lifecycle <action> <token> <arguments>
   lkeconomy:
     description: Controls the LightKeeper economy fixture
-    usage: /lkeconomy enable | /lkeconomy <reset|report> <player UUID> <balance|correlation ID>
+    usage: /lkeconomy <enable|disable|reset|report|fault|release|clear> <arguments>
     permission: lkeconomy.admin
 permissions:
   lkeconomy.admin:
