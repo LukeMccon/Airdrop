@@ -102,7 +102,7 @@ class CmdAirdropHelpTest {
 		assertTrue(help.contains("/airdrop package <name>"), help);
 		assertTrue(help.contains("/airdrop version"), help);
 		assertFalse(help.contains("still starting"), help);
-		assertFalse(help.contains("/airdrop packages"), help);
+		assertTrue(help.contains("/airdrop packages"), help);
 		assertFalse(help.contains("/airdrop package create"), help);
 		assertFalse(help.contains("/airdrop package delete"), help);
 		assertFalse(help.contains("/airdrop reload"), help);
@@ -121,6 +121,7 @@ class CmdAirdropHelpTest {
 		String help = drainMessages(operator);
 		assertTrue(help.contains("/airdrop <package>"), help);
 		assertTrue(help.contains("/airdrop packages"), help);
+		assertEquals(1, help.lines().filter(line -> line.contains("/airdrop packages")).count(), help);
 		assertTrue(help.contains("/airdrop package create"), help);
 		assertTrue(help.contains("/airdrop package delete"), help);
 		assertTrue(help.contains("/airdrop reload"), help);
@@ -129,7 +130,19 @@ class CmdAirdropHelpTest {
 	}
 
 	@Test
-	void missingPackagePointsPlayersToRootCompletionInsteadOfTheAdminBrowser() throws Exception {
+	void consoleHelpOmitsInventoryCatalog() {
+		var console = server.getConsoleSender();
+
+		assertTrue(new CmdAirdrop().onCommand(console, mock(Command.class), "airdrop", new String[0]));
+
+		String message;
+		while ((message = console.nextMessage()) != null) {
+			assertFalse(message.contains("/airdrop packages"), message);
+		}
+	}
+
+	@Test
+	void missingPackagePointsPlayersToRootCompletionAndTextInspection() throws Exception {
 		setStatic("ready", true);
 		PlayerMock player = server.addPlayer();
 		var world = server.addSimpleWorld("help_world");
@@ -259,6 +272,7 @@ class CmdAirdropHelpTest {
 					"commands.help.header",
 					"commands.help.drop",
 					"commands.help.package",
+					"commands.help.packages",
 					"commands.help.version",
 					"commands.help.admin-create",
 					"commands.help.admin-delete",

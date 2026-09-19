@@ -18,6 +18,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,6 +38,8 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 	private final String name;
 	private final PackageEditorSession session;
 	private final boolean supportsBackControl;
+	private boolean editingEnabled;
+	private BukkitTask accessCheck;
 
 	protected PackageEditorGui(String name, boolean supportsBackControl) {
 		this.name = name;
@@ -54,15 +57,27 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 			inventory.setItem(slot, packageItems.get(slot));
 		}
 
+		initializeControls();
+	}
+
+	protected void initializeInformationItem(ItemStack item) {
+		inventory.setItem(PackageManager.MAX_PACKAGE_ITEM_STACKS, item);
+	}
+
+	private void initializeControls() {
 		int inventorySize = inventory.getSize();
 		int helpSlot = inventorySize - (supportsBackControl ? 4 : 3);
+		String[] help = editingEnabled
+				? new String[]{
+					ChatHandler.get(MessageKey.GUI_EDITOR_HELP_ADD_STACK),
+					ChatHandler.get(MessageKey.GUI_EDITOR_HELP_ADD_ONE),
+					ChatHandler.get(MessageKey.GUI_EDITOR_HELP_REMOVE_STACK),
+					ChatHandler.get(MessageKey.GUI_EDITOR_HELP_REMOVE_ONE)}
+				: new String[]{ChatHandler.get(MessageKey.GUI_PACKAGE_READ_ONLY)};
 		inventory.setItem(helpSlot, createControlItem(
 				Control.HELP,
 				ChatHandler.get(MessageKey.GUI_HELP),
-				ChatHandler.get(MessageKey.GUI_EDITOR_HELP_ADD_STACK),
-				ChatHandler.get(MessageKey.GUI_EDITOR_HELP_ADD_ONE),
-				ChatHandler.get(MessageKey.GUI_EDITOR_HELP_REMOVE_STACK),
-				ChatHandler.get(MessageKey.GUI_EDITOR_HELP_REMOVE_ONE)));
+				help));
 		if (supportsBackControl) {
 			inventory.setItem(
 					inventorySize - 3,
@@ -70,10 +85,11 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		}
 		inventory.setItem(
 				inventorySize - 2,
-				createControlItem(Control.SAVE, ChatHandler.get(MessageKey.GUI_SAVE)));
+				editingEnabled ? createControlItem(Control.SAVE, ChatHandler.get(MessageKey.GUI_SAVE)) : null);
 		inventory.setItem(
 				inventorySize - 1,
-				createControlItem(Control.CANCEL, ChatHandler.get(MessageKey.GUI_CANCEL)));
+				createControlItem(Control.CANCEL,
+						ChatHandler.get(editingEnabled ? MessageKey.GUI_CANCEL : MessageKey.GUI_CLOSE)));
 	}
 
 	public boolean openInventory(final Player player) {
@@ -82,22 +98,30 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		}
 
 		Airdrop plugin = Airdrop.getPluginInstance();
-		if (plugin == null || !plugin.isEnabled()) {
+		if (plugin == null || !plugin.isEnabled() || !Airdrop.isReady()
+				|| !canOpen(player) || !isDefinitionCurrent()) {
 			return retire();
 		}
 
 		try {
+			editingEnabled = PermissionsHelper.isAdmin(player);
+			initializeControls();
 			Bukkit.getPluginManager().registerEvents(this, plugin);
 			InventoryView view = player.openInventory(inventory);
-			if (view == null || view.getTopInventory() != inventory || !session.activate(view.getTopInventory())) {
-				return retire();
+			if (view == null || view.getTopInventory() != inventory
+					|| player.getOpenInventory().getTopInventory() != inventory
+					|| !isAccessCurrent(player) || !isDefinitionCurrent()
+					|| !session.activate(view.getTopInventory())) {
+				closeAndUnregister();
+				return false;
 			}
 			synchronized (OPEN_EDITORS) {
 				OPEN_EDITORS.add(this);
 			}
+			accessCheck = Bukkit.getScheduler().runTaskTimer(plugin, () -> checkAccess(player), 1L, 1L);
 			return true;
 		} catch (RuntimeException error) {
-			retire();
+			closeAndUnregister();
 			throw error;
 		}
 	}
@@ -111,6 +135,10 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 
 		event.setCancelled(true);
 		if (!session.canProcess(player, top)) {
+			return;
+		}
+		if (!isAccessCurrent(player) || !isDefinitionCurrent()) {
+			invalidate(player);
 			return;
 		}
 
@@ -136,7 +164,7 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 			return;
 		}
 
-		if (!PermissionsHelper.isAdmin(player)) {
+		if (!canEdit(player)) {
 			return;
 		}
 
@@ -200,7 +228,17 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 	}
 
 	public void save(final InventoryClickEvent event) {
-		Player player = (Player) event.getWhoClicked();
+		if (!(event.getWhoClicked() instanceof Player player)
+				|| !session.canProcess(player, event.getView().getTopInventory())
+				|| player.getOpenInventory().getTopInventory() != inventory
+				|| !canEdit(player)) {
+			return;
+		}
+		event.setCancelled(true);
+		if (!isAccessCurrent(player) || !isDefinitionCurrent()) {
+			invalidate(player);
+			return;
+		}
 		if (!validateSave(player)) {
 			return;
 		}
@@ -237,7 +275,17 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 	public void cancel(final InventoryClickEvent event) {
 		Player player = (Player) event.getWhoClicked();
 		scheduleTransition(player, player::closeInventory);
-		ChatHandler.send(player, cancelMessage());
+		if (editingEnabled) {
+			ChatHandler.send(player, cancelMessage());
+		}
+	}
+
+	protected boolean canOpen(Player player) {
+		return PermissionsHelper.isAdmin(player);
+	}
+
+	protected boolean isDefinitionCurrent() {
+		return true;
 	}
 
 	protected boolean validateSave(Player player) {
@@ -259,10 +307,17 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 	}
 
 	protected void scheduleTransition(Player player, Runnable viewChange) {
-		if (!session.beginTransition()) {
+		if (!session.canProcess(player, player.getOpenInventory().getTopInventory())
+				|| !session.beginTransition()) {
 			return;
 		}
-		scheduleTransitionTask(player, viewChange);
+		scheduleTransitionTask(player, () -> {
+			if (!isAccessCurrent(player) || !isDefinitionCurrent()) {
+				closeChangedView(player);
+				return;
+			}
+			viewChange.run();
+		});
 	}
 
 	private void handleControl(InventoryClickEvent event, Player player, ItemStack clickedItem) {
@@ -274,7 +329,7 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		switch (control) {
 			case BACK -> navigateBack(event);
 			case SAVE -> {
-				if (PermissionsHelper.isAdmin(player)) {
+				if (canEdit(player)) {
 					save(event);
 				} else {
 					ChatHandler.sendError(player, MessageKey.ADMIN_PACKAGE_SAVE_REQUIRED);
@@ -305,6 +360,17 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 	}
 
 	private void handleSaveCompletion(Player player, Boolean committed, Throwable failure) {
+		if (session.state() != PackageEditorSession.State.SAVING) {
+			return;
+		}
+		if (!player.isOnline() || player.getOpenInventory().getTopInventory() != inventory) {
+			retire();
+			return;
+		}
+		if (!isAccessCurrent(player)) {
+			invalidate(player);
+			return;
+		}
 		if (failure == null && Boolean.TRUE.equals(committed)) {
 			if (!session.completeSave()) {
 				return;
@@ -315,6 +381,10 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 		}
 
 		if (!session.failSave()) {
+			return;
+		}
+		if (!isDefinitionCurrent()) {
+			invalidate(player);
 			return;
 		}
 
@@ -328,6 +398,10 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 	private boolean retire() {
 		if (!session.retire()) {
 			return false;
+		}
+		if (accessCheck != null) {
+			accessCheck.cancel();
+			accessCheck = null;
 		}
 		synchronized (OPEN_EDITORS) {
 			OPEN_EDITORS.remove(this);
@@ -343,6 +417,38 @@ public abstract class PackageEditorGui extends Gui implements Listener {
 			}
 		}
 		retire();
+	}
+
+	private boolean canEdit(Player player) {
+		return editingEnabled && PermissionsHelper.isAdmin(player);
+	}
+
+	private boolean isAccessCurrent(Player player) {
+		Airdrop plugin = Airdrop.getPluginInstance();
+		return plugin != null && plugin.isEnabled() && Airdrop.isReady()
+				&& canOpen(player) && editingEnabled == PermissionsHelper.isAdmin(player);
+	}
+
+	private void checkAccess(Player player) {
+		if (!player.isOnline() || player.getOpenInventory().getTopInventory() != inventory) {
+			retire();
+			return;
+		}
+		if (!isAccessCurrent(player)
+				|| session.state() == PackageEditorSession.State.ACTIVE && !isDefinitionCurrent()) {
+			closeChangedView(player);
+		}
+	}
+
+	private void invalidate(Player player) {
+		if (session.beginExitTransition()) {
+			scheduleTransitionTask(player, () -> closeChangedView(player));
+		}
+	}
+
+	private void closeChangedView(Player player) {
+		ChatHandler.send(player, MessageKey.GUI_CATALOG_CHANGED);
+		closeAndUnregister();
 	}
 
 	private void scheduleTransitionTask(Player player, Runnable viewChange) {
