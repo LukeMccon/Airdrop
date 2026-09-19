@@ -171,7 +171,7 @@ class CmdAirdropHelpTest {
 	}
 
 	@Test
-	void versionOutputLabelsEveryCompatibilitySignalAndCanonicalDocs() throws Exception {
+	void versionOutputLabelsEveryCompatibilitySignalAndGitHubDocs() throws Exception {
 		setStatic("pluginVersion", "4.1.0-test");
 		setStatic("paperCompatibilityVersion", "1.21.11");
 		PlayerMock player = server.addPlayer();
@@ -184,7 +184,7 @@ class CmdAirdropHelpTest {
 		assertTrue(message.contains("Extension API: 1.0.0"), message);
 		assertTrue(message.contains("Paper compatibility: 1.21.11"), message);
 		assertTrue(message.contains("Java compatibility: 21"), message);
-		assertTrue(message.contains("https://modrinth.com/plugin/airdrop"), message);
+		assertTrue(message.contains("https://github.com/LukeMccon/Airdrop/tree/develop/docs"), message);
 	}
 
 	@Test
@@ -226,7 +226,7 @@ class CmdAirdropHelpTest {
 		assertTrue(message.contains("Extension API: 1.0.0"), message);
 		assertTrue(message.contains("Paper compatibility: 1.21.11"), message);
 		assertTrue(message.contains("Java compatibility: 21"), message);
-		assertTrue(message.contains("https://modrinth.com/plugin/airdrop"), message);
+		assertTrue(message.contains("https://github.com/LukeMccon/Airdrop/tree/develop/docs"), message);
 		Path languageFile = tempDir.resolve("lang/en.yml");
 		String savedTemplate = YamlConfiguration.loadConfiguration(languageFile.toFile())
 				.getString("system.version-info");

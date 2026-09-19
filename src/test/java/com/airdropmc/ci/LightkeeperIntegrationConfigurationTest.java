@@ -117,8 +117,8 @@ class LightkeeperIntegrationConfigurationTest {
 	void readmeDistinguishesFullCleanupFromDiagnosticPreservingReruns() throws IOException {
 		String readme = requiredContents(README);
 
-		assertContains(readme, "./gradlew --dependency-verification=strict clean lightkeeperTest");
-		assertContains(readme, "./gradlew --dependency-verification=strict lightkeeperTest");
+		assertContains(readme, "./gradlew clean lightkeeperTest");
+		assertContains(readme, "./gradlew lightkeeperTest");
 		assertContains(readme, "Failsafe reports");
 		assertContains(readme, "previous-server");
 		assertContains(readme, "adapter repository");
@@ -148,7 +148,7 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(build, "inputs.file(consumerFixtureJar)");
 		assertContains(build, "-Dairdrop.consumer.jar.path=${consumerJar.path}");
 		assertContains(release,
-				"--dependency-verification=strict clean test build verifyApiCompatibility "
+				"clean test build verifyApiCompatibility "
 						+ "verifyReleaseArtifact lightkeeperTest");
 	}
 
@@ -248,7 +248,7 @@ class LightkeeperIntegrationConfigurationTest {
 		String workflow = requiredContents(Path.of(".github", "workflows", "ci.yml"));
 
 		assertContains(workflow, "lightkeeper-test:");
-		assertContains(workflow, "./gradlew --no-daemon --dependency-verification=strict lightkeeperTest");
+		assertContains(workflow, "./gradlew --no-daemon lightkeeperTest");
 		assertContains(workflow, "lightkeeper/target/failsafe-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-diagnostics");

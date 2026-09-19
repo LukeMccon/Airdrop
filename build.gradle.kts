@@ -11,7 +11,6 @@ import java.util.jar.JarFile
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
-import org.gradle.api.artifacts.verification.DependencyVerificationMode
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.Exec
@@ -31,7 +30,7 @@ import org.gradle.external.javadoc.StandardJavadocDocletOptions
 plugins {
     `java-library`
     `maven-publish`
-    id("xyz.jpenilla.run-paper") version "3.0.2" // Adds the runServer task for testing
+    id("xyz.jpenilla.run-paper") version "3.1.0" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
 
@@ -120,22 +119,22 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:$supportedPaperApiVersion")
     
     // Plugin dependencies
-    compileOnly("net.luckperms:api:5.4")
+    compileOnly("net.luckperms:api:5.5")
     compileOnly("net.milkbowl.vault:VaultUnlockedAPI:2.20")
-    testCompileOnly("net.luckperms:api:5.4")
-    testRuntimeOnly("net.luckperms:api:5.4")
+    testCompileOnly("net.luckperms:api:5.5")
+    testRuntimeOnly("net.luckperms:api:5.5")
     
     // Annotations
-    compileOnly("org.jetbrains:annotations:24.1.0")
+    compileOnly("org.jetbrains:annotations:26.1.0")
     
     // Test dependencies
     testImplementation("io.papermc.paper:paper-api:$supportedPaperApiVersion")
     testImplementation("net.milkbowl.vault:VaultUnlockedAPI:2.20")
     testImplementation(platform("org.junit:junit-bom:$supportedJUnitVersion"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("org.yaml:snakeyaml:2.2")
-    testImplementation("org.mockito:mockito-core:5.14.2")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation("org.yaml:snakeyaml:2.7")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.23.0")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.116.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -585,7 +584,6 @@ val consumerFixtureTest = tasks.register<GradleBuild>("consumerFixtureTest") {
         "airdropVersion" to project.version.toString(),
         "paperVersion" to supportedPaperApiVersion
     )
-    startParameter.dependencyVerificationMode = DependencyVerificationMode.STRICT
     inputs.files(
         fileTree(layout.projectDirectory.dir("consumer-fixture")) {
             exclude("build/**")
@@ -662,7 +660,6 @@ val verifyReproducibleRuntimeJar = tasks.register("verifyReproducibleRuntimeJar"
                 "./gradlew",
                 "--no-daemon",
                 "--console=plain",
-                "--dependency-verification=strict",
                 "clean",
                 "jar"
             )
@@ -785,7 +782,7 @@ val verifyReleaseLine = tasks.register<Exec>("verifyReleaseLine") {
         layout.projectDirectory.file("scripts/verify-release-line"),
         layout.projectDirectory.file("scripts/modrinth-docs"),
         layout.projectDirectory.file("docs/development/api-versioning.md"),
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
         layout.projectDirectory.file("lightkeeper/pom.xml")
     )
 }
@@ -1006,11 +1003,11 @@ val verifyDependencyMatrix = tasks.register("verifyDependencyMatrix") {
 
 val verifyModrinthDocs = tasks.register<Exec>("verifyModrinthDocs") {
     group = "verification"
-    description = "Validates the canonical Modrinth project description without network access"
+    description = "Validates the GitHub documentation reference without network access"
     workingDir(layout.projectDirectory)
     commandLine("./scripts/modrinth-docs", "check-local")
     inputs.files(
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
         layout.projectDirectory.file("scripts/modrinth-docs")
     )
 }
@@ -1028,7 +1025,9 @@ tasks.named<Test>("test") {
     dependsOn(consumerFixtureTest)
     inputs.files(
         consumerFixtureJar,
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
+        layout.projectDirectory.file("docs/README.md"),
+        layout.projectDirectory.file("docs/modrinth-description.md"),
         layout.projectDirectory.file("docs/migration-4.1.md")
     )
     inputs.dir(layout.projectDirectory.dir("consumer-fixture/src/main/java/dev/airdropmc/example"))

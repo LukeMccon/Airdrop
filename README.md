@@ -22,26 +22,29 @@ economy support, and in-game package editing.
 | Current source (`4.1.0-SNAPSHOT`) | `1.0.0` | `1.21.11` | `21` | unit + LightKeeper |
 
 Paper `1.21.11` and Java `21` are the exact supported runtime. LuckPerms,
-VaultUnlocked, Vault, and an economy provider are optional; the first-start
-`starter` package is free and works without them.
+VaultUnlocked, Vault, and an economy provider are optional. The first-start
+`starter` package costs `10.0`; paid player requests require enabled economy
+support, a Vault-compatible bridge, and an economy provider.
 
 Plugin developers should use only `com.airdropmc.api`. See the
 [Airdrop 4.1 migration guide](docs/migration-4.1.md) and
 [extension API version policy](docs/development/api-versioning.md).
 
-## Get started
+## Documentation
 
 Run `/airdrop packages` in game to browse packages you can request, compare prices,
 and preview their items. Administrators can edit packages in the same item view.
 
-The [canonical Modrinth documentation](https://modrinth.com/plugin/airdrop)
-contains the maintained installation, configuration, command, troubleshooting,
-and developer integration guide:
+[Start with the Airdrop documentation](docs/README.md) to install the plugin,
+set up your first package, and choose who can request it.
 
-- [Install and run the free starter](https://modrinth.com/plugin/airdrop#installation)
-- [Configure Airdrop](https://modrinth.com/plugin/airdrop#configuration)
-- [Troubleshoot a server](https://modrinth.com/plugin/airdrop#troubleshooting)
-- [Integrate a plugin](https://modrinth.com/plugin/airdrop#developer-integration)
+- [Install Airdrop](docs/README.md#install-airdrop-and-try-the-starter-package)
+- [Commands and permissions](docs/reference.md#commands-and-permissions)
+- [Packages and configuration](docs/reference.md#configuration)
+- [Troubleshooting](docs/reference.md#troubleshooting)
+- [Plugin development](docs/README.md#connect-another-plugin-to-airdrop)
+
+See [Airdrop on Modrinth](https://modrinth.com/plugin/airdrop) for an overview and downloads.
 
 ## Build locally
 
@@ -49,7 +52,7 @@ and developer integration guide:
 ./gradlew clean build
 ./gradlew test
 ./gradlew runServer
-./gradlew --dependency-verification=strict lightkeeperTest
+./gradlew lightkeeperTest
 ```
 
 A bare `lightkeeperTest` rerun archives the previous generated server's `logs`
@@ -57,47 +60,31 @@ and `crash-reports` under
 `lightkeeper/target/lightkeeper-reports/previous-server`, then resets only the
 generated server and runtime manifest. It retains Failsafe reports, LightKeeper
 reports, and the pinned adapter repository for diagnosis and reuse. Use
-`./gradlew --dependency-verification=strict clean lightkeeperTest` for a full
+`./gradlew clean lightkeeperTest` for a full
 reset of `lightkeeper/target`.
 
-The canonical Modrinth body is repository-owned. Validate it without network
-access with:
+Validate the detailed reference without network access with:
 
 ```bash
 ./gradlew verifyModrinthDocs
 ```
 
-## Update dependencies with their checksums
+## Update dependencies
 
-CI uses strict Gradle dependency verification. Dependabot version bumps can
-require new checksums in `gradle/verification-metadata.xml`, including transitive
-dependencies introduced by a Gradle wrapper update.
+Dependabot opens weekly updates for Gradle dependencies, LightKeeper Maven
+dependencies, and GitHub Actions. Dependency updates do not require maintaining
+Gradle verification metadata. Gradle wrapper checksum verification remains enabled.
+
 Dependabot groups the wrapper and run-paper plugin because plugin updates can
 require a newer Gradle API. Apply the wrapper update first when reviewing older,
-separate PRs for these tools.
+separate PRs for these tools. Paper API upgrades are manual: update the supported
+Paper/Java matrix and both build systems together.
 
-On the dependency update branch, generate candidate checksums with:
-
-```bash
-./gradlew --no-daemon \
-  --init-script scripts/refresh-dependency-verification.init.gradle \
-  --write-verification-metadata sha256 help
-git diff -- gradle/verification-metadata.xml
-```
-
-The init script works around Gradle's snapshot metadata writer bug by excluding
-Paper from generation and retaining its existing checksums. Paper API upgrades
-are manual: update the supported Paper/Java matrix and both build systems
-together. Normal builds still verify the complete dependency graph.
-
-Review the new coordinates and verify their checksums against the publishing
-repositories before committing the metadata with the version update. Follow
-[Gradle's dependency verification guidance](https://docs.gradle.org/current/userguide/dependency_verification.html).
-Then run the CI commands without the generation init script:
+Validate dependency updates with the CI commands:
 
 ```bash
-./gradlew --no-daemon --dependency-verification=strict clean test build verifyApiCompatibility prepareCiRuntimeArtifact
-./gradlew --no-daemon --dependency-verification=strict lightkeeperTest
+./gradlew --no-daemon clean test build verifyApiCompatibility prepareCiRuntimeArtifact
+./gradlew --no-daemon lightkeeperTest
 ```
 
 Source is available under the [MIT license](LICENSE). Use the

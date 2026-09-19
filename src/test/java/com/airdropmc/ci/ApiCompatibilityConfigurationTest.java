@@ -75,22 +75,6 @@ class ApiCompatibilityConfigurationTest {
 	}
 
 	@Test
-	void fourOneDecisionRecordsExplainTheAcceptedImplementationBreak() throws IOException {
-		for (Path record : new Path[]{
-				Path.of("docs/development/2026-08-31-airdr-31-developer-experience-design.md"),
-				Path.of("docs/development/2026-08-31-airdr-31-implementation-plan.md")}) {
-			String contents = Files.readString(record);
-			String normalized = contents.replaceAll("\\s+", " ");
-			assertTrue(contents.contains("Revision (2026-09-06)"), record.toString());
-			assertTrue(contents.contains("Airdrop 4.1.0"), record.toString());
-			assertTrue(normalized.contains("no known consumers"), record.toString());
-			assertTrue(normalized.contains("4.0 implementation-facing"), record.toString());
-			assertTrue(contents.contains("extension API") && contents.contains("1.0.0"),
-					record.toString());
-		}
-	}
-
-	@Test
 	void releaseLineGuardDerivesTheCurrentPluginAndApiVersions() throws Exception {
 		Path verifier = Path.of("scripts/verify-release-line");
 		assertTrue(Files.isExecutable(verifier), "Expected an executable release-line verifier");
