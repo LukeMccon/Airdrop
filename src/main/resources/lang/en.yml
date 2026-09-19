@@ -50,6 +50,8 @@ errors:
   reload-failed-retained: "Reload failed. The previous configuration remains active. Check the server log."
   packages-reload-failed: "Reload failed because packages configuration is unavailable"
   sky-not-clear: "Sky must be clear above your location to call an airdrop"
+  sky-blocked-surface: "Your location is below the highest surface ({material}) at Y: {y}. Move into open sky and try again."
+  invalid-target: "Could not resolve the drop location. Please try again."
   package-not-found: "Package {accent}{name}{error} not found. Type {warning}/airdrop{error} and press Tab to see packages you can use, or inspect one with {warning}/airdrop package <name>"
   package-exists: "A package named {accent}{name}{error} already exists"
   package-delete-not-found: "Unable to delete package: {error-detail}{name}{error} not found"

@@ -92,6 +92,23 @@ class DropControllerEconomyFlowTest {
 	}
 
 	@Test
+	void blockedPaidRequestDoesNotAcquireAdmissionOrStartPayment() {
+		player.teleport(new Location(world, 0, 64, 0));
+		world.getBlockAt(0, 82, 0).setType(Material.OAK_LEAVES);
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, request("paid").outcome().toCompletableFuture().join());
+
+		assertEquals(DropRejectionReason.SKY_NOT_CLEAR, outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().pending());
+		assertTrue(CrateManager.getCrateMap().isEmpty());
+		assertEquals(0, economy.affordabilityChecks);
+		assertEquals(0, economy.withdrawals);
+		assertEquals(0, economy.deposits);
+	}
+
+	@Test
 	void confirmedPaymentCreatesOneCorrelatedFallingCrate() {
 		DropHandle handle = request("paid");
 		completeCharge();

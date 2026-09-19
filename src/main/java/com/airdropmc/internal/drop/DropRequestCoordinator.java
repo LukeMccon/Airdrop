@@ -43,6 +43,7 @@ import com.airdropmc.paid.PaidDropSession;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -206,6 +207,7 @@ public final class DropRequestCoordinator {
 			packageSnapshot = ApiModelMapper.packageSnapshot(pkg);
 			target = resolveTarget(descriptor.requestedLocation(), settings);
 		} catch (SkyBlocked failure) {
+			handle.publishBlockedSurface(failure.surface);
 			return reject(process, DropRejectionReason.SKY_NOT_CLEAR,
 					"Target is not open to the sky", paymentFor(descriptor.source(), pkg));
 		} catch (RuntimeException failure) {
@@ -618,10 +620,10 @@ public final class DropRequestCoordinator {
 		if (world == null) {
 			throw new IllegalArgumentException("Requested location has no world");
 		}
-		Location ground = world.getHighestBlockAt(
-				requested.getBlockX(), requested.getBlockZ()).getLocation().add(HALF_BLOCK, 0, HALF_BLOCK);
+		Block surface = world.getHighestBlockAt(requested.getBlockX(), requested.getBlockZ());
+		Location ground = surface.getLocation().add(HALF_BLOCK, 0, HALF_BLOCK);
 		if (requested.getBlockY() < ground.getBlockY()) {
-			throw new SkyBlocked();
+			throw new SkyBlocked(new BlockedSurface(surface.getType(), ground.getBlockY()));
 		}
 		Location spawn = ground.clone().add(0, settings.dropHeight(), 0);
 		Location landing = ground.clone().add(0, 1, 0);
@@ -688,5 +690,10 @@ public final class DropRequestCoordinator {
 	}
 
 	private static final class SkyBlocked extends RuntimeException {
+		private final BlockedSurface surface;
+
+		private SkyBlocked(BlockedSurface surface) {
+			this.surface = surface;
+		}
 	}
 }

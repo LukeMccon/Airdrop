@@ -13,6 +13,10 @@ lets other plugins request drops and follow delivery outcomes.
 - Players receive an incoming message once their crate spawns, including the
   amount charged for a paid drop. A landing message gives the crate's block
   coordinates and names the world if the player has moved to another world.
+- AIRDR-75: Blocked player requests describe the highest surface material and
+  Y coordinate, with guidance to move into open sky. Customize this message with
+  `errors.sky-blocked-surface` (`{material}`, `{y}`) in the language file. Other
+  target-resolution failures use `errors.invalid-target` without blaming the sky.
 - Root help and tab completion show commands and packages available to the
   sender. Package deletion suggests existing package names.
 

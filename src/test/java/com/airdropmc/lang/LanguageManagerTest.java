@@ -131,6 +131,38 @@ class LanguageManagerTest {
 	}
 
 	@Test
+	void preparationAddsBundledSurfaceFeedbackWithoutReplacingCustomSkyMessage() throws Exception {
+		Path languageFile = languageFile("en");
+		Files.createDirectories(languageFile.getParent());
+		Files.writeString(languageFile,
+				"errors:\n  sky-not-clear: Custom open-sky guidance\n",
+				StandardCharsets.UTF_8);
+		Airdrop plugin = pluginWithResources(Map.of());
+		when(plugin.getResource("lang/en.yml"))
+				.thenAnswer(invocation -> LanguageManagerTest.class.getResourceAsStream("/lang/en.yml"));
+		LanguageManager manager = new LanguageManager(plugin);
+
+		manager.publishLanguage(manager.prepareLanguage("en"));
+
+		String surfaceMessage = "Your location is below the highest surface ({material}) at Y: {y}. "
+				+ "Move into open sky and try again.";
+		String invalidTargetMessage = "Could not resolve the drop location. Please try again.";
+		YamlConfiguration written = strictLoad(languageFile);
+		assertEquals("Custom open-sky guidance", written.getString("errors.sky-not-clear"));
+		assertEquals(surfaceMessage, written.getString("errors.sky-blocked-surface"));
+		assertEquals(invalidTargetMessage, written.getString("errors.invalid-target"));
+		assertEquals("Custom open-sky guidance", manager.get(MessageKey.ERROR_SKY_NOT_CLEAR));
+		MessageKey surfaceKey = MessageKey.ERROR_SKY_BLOCKED_SURFACE;
+		MessageKey invalidTargetKey = MessageKey.ERROR_INVALID_TARGET;
+		assertEquals(surfaceMessage, surfaceKey.getDefault());
+		assertEquals(invalidTargetMessage, invalidTargetKey.getDefault());
+		assertEquals("Your location is below the highest surface (Oak Leaves) at Y: 90. "
+						+ "Move into open sky and try again.",
+				manager.get(surfaceKey, Map.of("material", "Oak Leaves", "y", "90")));
+		assertEquals(invalidTargetMessage, manager.get(invalidTargetKey));
+	}
+
+	@Test
 	void missingKeyWriteBackCanBeDisabledWhileDefaultsRemainAvailable() throws Exception {
 		Path languageFile = languageFile("en");
 		Files.createDirectories(languageFile.getParent());
