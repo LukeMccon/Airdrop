@@ -163,9 +163,9 @@ drop or queue it for the next login. The crate has the package's normal contents
 and ordinary public access, so a targeted drop is not a private or guaranteed
 inventory reward.
 
-By default, only the gift sender needs package access: a VIP can gift a VIP
-package to a non-VIP. Set `gifting.require-recipient-permission: true` to require
-the recipient's normal package access too. That check applies to administrator
+By default, only the gift sender needs package access. Set
+`gifting.require-recipient-permission: true` to require the recipient's normal
+package access too. That check applies to administrator
 gifts; grants bypass it. Gift delivery failures use the existing payment and
 refund rules, with the sender as payer. Localized request, spawn, and landing
 messages identify the gift or grant and its request UUID for support.
