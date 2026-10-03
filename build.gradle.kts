@@ -1070,10 +1070,19 @@ bukkit {
             description = "Bypasses only the per-player airdrop request cooldown"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
         }
+        register("airdrop.gift") {
+            description = "Allows players to pay for a package dropped at another online player"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
+        }
+        register("airdrop.grant") {
+            description = "Allows unpaid administrative package drops at an online player"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+        }
         register("airdrop.admin") {
             description = "Allows full administrative access to Airdrop commands and GUIs"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
-            children = listOf("airdrop.package.all", "airdrop.package.*", "airdrop.cooldown.bypass")
+            children = listOf("airdrop.package.all", "airdrop.package.*", "airdrop.cooldown.bypass",
+                "airdrop.gift", "airdrop.grant")
         }
     }
 }

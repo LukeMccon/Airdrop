@@ -7,6 +7,8 @@ import com.airdropmc.limits.DropLimitSettings;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
 import java.io.InputStream;
@@ -24,6 +26,36 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 class ConfigKeysTest {
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void recipientPermissionGetterReadsExplicitBoolean(boolean required) {
+		YamlConfiguration values = new YamlConfiguration();
+		values.set("gifting.require-recipient-permission", required);
+		setConfigValues(values);
+
+		assertEquals(required, ConfigKeys.requiresGiftRecipientPermission());
+	}
+
+	@Test
+	void recipientPermissionGetterDefaultsToFalseForOlderConfigurations() {
+		setConfigValues(new YamlConfiguration());
+
+		assertFalse(ConfigKeys.requiresGiftRecipientPermission());
+	}
+
+	@Test
+	void shippedRecipientPermissionDefaultMatchesRuntimeFallback() throws Exception {
+		YamlConfiguration shipped = new YamlConfiguration();
+		try (InputStream resource = ConfigKeysTest.class.getResourceAsStream("/config.yml")) {
+			assertNotNull(resource);
+			shipped.load(new InputStreamReader(resource, StandardCharsets.UTF_8));
+		}
+		assertEquals(false, shipped.get("gifting.require-recipient-permission"));
+		setConfigValues(shipped);
+
+		assertFalse(ConfigKeys.requiresGiftRecipientPermission());
+	}
 
 	@Test
 	void getDropLimitSettings_usesConservativeDefaults() {

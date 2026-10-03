@@ -49,10 +49,47 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ConfigCoordinatorTest {
+	@ParameterizedTest
+	@ValueSource(strings = {
+			"gifting:\n  require-recipient-permission: sometimes\n",
+			"gifting:\n  require-recipient-permission: 'true'\n",
+			"gifting:\n  require-recipient-permission: 1\n",
+			"gifting:\n  require-recipient-permission:\n    unexpected: true\n",
+			"gifting: sometimes\n",
+			"gifting: [true, false]\n"
+	})
+	void reloadRejectsInvalidRecipientPermissionSettingBeforePublishing(String giftingYaml) throws Exception {
+		Files.writeString(temporaryDirectory.resolve("config.yml"),
+				"language: es\n" + giftingYaml);
+		new ConfigFileStore().write(packagesPath(), configurationWithPackages(2));
+		PackageManager.publishPackages(PackageManager.materializePackages(configurationWithPackages(1)));
+		Package livePackage = PackageManager.get("pkg0");
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger commits = new AtomicInteger();
+		LanguageManager languageManager = mock(LanguageManager.class);
+		coordinator = fileCoordinator(languageManager, mainTasks, candidate -> {
+			commits.incrementAndGet();
+			PackageManager.publishPackages(candidate.packages());
+			return EconomyProviderRefreshResult.disabled();
+		}, ignored -> { });
+		CompletionStage<EconomyProviderRefreshResult> reload = coordinator.reload();
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+		CompletionException failure = assertThrows(CompletionException.class,
+				() -> reload.toCompletableFuture().join());
+		assertTrue(failure.getCause() instanceof IllegalArgumentException, failure::toString);
+		assertTrue(failure.getCause().getMessage().contains("gifting"));
+		assertEquals(0, commits.get());
+		assertSame(livePackage, PackageManager.get("pkg0"));
+		assertEquals(1, PackageManager.getPackageCount());
+		verify(languageManager, never()).prepareLanguage("es");
+	}
 
 	@TempDir
 	Path temporaryDirectory;

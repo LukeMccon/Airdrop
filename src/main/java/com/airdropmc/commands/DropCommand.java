@@ -96,7 +96,7 @@ public final class DropCommand {
 		ChatHandler.send(player, key, placeholders);
 	}
 
-	private static void sendRejection(Player player, DropHandle handle, DropOutcome.Rejected rejected) {
+	static void sendRejection(CommandSender player, DropHandle handle, DropOutcome.Rejected rejected) {
 		switch (rejected.rejection().reason()) {
 			case UNKNOWN_PACKAGE -> ChatHandler.sendError(
 					player,
@@ -138,7 +138,7 @@ public final class DropCommand {
 		}
 	}
 
-	private static void sendSkyRejection(Player player, DropHandle handle) {
+	private static void sendSkyRejection(CommandSender player, DropHandle handle) {
 		if (handle instanceof DefaultDropHandle internal) {
 			internal.blockedSurface().ifPresentOrElse(
 					surface -> ChatHandler.sendError(player, MessageKey.ERROR_SKY_BLOCKED_SURFACE, Map.of(

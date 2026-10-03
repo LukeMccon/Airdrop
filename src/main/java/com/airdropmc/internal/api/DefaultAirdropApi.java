@@ -113,6 +113,13 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 	}
 
 	@Override
+	public DropHandle requestGiftDrop(Player sender, Player recipient, String packageName,
+			DropRequestOptions options, boolean requireRecipientPermission) {
+		requirePrimaryThread("requestGiftDrop");
+		return requests.requestGiftDrop(sender, recipient, packageName, options, requireRecipientPermission);
+	}
+
+	@Override
 	public DropHandle requestSystemDrop(
 			Location location, String packageName, DropRequestOptions options) {
 		requirePrimaryThread("requestSystemDrop");

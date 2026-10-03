@@ -33,6 +33,13 @@ public final class DropController {
 		return requireApi().requestPlayerDrop(player, packageName, options);
 	}
 
+	/** Starts a sender-paid request targeting the recipient's current location. */
+	public static DropHandle requestGiftDrop(Player sender, Player recipient, String packageName,
+			DropRequestOptions options, boolean requireRecipientPermission) {
+		return requireInternalRequests().requestGiftDrop(
+				sender, recipient, packageName, options, requireRecipientPermission);
+	}
+
 	/** Starts a typed unpaid system request for internal callers. */
 	public static DropHandle requestSystemDrop(
 			Location location, String packageName, DropRequestOptions options) {

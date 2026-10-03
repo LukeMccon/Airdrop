@@ -163,6 +163,7 @@ public final class ConfigCoordinator implements AutoCloseable {
 		YamlConfiguration defaultConfig = readResource(CONFIG_RESOURCE);
 		YamlConfiguration mainConfig = readOrProvision(configPath(), defaultConfig, startup);
 		mainConfig.setDefaults(defaultConfig);
+		ConfigKeys.requiresGiftRecipientPermission(mainConfig);
 
 		YamlConfiguration packagesConfig;
 		try {
