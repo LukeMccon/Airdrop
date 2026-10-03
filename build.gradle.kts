@@ -29,7 +29,9 @@ import org.gradle.external.javadoc.StandardJavadocDocletOptions
 
 plugins {
     `java-library`
+    jacoco
     `maven-publish`
+    id("org.sonarqube") version "7.2.3.7755"
     id("xyz.jpenilla.run-paper") version "3.1.0" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
@@ -71,6 +73,17 @@ val supportedJUnitVersion = "6.1.3"
 group = "com.airdropmc"
 version = configuredReleaseVersion ?: sourceDevelopmentVersion
 description = "Airdrop - Minecraft care package plugin"
+
+sonar {
+    properties {
+        property("sonar.projectKey", "LukeMccon_Airdrop")
+        property("sonar.organization", "luke-m")
+        property(
+            "sonar.coverage.jacoco.xmlReportPaths",
+            "build/reports/jacoco/test/jacocoTestReport.xml"
+        )
+    }
+}
 
 java {
     // Configure the java toolchain. Use Java 21 per Paper recommendations.
@@ -157,6 +170,7 @@ tasks {
 
     test {
         useJUnitPlatform()
+        finalizedBy("jacocoTestReport")
         systemProperty("airdrop.projectVersion", project.version.toString())
         systemProperty("airdrop.sourceDevelopmentVersion", sourceDevelopmentVersion)
         systemProperty("airdrop.extensionApiVersion", extensionApiVersion)
@@ -185,6 +199,19 @@ tasks {
         delete(layout.projectDirectory.dir("lightkeeper/target"))
     }
 
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+tasks.named("sonar") {
+    dependsOn(tasks.named("jacocoTestReport"))
 }
 
 val generatedAirdropMetadataDirectory = layout.buildDirectory.dir("generated/resources/airdrop-metadata")
