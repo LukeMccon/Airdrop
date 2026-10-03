@@ -56,6 +56,7 @@ public final class ConfigKeys {
 
 	// General paths
 	public static final String LANGUAGE = "language";
+	public static final String GIFT_REQUIRE_RECIPIENT_PERMISSION = "gifting.require-recipient-permission";
 
     // Economy paths
     public static final String ECONOMY_ENABLED = "economy.enabled";
@@ -140,6 +141,25 @@ public final class ConfigKeys {
 	static String getLanguage(FileConfiguration config) {
 		String language = config.getString(LANGUAGE, "en");
 		return language == null ? "en" : language;
+	}
+
+	public static boolean requiresGiftRecipientPermission() {
+		return requiresGiftRecipientPermission(getConfig());
+	}
+
+	static boolean requiresGiftRecipientPermission(FileConfiguration config) {
+		Object gifting = config.get("gifting");
+		if (gifting != null && !(gifting instanceof ConfigurationSection)) {
+			throw new IllegalArgumentException("gifting must be a configuration section");
+		}
+		Object configured = config.get(GIFT_REQUIRE_RECIPIENT_PERMISSION);
+		if (configured == null) {
+			return false;
+		}
+		if (configured instanceof Boolean required) {
+			return required;
+		}
+		throw new IllegalArgumentException(GIFT_REQUIRE_RECIPIENT_PERMISSION + " must be a Boolean");
 	}
 
     // Economy getters

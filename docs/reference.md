@@ -99,6 +99,8 @@ failures can be diagnosed.
 | --- | --- | --- |
 | `/airdrop` | Show sender-appropriate help | Everyone, including console |
 | `/airdrop <package>` | Request a package at the player's location | Player with `airdrop.package.<package>` or `airdrop.package.all` |
+| `/airdrop gift <player> <package>` | Pay for a package at an online player's location | In-game player with `airdrop.gift` and normal package access |
+| `/airdrop grant <player> <package>` | Send any configured package as a free reward | `airdrop.grant`; console and RCON are allowed |
 | `/airdrop package <name>` | Inspect a package and its price | Everyone, including console |
 | `/airdrop package create <name> <price>` | Create a package and open its editor | In-game player with `airdrop.admin` |
 | `/airdrop package delete <name>` | Delete a package | `airdrop.admin`; console is allowed |
@@ -124,13 +126,64 @@ The generated Bukkit permissions are:
 | `airdrop.package.<package>` | Request one package; package identity is case-insensitive | Not granted by Airdrop |
 | `airdrop.package.all` | Request every package | False |
 | `airdrop.package.*` | Compatibility wildcard whose child is `airdrop.package.all` | False |
+| `airdrop.gift` | Buy a gift with normal package access; does not make it free | True |
+| `airdrop.grant` | Grant any configured package for free, independently of buyer eligibility; grants no editing or reload rights | Operator |
 | `airdrop.cooldown.bypass` | Bypass only the per-player request cooldown | Operator |
-| `airdrop.admin` | Use admin commands and all packages; includes cooldown bypass | Operator |
+| `airdrop.admin` | Use admin commands and all packages; includes gift, grant, and cooldown bypass | Operator |
 
 Cooldown bypass does not bypass falling capacity, landed capacity, a pending
-request, a reserved landing position, or the clear-sky check. The server console
-is treated as an administrator, but inventory and player-location commands still
-require an in-game player.
+purchase, a reserved landing position, or the clear-sky check. Effective denials
+of `airdrop.gift` or `airdrop.grant` are respected, including for administrators.
+The server console is treated as an administrator, but inventory editing,
+self requests, and gifts still require an in-game player.
+
+### Gifts charge the sender; grants are free rewards
+
+```text
+/airdrop starter
+/airdrop gift Alex starter
+/airdrop grant Alex starter
+```
+
+The first command buys a crate for yourself. `gift` charges the sender the
+package's normal price and charges the recipient nothing. Administrators pay
+for gifts too. Self requests and gifts share the sender's purchase cooldown and
+pending-request limit; gifting cannot bypass them by choosing another player.
+
+`grant` charges neither the sender nor the recipient, even for a priced package.
+It requires only `airdrop.grant`, so you can delegate rewards without granting
+package purchasing, editing, or reload permissions. Grants skip the personal
+purchase cooldown and recipient package eligibility. All three commands still
+obey shared capacity, landing-position, protection, and clear-sky checks.
+
+Both targeted commands require the exact name of an online player. Airdrop
+captures that player's location when it accepts the request. An offline target
+is rejected before any charge; later movement or disconnects do not move the
+drop or queue it for the next login. The crate has the package's normal contents
+and ordinary public access, so a targeted drop is not a private or guaranteed
+inventory reward.
+
+By default, only the gift sender needs package access: a VIP can gift a VIP
+package to a non-VIP. Set `gifting.require-recipient-permission: true` to require
+the recipient's normal package access too. That check applies to administrator
+gifts; grants bypass it. Gift delivery failures use the existing payment and
+refund rules, with the sender as payer. Localized request, spawn, and landing
+messages identify the gift or grant and its request UUID for support.
+
+### Reward plugins can run the grant command
+
+For a reward plugin that runs commands as console, use a template such as:
+
+```text
+airdrop grant {player} starter
+```
+
+Replace `{player}` with that plugin's placeholder for the player's exact online
+name, and use a configured package name. Add a leading slash only if the reward
+plugin requires it. Console and RCON cannot buy gifts; use `grant` for their
+free rewards. Check command execution and failure handling in your reward
+plugin: grants can fail when the player is offline or normal drop checks fail,
+and Airdrop does not queue offline rewards.
 
 ## Configuration
 
@@ -160,11 +213,12 @@ its accepted range unless the row says otherwise.
 | <a id="config-drop-particles-smoke-height"></a> `drop.particles.smoke.height` | integer | `20` | `0` to `128` blocks inclusive | `20` | Future requests after a successful full reload |
 | <a id="config-drop-falling-speed"></a> `drop.falling-speed` | finite number | `0.3` | `0.01` to `4.0` blocks per tick inclusive | Legacy `drop.parachute.falling-speed`, then `0.3` | Future requests after a successful full reload |
 | <a id="config-drop-height"></a> `drop.height` | integer | `100` | `1` to `320` blocks above the landing surface inclusive | `100` | Future requests after a successful full reload |
-| <a id="config-drop-limits-request-cooldown-seconds"></a> `drop.limits.request-cooldown-seconds` | integer | `30` | `1` to `86400` seconds inclusive | `30` | Future player requests after a successful full reload |
+| <a id="config-drop-limits-request-cooldown-seconds"></a> `drop.limits.request-cooldown-seconds` | integer | `30` | `1` to `86400` seconds inclusive; shared by the sender's self requests and gifts, not grants | `30` | Future purchases after a successful full reload |
 | <a id="config-drop-limits-max-falling"></a> `drop.limits.max-falling` | integer | `3` | `1` to `64` inclusive | `3` | Future admission decisions after a successful full reload |
 | <a id="config-drop-limits-max-landed"></a> `drop.limits.max-landed` | integer | `10` | `1` to `256` inclusive | `10` | Future admission decisions after a successful full reload |
 | <a id="config-drop-limits-landed-lifetime-seconds"></a> `drop.limits.landed-lifetime-seconds` | integer | `600` | `30` to `86400` seconds inclusive | `600` | Future crates; existing deadlines remain unchanged |
 | <a id="config-economy-enabled"></a> `economy.enabled` | boolean | `true` | `true` or `false`; false blocks priced player requests | `true` | Provider discovery and future priced requests after a successful full reload |
+| <a id="config-gifting-require-recipient-permission"></a> `gifting.require-recipient-permission` | boolean | `false` | `true` or `false`; true requires gift recipients to have normal package access, including administrator gifts; grants bypass it | `false` | Future gifts after a successful full reload |
 | <a id="config-logging-debug"></a> `logging.debug` | boolean | `false` | `true` or `false` | `false` | Takes effect when the successful full reload publishes |
 | <a id="config-ui-chat-colors-primary"></a> `ui.chat.colors.primary` | string | `BLUE` | Any Bukkit `ChatColor` enum name, case-insensitive | `BLUE` | Subsequent messages after a successful full reload |
 | <a id="config-ui-chat-colors-text"></a> `ui.chat.colors.text` | string | `WHITE` | Any Bukkit `ChatColor` enum name, case-insensitive | `WHITE` | Subsequent messages after a successful full reload |
@@ -220,8 +274,10 @@ materializer used at runtime as part of the automated documentation test.
 
 Package names may contain letters, numbers, underscores, and dashes. Identity
 and permissions are case-insensitive, so `Starter` and `starter` conflict.
-`all`, `*`, `package`, `packages`, `version`, `status`, `reload`, `create`, and
-`delete` are reserved command identities.
+`all`, `*`, `package`, `packages`, `version`, `status`, `reload`, `create`,
+`delete`, `gift`, and `grant` are reserved command identities. Rename an existing
+package named `gift` or `grant` before upgrading, and update its permission node
+and any commands that reference it.
 
 Every package needs a numeric, finite, non-negative `price`. `0` is free.
 Quoted numbers are strings and are rejected, as are missing prices, negative
@@ -311,6 +367,18 @@ syntax.
 - **A player cannot request a package:** inspect it with `/airdrop package
   <name>`, then grant `airdrop.package.<canonical-name>` or
   `airdrop.package.all`. LuckPerms itself is not required.
+- **A gift is rejected:** check the sender's effective `airdrop.gift` and package
+  permissions, balance, cooldown, and pending purchase. Use the recipient's
+  exact online name. If `gifting.require-recipient-permission` is true, check
+  the recipient's package access too; administrators still pay and respect this
+  recipient check.
+- **A grant is rejected:** check the sender's effective `airdrop.grant`, the
+  configured package name, and the recipient's exact online name. Grants need
+  no economy provider or package purchase permission, but still obey shared
+  drop limits, landing-position, protection, and clear-sky checks.
+- **A targeted crate lands away from the recipient:** gifts and grants use the
+  recipient's location at request time. Moving or disconnecting does not
+  retarget the crate, and anyone who can access the barrel can take its contents.
 - **YAML fails to load:** use spaces, not tabs; preserve indentation; quote
   values containing YAML punctuation; and validate the reported file. At
   startup, fix the file and restart. After a failed reload, the previous config,

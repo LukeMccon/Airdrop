@@ -24,6 +24,7 @@ first-start details.
 
 - [Create a package and set its price](reference.md#paid-setup).
 - [Choose who can request packages](reference.md#commands-and-permissions).
+- [Buy a gift or grant a free reward to an online player](reference.md#gifts-charge-the-sender-grants-are-free-rewards).
 - [Edit package contents and understand `packages.yml`](reference.md#package-files).
 - [Adjust effects, cooldowns, and crate limits](reference.md#configuration).
 - [Translate messages and change chat colors](reference.md#localization).
@@ -37,6 +38,7 @@ first-start details.
 
 ## Connect another plugin to Airdrop
 
+- [Run a grant command from a reward plugin](reference.md#reward-plugins-can-run-the-grant-command).
 - [Use the Java API](reference.md#developer-integration).
 - [Update an existing integration for 4.1](migration-4.1.md).
 - [Check the API version policy](development/api-versioning.md).

@@ -1,6 +1,29 @@
 package com.airdropmc.lang;
 
 public enum MessageKey {
+	COMMANDS_GIFT_USAGE("commands.gift-usage", "Usage: /airdrop gift <player> <package>"),
+	COMMANDS_GRANT_USAGE("commands.grant-usage", "Usage: /airdrop grant <player> <package>"),
+	COMMANDS_HELP_GIFT("commands.help.gift", "{text}/airdrop gift <player> <package>{primary} — buy a package for an online player"),
+	COMMANDS_HELP_GRANT("commands.help.grant", "{text}/airdrop grant <player> <package>{primary} — give an online player a free package"),
+	ERROR_TARGETED_PERMISSION("errors.targeted-permission", "You need {permission} permission to use this command."),
+	ERROR_TARGETED_PLAYER("errors.targeted-player", "Could not find online player {player}. Use their full name."),
+	ERROR_GIFT_RECIPIENT_PERMISSION("errors.gift-recipient-permission", "{player} cannot receive package {name}; the server requires recipient package permission."),
+	ERROR_TARGETED_SKY("errors.targeted-sky", "The sky above {player} must be clear to deliver a package."),
+	TARGETED_ACTION_GIFT("targeted.action-gift", "Gift"),
+	TARGETED_ACTION_GRANT("targeted.action-grant", "Grant"),
+	TARGETED_REQUESTED("targeted.requested", "{action} request {request_id} for {name} at {player}'s location accepted for processing."),
+	TARGETED_SPAWNED("targeted.spawned", "{action} request {request_id}: {name} is on its way to {player}; no payment was taken."),
+	TARGETED_SPAWNED_CHARGED("targeted.spawned-charged", "{action} request {request_id}: {name} is on its way to {player}. ${amount} was taken from your account."),
+	TARGETED_LANDED("targeted.landed", "{action} request {request_id}: {name} for {player} landed at X: {x}, Y: {y}, Z: {z} in {world}."),
+	TARGETED_REJECTED("targeted.rejected", "{action} request {request_id} for {name} at {player} was rejected; no payment was taken."),
+	TARGETED_FAILED("targeted.failed", "{action} request {request_id} for {name} at {player} failed; no payment was taken."),
+	TARGETED_REFUNDED("targeted.refunded", "{action} request {request_id} for {name} at {player} failed; your payment was refunded."),
+	TARGETED_CHARGED_FAILED("targeted.charged-failed", "{action} request {request_id} for {name} at {player} failed; your payment remains charged. Contact an administrator with this request ID."),
+	TARGETED_REFUND_FAILED("targeted.refund-failed", "{action} request {request_id} for {name} at {player} failed and your payment could not be refunded. Contact an administrator with this request ID."),
+	TARGETED_PAYMENT_UNKNOWN("targeted.payment-unknown", "{action} request {request_id} for {name} at {player} failed; your payment outcome is uncertain. Contact an administrator with this request ID."),
+	TARGETED_RECIPIENT_INCOMING("targeted.recipient-incoming", "{sender} is sending you package {name} at your location when requested (request {request_id}). You will not be charged."),
+	TARGETED_RECIPIENT_LANDED("targeted.recipient-landed", "Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world} (request {request_id})."),
+
 	PREFIX("prefix", "{primary}[{text}Airdrop{primary}]"),
 
 	COMMANDS_PLAYER_ONLY("commands.player-only", "Must be a player to use this command"),
@@ -36,7 +59,7 @@ public enum MessageKey {
 		PACKAGES_NAME_INVALID("packages.name-invalid",
 				"Package names may only contain letters, numbers, underscores, and dashes"),
 		PACKAGES_NAME_RESERVED("packages.name-reserved",
-				"Package names cannot use reserved names: all, *, package, packages, version, status, reload"),
+				"Package names cannot use reserved names: all, *, package, packages, version, status, reload, gift, grant"),
 		PACKAGES_NAME_SUBCOMMAND_RESERVED("packages.name-subcommand-reserved",
 				"The package names create and delete are reserved because they are package subcommands"),
 	PACKAGES_PRICE_REQUIRED("packages.price-required", "You must provide the package price as a double"),

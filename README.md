@@ -34,6 +34,8 @@ Plugin developers should use only `com.airdropmc.api`. See the
 
 Run `/airdrop packages` in game to browse packages you can request, compare prices,
 and preview their items. Administrators can edit packages in the same item view.
+Use `/airdrop gift <player> <package>` to buy a drop for an online player, or
+`/airdrop grant <player> <package>` with `airdrop.grant` to send it for free.
 
 [Start with the Airdrop documentation](docs/README.md) to install the plugin,
 set up your first package, and choose who can request it.

@@ -103,7 +103,25 @@ public final class DropRequestCoordinator {
 				requiredPlayer.getUniqueId(),
 				requiredPackage,
 				requested);
-		return begin(descriptor, requiredPlayer, requiredOptions, null);
+		return begin(descriptor, requiredPlayer, requiredOptions, null, null, false);
+	}
+
+	public DropHandle requestGiftDrop(Player sender, Player recipient, String packageName,
+			DropRequestOptions options, boolean requireRecipientPermission) {
+		requirePrimaryThread("requestGiftDrop");
+		Player requiredSender = Objects.requireNonNull(sender, "sender");
+		Player requiredRecipient = Objects.requireNonNull(recipient, "recipient");
+		String requiredPackage = requirePackageName(packageName);
+		DropRequestOptions requiredOptions = Objects.requireNonNull(options, "options");
+		// An offline recipient has no target; retain an initiator location for the rejected descriptor.
+		Location requested = requiredRecipient.isOnline()
+				? requiredRecipient.getLocation()
+				: requiredSender.getLocation();
+		DropRequestDescriptor descriptor = new DropRequestDescriptor(
+				UUID.randomUUID(), DropSource.PLAYER, requiredSender.getUniqueId(),
+				requiredPackage, requested);
+		return begin(descriptor, requiredSender, requiredOptions, null,
+				requiredRecipient, requireRecipientPermission);
 	}
 
 	public DropHandle requestSystemDrop(
@@ -118,7 +136,7 @@ public final class DropRequestCoordinator {
 				null,
 				requiredPackage,
 				requiredLocation);
-		return begin(descriptor, null, requiredOptions, null);
+		return begin(descriptor, null, requiredOptions, null, null, false);
 	}
 
 	/** Internal adapter for a package object already resolved by legacy code. */
@@ -131,7 +149,7 @@ public final class DropRequestCoordinator {
 		DropRequestDescriptor descriptor = new DropRequestDescriptor(
 				UUID.randomUUID(), DropSource.PLAYER, requiredPlayer.getUniqueId(),
 				requiredPackage.getName(), requiredPlayer.getLocation());
-		return begin(descriptor, requiredPlayer, requiredOptions, requiredPackage);
+		return begin(descriptor, requiredPlayer, requiredOptions, requiredPackage, null, false);
 	}
 
 	/** Internal adapter for a package object already resolved by legacy code. */
@@ -144,7 +162,7 @@ public final class DropRequestCoordinator {
 		DropRequestDescriptor descriptor = new DropRequestDescriptor(
 				UUID.randomUUID(), DropSource.SYSTEM, null,
 				requiredPackage.getName(), requiredLocation);
-		return begin(descriptor, null, requiredOptions, requiredPackage);
+		return begin(descriptor, null, requiredOptions, requiredPackage, null, false);
 	}
 
 	public void stop() {
@@ -172,7 +190,9 @@ public final class DropRequestCoordinator {
 			DropRequestDescriptor descriptor,
 			Player player,
 			DropRequestOptions options,
-			Package suppliedPackage) {
+			Package suppliedPackage,
+			Player recipient,
+			boolean requireRecipientPermission) {
 		DefaultDropHandle handle = new DefaultDropHandle(descriptor);
 		DropRequestProcess process = new DropRequestProcess(handle);
 		processes.put(handle.requestId(), process);
@@ -198,6 +218,10 @@ public final class DropRequestCoordinator {
 					"Unknown package: " + descriptor.requestedPackageName(),
 					preResolutionPayment(descriptor.source()));
 		}
+		if (recipient != null && !recipient.isOnline()) {
+			return reject(process, DropRejectionReason.INVALID_TARGET,
+					"Gift recipient is not online", paymentFor(descriptor.source(), pkg));
+		}
 
 		ResolvedDropSettings settings;
 		AirdropPackage packageSnapshot;
@@ -205,7 +229,14 @@ public final class DropRequestCoordinator {
 		try {
 			settings = settingsResolver.resolve(options);
 			packageSnapshot = ApiModelMapper.packageSnapshot(pkg);
-			target = resolveTarget(descriptor.requestedLocation(), settings);
+			Location requested = descriptor.requestedLocation();
+			if (recipient != null) {
+				World world = requested.getWorld();
+				if (world == null || Bukkit.getWorld(world.getUID()) != world) {
+					throw new IllegalArgumentException("Gift target world is not loaded");
+				}
+			}
+			target = resolveTarget(requested, settings);
 		} catch (SkyBlocked failure) {
 			handle.publishBlockedSurface(failure.surface);
 			return reject(process, DropRejectionReason.SKY_NOT_CLEAR,
@@ -232,9 +263,18 @@ public final class DropRequestCoordinator {
 					"Request cancelled by an AirdropRequestEvent listener", process.payment);
 		}
 
+		if (recipient != null && !player.hasPermission("airdrop.gift")) {
+			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
+					"Sender lacks gift permission", process.payment);
+		}
 		if (player != null && !PermissionsHelper.hasPermission(player, pkg.getName())) {
 			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
 					"Player lacks package permission", process.payment);
+		}
+		if (recipient != null && requireRecipientPermission
+				&& !PermissionsHelper.hasPermission(recipient, pkg.getName())) {
+			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
+					"Recipient lacks package permission", process.payment);
 		}
 
 		DropAdmissionController admission = Airdrop.getDropAdmissionController();

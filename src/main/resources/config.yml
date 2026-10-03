@@ -37,6 +37,11 @@ drop:
     # Non-empty paid barrels become ordinary barrels instead of being removed
     landed-lifetime-seconds: 600
 
+# Gifting settings
+gifting:
+  # Whether gift recipients must also have permission to use the selected package
+  require-recipient-permission: false
+
 # Economy settings
 economy:
   # Whether to enable paid package drops

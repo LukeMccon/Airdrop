@@ -9,8 +9,10 @@ public final class AirdropCommandNames {
 	public static final String VERSION = "version";
 	public static final String STATUS = "status";
 	public static final String RELOAD = "reload";
+	public static final String GIFT = "gift";
+	public static final String GRANT = "grant";
 
-	private static final Set<String> TOP_LEVEL = Set.of(PACKAGE, PACKAGES, VERSION, STATUS, RELOAD);
+	private static final Set<String> TOP_LEVEL = Set.of(PACKAGE, PACKAGES, VERSION, STATUS, RELOAD, GIFT, GRANT);
 	private static final List<String> STANDARD = List.of(PACKAGE, VERSION);
 	private static final List<String> STANDARD_PLAYER = List.of(PACKAGE, PACKAGES, VERSION);
 	private static final List<String> ADMIN_PLAYER = List.of(PACKAGE, PACKAGES, VERSION, STATUS, RELOAD);

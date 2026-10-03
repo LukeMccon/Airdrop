@@ -14,6 +14,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PluginYmlPermissionsTest {
+	@Test
+	void giftingAndGrantPrivilegesHaveIndependentDefaultsAndAdminInheritance() throws Exception {
+		Map<?, ?> permissions = castMap(loadPluginYml().get("permissions"), "permissions");
+		assertEquals("true", String.valueOf(castMap(permissions.get("airdrop.gift"), "gift").get("default")));
+		assertEquals("op", String.valueOf(castMap(permissions.get("airdrop.grant"), "grant").get("default")));
+		Map<?, ?> children = castMap(castMap(permissions.get("airdrop.admin"), "admin").get("children"), "children");
+		assertEquals("true", String.valueOf(children.get("airdrop.gift")));
+		assertEquals("true", String.valueOf(children.get("airdrop.grant")));
+	}
 
 	@Test
 	void generatedPluginYml_permissionDefaultsAreLockedDown() throws Exception {
