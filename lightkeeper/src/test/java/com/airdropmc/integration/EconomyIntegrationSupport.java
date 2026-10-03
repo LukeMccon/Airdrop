@@ -51,10 +51,10 @@ final class EconomyIntegrationSupport {
 	static void disableProvider(ILightkeeperFramework framework) {
 		assertThat(framework.server().executeCommand(CommandSource.CONSOLE, "lkeconomy disable").success()).isTrue();
 		int offset = framework.server().output().size();
-		assertThat(framework.server().executeCommand(CommandSource.CONSOLE, "airdrop reload").success()).isTrue();
-		framework.waitUntil(() -> framework.server().output().stream().skip(offset)
-				.anyMatch(line -> line.contains("No economy provider is available; paid drops are blocked")),
-				Duration.ofSeconds(10));
+		GuiReloadIntegrationSupport.reloadSuccessfully(framework);
+		assertThat(GuiReloadIntegrationSupport.outputSince(framework, offset))
+				.anyMatch(line -> line.contains(
+						"Reload completed, but no economy provider is available; paid drops are blocked"));
 	}
 
 	static void fault(ILightkeeperFramework framework, UUID player, String operation, String mode) {

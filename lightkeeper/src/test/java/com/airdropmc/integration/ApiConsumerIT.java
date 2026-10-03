@@ -24,6 +24,7 @@ import static com.airdropmc.integration.AirdropIntegrationSupport.FREE_MARKER_TY
 import static com.airdropmc.integration.AirdropIntegrationSupport.PACKAGE_PERMISSION;
 import static com.airdropmc.integration.EconomyIntegrationSupport.OPERATION_EVENT;
 import static com.airdropmc.integration.EconomyIntegrationSupport.assertAccountState;
+import static com.airdropmc.integration.EconomyIntegrationSupport.disableProvider;
 import static com.airdropmc.integration.EconomyIntegrationSupport.operationsFor;
 import static com.airdropmc.integration.EconomyIntegrationSupport.resetAccount;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -165,8 +166,7 @@ class ApiConsumerIT {
 			try {
 				cleanupWorld(framework, world, rejectedPlayer, retryingPlayer);
 			} finally {
-				assertThat(framework.server().executeCommand(CommandSource.CONSOLE, "lkeconomy disable").success()).isTrue();
-				assertThat(framework.server().executeCommand(CommandSource.CONSOLE, "airdrop reload").success()).isTrue();
+				disableProvider(framework);
 			}
 		}
 	}
