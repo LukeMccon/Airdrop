@@ -94,7 +94,7 @@ public final class TargetedDropCommand {
 				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_WORLD, Map.of("world", args[4]));
 				return;
 			}
-			destination = new Location(world, Double.parseDouble(args[2]), world.getMaxHeight() - 1,
+			destination = new Location(world, Double.parseDouble(args[2]), world.getMaxHeight() - 1.0,
 					Double.parseDouble(args[3]));
 			destinationName = args[2] + ", " + args[3] + " in " + world.getName();
 		}
