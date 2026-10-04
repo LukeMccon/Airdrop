@@ -202,9 +202,11 @@ class PaidEconomyIT {
 			player.permissions().revoke(PREMIUM_PERMISSION);
 			resetAccount(framework, player.uniqueId(), "100.00");
 			int offset = framework.server().output().size();
-			player.executeCommand("airdrop premium");
-			outcome(framework, offset, AirdropIntegrationSupport.REJECTED_MARKER_TYPES,
-					"REJECTED", "REJECTED", "INSUFFICIENT_PERMISSION");
+			var request = ConsumerIntegrationSupport.request(framework, player, "premium");
+			var rejected = ConsumerIntegrationSupport.awaitHandleResult(framework, request, "HANDLE_OUTCOME");
+			assertThat(rejected.required("reason")).isEqualTo("INSUFFICIENT_PERMISSION");
+			assertThat(rejected.required("payment")).isEqualTo("REJECTED");
+			assertThat(AirdropIntegrationSupport.consumerMarkers(framework, offset)).isEmpty();
 			assertAccountState(framework, player.uniqueId(), "100.00", 0, 0, 0);
 			assertThat(operationsFor(operations.getCapturedEvents(), player.uniqueId())).isEmpty();
 			assertThat(drops.getCapturedEvents()).isEmpty();

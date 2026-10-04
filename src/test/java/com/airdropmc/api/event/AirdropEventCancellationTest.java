@@ -59,7 +59,7 @@ class AirdropEventCancellationTest {
 		// MockBukkit does not register plugin.yml permissions; model the production default.
 		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
 				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
-		world = server.addSimpleWorld("event_cancel_world");
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "event_cancel_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);
 		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());
@@ -151,7 +151,7 @@ class AirdropEventCancellationTest {
 	}
 
 	@Test
-	void admissionAndPaymentRejectionsPublishRequestThenOutcomeOnly() {
+	void earlyAdmissionRejectionHasNoEventsWhileResolvedPaymentPublishesOutcome() {
 		PlayerMock player = server.addPlayer("Rejected");
 		player.setOp(true);
 		player.teleport(new Location(world, 16, 100, 16));
@@ -165,7 +165,7 @@ class AirdropEventCancellationTest {
 				api.requestPlayerDrop(player, "paid", quietOptions())
 						.outcome().toCompletableFuture().join());
 		assertEquals(DropRejectionReason.REQUEST_PENDING, duplicate.rejection().reason());
-		assertEquals(List.of("request", "outcome"), canceller.names);
+		assertTrue(canceller.names.isEmpty());
 
 		canceller.names.clear();
 		economy.affordability.complete(EconomyResult.rejected("insufficient"));

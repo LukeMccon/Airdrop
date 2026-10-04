@@ -115,7 +115,7 @@ class AirdropLoggerTest {
 				server.getPluginManager().enablePlugin(plugin);
 				await(server, () -> Airdrop.isReady() || !plugin.isEnabled());
 				AirdropApi api = server.getServicesManager().load(AirdropApi.class);
-				var world = server.addSimpleWorld("debug_world");
+				var world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "debug_world");
 				DropHandle handle = api.requestSystemDrop(
 						new Location(world, 4, 100, 6),
 						"starter",

@@ -53,6 +53,10 @@ public final class ConfigKeys {
 	public static final String DROP_MAX_FALLING = "drop.limits.max-falling";
 	public static final String DROP_MAX_LANDED = "drop.limits.max-landed";
 	public static final String DROP_LANDED_LIFETIME_SECONDS = "drop.limits.landed-lifetime-seconds";
+	public static final String REMOTE_GENERATE = "drop.remote-loading.generate-new-chunks";
+	public static final String REMOTE_MAX_LOADS = "drop.remote-loading.max-concurrent-loads";
+	public static final String REMOTE_ATTEMPT_COOLDOWN = "drop.remote-loading.attempt-cooldown-seconds";
+	public static final String REMOTE_LOAD_TIMEOUT = "drop.remote-loading.load-timeout-seconds";
 
 	// General paths
 	public static final String LANGUAGE = "language";
@@ -131,6 +135,22 @@ public final class ConfigKeys {
 				30, 86_400, DEFAULT_LANDED_LIFETIME_SECONDS);
 		return new DropLimitSettings(
 				Duration.ofSeconds(cooldown), maxFalling, maxLanded, Duration.ofSeconds(lifetime));
+	}
+
+	public static boolean canGenerateRemoteChunks() {
+		return getConfig().getBoolean(REMOTE_GENERATE, false);
+	}
+
+	public static int getMaxRemoteLoads() {
+		return boundedInteger(getConfig(), REMOTE_MAX_LOADS, 1, 32, 2);
+	}
+
+	public static int getRemoteAttemptCooldownSeconds() {
+		return boundedInteger(getConfig(), REMOTE_ATTEMPT_COOLDOWN, 1, 3600, 5);
+	}
+
+	public static int getRemoteLoadTimeoutSeconds() {
+		return boundedInteger(getConfig(), REMOTE_LOAD_TIMEOUT, 1, 60, 10);
 	}
 
 	// General getters

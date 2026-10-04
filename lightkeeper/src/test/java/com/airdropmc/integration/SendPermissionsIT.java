@@ -77,12 +77,16 @@ class SendPermissionsIT {
 			setPermission(framework, sender, "airdrop.cooldown.bypass", false);
 			int cooldownOffset = framework.server().output().size();
 			sender.executeCommand("airdrop send premium 0 0");
-			SendIT.assertOutcome(framework, cooldownOffset, AirdropIntegrationSupport.REJECTED_MARKER_TYPES,
-					"REJECTED", "NOT_APPLICABLE", "COOLDOWN");
+			// Full-login bots do not expose chat capture; the shared handle reports early rejections.
+			var cooldown = ConsumerIntegrationSupport.request(framework, sender, "premium");
+			var rejected = ConsumerIntegrationSupport.awaitHandleResult(framework, cooldown, "HANDLE_OUTCOME");
+			assertThat(rejected.required("reason")).isEqualTo("COOLDOWN");
+			assertThat(rejected.required("payment")).isEqualTo("NOT_APPLICABLE");
+			assertThat(AirdropIntegrationSupport.consumerMarkers(framework, cooldownOffset)).isEmpty();
 			assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			setPermission(framework, sender, "airdrop.cooldown.bypass", true);
 			int freeOffset = framework.server().output().size();
-			sender.executeCommand("airdrop send premium 0 0 " + world.name());
+			sender.executeCommand("airdrop send premium 0 0");
 			SendIT.assertOutcome(framework, freeOffset, LANDED, "LANDED", "NOT_APPLICABLE", "NONE");
 			assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			AirdropIntegrationSupport.cleanupCrate(framework, world);

@@ -9,7 +9,7 @@ import java.util.Optional;
  *
  * @param reason machine-readable rejection reason
  * @param diagnostic non-blank diagnostic intended for logs and debugging
- * @param retryAfter positive retry delay for cooldown rejections only
+ * @param retryAfter positive retry delay for cooldown and remote-attempt rejections only
  */
 public record DropRejection(
 		DropRejectionReason reason,
@@ -26,15 +26,16 @@ public record DropRejection(
 		}
 		if (retryAfter.isPresent()) {
 			Duration retry = retryAfter.orElseThrow();
-			if (reason != DropRejectionReason.COOLDOWN) {
-				throw new IllegalArgumentException("retryAfter is only valid for COOLDOWN");
+			if (reason != DropRejectionReason.COOLDOWN && reason != DropRejectionReason.REMOTE_LOAD_THROTTLED) {
+				throw new IllegalArgumentException("retryAfter is only valid for cooldown and remote-attempt rejections");
 			}
 			if (retry.isZero() || retry.isNegative()) {
 				throw new IllegalArgumentException("retryAfter must be positive");
 			}
 		}
-		if (reason == DropRejectionReason.COOLDOWN && retryAfter.isEmpty()) {
-			throw new IllegalArgumentException("COOLDOWN requires retryAfter");
+		if ((reason == DropRejectionReason.COOLDOWN || reason == DropRejectionReason.REMOTE_LOAD_THROTTLED)
+				&& retryAfter.isEmpty()) {
+			throw new IllegalArgumentException("Throttled rejections require retryAfter");
 		}
 	}
 

@@ -123,7 +123,7 @@ class TargetedDropCommandTest {
 		DefaultDropHandle handle = pendingGiftHandle();
 		requestGift(handle);
 		String requested = messages(sender);
-		assertTrue(requested.contains(handle.requestId().toString()), requested);
+		assertTrue(requested.contains("Preparing the destination"), requested);
 		assertFalse(requested.contains("was taken from your account"), requested);
 		ResolvedDropContext context = spawn(handle, PaymentStatus.CHARGED);
 		String spawned = messages(sender);

@@ -105,9 +105,10 @@ class SendIT {
 				assertThat(operationsFor(operations.getCapturedEvents(), recipient.uniqueId())).isEmpty();
 
 				int retryOffset = framework.server().output().size();
-				sender.executeCommand("airdrop premium");
-				assertOutcome(framework, retryOffset, AirdropIntegrationSupport.REJECTED_MARKER_TYPES,
-						"REJECTED", "REJECTED", "COOLDOWN");
+				var retry = ConsumerIntegrationSupport.request(framework, sender, "premium");
+				var rejected = ConsumerIntegrationSupport.awaitHandleResult(framework, retry, "HANDLE_OUTCOME");
+				assertThat(rejected.required("reason")).isEqualTo("COOLDOWN");
+				assertThat(AirdropIntegrationSupport.consumerMarkers(framework, retryOffset)).isEmpty();
 				assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 				assertThat(drops.getCapturedEvents()).hasSize(1);
 				assertThat(landings.getCapturedEvents()).hasSize(1);

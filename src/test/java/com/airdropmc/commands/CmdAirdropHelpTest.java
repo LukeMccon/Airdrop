@@ -181,7 +181,7 @@ class CmdAirdropHelpTest {
 
 		String message = nextMessage(player);
 		assertTrue(message.contains("Plugin: 4.1.0-test"), message);
-		assertTrue(message.contains("Extension API: 1.0.0"), message);
+		assertTrue(message.contains("Extension API: 2.0.0"), message);
 		assertTrue(message.contains("Paper compatibility: 1.21.11"), message);
 		assertTrue(message.contains("Java compatibility: 21"), message);
 		assertTrue(message.contains("https://github.com/LukeMccon/Airdrop/tree/develop/docs"), message);
@@ -223,7 +223,7 @@ class CmdAirdropHelpTest {
 
 		String message = nextMessage(player);
 		assertTrue(message.contains("Plugin: 4.1.0-test"), message);
-		assertTrue(message.contains("Extension API: 1.0.0"), message);
+		assertTrue(message.contains("Extension API: 2.0.0"), message);
 		assertTrue(message.contains("Paper compatibility: 1.21.11"), message);
 		assertTrue(message.contains("Java compatibility: 21"), message);
 		assertTrue(message.contains("https://github.com/LukeMccon/Airdrop/tree/develop/docs"), message);
@@ -248,7 +248,7 @@ class CmdAirdropHelpTest {
 
 		new CmdAirdrop().onCommand(player, mock(Command.class), "airdrop", new String[]{"version"});
 
-		assertEquals("Server build 4.1.0-test; Paper 1.21.11; API 1.0.0; Current 4.1.0-test/1.21.11",
+		assertEquals("Server build 4.1.0-test; Paper 1.21.11; API 2.0.0; Current 4.1.0-test/1.21.11",
 				nextMessage(player));
 		assertEquals(template, YamlConfiguration.loadConfiguration(tempDir.resolve("lang/en.yml").toFile())
 				.getString("system.version-info"));

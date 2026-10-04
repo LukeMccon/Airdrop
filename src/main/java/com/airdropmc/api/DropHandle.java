@@ -22,7 +22,8 @@ public interface DropHandle {
 	DropRequestDescriptor descriptor();
 
 	/**
-	 * Returns the context after package, target, and settings resolution.
+	 * Returns the context after provisional admission and terrain resolution.
+	 * Early permission, admission, and terrain failures have no context.
 	 *
 	 * @return resolved context when resolution succeeded
 	 */

@@ -1,5 +1,16 @@
 # Airdrop 4.1.0 adds delivery messages and a supported plugin API
 
+## Development additions: AIRDR-73 targeted delivery and remote destinations
+
+- `/airdrop send` delivers to named players or coordinates, with sender-only
+  payment, explicit cost exemption, and recipient notifications.
+- Remote terrain loads asynchronously after permission and admission checks.
+  New generation is disabled by default; attempts, concurrency, and preparation
+  time are bounded. Remote crates retain their destination through landing.
+- Extension API `2.0.0` moves request events after provisional admission and
+  terrain resolution. Early rejections have no context or lifecycle events.
+  See [API migration](docs/development/api-versioning.md#migrating-from-api-1-to-api-2).
+
 Release notes covering changes since 4.0.0.
 
 <!-- AIRDR-79: AIRDR-72 / PR #92 is deferred and excluded from 4.1. -->

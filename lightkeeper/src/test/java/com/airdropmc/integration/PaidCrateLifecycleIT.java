@@ -54,7 +54,9 @@ class PaidCrateLifecycleIT {
 			UUID account = player.uniqueId();
 			EconomyIntegrationSupport.resetAccount(framework, account, "100.00");
 			int outputOffset = framework.server().output().size();
-			player.executeCommand("airdrop premium");
+			var handleRequest = ConsumerIntegrationSupport.request(framework, player, "premium");
+			var spawn = ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_SPAWN");
+			assertThat(spawn.required("spawned")).as(() -> ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_OUTCOME").toString()).isEqualTo("true");
 			framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 			moveBesideBarrel(player, world);
 			framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -115,7 +117,9 @@ class PaidCrateLifecycleIT {
 			UUID account = player.uniqueId();
 			EconomyIntegrationSupport.resetAccount(framework, account, "100.00");
 			int outputOffset = framework.server().output().size();
-			player.executeCommand("airdrop premium");
+			var handleRequest = ConsumerIntegrationSupport.request(framework, player, "premium");
+			var spawn = ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_SPAWN");
+			assertThat(spawn.required("spawned")).as(() -> ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_OUTCOME").toString()).isEqualTo("true");
 			framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 			moveBesideBarrel(player, world);
 			framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -166,6 +170,7 @@ class PaidCrateLifecycleIT {
 	private static WorldHandle createOffsetWorld(ILightkeeperFramework framework) {
 		WorldHandle world = framework.worlds().builder().withRandomName()
 				.withWorldType(WorldSpec.WorldType.FLAT).withSeed(87L).build();
+		AirdropIntegrationSupport.remoteFixture(framework, "prepare", world, BARREL.x(), BARREL.z());
 		for (int x = BARREL.x() - 2; x <= BARREL.x() + 2; x++) {
 			for (int z = BARREL.z() - 2; z <= BARREL.z() + 2; z++) {
 				world.setBlockAt(new BlockPos(x, BARREL.y() - 1, z), "minecraft:stone");

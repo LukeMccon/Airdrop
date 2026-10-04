@@ -20,6 +20,16 @@ public enum DropRejectionReason {
 	LANDED_CAPACITY,
 	/** Another active request owns the intended landing location. */
 	LOCATION_RESERVED,
+	/** Too many destination chunk loads are still outstanding. */
+	REMOTE_LOAD_CAPACITY,
+	/** The caller must wait before another remote preparation attempt. */
+	REMOTE_LOAD_THROTTLED,
+	/** Destination preparation exceeded its deadline without taking payment. */
+	TARGET_LOAD_TIMEOUT,
+	/** Existing destination and nearby terrain are required when generation is disabled. */
+	TARGET_NOT_GENERATED,
+	/** The centered destination is outside the world's current border. */
+	OUTSIDE_WORLD_BORDER,
 	/** A priced package was requested while economy support is disabled. */
 	ECONOMY_DISABLED,
 	/** A priced package was requested without an economy provider. */

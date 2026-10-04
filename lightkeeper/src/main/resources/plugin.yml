@@ -17,6 +17,9 @@ commands:
   airdrop-lightkeeper-paid-lifecycle:
     description: Observes paid crate persistence and scheduled expiry for integration tests
     usage: /airdrop-lightkeeper-paid-lifecycle <action> <token> <arguments>
+  lkremote:
+    description: Prepares and observes remote delivery terrain for integration tests
+    usage: /lkremote <prepare|observe|generation> <token> <world> <x> <z>
   lkeconomy:
     description: Controls the LightKeeper economy fixture
     usage: /lkeconomy <enable|disable|reset|report|fault|release|clear> <arguments>

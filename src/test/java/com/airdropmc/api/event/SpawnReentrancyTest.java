@@ -65,7 +65,7 @@ class SpawnReentrancyTest {
 		});
 		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
 				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
-		world = server.addSimpleWorld("spawn_reentrancy_world");
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "spawn_reentrancy_world");
 		plugin = (Airdrop) server.getPluginManager().loadPlugin(Airdrop.class, new Object[0]);
 		Files.createDirectories(plugin.getDataFolder().toPath());
 		Files.writeString(plugin.getDataFolder().toPath().resolve("config.yml"),

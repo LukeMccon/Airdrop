@@ -61,7 +61,7 @@ class DropCommandSurfaceFeedbackTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		var server = MockBukkit.mock();
-		world = server.addSimpleWorld("surface_world");
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "surface_world");
 		player = server.addPlayer();
 		player.teleport(new Location(world, 2, 64, 3));
 		YamlConfiguration config = new YamlConfiguration();
@@ -70,13 +70,21 @@ class DropCommandSurfaceFeedbackTest {
 		PackageManager.clear();
 		PackageManager.publishPackages(PackageManager.materializePackages(config));
 		ChatHandler.init(new LanguageManager(mock(Airdrop.class)));
-		requests = new DropRequestCoordinator(MockBukkit.createMockPlugin());
+		var plugin = MockBukkit.createMockPlugin();
+		player.addAttachment(plugin, "airdrop.package.starter", true);
+		var admissionField = Airdrop.class.getDeclaredField("dropAdmissionController");
+		admissionField.setAccessible(true);
+		admissionField.set(null, new com.airdropmc.limits.DropAdmissionController());
+		requests = new DropRequestCoordinator(plugin);
 		requests.startAccepting();
 	}
 
 	@AfterEach
-	void tearDown() {
+	void tearDown() throws Exception {
 		requests.stop();
+		var admissionField = Airdrop.class.getDeclaredField("dropAdmissionController");
+		admissionField.setAccessible(true);
+		admissionField.set(null, null);
 		PackageManager.clear();
 		ChatHandler.init(null);
 		MockBukkit.unmock();
@@ -104,8 +112,15 @@ class DropCommandSurfaceFeedbackTest {
 
 	@Test
 	void formatsNegativeSurfaceHeight() {
-		WorldMock underground = new WorldMock(Material.AIR, -64, 320, -64);
+		WorldMock underground = new WorldMock(Material.AIR, -64, 320, -64) {
+			@Override public org.mockbukkit.mockbukkit.world.ChunkMock getChunkAt(int x, int z) {
+				var chunk = org.mockito.Mockito.spy(super.getChunkAt(x, z));
+				org.mockito.Mockito.doReturn(org.bukkit.Chunk.LoadLevel.ENTITY_TICKING).when(chunk).getLoadLevel();
+				return chunk;
+			}
+		};
 		MockBukkit.getMock().addWorld(underground);
+		underground.loadChunk(0, 0);
 		underground.getBlockAt(2, -20, 3).setType(Material.DEEPSLATE);
 		player.teleport(new Location(underground, 2, -30, 3));
 

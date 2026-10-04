@@ -6,7 +6,7 @@ extension API, Paper compatibility, and Java requirement are separate values:
 | Signal | Current development value | Purpose |
 | --- | --- | --- |
 | Airdrop plugin | `4.1.0-SNAPSHOT` | Plugin features and releases |
-| Extension API | `1.0.0` | Supported types under `com.airdropmc.api` |
+| Extension API | `2.0.0` | Supported types under `com.airdropmc.api` |
 | Paper compatibility | `1.21.11` | Exact Paper target in `plugin.yml` |
 | Java compatibility | `21` | Required JVM feature version |
 
@@ -76,3 +76,17 @@ compatibility result. Run it with the intended tag:
 ```bash
 ./gradlew -PreleaseTag=4.1.0 verifyReleaseArtifact
 ```
+
+## Migrating from API 1 to API 2
+
+Remote destinations may prepare asynchronously. Permissions, cooldown, and
+capacity are checked before terrain work. `AirdropRequestEvent` now fires after
+provisional admission and surface resolution, before payment and spawn. Early
+permission, admission, or terrain failures have no context and fire no lifecycle
+events; observe both handle stages for every request. Cancellation releases the
+provisional reservation and never starts payment or commits purchase cooldown.
+
+Handle `REMOTE_LOAD_CAPACITY`, `REMOTE_LOAD_THROTTLED`, `TARGET_LOAD_TIMEOUT`,
+`TARGET_NOT_GENERATED`, and `OUTSIDE_WORLD_BORDER`. `retryAfter()` is present for
+both `COOLDOWN` and `REMOTE_LOAD_THROTTLED`. API 1 consumers should update their
+event assumptions and rejection handling before declaring API 2 support.

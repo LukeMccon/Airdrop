@@ -54,7 +54,7 @@ class DropRequestCoordinatorGiftTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("gift_world");
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "gift_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);
 		awaitReady();
@@ -108,6 +108,21 @@ class DropRequestCoordinatorGiftTest {
 				handle.context().orElseThrow().landingLocation().getBlock().getState());
 		assertEquals(Material.DIAMOND, barrel.getInventory().getItem(0).getType());
 		assertTrue(economy.deposits.isEmpty());
+	}
+
+	@Test
+	void recipientDisconnectDuringRequestEventKeepsCapturedDestination() {
+		server.getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+			@org.bukkit.event.EventHandler
+			public void disconnect(com.airdropmc.api.event.AirdropRequestEvent event) {
+				recipient.disconnect();
+			}
+		}, plugin);
+		Location captured = recipient.getLocation();
+		DropHandle handle = gift("free", false);
+		assertInstanceOf(DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().join());
+		assertEquals(WorldPosition.from(captured), handle.descriptor().requestedPosition());
+		assertFalse(recipient.isOnline());
 	}
 
 	@Test
@@ -191,7 +206,7 @@ class DropRequestCoordinatorGiftTest {
 	@ValueSource(booleans = {false, true})
 	void unloadedRecipientWorldIsRejectedBeforePayment(boolean costExempt) {
 		sender.addAttachment(plugin, "airdrop.cost.bypass", costExempt);
-		WorldMock unloaded = server.addSimpleWorld("unloaded_gift_world");
+		WorldMock unloaded = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "unloaded_gift_world");
 		Location target = new Location(unloaded, 20, 100, 30);
 		assertTrue(server.unloadWorld(unloaded, false));
 		org.bukkit.entity.Player staleTarget = mock(org.bukkit.entity.Player.class);
@@ -339,7 +354,7 @@ class DropRequestCoordinatorGiftTest {
 		DropHandle handle = gift("paid", false);
 		economy.affordability.complete(EconomyResult.ok());
 		server.getScheduler().performOneTick();
-		WorldMock other = server.addSimpleWorld("other_world");
+		WorldMock other = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "other_world");
 		sender.teleport(new Location(other, 0, 100, 0));
 		recipient.teleport(new Location(other, 10, 100, 10));
 		assertTrue(server.unloadWorld(world, false));
@@ -406,7 +421,7 @@ class DropRequestCoordinatorGiftTest {
 		Location target = new Location(world, 20.25, world.getMaxHeight() - 1, 30.75);
 		DropHandle handle = DropController.requestSendDrop(sender, target, "paid", options());
 		target.setX(300);
-		sender.teleport(new Location(server.addSimpleWorld("moved"), 0, 100, 0));
+		sender.teleport(new Location(com.airdropmc.testutil.TestWorlds.loadedWorld(server, "moved"), 0, 100, 0));
 		completeCharge();
 		assertEquals(new Location(world, 20.5, 65, 30.5), handle.context().orElseThrow().landingLocation());
 		assertEquals(sender.getUniqueId(), handle.descriptor().playerId().orElseThrow());

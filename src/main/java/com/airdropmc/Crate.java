@@ -300,6 +300,8 @@ public class Crate {
 		}
 		fallingCrate = world.spawn(dropLocation, FallingBlock.class, fb -> {
 			fb.setBlockData(Material.BARREL.createBlockData());
+			fb.setDropItem(false);
+			fb.shouldAutoExpire(false);
 		});
 		parachuteSystem.initialize(dropLocation, fallingCrate, plugin);
 
@@ -310,6 +312,11 @@ public class Crate {
 		if (!registered) {
 			throw new IllegalStateException("Falling crate entity is already tracked");
 		}
+	}
+
+	/** Removes temporary parachute entities before releasing remote chunk retention. */
+	public void cleanupParachutes() {
+		parachuteSystem.cancel();
 	}
 
 	/**

@@ -19,7 +19,7 @@ class ApiSignatureGenerationTest {
 		List<String> signatures = Files.readAllLines(
 				Path.of("build/api-signatures/current.txt"));
 		List<String> baseline = Files.readAllLines(
-				Path.of("config/api-signatures/1.0.0.txt"));
+				Path.of("config/api-signatures/2.0.0.txt"));
 		List<String> sorted = signatures.stream().sorted().toList();
 
 		assertFalse(signatures.isEmpty());
@@ -29,7 +29,7 @@ class ApiSignatureGenerationTest {
 		assertTrue(signatures.stream().noneMatch(line -> !line.equals(line.stripTrailing())),
 				"API signatures must not contain trailing whitespace");
 		assertEquals(baseline, signatures,
-				"The checked-in 1.0 baseline must match the final supported surface");
+				"The checked-in 2.0 baseline must match the final supported surface");
 		assertTrue(signatures.stream().anyMatch(line -> line.startsWith(
 				"TYPE 0x0601 com.airdropmc.api.AirdropApi ")));
 		assertTrue(signatures.stream().anyMatch(line -> line.contains(

@@ -7,6 +7,7 @@ import com.airdropmc.api.ResolvedDropContext;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.paid.PaidDropSession;
 import org.jetbrains.annotations.ApiStatus;
+import org.bukkit.scheduler.BukkitTask;
 
 /** Main-thread-confined mutable state for one request. */
 @ApiStatus.Internal
@@ -33,6 +34,10 @@ final class DropRequestProcess {
 	PaymentStatus payment = PaymentStatus.NOT_APPLICABLE;
 	DeliveryStatus pendingFailure = DeliveryStatus.FAILED;
 	boolean requestEventPublished;
+	RemoteChunkLoader.Load remoteLoad;
+	Runnable releaseChunk;
+	BukkitTask readinessTask;
+	BukkitTask fallingDeadline;
 
 	DropRequestProcess(DefaultDropHandle handle) {
 		this.handle = handle;

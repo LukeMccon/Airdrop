@@ -217,7 +217,7 @@ class DropOutcomeValidationTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = DropRejectionReason.class, names = "COOLDOWN", mode = EnumSource.Mode.EXCLUDE)
+	@EnumSource(value = DropRejectionReason.class, names = {"COOLDOWN", "REMOTE_LOAD_THROTTLED"}, mode = EnumSource.Mode.EXCLUDE)
 	void everyNonCooldownRejectionReasonHasAStableRepresentation(DropRejectionReason reason) {
 		assertEquals(reason, DropRejection.of(reason, "diagnostic").reason());
 	}

@@ -167,7 +167,7 @@ class AirdropEconomyLifecycleTest {
 
 	@Test
 	void reloadRegistryListenerUsesTheNewlyEnabledEconomy() throws Exception {
-		World world = server.addSimpleWorld("economy_publication");
+		World world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "economy_publication");
 		net.milkbowl.vault.economy.Economy economy = legacy("Reload Economy");
 		when(economy.has(any(OfflinePlayer.class), eq(10.0))).thenReturn(false);
 		register(net.milkbowl.vault.economy.Economy.class, economy, ServicePriority.Normal);

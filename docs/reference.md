@@ -205,6 +205,12 @@ handling in the reward plugin; Airdrop does not queue offline rewards.
 
 ## Configuration
 
+Remote destinations load asynchronously after permission and limit checks. By
+default, the destination and its two-chunk ticking neighborhood must already be
+generated. Enable new generation explicitly if you want deliveries into untouched
+terrain. Airdrop retains the destination until landing or failure and bounds the
+fall duration; a preparation timeout never charges the sender.
+
 `plugins/Airdrop/config.yml` controls global behavior. `/airdrop reload`
 prepares the main config, locale, package registry, and economy provider before
 publishing any of them. A parse or validation failure leaves the complete
@@ -231,6 +237,10 @@ its accepted range unless the row says otherwise.
 | <a id="config-drop-particles-smoke-height"></a> `drop.particles.smoke.height` | integer | `20` | `0` to `128` blocks inclusive | `20` | Future requests after a successful full reload |
 | <a id="config-drop-falling-speed"></a> `drop.falling-speed` | finite number | `0.3` | `0.01` to `4.0` blocks per tick inclusive | Legacy `drop.parachute.falling-speed`, then `0.3` | Future requests after a successful full reload |
 | <a id="config-drop-height"></a> `drop.height` | integer | `100` | `1` to `320` blocks above the landing surface inclusive | `100` | Future requests after a successful full reload |
+| <a id="config-drop-remote-loading-generate-new-chunks"></a> `drop.remote-loading.generate-new-chunks` | boolean | `false` | Enable generating remote terrain and its ticking neighborhood | `false` | Future remote preparations after reload |
+| <a id="config-drop-remote-loading-max-concurrent-loads"></a> `drop.remote-loading.max-concurrent-loads` | integer | `2` | `1` to `32` preparations, each issuing one async chunk operation at a time; timed-out backend operations count until Paper completes them | `2` | Future remote preparations after reload |
+| <a id="config-drop-remote-loading-attempt-cooldown-seconds"></a> `drop.remote-loading.attempt-cooldown-seconds` | integer | `5` | `1` to `3600` seconds; per player, with one shared console/system bucket; failures also consume this delay | `5` | Future remote preparations after reload; existing attempt deadlines stay unchanged |
+| <a id="config-drop-remote-loading-load-timeout-seconds"></a> `drop.remote-loading.load-timeout-seconds` | integer | `10` | `1` to `60` seconds for loading and entity-ticking readiness, before payment | `10` | Future remote preparations after reload |
 | <a id="config-drop-limits-request-cooldown-seconds"></a> `drop.limits.request-cooldown-seconds` | integer | `30` | `1` to `86400` seconds inclusive; shared by all of the sender's player requests, including free sends | `30` | Future purchases after a successful full reload |
 | <a id="config-drop-limits-max-falling"></a> `drop.limits.max-falling` | integer | `3` | `1` to `64` inclusive | `3` | Future admission decisions after a successful full reload |
 | <a id="config-drop-limits-max-landed"></a> `drop.limits.max-landed` | integer | `10` | `1` to `256` inclusive | `10` | Future admission decisions after a successful full reload |
@@ -638,8 +648,8 @@ primary thread. The supported API intentionally has no package-mutation method.
 All supported events are synchronous on the primary thread and carry immutable
 snapshots. A resolved successful request has this order:
 
-1. `AirdropRequestEvent` — cancellable before admission, cooldown, payment, or
-   entity side effects.
+1. `AirdropRequestEvent` — after provisional admission and terrain resolution;
+   cancellable before payment, purchase cooldown commit, or entity side effects.
 2. `AirdropSpawnedEvent` — after the falling crate and admission state commit.
 3. Deprecated `PackageDropEvent` — unsupported post-state adapter outside the
    compatibility boundary.
@@ -650,8 +660,10 @@ snapshots. A resolved successful request has this order:
    compatibility boundary.
 7. `AirdropOutcomeEvent` — exactly once after delivery and payment are final.
 
-Resolution failures fire no request event. Cancelling a request event leaves
-no admission, payment, entity, task, or cooldown side effect. Cancelling a
+Early permission, admission, and terrain failures have no resolved context and
+fire no lifecycle events. Both handle stages still complete. Cancelling a request
+event releases its provisional admission and terrain ticket without starting
+payment or committing purchase cooldown. See [API 2 migration](development/api-versioning.md#migrating-from-api-1-to-api-2). Cancelling a
 landing attempt removes the falling crate, releases admission, and makes at
 most the single documented refund attempt after a confirmed charge.
 

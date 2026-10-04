@@ -38,6 +38,8 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 				.setExecutor(new MenuCloseCommand());
 		Objects.requireNonNull(getCommand("airdrop-lightkeeper-paid-lifecycle"), "paid lifecycle command")
 				.setExecutor(new PaidCrateLifecycleCommand());
+		Objects.requireNonNull(getCommand("lkremote"), "remote delivery command")
+				.setExecutor(new com.airdropmc.integration.support.RemoteDeliveryCommand());
 		faultCommand = new EconomyFaultCommand(controls, getLogger()::info);
 		executor = Executors.newSingleThreadExecutor(task -> {
 			Thread thread = new Thread(task, "lightkeeper-economy");

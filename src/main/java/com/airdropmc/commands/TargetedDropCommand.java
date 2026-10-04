@@ -131,13 +131,18 @@ public final class TargetedDropCommand {
 				"action", ChatHandler.get(MessageKey.TARGETED_ACTION_SEND),
 				"request_id", handle.requestId().toString(), "player", destinationName,
 				"sender", sender.getName(), "name", packageName));
-		String amount = handle.context().map(context -> context.airdropPackage().price().toPlainString()).orElse("0");
-		details.put("amount", costExempt ? "0" : amount);
-		details.put("cost", ChatHandler.get(costExempt ? MessageKey.TARGETED_COST_EXEMPT
-				: "0".equals(amount) || new java.math.BigDecimal(amount).signum() == 0
-						? MessageKey.TARGETED_COST_ZERO : MessageKey.TARGETED_COST_PAID, Map.of("amount", amount)));
 		if (!handle.outcome().toCompletableFuture().isDone() && canNotify(sender)) {
-			ChatHandler.send(sender, MessageKey.TARGETED_REQUESTED, details);
+			if (handle.context().isEmpty()) {
+				ChatHandler.send(sender, MessageKey.DROP_PREPARING);
+			} else {
+				var context = handle.context().orElseThrow();
+				String amount = context.airdropPackage().price().toPlainString();
+				details.put("amount", costExempt ? "0" : amount);
+				details.put("cost", ChatHandler.get(costExempt ? MessageKey.TARGETED_COST_EXEMPT
+						: context.airdropPackage().price().signum() == 0 ? MessageKey.TARGETED_COST_ZERO
+								: MessageKey.TARGETED_COST_PAID, Map.of("amount", amount)));
+				ChatHandler.send(sender, MessageKey.TARGETED_REQUESTED, details);
+			}
 		}
 		handle.spawn().thenAccept(result -> {
 			if (!(result instanceof DropSpawnResult.Spawned spawned)) {

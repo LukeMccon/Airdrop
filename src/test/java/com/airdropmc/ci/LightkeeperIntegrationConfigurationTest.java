@@ -242,7 +242,7 @@ class LightkeeperIntegrationConfigurationTest {
 			assertContains(support, field);
 		}
 		assertContains(free, "READY, REQUEST, SPAWNED, LANDING_ATTEMPT, LANDED, OUTCOME");
-		assertContains(paid, "REQUEST, OUTCOME");
+		assertContains(paid, "HANDLE_OUTCOME");
 		assertContains(paid, "ECONOMY_PROVIDER_UNAVAILABLE");
 	}
 

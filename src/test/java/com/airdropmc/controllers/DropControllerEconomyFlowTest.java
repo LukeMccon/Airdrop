@@ -75,7 +75,7 @@ class DropControllerEconomyFlowTest {
 		// MockBukkit does not register plugin.yml permissions; model the production default.
 		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
 				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
-		world = server.addSimpleWorld("economy_world");
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "economy_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);
 		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());
@@ -493,7 +493,7 @@ class DropControllerEconomyFlowTest {
 		server.getScheduler().performOneTick();
 		assertEquals(1, economy.withdrawals);
 
-		WorldMock otherWorld = server.addSimpleWorld("other_world");
+		WorldMock otherWorld = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "other_world");
 		player.teleport(new Location(otherWorld, 0, 120, 0));
 		assertTrue(server.unloadWorld(world, false));
 		assertNull(server.getWorld(world.getUID()));
