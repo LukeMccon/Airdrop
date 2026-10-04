@@ -1,7 +1,6 @@
 package com.airdropmc.integration;
 
 import nl.pim16aap2.lightkeeper.framework.CapturedEventSnapshot;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.MenuHandle;
@@ -39,7 +38,6 @@ class PackageGuiIT {
 	private static final String AVAILABILITY = "Balance, cooldown, and server limits are checked when requesting";
 
 	@Test
-	@FreshServer
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void independentCatalogsReadOnlyNavigationAndPermissionRevocationNeverRequestOrCharge(
 			ILightkeeperFramework framework) throws Exception {
@@ -124,7 +122,6 @@ class PackageGuiIT {
 	}
 
 	@Test
-	@FreshServer
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void revokingAdminDiscardsVirtualEditEvenWhenPackageAccessRemains(ILightkeeperFramework framework)
 			throws Exception {
@@ -163,7 +160,6 @@ class PackageGuiIT {
 	}
 
 	@Test
-	@FreshServer
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void virtualCancelAndOrdinaryCloseDiscardButSavePublishesOnceAndInvalidatesStalePreview(
 			ILightkeeperFramework framework) throws Exception {
@@ -244,7 +240,6 @@ class PackageGuiIT {
 	}
 
 	@Test
-	@FreshServer
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void priceCommandPreservesDefinitionsRefreshesCatalogAndRejectsInvalidRequests(
 			ILightkeeperFramework framework) throws Exception {

@@ -15,6 +15,8 @@ import com.airdropmc.api.event.AirdropRetiredEvent;
 import com.airdropmc.api.event.AirdropSpawnedEvent;
 import com.airdropmc.api.event.PackageRegistryChangedEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -67,6 +69,21 @@ public final class AirdropConsumerFixture extends JavaPlugin implements Listener
 			AirdropApi api = getServer().getServicesManager().load(AirdropApi.class);
 			if (api == null) {
 				commandFailure(token, "API_UNAVAILABLE");
+			} else if (args.length == 6 && args[0].equals("platform")) {
+				// AIRDR-92: batch fixture setup using the same native block writes as the tests.
+				World world = getServer().getWorld(args[2]);
+				if (world == null) {
+					commandFailure(token, "WORLD_NOT_FOUND");
+				} else {
+					int centerX = Integer.parseInt(args[3]);
+					int y = Integer.parseInt(args[4]);
+					int centerZ = Integer.parseInt(args[5]);
+					for (int x = centerX - 2; x <= centerX + 2; x++) {
+						for (int z = centerZ - 2; z <= centerZ + 2; z++) {
+							world.getBlockAt(x, y, z).setType(Material.STONE);
+						}
+					}
+				}
 			} else if (args.length == 3 && args[0].equals("snapshot")) {
 				AirdropPackage definition = api.findPackage(args[2]).orElse(null);
 				if (definition == null) {

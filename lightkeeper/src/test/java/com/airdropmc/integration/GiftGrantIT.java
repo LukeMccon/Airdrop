@@ -2,7 +2,6 @@ package com.airdropmc.integration;
 
 import nl.pim16aap2.lightkeeper.framework.BlockPos;
 import nl.pim16aap2.lightkeeper.framework.CapturedEventSnapshot;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.InteractionResult;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
@@ -41,7 +40,6 @@ import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertion
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** AIRDR-73: command delivery on Paper, without claims about native player item transfer. */
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class GiftGrantIT {
 	private static final String PREMIUM_PERMISSION = "airdrop.package.premium";
@@ -342,7 +340,7 @@ class GiftGrantIT {
 				}
 				disableEconomyProvider(framework);
 			} finally {
-				// Restarting a fresh server retains its files: wait for final publication before returning.
+				// Await restored configuration publication before the next method shares this server.
 				GuiReloadIntegrationSupport.reloadSuccessfully(framework);
 			}
 		}
