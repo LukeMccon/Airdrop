@@ -103,6 +103,7 @@ failures can be diagnosed.
 | `/airdrop grant <player> <package>` | Send any configured package as a free reward | `airdrop.grant`; console and RCON are allowed |
 | `/airdrop package <name>` | Inspect a package and its price | Everyone, including console |
 | `/airdrop package create <name> <price>` | Create a package and open its editor | In-game player with `airdrop.admin` |
+| `/airdrop package price <package> <new-price>` | Change a package price atomically | `airdrop.admin`; players, console, and RCON |
 | `/airdrop package delete <name>` | Delete a package | `airdrop.admin`; console is allowed |
 | `/airdrop packages` | Browse packages, prices, and item previews; admins can edit in the same view | In-game players |
 | `/airdrop reload` | Atomically reload config, locale, packages, and economy discovery | `airdrop.admin`; console is allowed |
@@ -118,6 +119,17 @@ Use the `/airdrop <package>` command shown in the item view to request a drop.
 Browsing does not charge you or request a package. Balance, cooldown, and server
 limits are checked when you request it. If a package or your permissions change,
 the catalog refreshes or the item view closes so you can reopen the current view.
+
+Administrators can change a price with `/airdrop package price starter 12.5`.
+Names are case-insensitive; prices must be finite and non-negative. Set the price
+to `0` to make a package free. A paid package must contain deliverable items.
+The command saves through the same serialized, atomic configuration pipeline as
+package editing, then publishes the new registry revision. Success reports the
+stored name and old and new prices. Validation or save failure leaves the file,
+live registry, and revision unchanged. Items, permission identity, and unrelated
+package definitions are preserved. Open catalogs refresh and stale item views
+close. Already accepted requests keep their captured price; later requests use
+the newly published price. No reload is needed.
 
 The generated Bukkit permissions are:
 
@@ -275,8 +287,8 @@ materializer used at runtime as part of the automated documentation test.
 Package names may contain letters, numbers, underscores, and dashes. Identity
 and permissions are case-insensitive, so `Starter` and `starter` conflict.
 `all`, `*`, `package`, `packages`, `version`, `status`, `reload`, `create`,
-`delete`, `gift`, and `grant` are reserved command identities. Rename an existing
-package named `gift` or `grant` before upgrading, and update its permission node
+`delete`, `price`, `gift`, and `grant` are reserved command identities. Rename an existing
+package named `price`, `gift`, or `grant` before upgrading, and update its permission node
 and any commands that reference it.
 
 Every package needs a numeric, finite, non-negative `price`. `0` is free.

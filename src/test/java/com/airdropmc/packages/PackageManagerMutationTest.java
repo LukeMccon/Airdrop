@@ -220,6 +220,51 @@ class PackageManagerMutationTest {
 		assertSame(starter, PackageManager.get("starter"));
 	}
 
+	@Test
+	void priceCandidatePreservesStoredIdentityItemsAndUnrelatedDefinitions() throws Exception {
+		YamlConfiguration source = configurationWithStarter("Starter");
+		ItemStack item = namedItem(Material.STONE, 2, "reward");
+		source.set("packages.Starter.items", List.of(item));
+		source.set("packages.Other.price", 0.0);
+		source.set("packages.Other.items", List.of(new ItemStack(Material.BREAD)));
+		source.set("packages.Starter.custom", "preserved");
+		String yaml = source.saveToString();
+		PackageManager.publishPackages(PackageManager.materializePackages(source));
+		Package original = PackageManager.get("starter");
+
+		YamlConfiguration candidate = PackageManager.updatePackagePriceCandidate(source, "sTaRtEr", 12.5);
+
+		assertEquals(yaml, source.saveToString());
+		assertSame(original, PackageManager.get("starter"));
+		assertEquals(0.0, original.getPrice());
+		assertEquals(12.5, candidate.getDouble("packages.Starter.price"));
+		assertFalse(candidate.isSet("packages.sTaRtEr"));
+		assertEquals(source.getConfigurationSection("packages.Other").getValues(true),
+				candidate.getConfigurationSection("packages.Other").getValues(true));
+		assertEquals("preserved", candidate.getString("packages.Starter.custom"));
+		Package updated = PackageManager.materializePackages(candidate).get("starter");
+		assertEquals("Starter", updated.getName());
+		assertEquals(PackageNamePolicy.permissionNode(original.getName()),
+				PackageNamePolicy.permissionNode(updated.getName()));
+		assertEquals(original.getItems(), updated.getItems());
+		assertNotSame(item, candidate.getList("packages.Starter.items").getFirst());
+	}
+
+	@Test
+	void priceCandidateRejectsMissingInvalidPriceAndPaidEmptyPackageWithoutMutation() throws Exception {
+		YamlConfiguration source = configurationWithStarter("Starter");
+		String yaml = source.saveToString();
+		assertThrows(PackageNotFoundException.class,
+				() -> PackageManager.updatePackagePriceCandidate(source, "missing", 0));
+		for (double invalid : new double[]{-1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+			assertThrows(IllegalArgumentException.class,
+					() -> PackageManager.updatePackagePriceCandidate(source, "Starter", invalid));
+		}
+		assertThrows(PackageMaterializationException.class,
+				() -> PackageManager.updatePackagePriceCandidate(source, "Starter", 1));
+		assertEquals(yaml, source.saveToString());
+	}
+
 	private static YamlConfiguration emptyConfiguration() {
 		YamlConfiguration config = new YamlConfiguration();
 		config.createSection("packages");

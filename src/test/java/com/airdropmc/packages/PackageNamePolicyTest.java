@@ -53,7 +53,7 @@ class PackageNamePolicyTest {
 	@Test
 	void rejectsEveryReservedIdentityWithoutCaseDifferences() {
 		for (String name : List.of(
-				"all", "ALL", "*", "package", "PACKAGES", "Version", "staTUS", "reLOAD", "GiFt", "GRANT", "create", "DELETE")) {
+				"all", "ALL", "*", "package", "PACKAGES", "Version", "staTUS", "reLOAD", "GiFt", "GRANT", "create", "DELETE", "price", "PrIcE")) {
 			PackageNamePolicy.Result result = PackageNamePolicy.validate(name);
 
 			assertFalse(result.accepted(), name);

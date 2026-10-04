@@ -21,6 +21,7 @@ import java.util.logging.Level;
 public class CmdAirdrop implements CommandExecutor {
 	private static final String CREATE = "create";
 	private static final String DELETE = "delete";
+	private static final String PRICE = "price";
 	private static final String DOCS_URL = "https://github.com/LukeMccon/Airdrop/tree/develop/docs";
 
 	@Override
@@ -97,6 +98,7 @@ public class CmdAirdrop implements CommandExecutor {
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_CREATE, Map.of());
 		}
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_DELETE, Map.of());
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_PRICE, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_RELOAD, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_STATUS, Map.of());
 	}
@@ -108,7 +110,7 @@ public class CmdAirdrop implements CommandExecutor {
 		if (!AirdropCommandNames.PACKAGE.equals(args[0])) {
 			return args.length != 1;
 		}
-		if (args.length == 1 || CREATE.equals(args[1]) || DELETE.equals(args[1])) {
+		if (args.length == 1 || CREATE.equals(args[1]) || DELETE.equals(args[1]) || PRICE.equals(args[1])) {
 			return false;
 		}
 		return args.length != 2;
@@ -122,7 +124,8 @@ public class CmdAirdrop implements CommandExecutor {
 			return true;
 		}
 		return CREATE.equals(args[1]) && args.length != 4
-				|| DELETE.equals(args[1]) && args.length != 3;
+				|| DELETE.equals(args[1]) && args.length != 3
+				|| PRICE.equals(args[1]) && args.length != 4;
 	}
 
 	private static void reload(CommandSender sender) {
