@@ -5,7 +5,8 @@
 - `/airdrop send` delivers to named players or coordinates, with sender-only
   payment, explicit cost exemption, and recipient notifications.
 - Remote terrain loads asynchronously after permission and admission checks.
-  New generation is disabled by default; attempts, concurrency, and preparation
+  New generation is disabled by default and requires the ticking neighborhood
+  to fit inside the world border; attempts, concurrency, and preparation
   time are bounded. Remote crates retain their destination through landing.
 - Extension API `2.0.0` moves request events after provisional admission and
   terrain resolution. Early rejections have no context or lifecycle events.

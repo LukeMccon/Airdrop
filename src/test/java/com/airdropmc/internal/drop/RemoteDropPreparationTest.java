@@ -396,6 +396,27 @@ class RemoteDropPreparationTest {
 		assertEquals(0, world.tickets);
 	}
 
+	@Test
+	void generationRejectsANeighborhoodCrossingTheBorderBeforeBackendWork() {
+		Airdrop.getConfiguration().getConfig().set("drop.remote-loading.generate-new-chunks", true);
+		world.getWorldBorder().setSize(100);
+		DropHandle handle = coordinator.requestSystemDrop(new Location(world, 40, 200, 0), "starter", quiet());
+		assertEquals(DropRejectionReason.OUTSIDE_WORLD_BORDER, rejected(handle).rejection().reason());
+		assertTrue(world.loads.isEmpty());
+		assertEquals(0, world.tickets);
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().falling());
+	}
+
+	@Test
+	void generatedOnlyDeliveryNearTheBorderDoesNotRequireAnInteriorNeighborhood() {
+		world.getWorldBorder().setSize(100);
+		DropHandle handle = coordinator.requestSystemDrop(new Location(world, 40, 200, 0), "starter", quiet());
+		assertFalse(handle.spawn().toCompletableFuture().isDone());
+		world.completeTicking(0);
+		server.getScheduler().performOneTick();
+		assertInstanceOf(DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().getNow(null));
+	}
+
 	private DropHandle request(int x) {
 		return coordinator.requestSystemDrop(target(x), "starter", quiet());
 	}

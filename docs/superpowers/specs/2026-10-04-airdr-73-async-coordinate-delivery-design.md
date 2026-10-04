@@ -61,7 +61,7 @@ These are conservative starting values, not measured throughput guarantees. Vali
 
 The attempt throttle starts when a remote load is actually submitted, before its result is known. Key player attempts by UUID. Use one shared throttle key for non-player requests. Expire old entries so the map cannot grow indefinitely.
 
-Cost exemption and normal cooldown bypass do not bypass the remote throttle or global cap. Existing falling and landed limits still bound retained delivery chunks after loading finishes. Generation, when enabled, remains subject to all these limits and the world border; asynchronous generation can still consume substantial CPU and disk space.
+Cost exemption and normal cooldown bypass do not bypass the remote throttle or global cap. Existing falling and landed limits still bound retained delivery chunks after loading finishes. Generation, when enabled, requires the entire two-chunk ticking neighborhood to fit inside the world border; recheck that footprint between backend operations if the border moves. It remains subject to all admission and remote limits; asynchronous generation can still consume substantial CPU and disk space.
 
 ## A timeout must not free an unfinished load slot
 

@@ -100,7 +100,7 @@ public enum MessageKey {
 	ERROR_REMOTE_THROTTLED("errors.remote-throttled", "Please wait {seconds} seconds before another remote delivery attempt."),
 	ERROR_REMOTE_TIMEOUT("errors.remote-timeout", "The destination took too long to load. You were not charged."),
 	ERROR_REMOTE_TERRAIN("errors.remote-terrain", "The destination and nearby terrain must already be generated; new terrain generation is disabled."),
-	ERROR_OUTSIDE_BORDER("errors.outside-border", "That destination is outside the world border."),
+	ERROR_OUTSIDE_BORDER("errors.outside-border", "The destination or required nearby terrain is outside the world border."),
 	DROP_PREPARING("drop.preparing", "Preparing the destination for your package…"),
 	ERROR_PACKAGE_NOT_FOUND("errors.package-not-found",
 			"Package {accent}{name}{error} not found. Type {warning}/airdrop{error} and press Tab to see packages you can use, or inspect one with {warning}/airdrop package <name>"),

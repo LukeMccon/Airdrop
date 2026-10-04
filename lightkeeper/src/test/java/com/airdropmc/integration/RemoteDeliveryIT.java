@@ -1,6 +1,5 @@
 package com.airdropmc.integration;
 
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
@@ -21,7 +20,6 @@ import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertion
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** AIRDR-73: real Paper terrain preparation and entity ticking, with no nearby player. */
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class RemoteDeliveryIT {
 	private static final List<String> LANDED = List.of("REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME");
@@ -71,9 +69,32 @@ class RemoteDeliveryIT {
 			SendIT.assertOutcome(framework, offset, LANDED, "LANDED", "CHARGED", "NONE");
 			EconomyIntegrationSupport.assertAccountState(framework, generating.uniqueId(), "89.75", 1, 1, 0);
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 8200, 8200)).contains("generated=true", "tickets=0", "auxiliaries=0");
+			AirdropIntegrationSupport.remoteFixture(framework, "border", world, 10_000, 0);
+			PlayerHandle edge = SendIT.player(framework, world, players, "airdrop.package.premium");
+			EconomyIntegrationSupport.resetAccount(framework, edge.uniqueId(), "100.00");
+			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 5016, 0)).contains("generated=false");
+			int edgeMessages = edge.receivedMessages().size();
+			edge.executeCommand("airdrop send premium 4990 0 " + world.name());
+			eventually(Duration.ofSeconds(10), () -> assertThat(edge.receivedMessages().subList(edgeMessages,
+					edge.receivedMessages().size())).anyMatch(text -> text.contains("outside the world border")));
+			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 4990, 0)).contains("generated=false", "tickets=0");
+			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 5016, 0)).contains("generated=false", "tickets=0");
+			EconomyIntegrationSupport.assertAccountState(framework, edge.uniqueId(), "100.00", 0, 0, 0);
+
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			SendIT.restoreAndCleanup(framework, world, players, configFile, originalConfig);
+			try {
+				for (int coordinate : List.of(4104, 8200)) {
+					world.loadChunk(coordinate >> 4, coordinate >> 4);
+					framework.server().executeCommand(CommandSource.CONSOLE,
+							"airdrop-lightkeeper-block-explode %s %s 81.5 %s 4"
+									.formatted(world.name(), coordinate + 0.5, coordinate + 0.5));
+					AirdropIntegrationSupport.awaitBlock(world,
+							new nl.pim16aap2.lightkeeper.framework.BlockPos(coordinate, 81, coordinate), "minecraft:air");
+				}
+			} finally {
+				SendIT.restoreAndCleanup(framework, world, players, configFile, originalConfig);
+			}
 		}
 	}
 

@@ -36,6 +36,13 @@ final class RemoteChunkLoader {
 	}
 
 	Load load(Location target, UUID caller, BiConsumer<Load, Chunk> ready, Consumer<DropRejection> rejected) {
+		boolean generate = ConfigKeys.canGenerateRemoteChunks();
+		if (generate && !generationFitsBorder(target.getWorld(), target.getBlockX() >> 4, target.getBlockZ() >> 4)) {
+			rejected.accept(DropRejection.of(DropRejectionReason.OUTSIDE_WORLD_BORDER,
+					"Required nearby terrain crosses the world border"));
+			return null;
+		}
+
 		long now = clock.getAsLong();
 		attempts.entrySet().removeIf(entry -> now - entry.getValue().started >= entry.getValue().duration);
 		Attempt previous = attempts.get(caller);
@@ -50,7 +57,7 @@ final class RemoteChunkLoader {
 					"Remote deliveries are busy"));
 			return null;
 		}
-		Load load = new Load(rejected, ConfigKeys.getRemoteLoadTimeoutSeconds());
+		Load load = new Load(rejected, ConfigKeys.getRemoteLoadTimeoutSeconds(), generate);
 		outstanding++;
 		attempts.put(caller, new Attempt(now, Duration.ofSeconds(ConfigKeys.getRemoteAttemptCooldownSeconds()).toNanos()));
 		prepareChunk(load, target.getWorld(), target.getBlockX() >> 4, target.getBlockZ() >> 4,
@@ -75,6 +82,9 @@ final class RemoteChunkLoader {
 				if (Bukkit.getWorld(world.getUID()) != world) {
 					outstanding--;
 					load.reject(DropRejectionReason.INVALID_TARGET, "Destination world unloaded");
+				} else if (load.generate && !generationFitsBorder(world, centerX, centerZ)) {
+					outstanding--;
+					load.reject(DropRejectionReason.OUTSIDE_WORLD_BORDER, "Required nearby terrain crosses the world border");
 				} else if (load.expired()) {
 					outstanding--;
 					load.timeout();
@@ -94,6 +104,16 @@ final class RemoteChunkLoader {
 			outstanding--;
 			load.reject(DropRejectionReason.INVALID_TARGET, "Could not load destination terrain");
 		}
+	}
+
+	private static boolean generationFitsBorder(World world, int centerX, int centerZ) {
+		var border = world.getWorldBorder();
+		Location center = border.getCenter();
+		double halfSize = border.getSize() / 2;
+		return (centerX - 2) * 16.0 >= center.getX() - halfSize
+				&& (centerX + 3) * 16.0 <= center.getX() + halfSize
+				&& (centerZ - 2) * 16.0 >= center.getZ() - halfSize
+				&& (centerZ + 3) * 16.0 <= center.getZ() + halfSize;
 	}
 
 	Runnable retainIfOwned(Chunk chunk) {
@@ -132,11 +152,12 @@ final class RemoteChunkLoader {
 		private final Consumer<DropRejection> rejected;
 		private final long started = clock.getAsLong();
 		private final long timeoutNanos;
-		final boolean generate = ConfigKeys.canGenerateRemoteChunks();
+		final boolean generate;
 		private final BukkitTask deadline;
 		private boolean done;
 
-		Load(Consumer<DropRejection> rejected, int timeoutSeconds) {
+		Load(Consumer<DropRejection> rejected, int timeoutSeconds, boolean generate) {
+			this.generate = generate;
 			this.rejected = rejected;
 			this.timeoutNanos = Duration.ofSeconds(timeoutSeconds).toNanos();
 			this.deadline = plugin.getServer().getScheduler().runTaskLater(plugin, this::timeout, timeoutSeconds * 20L);

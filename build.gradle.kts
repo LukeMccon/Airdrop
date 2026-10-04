@@ -778,7 +778,7 @@ val lightkeeperLanes = listOf(
         doFirst {
             val pluginJar = releaseJar.get().archiveFile.get().asFile.absoluteFile
             val consumerJar = consumerFixtureJar.asFile.absoluteFile
-            commandLine(
+            val mavenArguments = mutableListOf(
                 "./mvnw",
                 "--batch-mode",
                 "--no-transfer-progress",
@@ -787,6 +787,10 @@ val lightkeeperLanes = listOf(
                 "-Dairdrop.jar.path=${pluginJar.path}",
                 "-Dairdrop.consumer.jar.path=${consumerJar.path}"
             )
+            providers.gradleProperty("lightkeeperTests").orNull?.let { selection ->
+                mavenArguments.add("-Dit.test=$selection")
+            }
+            commandLine(mavenArguments)
         }
     }
 }

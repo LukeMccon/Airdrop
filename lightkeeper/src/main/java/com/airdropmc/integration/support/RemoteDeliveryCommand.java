@@ -52,6 +52,9 @@ public final class RemoteDeliveryCommand implements CommandExecutor {
 						+ " generated=" + world.isChunkGenerated(x >> 4, z >> 4)
 						+ " tickets=" + world.getPluginChunkTickets(x >> 4, z >> 4).stream().filter(airdrop::equals).count()
 						+ " auxiliaries=" + auxiliaries);
+			} else if (args[0].equals("border")) {
+				world.getWorldBorder().setSize(x);
+				sender.sendMessage(marker + " status=OK");
 			} else if (args[0].equals("generation")) {
 				Object wrapper = airdrop.getClass().getMethod("getConfiguration").invoke(null);
 				FileConfiguration config = (FileConfiguration) wrapper.getClass().getMethod("getConfig").invoke(wrapper);

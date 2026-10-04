@@ -28,7 +28,7 @@ public enum DropRejectionReason {
 	TARGET_LOAD_TIMEOUT,
 	/** Existing destination and nearby terrain are required when generation is disabled. */
 	TARGET_NOT_GENERATED,
-	/** The centered destination is outside the world's current border. */
+	/** The destination or required generation neighborhood crosses the world's current border. */
 	OUTSIDE_WORLD_BORDER,
 	/** A priced package was requested while economy support is disabled. */
 	ECONOMY_DISABLED,
