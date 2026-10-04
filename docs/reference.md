@@ -680,6 +680,7 @@ state without depending on mutable implementation maps.
 Delivery can be `REJECTED`, `FAILED`, `CANCELLED`, `SHUTDOWN`, or `LANDED`.
 Payment can be `NOT_APPLICABLE`, `REJECTED`, `CHARGED`, `REFUNDED`,
 `REFUND_FAILED`, or `UNKNOWN`. Free and system requests use `NOT_APPLICABLE`.
+Cost-exempt requests also use `NOT_APPLICABLE`, including early target rejections.
 A landed paid request can be `CHARGED`; a failed paid request can report a
 known refund result.
 

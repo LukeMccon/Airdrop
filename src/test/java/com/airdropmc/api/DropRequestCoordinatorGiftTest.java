@@ -162,28 +162,35 @@ class DropRequestCoordinatorGiftTest {
 		}
 	}
 
-	@Test
-	void offlineRecipientIsRejectedBeforePayment() {
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void offlineRecipientIsRejectedBeforePayment(boolean costExempt) {
+		sender.addAttachment(plugin, "airdrop.cost.bypass", costExempt);
 		recipient.disconnect();
 
-		assertEquals(DropRejectionReason.INVALID_TARGET, rejection(gift("paid", false)).rejection().reason());
+		DropHandle handle = gift("paid", false);
+		assertEarlyRejection(handle, DropRejectionReason.INVALID_TARGET, costExempt);
 		assertTrue(economy.affordabilityChecks.isEmpty());
 		assertTrue(economy.withdrawals.isEmpty());
 		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().pending());
 	}
 
-	@Test
-	void blockedRecipientIsRejectedEvenWhenSenderHasClearSky() {
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void blockedRecipientIsRejectedEvenWhenSenderHasClearSky(boolean costExempt) {
+		sender.addAttachment(plugin, "airdrop.cost.bypass", costExempt);
 		world.getBlockAt(20, 110, 30).setType(Material.OAK_LEAVES);
 
-		assertEquals(DropRejectionReason.SKY_NOT_CLEAR, rejection(gift("paid", false)).rejection().reason());
+		assertEarlyRejection(gift("paid", false), DropRejectionReason.SKY_NOT_CLEAR, costExempt);
 		assertTrue(economy.affordabilityChecks.isEmpty());
 		assertTrue(economy.withdrawals.isEmpty());
 		assertTrue(CrateManager.getCrateMap().isEmpty());
 	}
 
-	@Test
-	void unloadedRecipientWorldIsRejectedBeforePayment() {
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void unloadedRecipientWorldIsRejectedBeforePayment(boolean costExempt) {
+		sender.addAttachment(plugin, "airdrop.cost.bypass", costExempt);
 		WorldMock unloaded = server.addSimpleWorld("unloaded_gift_world");
 		Location target = new Location(unloaded, 20, 100, 30);
 		assertTrue(server.unloadWorld(unloaded, false));
@@ -194,7 +201,40 @@ class DropRequestCoordinatorGiftTest {
 		DropHandle handle = DropController.requestSendDrop(sender, staleTarget, "paid", options(), false);
 
 		assertTrue(handle.outcome().toCompletableFuture().isDone());
-		assertEquals(DropRejectionReason.INVALID_TARGET, rejection(handle).rejection().reason());
+		assertEarlyRejection(handle, DropRejectionReason.INVALID_TARGET, costExempt);
+		assertTrue(economy.affordabilityChecks.isEmpty());
+		assertTrue(economy.withdrawals.isEmpty());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void unknownPackagePreservesCapturedCostPolicy(boolean costExempt) {
+		sender.addAttachment(plugin, "airdrop.cost.bypass", costExempt);
+		assertEarlyRejection(gift("missing", false), DropRejectionReason.UNKNOWN_PACKAGE, costExempt);
+		assertTrue(economy.affordabilityChecks.isEmpty());
+		assertTrue(economy.withdrawals.isEmpty());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void sendPermissionDenialPreservesCapturedCostPolicy(boolean costExempt) {
+		sender.addAttachment(plugin, "airdrop.cost.bypass", costExempt);
+		sender.addAttachment(plugin, "airdrop.send", false);
+		assertEarlyRejection(gift("paid", false), DropRejectionReason.INSUFFICIENT_PERMISSION, costExempt);
+		assertTrue(economy.affordabilityChecks.isEmpty());
+		assertTrue(economy.withdrawals.isEmpty());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void unavailableSelfOrdersPreserveCapturedCostPolicy(boolean costExempt) {
+		sender.addAttachment(plugin, "airdrop.cost.bypass", costExempt);
+		var coordinator = new com.airdropmc.internal.drop.DropRequestCoordinator(plugin);
+		assertEarlyRejection(coordinator.requestPlayerDrop(sender, "paid", options()),
+				DropRejectionReason.SERVICE_UNAVAILABLE, costExempt);
+		coordinator.stop();
+		assertEarlyRejection(coordinator.requestPlayerDrop(sender, "paid", options()),
+				DropRejectionReason.SHUTTING_DOWN, costExempt);
 		assertTrue(economy.affordabilityChecks.isEmpty());
 		assertTrue(economy.withdrawals.isEmpty());
 	}
@@ -412,6 +452,18 @@ class DropRequestCoordinatorGiftTest {
 
 	private DropOutcome.Rejected rejection(DropHandle handle) {
 		return assertInstanceOf(DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
+	}
+
+	private void assertEarlyRejection(DropHandle handle, DropRejectionReason reason, boolean costExempt) {
+		DropOutcome.Rejected outcome = rejection(handle);
+		assertEquals(reason, outcome.rejection().reason());
+		PaymentStatus expected = costExempt ? PaymentStatus.NOT_APPLICABLE : PaymentStatus.REJECTED;
+		assertEquals(expected, outcome.payment());
+		assertEquals(expected, assertInstanceOf(DropSpawnResult.NotSpawned.class,
+				handle.spawn().toCompletableFuture().join()).outcome().payment());
+		assertTrue(handle.context().isEmpty());
+		assertTrue(economy.deposits.isEmpty());
+		assertTrue(CrateManager.getCrateMap().isEmpty());
 	}
 
 	private Payment senderPayment() {

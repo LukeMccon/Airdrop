@@ -210,6 +210,8 @@ public final class DropRequestCoordinator {
 			boolean costExempt) {
 		DefaultDropHandle handle = new DefaultDropHandle(descriptor);
 		DropRequestProcess process = new DropRequestProcess(handle);
+		process.payment = costExempt ? PaymentStatus.NOT_APPLICABLE
+				: preResolutionPayment(descriptor.source());
 		processes.put(handle.requestId(), process);
 		publishPendingCount();
 		AirdropLogger.debugRequest(handle.requestId(), AirdropLogger.RequestPhase.CREATED);
@@ -220,13 +222,14 @@ public final class DropRequestCoordinator {
 					: DropRejectionReason.SERVICE_UNAVAILABLE;
 			return reject(process, reason,
 					stopping ? "Airdrop is shutting down" : "Airdrop is not ready",
-					preResolutionPayment(descriptor.source()));
+					process.payment);
 		}
 
 		if (targetedSender != null && (!targetedSender.hasPermission("airdrop.send")
 				|| player == null && !costExempt)) {
 			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
-					"Send requires authorization and a console cost exemption", PaymentStatus.REJECTED);
+					"Send requires authorization and a console cost exemption",
+					costExempt ? PaymentStatus.NOT_APPLICABLE : PaymentStatus.REJECTED);
 		}
 
 		Package pkg;
@@ -237,11 +240,12 @@ public final class DropRequestCoordinator {
 		} catch (PackageNotFoundException failure) {
 			return reject(process, DropRejectionReason.UNKNOWN_PACKAGE,
 					"Unknown package: " + descriptor.requestedPackageName(),
-					preResolutionPayment(descriptor.source()));
+					process.payment);
 		}
+		process.payment = costExempt ? PaymentStatus.NOT_APPLICABLE : paymentFor(descriptor.source(), pkg);
 		if (recipient != null && !recipient.isOnline()) {
 			return reject(process, DropRejectionReason.INVALID_TARGET,
-					"Send recipient is not online", paymentFor(descriptor.source(), pkg));
+					"Send recipient is not online", process.payment);
 		}
 
 		ResolvedDropSettings settings;
@@ -261,10 +265,10 @@ public final class DropRequestCoordinator {
 		} catch (SkyBlocked failure) {
 			handle.publishBlockedSurface(failure.surface);
 			return reject(process, DropRejectionReason.SKY_NOT_CLEAR,
-					"Target is not open to the sky", paymentFor(descriptor.source(), pkg));
+					"Target is not open to the sky", process.payment);
 		} catch (RuntimeException failure) {
 			return reject(process, DropRejectionReason.INVALID_TARGET,
-					"Could not resolve the drop target", paymentFor(descriptor.source(), pkg));
+					"Could not resolve the drop target", process.payment);
 		}
 
 		ResolvedDropContext context = new ResolvedDropContext(
@@ -668,7 +672,7 @@ public final class DropRequestCoordinator {
 		}
 		if (process.context == null) {
 			reject(process, DropRejectionReason.SHUTTING_DOWN,
-					"Airdrop is shutting down", preResolutionPayment(process.handle.descriptor().source()));
+					"Airdrop is shutting down", process.payment);
 			return;
 		}
 		finishFailure(process, DeliveryStatus.SHUTDOWN,
