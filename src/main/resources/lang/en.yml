@@ -1,15 +1,15 @@
 prefix: "{primary}[{text}Airdrop{primary}]"
 
 commands:
-  gift-usage: "Usage: /airdrop gift <player> <package>"
-  grant-usage: "Usage: /airdrop grant <player> <package>"
+  send-usage: "Usage: /airdrop send <package> <player> | /airdrop send <package> <x> <z> [world]"
   player-only: "Must be a player to use this command"
   packages-console-only: "Uses inventory GUI, not available to the console"
   package-specify: "Must specify a package name"
   package-example: "Example: /airdrop starter"
   help:
-    gift: "{text}/airdrop gift <player> <package>{primary} — buy a package for an online player"
-    grant: "{text}/airdrop grant <player> <package>{primary} — give an online player a free package"
+    send-console: "{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; console requires cost exemption"
+    send-coordinates: "{text}/airdrop send <package> <x> <z> [world]{primary} — send to the surface; defaults to your current world"
+    send-player: "{text}/airdrop send <package> <player>{primary} — send to an online player; sender pays unless cost is exempt"
     header: "{primary}Airdrop commands"
     drop: "{text}/airdrop <package>{primary} — request a package; press Tab to see packages you can use"
     package: "{text}/airdrop package <name>{primary} — inspect a package"
@@ -36,7 +36,7 @@ packages:
   create-example: "Example: /airdrop package create starter 12.0"
   name-required: "You must provide a name for the package"
   name-invalid: "Package names may only contain letters, numbers, underscores, and dashes"
-  name-reserved: "Package names cannot use reserved names: all, *, package, packages, version, status, reload, gift, grant"
+  name-reserved: "Package names cannot use reserved names: all, *, package, packages, version, status, reload"
   name-subcommand-reserved: "The package names create and delete are reserved because they are package subcommands"
   price-required: "You must provide the package price as a double"
   price-invalid: "Package price must be a finite non-negative number"
@@ -45,10 +45,14 @@ packages:
   capacity-limit: "Cannot configure {accent}{count}{error} packages; the limit is {accent}{limit}{error}. Delete an existing package first."
 
 errors:
+  send-console-cost: "Console sends require airdrop.cost.bypass; console cannot pay for a package."
+  send-console-world: "Console coordinate sends require a trailing world."
+  send-world: "Unknown world {world}; no package was sent."
+  send-coordinates: "Coordinates must be finite absolute X/Z numbers between -30000000 and 30000000 (exclusive)."
   targeted-permission: "You need {permission} permission to use this command."
   targeted-player: "Could not find online player {player}. Use their full name."
   gift-recipient-permission: "{player} cannot receive package {name}; the server requires recipient package permission."
-  targeted-sky: "The sky above {player} must be clear to deliver a package."
+  targeted-sky: "The sky at {player} must be clear to deliver a package."
   cannot-afford: "{accent}{player}{error} cannot afford package price of {accent}{price}{error}"
   insufficient-permissions: "You lack permission to drop that package (requires {accent}{permission}{error})"
   economy-unavailable: "Priced packages are unavailable because economy is disabled or no provider is available. Contact a server administrator."
@@ -72,6 +76,7 @@ errors:
   drop-shutting-down: "Airdrops are unavailable while the plugin is shutting down"
 
 drop:
+  requested-cost: "Request {request_id} for {name} accepted for processing; {cost}."
   charged: "{accent}${amount}{primary} has been taken from your account"
   incoming: "Your {accent}{name}{primary} package is on its way."
   incoming-charged: "Your {accent}{name}{primary} package is on its way. {accent}${amount}{primary} has been taken from your account."
@@ -120,9 +125,11 @@ system:
   status-info: "{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Plugin: {accent}{plugin_version}\n{text}  Extension API: {accent}{extension_api_version}\n{text}  Paper compatibility: {accent}{paper_version}\n{text}  Java compatibility: {accent}{java_version}\n{text}  Readiness: {accent}{readiness}\n{text}  Economy: {accent}{economy}{text} (provider: {accent}{economy_provider}{text})\n{text}  Packages: {accent}{package_count}{text} (revision {accent}{package_revision}{text})\n{text}  Pending requests: {accent}{pending_count}\n{text}  Falling drops: {accent}{falling_count}{text} / {accent}{max_falling}\n{text}  Landed drops: {accent}{landed_count}{text} / {accent}{max_landed}\n{text}  Diagnostic: {accent}{diagnostic_category}{diagnostic}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Docs: {accent}{docs_url}"
 
 targeted:
-  action-gift: "Gift"
-  action-grant: "Grant"
-  requested: "{action} request {request_id} for {name} at {player}'s location accepted for processing."
+  cost-paid: "cost ${amount} from your account"
+  cost-zero: "free package ($0)"
+  cost-exempt: "cost exempt (airdrop.cost.bypass)"
+  action-send: "Send"
+  requested: "{action} request {request_id} for {name} at {player} accepted for processing; {cost}."
   spawned: "{action} request {request_id}: {name} is on its way to {player}; no payment was taken."
   spawned-charged: "{action} request {request_id}: {name} is on its way to {player}. ${amount} was taken from your account."
   landed: "{action} request {request_id}: {name} for {player} landed at X: {x}, Y: {y}, Z: {z} in {world}."

@@ -61,6 +61,8 @@ class CommittedLandingShutdownTest {
 				return false;
 			}
 		});
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
 		world = server.addSimpleWorld("committed_landing_world");
 		plugin = (Airdrop) server.getPluginManager().loadPlugin(Airdrop.class, new Object[0]);
 		Files.createDirectories(plugin.getDataFolder().toPath());

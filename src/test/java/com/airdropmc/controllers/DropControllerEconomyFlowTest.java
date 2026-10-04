@@ -72,6 +72,9 @@ class DropControllerEconomyFlowTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
 		world = server.addSimpleWorld("economy_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);

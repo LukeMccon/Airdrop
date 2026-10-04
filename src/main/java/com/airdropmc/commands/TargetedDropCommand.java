@@ -1,6 +1,9 @@
 package com.airdropmc.commands;
 
 import com.airdropmc.AirdropCommandNames;
+import org.bukkit.Location;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.object.ObjectContents;
 import com.airdropmc.api.DropHandle;
 import com.airdropmc.api.DropOutcome;
 import com.airdropmc.api.DropRequestOptions;
@@ -23,66 +26,116 @@ import org.bukkit.entity.Player;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Paid gifts and privileged free grants to an online player's captured location. */
+/** Targeted sends share player admission and charge only the initiating sender. */
 public final class TargetedDropCommand {
 
 	private TargetedDropCommand() {
 	}
 
 	public static boolean isTargeted(String command) {
-		return AirdropCommandNames.GIFT.equals(command) || AirdropCommandNames.GRANT.equals(command);
+		return AirdropCommandNames.SEND.equals(command);
 	}
 
-	public static void sendUsage(CommandSender sender, String action) {
-		ChatHandler.sendError(sender, AirdropCommandNames.GIFT.equals(action)
-				? MessageKey.COMMANDS_GIFT_USAGE : MessageKey.COMMANDS_GRANT_USAGE);
+	public static void sendUsage(CommandSender sender) {
+		ChatHandler.sendError(sender, MessageKey.COMMANDS_SEND_USAGE);
+	}
+
+	public static boolean canSend(CommandSender sender) {
+		return sender.hasPermission("airdrop.send")
+				&& (sender instanceof Player || sender.hasPermission("airdrop.cost.bypass"));
+	}
+
+	public static boolean isCoordinate(String value) {
+		try {
+			double coordinate = Double.parseDouble(value);
+			return Double.isFinite(coordinate) && Math.abs(coordinate) < 30_000_000;
+		} catch (NumberFormatException invalid) {
+			return false;
+		}
 	}
 
 	public static void onCommand(CommandSender sender, String[] args) {
-		boolean gift = AirdropCommandNames.GIFT.equals(args[0]);
-		if (gift && !(sender instanceof Player)) {
-			ChatHandler.sendError(sender, MessageKey.COMMANDS_PLAYER_ONLY);
-			return;
-		}
-		if (!sender.hasPermission("airdrop." + args[0])) {
+		if (!sender.hasPermission("airdrop.send")) {
 			ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PERMISSION,
-					Map.of("permission", "airdrop." + args[0]));
+					Map.of("permission", "airdrop.send"));
 			return;
 		}
-		Player recipient = Bukkit.getPlayerExact(args[1]);
-		if (recipient == null || !recipient.isOnline()) {
-			ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PLAYER, Map.of("player", args[1]));
+		boolean costExempt = sender.hasPermission("airdrop.cost.bypass");
+		if (!(sender instanceof Player) && !costExempt) {
+			ChatHandler.sendError(sender, MessageKey.ERROR_SEND_CONSOLE_COST);
 			return;
 		}
-		String packageName = args[2];
-		boolean requireRecipientPermission = gift && ConfigKeys.requiresGiftRecipientPermission();
-		if (gift && PackageManager.has(packageName)) {
-			if (!PermissionsHelper.hasPermission((Player) sender, packageName)) {
+		if (args.length < 3 || args.length > 5) {
+			sendUsage(sender);
+			return;
+		}
+		String packageName = args[1];
+		Player recipient = args.length == 3 ? Bukkit.getPlayerExact(args[2]) : null;
+		Location destination;
+		String destinationName;
+		if (args.length == 3) {
+			if (recipient == null || !recipient.isOnline()) {
+				ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PLAYER, Map.of("player", args[2]));
+				return;
+			}
+			destination = recipient.getLocation();
+			destinationName = recipient.getName();
+		} else {
+			if (!isCoordinate(args[2]) || !isCoordinate(args[3])) {
+				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_COORDINATES);
+				return;
+			}
+			if (args.length == 4 && !(sender instanceof Player)) {
+				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_CONSOLE_WORLD);
+				return;
+			}
+			World world = args.length == 5 ? Bukkit.getWorld(args[4]) : ((Player) sender).getWorld();
+			if (world == null) {
+				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_WORLD, Map.of("world", args[4]));
+				return;
+			}
+			destination = new Location(world, Double.parseDouble(args[2]), world.getMaxHeight() - 1,
+					Double.parseDouble(args[3]));
+			destinationName = args[2] + ", " + args[3] + " in " + world.getName();
+		}
+		boolean requireRecipientPermission = ConfigKeys.requiresGiftRecipientPermission();
+		if (PackageManager.has(packageName)) {
+			if (sender instanceof Player player && !PermissionsHelper.hasPermission(player, packageName)) {
 				ChatHandler.sendError(sender, MessageKey.ERROR_INSUFFICIENT_PERMISSIONS,
 						Map.of("permission", PackageNamePolicy.permissionNode(packageName)));
 				return;
 			}
-			if (requireRecipientPermission && !PermissionsHelper.hasPermission(recipient, packageName)) {
+			if (recipient != null && requireRecipientPermission && !PermissionsHelper.hasPermission(recipient, packageName)) {
 				ChatHandler.sendError(sender, MessageKey.ERROR_GIFT_RECIPIENT_PERMISSION,
-						Map.of("player", recipient.getName(), "name", packageName));
+						Map.of("player", destinationName, "name", packageName));
 				return;
 			}
 		}
 		DropHandle handle;
 		try {
-			handle = gift
-					? DropController.requestGiftDrop((Player) sender, recipient, packageName,
+			handle = recipient != null
+					? DropController.requestSendDrop(sender, recipient, packageName,
 							DropRequestOptions.defaults(), requireRecipientPermission)
-					: DropController.requestSystemDrop(recipient.getLocation(), packageName,
-							DropRequestOptions.defaults());
+					: DropController.requestSendDrop(sender, destination, packageName, DropRequestOptions.defaults());
 		} catch (IllegalStateException unavailable) {
 			ChatHandler.sendError(sender, MessageKey.ERROR_DROP_SHUTTING_DOWN);
 			return;
 		}
+
+		Component senderLabel = sender instanceof Player player
+				? Component.object(ObjectContents.playerHead(player.getUniqueId()))
+						.append(Component.space()).append(Component.text(player.getName()))
+				: Component.text(sender.getName());
+
 		Map<String, String> details = new HashMap<>(Map.of(
-				"action", ChatHandler.get(gift ? MessageKey.TARGETED_ACTION_GIFT : MessageKey.TARGETED_ACTION_GRANT),
-				"request_id", handle.requestId().toString(), "player", recipient.getName(),
+				"action", ChatHandler.get(MessageKey.TARGETED_ACTION_SEND),
+				"request_id", handle.requestId().toString(), "player", destinationName,
 				"sender", sender.getName(), "name", packageName));
+		String amount = handle.context().map(context -> context.airdropPackage().price().toPlainString()).orElse("0");
+		details.put("amount", costExempt ? "0" : amount);
+		details.put("cost", ChatHandler.get(costExempt ? MessageKey.TARGETED_COST_EXEMPT
+				: "0".equals(amount) || new java.math.BigDecimal(amount).signum() == 0
+						? MessageKey.TARGETED_COST_ZERO : MessageKey.TARGETED_COST_PAID, Map.of("amount", amount)));
 		if (!handle.outcome().toCompletableFuture().isDone() && canNotify(sender)) {
 			ChatHandler.send(sender, MessageKey.TARGETED_REQUESTED, details);
 		}
@@ -96,8 +149,8 @@ public final class TargetedDropCommand {
 				ChatHandler.send(sender, spawned.payment() == PaymentStatus.CHARGED
 						? MessageKey.TARGETED_SPAWNED_CHARGED : MessageKey.TARGETED_SPAWNED, details);
 			}
-			if (!recipient.equals(sender) && recipient.isOnline()) {
-				ChatHandler.send(recipient, MessageKey.TARGETED_RECIPIENT_INCOMING, details);
+			if (recipient != null && !recipient.equals(sender) && recipient.isOnline()) {
+				ChatHandler.sendWithSender(recipient, MessageKey.TARGETED_RECIPIENT_INCOMING, details, senderLabel);
 			}
 		});
 		handle.outcome().thenAccept(outcome -> {
@@ -111,21 +164,21 @@ public final class TargetedDropCommand {
 				if (canNotify(sender)) {
 					ChatHandler.send(sender, MessageKey.TARGETED_LANDED, details);
 				}
-				if (!recipient.equals(sender) && recipient.isOnline()) {
-					ChatHandler.send(recipient, MessageKey.TARGETED_RECIPIENT_LANDED, details);
+				if (recipient != null && !recipient.equals(sender) && recipient.isOnline()) {
+					ChatHandler.sendWithSender(recipient, MessageKey.TARGETED_RECIPIENT_LANDED, details, senderLabel);
 				}
 			} else if (canNotify(sender)) {
 				if (outcome instanceof DropOutcome.Rejected rejected) {
 					ChatHandler.sendError(sender, MessageKey.TARGETED_REJECTED, details);
 					if (rejected.rejection().reason() == DropRejectionReason.SKY_NOT_CLEAR) {
 						ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_SKY, details);
-					} else if (gift && rejected.rejection().reason() == DropRejectionReason.INSUFFICIENT_PERMISSION
-							&& !sender.hasPermission("airdrop.gift")) {
+					} else if (rejected.rejection().reason() == DropRejectionReason.INSUFFICIENT_PERMISSION
+							&& !sender.hasPermission("airdrop.send")) {
 						ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PERMISSION,
-								Map.of("permission", "airdrop.gift"));
-					} else if (gift && rejected.rejection().reason() == DropRejectionReason.INSUFFICIENT_PERMISSION
-							&& requireRecipientPermission
-							&& PermissionsHelper.hasPermission((Player) sender, packageName)
+								Map.of("permission", "airdrop.send"));
+					} else if (rejected.rejection().reason() == DropRejectionReason.INSUFFICIENT_PERMISSION
+							&& recipient != null && requireRecipientPermission
+							&& (!(sender instanceof Player player) || PermissionsHelper.hasPermission(player, packageName))
 							&& !PermissionsHelper.hasPermission(recipient, packageName)) {
 						ChatHandler.sendError(sender, MessageKey.ERROR_GIFT_RECIPIENT_PERMISSION, details);
 					} else {

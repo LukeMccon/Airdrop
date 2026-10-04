@@ -20,6 +20,20 @@ lets other plugins request drops and follow delivery outcomes.
 - Root help and tab completion show commands and packages available to the
   sender. Package deletion suggests existing package names.
 
+## Send packages to players or coordinates
+
+- AIRDR-73: `/airdrop send <package> <player>` and
+  `/airdrop send <package> <x> <z> [world]` replace the unshipped gift/grant commands.
+  Player coordinates default to the caller's world; console requires a world.
+- `airdrop.send` defaults to true. `airdrop.cost.bypass` defaults to false and
+  exempts the sender from payment for targeted sends and self-orders; admin
+  authority alone does not make purchases free. Console requires both permissions.
+- Free player sends retain package access, recipient eligibility, cooldown,
+  pending-request, capacity, and protected landing checks. Recipient permission
+  checks apply only to named targets. Failed charged requests refund the original payer.
+- Named recipients see who sent their package, including an inline player head,
+  once it spawns. Destinations remain captured and crates remain public.
+
 ## LuckPerms is now optional
 
 - LuckPerms is now optional. Airdrop uses standard Bukkit permissions when it

@@ -64,6 +64,9 @@ class AirdropEconomyLifecycleTest {
 	@BeforeEach
 	void setUp() {
 		server = MockBukkit.mock();
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
 		registrar = MockBukkit.createMockPlugin("EconomyRegistrar");
 	}
 

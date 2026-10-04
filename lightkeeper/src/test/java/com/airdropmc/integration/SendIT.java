@@ -43,17 +43,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** AIRDR-73: command delivery on Paper, without claims about native player item transfer. */
 @FreshServer
 @ExtendWith(LightkeeperExtension.class)
-class GiftGrantIT {
+class SendIT {
 	private static final String PREMIUM_PERMISSION = "airdrop.package.premium";
-	private static final String GIFT_PERMISSION = "airdrop.gift";
-	private static final String GRANT_PERMISSION = "airdrop.grant";
+	private static final String SEND_PERMISSION = "airdrop.send";
+	private static final String COST_PERMISSION = "airdrop.cost.bypass";
 	private static final BlockPos CALLER_POSITION = new BlockPos(32, BARREL_Y, 0);
 	private static final List<String> LANDED_SEQUENCE =
 			List.of("REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME");
 
 	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
-	void defaultGiftChargesOnlySenderAndLandsPublicCrateAtRecipientSnapshot(
+	void defaultSendChargesOnlySenderAndLandsPublicCrateAtRecipientSnapshot(
 			ILightkeeperFramework framework) throws Exception {
 		AirdropIntegrationSupport.awaitReady(framework);
 		Path configFile = configFile(framework);
@@ -66,7 +66,7 @@ class GiftGrantIT {
 			PlayerHandle sender = player(framework, world, players, PREMIUM_PERMISSION);
 			moveToCallerPlatform(sender, world);
 			PlayerHandle recipient = player(framework, world, players);
-			assertThat(sender.permissions().has(GIFT_PERMISSION)).as("gift is enabled by default").isTrue();
+			assertThat(sender.permissions().has(SEND_PERMISSION)).as("send is enabled by default").isTrue();
 			assertThat(recipient.permissions().has(PREMIUM_PERMISSION)).isFalse();
 			resetAccount(framework, sender.uniqueId(), "100.00");
 			resetAccount(framework, recipient.uniqueId(), "7.00");
@@ -77,13 +77,13 @@ class GiftGrantIT {
 				int offset = framework.server().output().size();
 				int senderMessages = sender.receivedMessages().size();
 				int recipientMessages = recipient.receivedMessages().size();
-				sender.executeCommand("airdrop gift " + recipient.name() + " premium");
+				sender.executeCommand("airdrop send premium " + recipient.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				// Moving after spawn must not retarget the physical crate.
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
 				var outcome = assertOutcome(framework, offset, LANDED_SEQUENCE, "LANDED", "CHARGED", "NONE");
-				String request = "Gift request " + outcome.requestId();
+				String request = "Send request " + outcome.requestId();
 				awaitMessage(sender, senderMessages, request + ": premium is on its way to "
 						+ recipient.name() + ". $10.25 was taken from your account.");
 				awaitMessage(sender, senderMessages, request + ": premium for " + recipient.name()
@@ -148,7 +148,7 @@ class GiftGrantIT {
 				 var landings = framework.events().capture(LAND_EVENT)) {
 				int rejectedOffset = framework.server().output().size();
 				int messages = sender.receivedMessages().size();
-				sender.executeCommand("airdrop gift " + recipient.name() + " premium");
+				sender.executeCommand("airdrop send premium " + recipient.name());
 				awaitMessage(sender, messages, recipient.name()
 						+ " cannot receive package premium; the server requires recipient package permission.");
 				assertThat(AirdropIntegrationSupport.consumerMarkers(framework, rejectedOffset)).isEmpty();
@@ -160,7 +160,7 @@ class GiftGrantIT {
 
 				recipient.permissions().grant(PREMIUM_PERMISSION);
 				int retryOffset = framework.server().output().size();
-				sender.executeCommand("airdrop gift " + recipient.name() + " premium");
+				sender.executeCommand("airdrop send premium " + recipient.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -179,7 +179,7 @@ class GiftGrantIT {
 
 	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
-	void explicitGrantDenialBlocksAdminButDelegatedGrantIgnoresPriceProviderAndPackageAccess(
+	void explicitSendDenialBlocksAdminButCostExemptSendPreservesEligibility(
 			ILightkeeperFramework framework) throws Exception {
 		AirdropIntegrationSupport.awaitReady(framework);
 		Path configFile = configFile(framework);
@@ -193,7 +193,7 @@ class GiftGrantIT {
 			PlayerHandle sender = player(framework, world, players, "airdrop.admin");
 			moveToCallerPlatform(sender, world);
 			PlayerHandle recipient = player(framework, world, players);
-			sender.permissions().revoke(GRANT_PERMISSION);
+			sender.permissions().revoke(SEND_PERMISSION);
 			resetAccount(framework, sender.uniqueId(), "0.00");
 			resetAccount(framework, recipient.uniqueId(), "7.00");
 
@@ -202,23 +202,24 @@ class GiftGrantIT {
 				 var landings = framework.events().capture(LAND_EVENT)) {
 				int rejectedOffset = framework.server().output().size();
 				int messages = sender.receivedMessages().size();
-				sender.executeCommand("airdrop grant " + recipient.name() + " premium");
-				awaitMessage(sender, messages, "You need airdrop.grant permission to use this command.");
+				sender.executeCommand("airdrop send premium " + recipient.name());
+				awaitMessage(sender, messages, "You need airdrop.send permission to use this command.");
 				assertThat(AirdropIntegrationSupport.consumerMarkers(framework, rejectedOffset)).isEmpty();
 				assertThat(operations.getCapturedEvents()).isEmpty();
 				assertThat(drops.getCapturedEvents()).isEmpty();
 
-				sender.permissions().revoke("airdrop.admin").grant(GRANT_PERMISSION);
-				assertThat(sender.permissions().has(PREMIUM_PERMISSION)).isFalse();
-				assertThat(recipient.permissions().has(PREMIUM_PERMISSION)).isFalse();
+				sender.permissions().revoke("airdrop.admin").grant(SEND_PERMISSION).grant(COST_PERMISSION).grant(PREMIUM_PERMISSION);
+				recipient.permissions().grant(PREMIUM_PERMISSION);
+				assertThat(sender.permissions().has(PREMIUM_PERMISSION)).isTrue();
+				assertThat(recipient.permissions().has(PREMIUM_PERMISSION)).isTrue();
 				int offset = framework.server().output().size();
 				int senderMessages = sender.receivedMessages().size();
-				sender.executeCommand("airdrop grant " + recipient.name() + " premium");
+				sender.executeCommand("airdrop send premium " + recipient.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
 				var outcome = assertOutcome(framework, offset, LANDED_SEQUENCE, "LANDED", "NOT_APPLICABLE", "NONE");
-				awaitMessage(sender, senderMessages, "Grant request " + outcome.requestId()
+				awaitMessage(sender, senderMessages, "Send request " + outcome.requestId()
 						+ ": premium is on its way to " + recipient.name() + "; no payment was taken.");
 				assertLanding(landings.getCapturedEvents().getFirst(), world);
 				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
@@ -232,7 +233,46 @@ class GiftGrantIT {
 		}
 	}
 
-	private static Path configFile(ILightkeeperFramework framework) {
+	@Test
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	void paidCoordinatesChargeInitiatorAndLandAtCapturedSurface(ILightkeeperFramework framework) throws Exception {
+		AirdropIntegrationSupport.awaitReady(framework);
+		Path configFile = configFile(framework);
+		byte[] originalConfig = Files.readAllBytes(configFile);
+		List<PlayerHandle> players = new ArrayList<>();
+		WorldHandle world = null;
+		try {
+			GuiReloadIntegrationSupport.enableEconomyProvider(framework);
+			requireRecipientPermission(framework, configFile);
+			world = createWorld(framework);
+			PlayerHandle sender = player(framework, world, players, PREMIUM_PERMISSION);
+			moveToCallerPlatform(sender, world);
+			resetAccount(framework, sender.uniqueId(), "100.00");
+			try (var drops = framework.events().capture(DROP_EVENT);
+				 var landings = framework.events().capture(LAND_EVENT)) {
+				// A malformed destination cannot become a paid self-order.
+				int invalidMessages = sender.receivedMessages().size();
+				sender.executeCommand("airdrop send premium NaN 0 " + world.name());
+				awaitMessage(sender, invalidMessages, "Coordinates must be finite absolute X/Z");
+				assertAccountState(framework, sender.uniqueId(), "100.00", 0, 0, 0);
+				assertThat(drops.getCapturedEvents()).isEmpty();
+				int offset = framework.server().output().size();
+				sender.executeCommand("airdrop send premium 0 0 " + world.name());
+				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
+				AirdropIntegrationSupport.moveAway(sender, world);
+				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
+				assertOutcome(framework, offset, LANDED_SEQUENCE, "LANDED", "CHARGED", "NONE");
+				assertLanding(landings.getCapturedEvents().getFirst(), world);
+				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
+				assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
+			}
+			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
+		} finally {
+			restoreAndCleanup(framework, world, players, configFile, originalConfig);
+		}
+	}
+
+	static Path configFile(ILightkeeperFramework framework) {
 		return framework.server().pluginDataDirectory("Airdrop").resolve("config.yml");
 	}
 
@@ -248,13 +288,13 @@ class GiftGrantIT {
 		GuiReloadIntegrationSupport.reloadSuccessfully(framework);
 	}
 
-	private static WorldHandle createWorld(ILightkeeperFramework framework) {
+	static WorldHandle createWorld(ILightkeeperFramework framework) {
 		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
 		world.setBlockAt(new BlockPos(CALLER_POSITION.x(), BARREL_Y - 1, CALLER_POSITION.z()), "minecraft:stone");
 		return world;
 	}
 
-	private static PlayerHandle player(ILightkeeperFramework framework, WorldHandle world,
+	static PlayerHandle player(ILightkeeperFramework framework, WorldHandle world,
 			List<PlayerHandle> players, String... permissions) {
 		// Legacy bots capture real outbound chat; the pinned full-login path does not.
 		PlayerHandle player = framework.bots().builder().withRandomName()
@@ -263,7 +303,7 @@ class GiftGrantIT {
 		return player;
 	}
 
-	private static void moveToCallerPlatform(PlayerHandle player, WorldHandle world) {
+	static void moveToCallerPlatform(PlayerHandle player, WorldHandle world) {
 		player.teleport(world, CALLER_POSITION.x() + 0.5, BARREL_Y, CALLER_POSITION.z() + 0.5);
 	}
 
@@ -297,7 +337,7 @@ class GiftGrantIT {
 		assertThat(event.value("isSuccessful")).isEqualTo(new PBool(true));
 	}
 
-	private static AirdropIntegrationSupport.ConsumerMarker assertOutcome(ILightkeeperFramework framework, int offset,
+	static AirdropIntegrationSupport.ConsumerMarker assertOutcome(ILightkeeperFramework framework, int offset,
 			List<String> sequence, String delivery, String payment, String reason) {
 		var markers = AirdropIntegrationSupport.awaitConsumerMarkers(framework, offset, sequence);
 		AirdropIntegrationSupport.assertCorrelatedPrimaryThreadSequence(markers);
@@ -308,7 +348,7 @@ class GiftGrantIT {
 		return outcome;
 	}
 
-	private static void restoreAndCleanup(ILightkeeperFramework framework, WorldHandle world,
+	static void restoreAndCleanup(ILightkeeperFramework framework, WorldHandle world,
 			List<PlayerHandle> players, Path configFile, byte[] originalConfig) throws Exception {
 		List<Throwable> failures = new ArrayList<>();
 		try {
@@ -348,7 +388,7 @@ class GiftGrantIT {
 		}
 		assertThat(Files.readAllBytes(configFile)).isEqualTo(originalConfig);
 		if (!failures.isEmpty()) {
-			AssertionError failure = new AssertionError("Gift/grant fixture cleanup failed");
+			AssertionError failure = new AssertionError("Send fixture cleanup failed");
 			failures.forEach(failure::addSuppressed);
 			throw failure;
 		}

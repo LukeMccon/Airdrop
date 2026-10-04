@@ -61,4 +61,24 @@ class ChatHandlerSenderRoutingTest {
 
 		verify(sender).sendMessage(anyString());
 	}
+	@Test
+	void recipientNotificationPreservesSenderHeadAndLocalizedText() {
+		org.bukkit.entity.Player recipient = mock(org.bukkit.entity.Player.class);
+		java.util.UUID senderId = java.util.UUID.randomUUID();
+		var label = net.kyori.adventure.text.Component.object(
+				net.kyori.adventure.text.object.ObjectContents.playerHead(senderId))
+				.append(net.kyori.adventure.text.Component.text(" Luke"));
+		ChatHandler.sendWithSender(recipient, MessageKey.TARGETED_RECIPIENT_INCOMING,
+				Map.of("sender", "Luke", "name", "starter", "request_id", "request-123"), label);
+		var capture = org.mockito.ArgumentCaptor.forClass(net.kyori.adventure.text.Component.class);
+		verify(recipient).sendMessage(capture.capture());
+		var message = capture.getValue();
+		org.junit.jupiter.api.Assertions.assertTrue(message.contains(label));
+		String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(message);
+		org.junit.jupiter.api.Assertions.assertTrue(plain.contains("Luke is sending you package starter"), plain);
+		org.junit.jupiter.api.Assertions.assertTrue(plain.contains("request-123"), plain);
+		org.junit.jupiter.api.Assertions.assertTrue(plain.contains("You will not be charged"), plain);
+		org.junit.jupiter.api.Assertions.assertFalse(plain.contains("{sender}"), plain);
+	}
+
 }

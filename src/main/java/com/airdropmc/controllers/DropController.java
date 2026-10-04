@@ -14,6 +14,7 @@ import com.airdropmc.exceptions.SkyNotClearException;
 import com.airdropmc.packages.Package;
 import com.airdropmc.internal.drop.InternalDropRequests;
 import org.bukkit.Location;
+import org.bukkit.command.CommandSender;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.ApiStatus;
@@ -34,10 +35,15 @@ public final class DropController {
 	}
 
 	/** Starts a sender-paid request targeting the recipient's current location. */
-	public static DropHandle requestGiftDrop(Player sender, Player recipient, String packageName,
+	public static DropHandle requestSendDrop(CommandSender sender, Player recipient, String packageName,
 			DropRequestOptions options, boolean requireRecipientPermission) {
-		return requireInternalRequests().requestGiftDrop(
+		return requireInternalRequests().requestSendDrop(
 				sender, recipient, packageName, options, requireRecipientPermission);
+	}
+
+	public static DropHandle requestSendDrop(CommandSender sender, Location location, String packageName,
+			DropRequestOptions options) {
+		return requireInternalRequests().requestSendDrop(sender, location, packageName, options);
 	}
 
 	/** Starts a typed unpaid system request for internal callers. */

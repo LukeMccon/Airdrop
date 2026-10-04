@@ -103,7 +103,8 @@ jobs:
         shell: bash
         run: |
           for manifest in lightkeeper/target/lightkeeper/runtime-manifest.json \
-              lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json; do
+              lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json \
+              lightkeeper/target/lightkeeper/runtime-manifest-send-permissions.json; do
             if [[ -f "$manifest" ]]; then
               mkdir -p lightkeeper/target/lightkeeper-diagnostics
               jq 'del(.agentAuthToken)' "$manifest" \

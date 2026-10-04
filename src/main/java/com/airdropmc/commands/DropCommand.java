@@ -32,6 +32,7 @@ public final class DropCommand {
 			return;
 		}
 		String packageName = args[0];
+		boolean costExempt = player.hasPermission("airdrop.cost.bypass");
 		DropHandle handle;
 		try {
 			handle = DropController.requestPlayerDrop(
@@ -41,6 +42,14 @@ public final class DropCommand {
 			return;
 		}
 
+		if (!handle.outcome().toCompletableFuture().isDone()) {
+			handle.context().ifPresent(context -> ChatHandler.send(player, MessageKey.DROP_REQUESTED_COST, Map.of(
+					"name", context.airdropPackage().name(), "request_id", handle.requestId().toString(),
+					"cost", ChatHandler.get(costExempt ? MessageKey.TARGETED_COST_EXEMPT
+							: context.airdropPackage().price().signum() == 0 ? MessageKey.TARGETED_COST_ZERO
+									: MessageKey.TARGETED_COST_PAID,
+							Map.of("amount", context.airdropPackage().price().toPlainString())))));
+		}
 		handle.spawn().thenAccept(result -> sendSpawnFeedback(player, result));
 		handle.outcome().thenAccept(outcome -> sendOutcomeFeedback(player, handle, outcome));
 	}

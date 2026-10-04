@@ -734,7 +734,8 @@ val resetLightkeeperRuntime = tasks.register<Delete>("resetLightkeeperRuntime") 
     delete(
         "lightkeeper/target/lightkeeper-server",
         "lightkeeper/target/lightkeeper/runtime-manifest.json",
-        "lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json"
+        "lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json",
+        "lightkeeper/target/lightkeeper/runtime-manifest-send-permissions.json"
     )
 }
 
@@ -759,7 +760,8 @@ val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPl
 
 val lightkeeperLanes = listOf(
     "lightkeeperScenarioTest" to "scenarios",
-    "lightkeeperFreshInstallTest" to "fresh-install"
+    "lightkeeperFreshInstallTest" to "fresh-install",
+    "lightkeeperSendPermissionsTest" to "send-permissions"
 ).map { (taskName, profile) ->
     tasks.register<Exec>(taskName) {
         group = "verification"
@@ -789,11 +791,12 @@ val lightkeeperLanes = listOf(
     }
 }
 
-// Both lanes build the same Maven module, so never run them concurrently.
+// All lanes build the same Maven module, so never run them concurrently.
 lightkeeperLanes[1].configure { mustRunAfter(lightkeeperLanes[0]) }
+lightkeeperLanes[2].configure { mustRunAfter(lightkeeperLanes[0], lightkeeperLanes[1]) }
 tasks.register("lightkeeperTest") {
     group = "verification"
-    description = "Runs the scenario and dependency-free fresh-install LightKeeper lanes"
+    description = "Runs the scenario, dependency-free fresh-install, and send-permissions LightKeeper lanes"
     dependsOn(lightkeeperLanes)
 }
 
@@ -1097,19 +1100,19 @@ bukkit {
             description = "Bypasses only the per-player airdrop request cooldown"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
         }
-        register("airdrop.gift") {
-            description = "Allows players to pay for a package dropped at another online player"
+        register("airdrop.send") {
+            description = "Allows targeted package delivery to online players or coordinates"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
         }
-        register("airdrop.grant") {
-            description = "Allows unpaid administrative package drops at an online player"
-            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+        register("airdrop.cost.bypass") {
+            description = "Exempts the initiating sender from package payment"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.FALSE
         }
         register("airdrop.admin") {
             description = "Allows full administrative access to Airdrop commands and GUIs"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
             children = listOf("airdrop.package.all", "airdrop.package.*", "airdrop.cooldown.bypass",
-                "airdrop.gift", "airdrop.grant")
+                "airdrop.send")
         }
     }
 }

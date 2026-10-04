@@ -39,7 +39,8 @@ drop:
 
 # Gifting settings
 gifting:
-  # Whether gift recipients must also have permission to use the selected package
+  # Whether named-player send recipients need package access, including free sends.
+  # Coordinate sends have no named recipient and are unaffected.
   require-recipient-permission: false
 
 # Economy settings

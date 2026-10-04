@@ -77,6 +77,10 @@ final class AirdropIntegrationSupport {
 	}
 
 	static void awaitReady(ILightkeeperFramework framework) {
+		awaitReady(framework, false);
+	}
+
+	static void awaitReady(ILightkeeperFramework framework, boolean withLuckPerms) {
 		eventually(Duration.ofSeconds(20), () ->
 				assertThat(framework.server().output())
 						.anyMatch(line -> line.contains(
@@ -89,7 +93,12 @@ final class AirdropIntegrationSupport {
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
 		assertThat(framework.server().plugin("Vault"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
-		assertThat(framework.server().plugin("LuckPerms")).isEmpty();
+		if (withLuckPerms) {
+			assertThat(framework.server().plugin("LuckPerms"))
+					.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
+		} else {
+			assertThat(framework.server().plugin("LuckPerms")).isEmpty();
+		}
 		awaitConsumerMarkers(framework, 0, List.of("READY"));
 	}
 

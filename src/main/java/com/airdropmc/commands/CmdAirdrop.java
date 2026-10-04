@@ -35,10 +35,7 @@ public class CmdAirdrop implements CommandExecutor {
 			PackageCommand.onCommand(sender, args);
 			return true;
 		}
-		if (TargetedDropCommand.isTargeted(args[0]) && args.length != 3) {
-			TargetedDropCommand.sendUsage(sender, args[0]);
-			return true;
-		}
+
 		if (hasInvalidGenericArgumentCount(args)) {
 			sendHelp(sender);
 			return true;
@@ -69,7 +66,13 @@ public class CmdAirdrop implements CommandExecutor {
 			case AirdropCommandNames.PACKAGE -> PackageCommand.onCommand(sender, args);
 			case AirdropCommandNames.PACKAGES -> PackagesCommand.onCommand(sender);
 			case AirdropCommandNames.RELOAD -> reload(sender);
-			case AirdropCommandNames.GIFT, AirdropCommandNames.GRANT -> TargetedDropCommand.onCommand(sender, args);
+			case AirdropCommandNames.SEND -> {
+				if (args.length == 1 && com.airdropmc.packages.PackageManager.has(AirdropCommandNames.SEND)) {
+					DropCommand.onCommand(sender, args);
+				} else {
+					TargetedDropCommand.onCommand(sender, args);
+				}
+			}
 			default -> DropCommand.onCommand(sender, args);
 		}
 		return true;
@@ -84,12 +87,12 @@ public class CmdAirdrop implements CommandExecutor {
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_PACKAGE, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_VERSION, Map.of());
 
-		if (sender instanceof Player && sender.hasPermission("airdrop.gift")) {
-			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_GIFT, Map.of());
+		if (TargetedDropCommand.canSend(sender)) {
+			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_SEND_PLAYER, Map.of());
+			ChatHandler.sendWithoutPrefix(sender, sender instanceof Player
+					? MessageKey.COMMANDS_HELP_SEND_COORDINATES : MessageKey.COMMANDS_HELP_SEND_CONSOLE, Map.of());
 		}
-		if (sender.hasPermission("airdrop.grant")) {
-			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_GRANT, Map.of());
-		}
+
 		if (!PermissionsHelper.isAdmin(sender)) {
 			return;
 		}
@@ -103,7 +106,7 @@ public class CmdAirdrop implements CommandExecutor {
 
 	private static boolean hasInvalidGenericArgumentCount(String[] args) {
 		if (TargetedDropCommand.isTargeted(args[0])) {
-			return args.length != 3;
+			return false;
 		}
 		if (!AirdropCommandNames.PACKAGE.equals(args[0])) {
 			return args.length != 1;

@@ -42,6 +42,7 @@ import com.airdropmc.packages.PackageManager;
 import com.airdropmc.paid.PaidDropSession;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.command.CommandSender;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.FallingBlock;
@@ -103,25 +104,36 @@ public final class DropRequestCoordinator {
 				requiredPlayer.getUniqueId(),
 				requiredPackage,
 				requested);
-		return begin(descriptor, requiredPlayer, requiredOptions, null, null, false);
+		return begin(descriptor, requiredPlayer, requiredOptions, null, null, false, null,
+				requiredPlayer.hasPermission("airdrop.cost.bypass"));
 	}
 
-	public DropHandle requestGiftDrop(Player sender, Player recipient, String packageName,
+	public DropHandle requestSendDrop(CommandSender sender, Player recipient, String packageName,
 			DropRequestOptions options, boolean requireRecipientPermission) {
-		requirePrimaryThread("requestGiftDrop");
-		Player requiredSender = Objects.requireNonNull(sender, "sender");
-		Player requiredRecipient = Objects.requireNonNull(recipient, "recipient");
-		String requiredPackage = requirePackageName(packageName);
-		DropRequestOptions requiredOptions = Objects.requireNonNull(options, "options");
-		// An offline recipient has no target; retain an initiator location for the rejected descriptor.
-		Location requested = requiredRecipient.isOnline()
-				? requiredRecipient.getLocation()
-				: requiredSender.getLocation();
-		DropRequestDescriptor descriptor = new DropRequestDescriptor(
-				UUID.randomUUID(), DropSource.PLAYER, requiredSender.getUniqueId(),
-				requiredPackage, requested);
-		return begin(descriptor, requiredSender, requiredOptions, null,
-				requiredRecipient, requireRecipientPermission);
+		requirePrimaryThread("requestSendDrop");
+		Objects.requireNonNull(recipient, "recipient");
+		return requestSendDrop(sender, recipient.getLocation(), recipient, packageName, options,
+				requireRecipientPermission);
+	}
+
+	public DropHandle requestSendDrop(CommandSender sender, Location location, String packageName,
+			DropRequestOptions options) {
+		requirePrimaryThread("requestSendDrop");
+		return requestSendDrop(sender, location, null, packageName, options, false);
+	}
+
+	private DropHandle requestSendDrop(CommandSender sender, Location location, Player recipient,
+			String packageName, DropRequestOptions options, boolean requireRecipientPermission) {
+		CommandSender requiredSender = Objects.requireNonNull(sender, "sender");
+		Player player = requiredSender instanceof Player initiator ? initiator : null;
+		// Capture the effective payment policy once; later permission changes cannot change the charge.
+		boolean costExempt = requiredSender.hasPermission("airdrop.cost.bypass");
+		DropRequestDescriptor descriptor = new DropRequestDescriptor(UUID.randomUUID(),
+				player == null ? DropSource.SYSTEM : DropSource.PLAYER,
+				player == null ? null : player.getUniqueId(), requirePackageName(packageName),
+				Objects.requireNonNull(location, "location"));
+		return begin(descriptor, player, Objects.requireNonNull(options, "options"), null, recipient,
+				requireRecipientPermission, requiredSender, costExempt);
 	}
 
 	public DropHandle requestSystemDrop(
@@ -136,7 +148,7 @@ public final class DropRequestCoordinator {
 				null,
 				requiredPackage,
 				requiredLocation);
-		return begin(descriptor, null, requiredOptions, null, null, false);
+		return begin(descriptor, null, requiredOptions, null, null, false, null, false);
 	}
 
 	/** Internal adapter for a package object already resolved by legacy code. */
@@ -149,7 +161,8 @@ public final class DropRequestCoordinator {
 		DropRequestDescriptor descriptor = new DropRequestDescriptor(
 				UUID.randomUUID(), DropSource.PLAYER, requiredPlayer.getUniqueId(),
 				requiredPackage.getName(), requiredPlayer.getLocation());
-		return begin(descriptor, requiredPlayer, requiredOptions, requiredPackage, null, false);
+		return begin(descriptor, requiredPlayer, requiredOptions, requiredPackage, null, false, null,
+				requiredPlayer.hasPermission("airdrop.cost.bypass"));
 	}
 
 	/** Internal adapter for a package object already resolved by legacy code. */
@@ -162,7 +175,7 @@ public final class DropRequestCoordinator {
 		DropRequestDescriptor descriptor = new DropRequestDescriptor(
 				UUID.randomUUID(), DropSource.SYSTEM, null,
 				requiredPackage.getName(), requiredLocation);
-		return begin(descriptor, null, requiredOptions, requiredPackage, null, false);
+		return begin(descriptor, null, requiredOptions, requiredPackage, null, false, null, false);
 	}
 
 	public void stop() {
@@ -192,7 +205,9 @@ public final class DropRequestCoordinator {
 			DropRequestOptions options,
 			Package suppliedPackage,
 			Player recipient,
-			boolean requireRecipientPermission) {
+			boolean requireRecipientPermission,
+			CommandSender targetedSender,
+			boolean costExempt) {
 		DefaultDropHandle handle = new DefaultDropHandle(descriptor);
 		DropRequestProcess process = new DropRequestProcess(handle);
 		processes.put(handle.requestId(), process);
@@ -208,6 +223,12 @@ public final class DropRequestCoordinator {
 					preResolutionPayment(descriptor.source()));
 		}
 
+		if (targetedSender != null && (!targetedSender.hasPermission("airdrop.send")
+				|| player == null && !costExempt)) {
+			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
+					"Send requires authorization and a console cost exemption", PaymentStatus.REJECTED);
+		}
+
 		Package pkg;
 		try {
 			pkg = suppliedPackage != null
@@ -220,7 +241,7 @@ public final class DropRequestCoordinator {
 		}
 		if (recipient != null && !recipient.isOnline()) {
 			return reject(process, DropRejectionReason.INVALID_TARGET,
-					"Gift recipient is not online", paymentFor(descriptor.source(), pkg));
+					"Send recipient is not online", paymentFor(descriptor.source(), pkg));
 		}
 
 		ResolvedDropSettings settings;
@@ -230,10 +251,10 @@ public final class DropRequestCoordinator {
 			settings = settingsResolver.resolve(options);
 			packageSnapshot = ApiModelMapper.packageSnapshot(pkg);
 			Location requested = descriptor.requestedLocation();
-			if (recipient != null) {
+			if (targetedSender != null) {
 				World world = requested.getWorld();
 				if (world == null || Bukkit.getWorld(world.getUID()) != world) {
-					throw new IllegalArgumentException("Gift target world is not loaded");
+					throw new IllegalArgumentException("Send target world is not loaded");
 				}
 			}
 			target = resolveTarget(requested, settings);
@@ -251,7 +272,8 @@ public final class DropRequestCoordinator {
 		process.context = context;
 		handle.publishContext(context);
 		AirdropLogger.debugRequest(handle.requestId(), AirdropLogger.RequestPhase.RESOLVED);
-		process.payment = paymentFor(descriptor.source(), packageSnapshot.price());
+		process.payment = costExempt ? PaymentStatus.NOT_APPLICABLE
+				: paymentFor(descriptor.source(), packageSnapshot.price());
 		AirdropRequestEvent requestEvent = new AirdropRequestEvent(context);
 		process.requestEventPublished = true;
 		Bukkit.getPluginManager().callEvent(requestEvent);
@@ -263,9 +285,9 @@ public final class DropRequestCoordinator {
 					"Request cancelled by an AirdropRequestEvent listener", process.payment);
 		}
 
-		if (recipient != null && !player.hasPermission("airdrop.gift")) {
+		if (targetedSender != null && !targetedSender.hasPermission("airdrop.send")) {
 			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
-					"Sender lacks gift permission", process.payment);
+					"Sender lacks send permission", process.payment);
 		}
 		if (player != null && !PermissionsHelper.hasPermission(player, pkg.getName())) {
 			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
@@ -300,7 +322,7 @@ public final class DropRequestCoordinator {
 							: Optional.empty());
 		}
 
-		if (player == null || packageSnapshot.price().signum() == 0) {
+		if (player == null || costExempt || packageSnapshot.price().signum() == 0) {
 			process.payment = PaymentStatus.NOT_APPLICABLE;
 			spawn(process);
 			return handle;

@@ -1,6 +1,6 @@
 # Real-Paper integration tests
 
-AIRDR-87 extends the pinned LightKeeper suite. Run both lanes from the repository root with Java 21:
+AIRDR-87 extends the pinned LightKeeper suite. Run all lanes from the repository root with Java 21:
 
 ```bash
 ./gradlew --no-daemon --dependency-verification=strict lightkeeperTest
@@ -9,9 +9,10 @@ AIRDR-87 extends the pinned LightKeeper suite. Run both lanes from the repositor
 The task builds the exact runtime and separately compiled public-API consumer JARs, archives previous server logs, resets generated server/manifests, and runs these lanes **serially**:
 
 - `lightkeeperScenarioTest` / Maven profile `scenarios`: deterministic package overlay and fixture plugin named `Vault`. Covers delivery, destruction/hopper behavior, economy results and late confirmations, public API requests, package navigation/editing/reload, paid chunk recovery, and scheduled expiry. LuckPerms is absent; permission tests use Bukkit attachments.
+- `lightkeeperSendPermissionsTest` / Maven profile `send-permissions`: isolated real LuckPerms 5.5.71 coverage for default pricing, package/admin versus global wildcards, explicit send/cost denials, paid and exempt targeted sends, self-orders, and independent cooldown checks.
 - `lightkeeperFreshInstallTest` / Maven profile `fresh-install`: Airdrop and the consumer only, with no Airdrop overlay, Vault, or LuckPerms. Checks generated paid starter data, provider-unavailable rejection, and customized data preservation across a graceful stop/start.
 
-Each Gradle lane can also be run individually. Both depend on the same preparation/reset tasks. Full `clean` removes generated integration outputs; ordinary reruns retain diagnostics. Reports are under `target/failsafe-reports` and `target/lightkeeper-reports`, with fresh-install results in their `fresh-install` subdirectories. Runtime manifests contain authentication tokens: do not publish them. CI exports sanitized copies only.
+Each Gradle lane can also be run individually. All depend on the same preparation/reset tasks. Full `clean` removes generated integration outputs; ordinary reruns retain diagnostics. Reports are under `target/failsafe-reports` and `target/lightkeeper-reports`, with isolated results in their `fresh-install` and `send-permissions` subdirectories. Runtime manifests contain authentication tokens: do not publish them. CI exports sanitized copies only.
 
 ## Assertion boundaries
 
@@ -23,4 +24,4 @@ The pinned adapter captures outbound chat only for legacy/default bots, not full
 
 Economy holds delay confirmation without blocking the fixture executor. A debit or credit may already have happened even when Airdrop reports `UNKNOWN`; tests must assert the ledger separately and observe request-correlated late-result reconciliation before checking for duplicate outcomes or money movement.
 
-The fixture commands and `Vault.jar` are test-only. Never deploy them, or the consumer fixture, to a normal server. This suite does not cover crash recovery, real LuckPerms/provider compatibility matrices, or genuine native player inventory transactions.
+The fixture commands and `Vault.jar` are test-only. Never deploy them, or the consumer fixture, to a normal server. This suite does not cover crash recovery, broader permissions/provider compatibility matrices, or genuine native player inventory transactions.
