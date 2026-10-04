@@ -29,8 +29,8 @@ public enum MessageKey {
 	TARGETED_CHARGED_FAILED("targeted.charged-failed", "{action} request {request_id} for {name} at {player} failed; your payment remains charged. Contact an administrator with this request ID."),
 	TARGETED_REFUND_FAILED("targeted.refund-failed", "{action} request {request_id} for {name} at {player} failed and your payment could not be refunded. Contact an administrator with this request ID."),
 	TARGETED_PAYMENT_UNKNOWN("targeted.payment-unknown", "{action} request {request_id} for {name} at {player} failed; your payment outcome is uncertain. Contact an administrator with this request ID."),
-	TARGETED_RECIPIENT_INCOMING("targeted.recipient-incoming", "{sender} is sending you package {name} at your location when requested (request {request_id}). You will not be charged."),
-	TARGETED_RECIPIENT_LANDED("targeted.recipient-landed", "Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world} (request {request_id})."),
+	TARGETED_RECIPIENT_INCOMING("targeted.recipient-incoming", "{sender} is sending you package {name}. You will not be charged."),
+	TARGETED_RECIPIENT_LANDED("targeted.recipient-landed", "Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world}."),
 
 	PREFIX("prefix", "{primary}[{text}Airdrop{primary}]"),
 

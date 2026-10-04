@@ -178,7 +178,8 @@ permission to validate. Failures refund only actual charges to the original paye
 A failed purchase never becomes a free drop.
 
 Localized messages distinguish processing acceptance, spawn, landing, rejection,
-refunds, and unresolved payment results and include the request UUID. On spawn,
+refunds, and unresolved payment results. Sender feedback includes the request UUID;
+recipient notifications omit it. On spawn,
 a named recipient sees the sender's name and inline player head, the package name,
 and confirmation that they will not be charged. Console senders appear as text.
 The head uses Minecraft's native chat component on supported clients (1.21.9+).

@@ -76,7 +76,7 @@ class ChatHandlerSenderRoutingTest {
 		org.junit.jupiter.api.Assertions.assertTrue(message.contains(label));
 		String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(message);
 		org.junit.jupiter.api.Assertions.assertTrue(plain.contains("Luke is sending you package starter"), plain);
-		org.junit.jupiter.api.Assertions.assertTrue(plain.contains("request-123"), plain);
+		org.junit.jupiter.api.Assertions.assertFalse(plain.contains("request-123"), plain);
 		org.junit.jupiter.api.Assertions.assertTrue(plain.contains("You will not be charged"), plain);
 		org.junit.jupiter.api.Assertions.assertFalse(plain.contains("{sender}"), plain);
 	}

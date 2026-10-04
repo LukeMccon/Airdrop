@@ -131,8 +131,7 @@ class TargetedDropCommandTest {
 		assertTrue(spawned.contains("$10 was taken from your account"), spawned);
 		String incoming = messages(recipient);
 		assertTrue(incoming.contains("Sender is sending you package starter"), incoming);
-		assertTrue(incoming.contains("at your location when requested"), incoming);
-		assertTrue(incoming.contains(handle.requestId().toString()), incoming);
+		assertFalse(incoming.contains(handle.requestId().toString()), incoming);
 		assertTrue(incoming.contains("You will not be charged"), incoming);
 		assertFalse(incoming.contains("was taken from your account"), incoming);
 		recipient.teleport(recipient.getLocation().add(100, 0, 100));
@@ -141,8 +140,9 @@ class TargetedDropCommandTest {
 		assertTrue(handle.completeOutcome(new DropOutcome.Landed(context, landed, PaymentStatus.CHARGED)));
 		String senderLanded = messages(sender);
 		String recipientLanded = messages(recipient);
+		assertTrue(senderLanded.contains(handle.requestId().toString()), senderLanded);
+		assertFalse(recipientLanded.contains(handle.requestId().toString()), recipientLanded);
 		for (String feedback : List.of(senderLanded, recipientLanded)) {
-			assertTrue(feedback.contains(handle.requestId().toString()), feedback);
 			assertTrue(feedback.contains("X: 8, Y: 65, Z: -4 in targeted_world"), feedback);
 			assertFalse(feedback.contains("was taken from your account"), feedback);
 		}

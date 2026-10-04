@@ -89,8 +89,9 @@ class SendIT {
 				awaitMessage(sender, senderMessages, request + ": premium for " + recipient.name()
 						+ " landed at X: 0, Y: 81, Z: 0 in " + world.name() + ".");
 				awaitMessage(recipient, recipientMessages, sender.name()
-						+ " is sending you package premium at your location when requested (request "
-						+ outcome.requestId() + "). You will not be charged.");
+						+ " is sending you package premium. You will not be charged.");
+				awaitMessage(recipient, recipientMessages, sender.name()
+						+ " landed at X: 0, Y: 81, Z: 0 in " + world.name() + ".");
 				assertLanding(landings.getCapturedEvents().getFirst(), world);
 				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
 				AirdropIntegrationSupport.awaitBlock(world, CALLER_POSITION, "minecraft:air");

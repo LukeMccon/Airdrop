@@ -139,5 +139,5 @@ targeted:
   charged-failed: "{action} request {request_id} for {name} at {player} failed; your payment remains charged. Contact an administrator with this request ID."
   refund-failed: "{action} request {request_id} for {name} at {player} failed and your payment could not be refunded. Contact an administrator with this request ID."
   payment-unknown: "{action} request {request_id} for {name} at {player} failed; your payment outcome is uncertain. Contact an administrator with this request ID."
-  recipient-incoming: "{sender} is sending you package {name} at your location when requested (request {request_id}). You will not be charged."
-  recipient-landed: "Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world} (request {request_id})."
+  recipient-incoming: "{sender} is sending you package {name}. You will not be charged."
+  recipient-landed: "Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world}."
