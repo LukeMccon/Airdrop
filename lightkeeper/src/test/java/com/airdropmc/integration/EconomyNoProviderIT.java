@@ -1,6 +1,5 @@
 package com.airdropmc.integration;
 
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
@@ -21,7 +20,6 @@ import static com.airdropmc.integration.AirdropIntegrationSupport.LAND_EVENT;
 import static com.airdropmc.integration.AirdropIntegrationSupport.PAID_PACKAGE_PERMISSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class EconomyNoProviderIT {
 

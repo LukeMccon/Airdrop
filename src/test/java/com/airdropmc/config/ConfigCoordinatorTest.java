@@ -12,6 +12,8 @@ import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackageMaterializationException;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.scheduler.BukkitTask;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +25,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -464,6 +467,93 @@ class ConfigCoordinatorTest {
 		assertEquals(commitThread, publishThread.get());
 		assertEquals(PackageRegistryCause.CREATE, publishCause.get());
 		assertTrue(publishedBeforeCompletion.get());
+	}
+
+	@Test
+	void repricingPublishesAfterWriteAndSerializesOldPricesFromEachCommittedMutation() throws Exception {
+		MockBukkit.mock();
+		YamlConfiguration source = configurationWithPackages(1);
+		source.set("packages.pkg0.items", List.of(new ItemStack(Material.DIAMOND, 2)));
+		new ConfigFileStore().write(packagesPath(), source);
+		PackageManager.publishPackages(PackageManager.materializePackages(source));
+		Package original = PackageManager.get("pkg0");
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger publications = new AtomicInteger();
+		coordinator = fileCoordinator(mock(LanguageManager.class), mainTasks,
+				ignored -> EconomyProviderRefreshResult.disabled(), candidate -> {
+			assertEquals(PackageRegistryCause.UPDATE, candidate.cause());
+			assertTrue(candidate.refreshBrowser());
+			PackageManager.publishPackages(candidate.packages());
+			publications.incrementAndGet();
+		});
+		var first = coordinator.updatePackagePrice("PKG0", 10.25).toCompletableFuture();
+		var second = coordinator.updatePackagePrice("pkg0", 20).toCompletableFuture();
+		Runnable commit = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(commit);
+		assertFalse(first.isDone());
+		assertSame(original, PackageManager.get("pkg0"));
+		assertEquals(10.25, new ConfigFileStore().read(packagesPath()).getDouble("packages.pkg0.price"));
+		commit.run();
+		assertEquals(new ConfigCoordinator.PackagePriceChange("pkg0", 0, 10.25), first.join());
+		assertEquals(10.25, PackageManager.get("pkg0").getPrice());
+		commit = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(commit);
+		commit.run();
+		assertEquals(new ConfigCoordinator.PackagePriceChange("pkg0", 10.25, 20), second.join());
+		assertEquals(2, publications.get());
+		assertEquals(0, original.getPrice());
+		assertEquals(original.getItems(), PackageManager.get("pkg0").getItems());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"write", "replace", "invalid-price", "invalid-package", "paid-empty"})
+	void repricingFailureRetainsDiskAndLiveSnapshotWithoutPublication(String failureMode) throws Exception {
+		MockBukkit.mock();
+		YamlConfiguration source = configurationWithPackages(1);
+		source.set("packages.pkg0.items", List.of(new ItemStack(Material.DIAMOND)));
+		if (failureMode.equals("paid-empty")) {
+			source.set("packages.pkg0.items", List.of());
+		}
+		PackageManager.publishPackages(PackageManager.materializePackages(source));
+		Package original = PackageManager.get("pkg0");
+		if (failureMode.equals("invalid-package")) {
+			source.set("packages.unrelated.price", "invalid");
+			source.set("packages.unrelated.items", List.of());
+		}
+		new ConfigFileStore().write(packagesPath(), source);
+		String originalYaml = Files.readString(packagesPath());
+		BlockingQueue<Runnable> mainTasks = new LinkedBlockingQueue<>();
+		AtomicInteger commits = new AtomicInteger();
+		AtomicInteger writes = new AtomicInteger();
+		ConfigFileStore store = new ConfigFileStore(
+				path -> Files.readString(path),
+				(path, yaml) -> {
+					writes.incrementAndGet();
+					Files.writeString(path, "partial");
+					if (failureMode.equals("write")) {
+						throw new IOException("disk full");
+					}
+					Files.writeString(path, yaml);
+				},
+				(temporary, target, atomic) -> { throw new IOException("replacement denied"); });
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
+		coordinator = new ConfigCoordinator(plugin, mock(LanguageManager.class), store,
+				Executors.newSingleThreadExecutor(), mainTasks::add, ignored -> mock(BukkitTask.class),
+				ignored -> EconomyProviderRefreshResult.disabled(), ignored -> commits.incrementAndGet());
+		var failed = coordinator.updatePackagePrice("pkg0", failureMode.equals("invalid-price") ? -1 : 5)
+				.toCompletableFuture();
+		Runnable completion = mainTasks.poll(5, TimeUnit.SECONDS);
+		assertNotNull(completion);
+		completion.run();
+		assertThrows(CompletionException.class, failed::join);
+		assertEquals(originalYaml, Files.readString(packagesPath()));
+		assertSame(original, PackageManager.get("pkg0"));
+		assertEquals(0, commits.get());
+		assertEquals(failureMode.equals("write") || failureMode.equals("replace") ? 1 : 0, writes.get());
+		try (var files = Files.list(temporaryDirectory)) {
+			assertFalse(files.anyMatch(path -> path.getFileName().toString().endsWith(".tmp")));
+		}
 	}
 
 	private ConfigCoordinator fileCoordinator(

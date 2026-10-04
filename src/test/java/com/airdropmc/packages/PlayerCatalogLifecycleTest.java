@@ -1,10 +1,15 @@
 package com.airdropmc.packages;
 
 import com.airdropmc.Airdrop;
+import com.airdropmc.api.AirdropApi;
+import com.airdropmc.api.PackageRegistryCause;
+import com.airdropmc.api.event.PackageRegistryChangedEvent;
 import com.airdropmc.helpers.CrateManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
+import org.bukkit.event.Listener;
+import org.bukkit.event.EventHandler;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -23,6 +28,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.locks.LockSupport;
@@ -251,6 +257,58 @@ class PlayerCatalogLifecycleTest {
 		assertTrue(server.getScheduler().getPendingTasks().stream().noneMatch(task -> task.getOwner() == plugin));
 		assertEquals(new ItemStack(Material.EMERALD, 3), reader.getInventory().getItem(0));
 		assertEquals(new ItemStack(Material.EMERALD, 3), browsing.getInventory().getItem(0));
+	}
+
+	@Test
+	void repricingPublishesOneUpdateRefreshesCatalogAndClosesStalePreview() throws Exception {
+		PlayerMock reader = reader();
+		Inventory preview = openPackage(reader);
+		PlayerMock browsing = reader();
+		server.dispatchCommand(browsing, "airdrop packages");
+		Inventory catalog = top(browsing);
+		Package original = PackageManager.get("starter");
+		var api = server.getServicesManager().load(AirdropApi.class);
+		long revision = api.status().packageRevision();
+		List<PackageRegistryChangedEvent> events = new ArrayList<>();
+		server.getPluginManager().registerEvents(new Listener() {
+			@EventHandler
+			public void changed(PackageRegistryChangedEvent event) {
+				events.add(event);
+			}
+		}, plugin);
+		var update = plugin.updatePackagePriceAsync("STARTER", 0).toCompletableFuture();
+		await(update::isDone);
+		assertEquals(original.getPrice(), update.join().oldPrice());
+		server.getScheduler().performOneTick();
+		assertEquals(0, PackageManager.get("starter").getPrice());
+		assertEquals(original.getItems(), PackageManager.get("starter").getItems());
+		assertEquals(revision + 1, api.status().packageRevision());
+		assertEquals(1, events.size());
+		assertEquals(PackageRegistryCause.UPDATE, events.getFirst().change().cause());
+		assertEquals(List.of("starter"), events.getFirst().change().updated().keySet().stream().toList());
+		assertTrue(events.getFirst().change().created().isEmpty());
+		assertTrue(events.getFirst().change().deleted().isEmpty());
+		assertSame(catalog, top(browsing));
+		assertTrue(catalog.getItem(0).getItemMeta().getLore().contains("Free"));
+		assertNotSame(preview, top(reader));
+	}
+
+	@Test
+	void rejectedPriceCandidateLeavesRevisionFileAndPreviewUnchanged() throws Exception {
+		PlayerMock reader = reader();
+		Inventory preview = openPackage(reader);
+		Package original = PackageManager.get("starter");
+		var api = server.getServicesManager().load(AirdropApi.class);
+		long revision = api.status().packageRevision();
+		var path = plugin.getDataFolder().toPath().resolve("packages.yml");
+		String yaml = Files.readString(path);
+		var update = plugin.updatePackagePriceAsync("starter", Double.NaN).toCompletableFuture();
+		await(update::isDone);
+		assertThrows(CompletionException.class, update::join);
+		assertEquals(revision, api.status().packageRevision());
+		assertEquals(yaml, Files.readString(path));
+		assertSame(original, PackageManager.get("starter"));
+		assertSame(preview, top(reader));
 	}
 
 	private PlayerMock reader() {

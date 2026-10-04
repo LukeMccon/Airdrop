@@ -105,6 +105,7 @@ class CmdAirdropHelpTest {
 		assertTrue(help.contains("/airdrop packages"), help);
 		assertFalse(help.contains("/airdrop package create"), help);
 		assertFalse(help.contains("/airdrop package delete"), help);
+		assertFalse(help.contains("/airdrop package price"), help);
 		assertFalse(help.contains("/airdrop reload"), help);
 		assertFalse(help.contains("/airdrop status"), help);
 	}
@@ -124,6 +125,7 @@ class CmdAirdropHelpTest {
 		assertEquals(1, help.lines().filter(line -> line.contains("/airdrop packages")).count(), help);
 		assertTrue(help.contains("/airdrop package create"), help);
 		assertTrue(help.contains("/airdrop package delete"), help);
+		assertTrue(help.contains("/airdrop package price"), help);
 		assertTrue(help.contains("/airdrop reload"), help);
 		assertTrue(help.contains("/airdrop status"), help);
 		assertFalse(help.contains("still starting"), help);
@@ -276,6 +278,7 @@ class CmdAirdropHelpTest {
 					"commands.help.version",
 					"commands.help.admin-create",
 					"commands.help.admin-delete",
+					"commands.help.admin-price",
 					"commands.help.admin-packages",
 					"commands.help.admin-reload",
 					"commands.help.admin-status")) {

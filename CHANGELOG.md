@@ -7,7 +7,8 @@
 - Remote terrain loads asynchronously after permission and admission checks.
   New generation is disabled by default and requires the ticking neighborhood
   to fit inside the world border; attempts, concurrency, and preparation
-  time are bounded. Remote crates retain their destination through landing.
+  time are bounded. All deliveries retain their destination through landing
+  or failure and remove parachute entities before releasing that retention.
 - Extension API `2.0.0` moves request events after provisional admission and
   terrain resolution. Early rejections have no context or lifecycle events.
   See [API migration](docs/development/api-versioning.md#migrating-from-api-1-to-api-2).

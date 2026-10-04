@@ -2,7 +2,6 @@ package com.airdropmc.integration;
 
 import nl.pim16aap2.lightkeeper.framework.BlockPos;
 import nl.pim16aap2.lightkeeper.framework.CapturedEventSnapshot;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.InteractionResult;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
@@ -41,7 +40,6 @@ import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertion
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** AIRDR-73: command delivery on Paper, without claims about native player item transfer. */
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class SendIT {
 	private static final String PREMIUM_PERMISSION = "airdrop.package.premium";
@@ -62,6 +60,10 @@ class SendIT {
 		WorldHandle world = null;
 		try {
 			GuiReloadIntegrationSupport.enableEconomyProvider(framework);
+			// Leave enough fall time to observe retention before the landing callback releases it.
+			Files.writeString(configFile, new String(originalConfig, StandardCharsets.UTF_8)
+					.replace("  height: 8", "  height: 40"), StandardCharsets.UTF_8);
+			GuiReloadIntegrationSupport.reloadSuccessfully(framework);
 			world = createWorld(framework);
 			PlayerHandle sender = player(framework, world, players, PREMIUM_PERMISSION);
 			moveToCallerPlatform(sender, world);
@@ -70,6 +72,14 @@ class SendIT {
 			assertThat(recipient.permissions().has(PREMIUM_PERMISSION)).isFalse();
 			resetAccount(framework, sender.uniqueId(), "100.00");
 			resetAccount(framework, recipient.uniqueId(), "7.00");
+			// Legacy message-capture bots do not provide Paper's real player chunk tickets.
+			PlayerHandle tickingPlayer = framework.bots().builder().withRandomName()
+					.atLocation(world, 0.5, BARREL_Y, 0.5).fullLogin().build();
+			players.add(tickingPlayer);
+			WorldHandle destination = world;
+			eventually(Duration.ofSeconds(10), () -> assertThat(
+					AirdropIntegrationSupport.remoteFixture(framework, "observe", destination, 0, 0))
+					.contains("level=ENTITY_TICKING", "tickets=0"));
 
 			try (var operations = framework.events().capture(OPERATION_EVENT);
 				 var drops = framework.events().capture(DROP_EVENT);
@@ -79,9 +89,15 @@ class SendIT {
 				int recipientMessages = recipient.receivedMessages().size();
 				sender.executeCommand("airdrop send premium " + recipient.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
+				assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 0, 0))
+						.contains("tickets=1");
+				tickingPlayer.remove();
+				players.remove(tickingPlayer);
 				// Moving after spawn must not retarget the physical crate.
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
+				assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 0, 0))
+						.contains("tickets=0");
 				var outcome = assertOutcome(framework, offset, LANDED_SEQUENCE, "LANDED", "CHARGED", "NONE");
 				String request = "Send request " + outcome.requestId();
 				awaitMessage(sender, senderMessages, request + ": premium is on its way to "
@@ -384,7 +400,7 @@ class SendIT {
 				}
 				disableEconomyProvider(framework);
 			} finally {
-				// Restarting a fresh server retains its files: wait for final publication before returning.
+				// Await restored configuration publication before the next method shares this server.
 				GuiReloadIntegrationSupport.reloadSuccessfully(framework);
 			}
 		}

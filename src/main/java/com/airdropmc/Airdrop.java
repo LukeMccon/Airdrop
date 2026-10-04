@@ -298,6 +298,17 @@ public class Airdrop extends JavaPlugin {
 				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}
 
+	public CompletionStage<ConfigCoordinator.PackagePriceChange> updatePackagePriceAsync(String packageName, double price) {
+		ConfigCoordinator coordinator = configurationCoordinator;
+		if (coordinator == null || shuttingDown || !ready) {
+			return unavailableStage();
+		}
+		return observeOperation(
+				coordinator.updatePackagePrice(packageName, price),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
+	}
+
 	public CompletionStage<Boolean> deletePackageAsync(String packageName) {
 		ConfigCoordinator coordinator = configurationCoordinator;
 		if (coordinator == null || shuttingDown || !ready) {

@@ -246,6 +246,23 @@ class RemoteDropPreparationTest {
 	}
 
 	@Test
+	void initiallyTickingDestinationGetsItsOwnTicketUntilLanding() {
+		var chunk = org.mockito.Mockito.spy(world.getChunkAt(100, 100));
+		org.mockito.Mockito.doReturn(Chunk.LoadLevel.ENTITY_TICKING).when(chunk).getLoadLevel();
+		world.ready.add("100:100");
+		world.chunks.put("100:100", chunk);
+		DropHandle handle = request(1600);
+		assertInstanceOf(DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().getNow(null));
+		assertTrue(world.loads.isEmpty(), "Already ticking terrain needs no remote preparation");
+		assertEquals(1, world.tickets, "Delivery must outlive the players keeping its chunk loaded");
+		var falling = CrateManager.getCrateMap().keySet().iterator().next();
+		server.getPluginManager().callEvent(new org.bukkit.event.entity.EntityChangeBlockEvent(falling,
+				handle.context().orElseThrow().landingLocation().getBlock(), org.bukkit.Material.BARREL.createBlockData()));
+		assertInstanceOf(DropOutcome.Landed.class, handle.outcome().toCompletableFuture().getNow(null));
+		assertEquals(0, world.tickets);
+	}
+
+	@Test
 	void laterImmediateRequestSharesAnExistingRemoteTicket() {
 		DropHandle first = request(1600);
 		world.completeTicking(0);

@@ -116,11 +116,6 @@ final class RemoteChunkLoader {
 				&& (centerZ + 3) * 16.0 <= center.getZ() + halfSize;
 	}
 
-	Runnable retainIfOwned(Chunk chunk) {
-		return tickets.containsKey(new ChunkKey(chunk.getWorld().getUID(), chunk.getX(), chunk.getZ()))
-				? retain(chunk) : null;
-	}
-
 	Runnable retain(Chunk chunk) {
 		World world = chunk.getWorld();
 		ChunkKey key = new ChunkKey(world.getUID(), chunk.getX(), chunk.getZ());

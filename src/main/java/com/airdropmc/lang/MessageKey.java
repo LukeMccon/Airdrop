@@ -50,6 +50,10 @@ public enum MessageKey {
 	COMMANDS_HELP_ADMIN_RELOAD("commands.help.admin-reload", "{text}/airdrop reload{primary} — reload configuration"),
 	COMMANDS_HELP_ADMIN_STATUS("commands.help.admin-status", "{text}/airdrop status{primary} — show operational status"),
 
+	COMMANDS_HELP_ADMIN_PRICE("commands.help.admin-price", "{text}/airdrop package price <package> <new-price>{primary} — change a package price"),
+	PACKAGES_PRICE_USAGE("packages.price-usage", "Usage: /airdrop package price <package> <new-price>"),
+	PACKAGES_PRICE_CHANGED("packages.price-changed", "Package {accent}{name}{primary} price changed from {accent}${old_price}{primary} to {accent}${new_price}{primary}"),
+
 	PACKAGES_INFO("packages.info",
 			"{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{text}  Package: {accent}{name}\n{text}  Price: {accent}${price}\n{primary}━━━━━━━━━━━━━━━━━━━━━━━━\n{info}"),
 	PACKAGES_DELETED("packages.deleted", "{accent}{name}{primary} was successfully deleted"),
@@ -69,7 +73,7 @@ public enum MessageKey {
 		PACKAGES_NAME_RESERVED("packages.name-reserved",
 				"Package names cannot use reserved names: all, *, package, packages, version, status, reload"),
 		PACKAGES_NAME_SUBCOMMAND_RESERVED("packages.name-subcommand-reserved",
-				"The package names create and delete are reserved because they are package subcommands"),
+				"The package names create, delete, and price are reserved because they are package subcommands"),
 	PACKAGES_PRICE_REQUIRED("packages.price-required", "You must provide the package price as a double"),
 	PACKAGES_PRICE_INVALID("packages.price-invalid", "Package price must be a finite non-negative number"),
 	PACKAGES_CREATE_OPEN_ERROR("packages.create-open-error", "Unable to open package editor right now"),

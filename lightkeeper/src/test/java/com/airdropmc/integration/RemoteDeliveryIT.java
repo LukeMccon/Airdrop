@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.eventually;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 /** AIRDR-73: real Paper terrain preparation and entity ticking, with no nearby player. */
 @ExtendWith(LightkeeperExtension.class)
@@ -36,7 +37,7 @@ class RemoteDeliveryIT {
 			GuiReloadIntegrationSupport.enableEconomyProvider(framework);
 			AirdropIntegrationSupport.remoteFixture(framework, "prepare", world, 4104, 4104);
 			eventually(Duration.ofSeconds(15), () -> {
-				world.unloadChunk(256, 256);
+				assertThatCode(() -> world.unloadChunk(256, 256)).doesNotThrowAnyException();
 				assertThat(world.isChunkLoaded(256, 256)).isFalse();
 			});
 			PlayerHandle sender = SendIT.player(framework, world, players, "airdrop.package.premium");

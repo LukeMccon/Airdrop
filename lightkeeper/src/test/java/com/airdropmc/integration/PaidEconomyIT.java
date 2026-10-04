@@ -1,7 +1,6 @@
 package com.airdropmc.integration;
 
 import nl.pim16aap2.lightkeeper.framework.CapturedEventSnapshot;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
@@ -27,7 +26,6 @@ import static com.airdropmc.integration.AirdropIntegrationSupport.DROP_EVENT;
 import static com.airdropmc.integration.AirdropIntegrationSupport.LAND_EVENT;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class PaidEconomyIT {
 	private static final String BLOCK_CHANGE_EVENT = "org.bukkit.event.entity.EntityChangeBlockEvent";

@@ -49,6 +49,7 @@ public final class RemoteDeliveryCommand implements CommandExecutor {
 						.filter(entity -> entity instanceof org.bukkit.entity.Chicken || entity instanceof org.bukkit.entity.Slime)
 						.count();
 				sender.sendMessage(marker + " status=OK loaded=" + loaded
+						+ " level=" + (loaded ? world.getChunkAt(x >> 4, z >> 4).getLoadLevel() : "UNLOADED")
 						+ " generated=" + world.isChunkGenerated(x >> 4, z >> 4)
 						+ " tickets=" + world.getPluginChunkTickets(x >> 4, z >> 4).stream().filter(airdrop::equals).count()
 						+ " auxiliaries=" + auxiliaries);

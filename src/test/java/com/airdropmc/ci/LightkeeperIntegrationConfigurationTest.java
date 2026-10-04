@@ -1,13 +1,22 @@
 package com.airdropmc.ci;
 
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LightkeeperIntegrationConfigurationTest {
@@ -251,12 +260,50 @@ class LightkeeperIntegrationConfigurationTest {
 		String workflow = requiredContents(Path.of(".github", "workflows", "ci.yml"));
 
 		assertContains(workflow, "lightkeeper-test:");
-		assertContains(workflow, "./gradlew --no-daemon lightkeeperTest");
+		assertContains(workflow, "./gradlew --no-daemon \"$LIGHTKEEPER_TASK\"");
 		assertContains(workflow, "lightkeeper/target/failsafe-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-diagnostics");
 		assertContains(workflow, "lightkeeper/target/lightkeeper/runtime-manifest.json");
 		assertContains(workflow, "del(.agentAuthToken)");
+	}
+
+	@Test
+	void ciShardsRunEveryIntegrationClassExactlyOnceInIndependentJobs() throws IOException {
+		Map<?, ?> workflow = new Yaml(new SafeConstructor(new LoaderOptions()))
+				.load(requiredContents(Path.of(".github", "workflows", "ci.yml")));
+		Map<?, ?> jobs = (Map<?, ?>) workflow.get("jobs");
+		Map<?, ?> job = (Map<?, ?>) jobs.get("lightkeeper-test");
+		Map<?, ?> strategy = (Map<?, ?>) job.get("strategy");
+		assertNotNull(strategy, "CI must split integration tests into independent matrix jobs");
+		assertEquals(Boolean.FALSE, strategy.get("fail-fast"), "Collect results from every shard");
+		Map<?, ?> matrix = (Map<?, ?>) strategy.get("matrix");
+		List<?> shards = (List<?>) matrix.get("include");
+		assertEquals(4, shards.size());
+		List<String> selectedTests = new ArrayList<>();
+		for (Object entry : shards) {
+			Map<?, ?> shard = (Map<?, ?>) entry;
+			List<String> tests = List.of(shard.get("tests").toString().split(","));
+			selectedTests.addAll(tests);
+			assertEquals(tests.contains("FreshInstallIT")
+					? "lightkeeperFreshInstallTest" : tests.contains("SendPermissionsIT")
+					? "lightkeeperSendPermissionsTest" : "lightkeeperScenarioTest", shard.get("task"));
+			if (tests.contains("FreshInstallIT")) {
+				assertEquals(List.of("FreshInstallIT"), tests, "Fresh install must retain its dependency-free server");
+			}
+		}
+		assertEquals(selectedTests.size(), new HashSet<>(selectedTests).size(), "Shards must not duplicate scenarios");
+		try (var files = Files.list(INTEGRATION_TESTS)) {
+			var integrationClasses = files.map(path -> path.getFileName().toString())
+					.filter(name -> name.endsWith("IT.java"))
+					.map(name -> name.substring(0, name.length() - ".java".length())).sorted().toList();
+			assertEquals(integrationClasses, selectedTests.stream().sorted().toList(), "CI must not omit integration scenarios");
+		}
+		String contents = requiredContents(Path.of(".github", "workflows", "ci.yml"));
+		assertContains(contents, "ORG_GRADLE_PROJECT_lightkeeperTests: ${{ matrix.tests }}");
+		assertContains(contents, "LIGHTKEEPER_TASK: ${{ matrix.task }}");
+		assertContains(contents, "name: lightkeeper-diagnostics-${{ matrix.lane }}");
+		assertContains(requiredContents(Path.of("build.gradle.kts")), "-Dit.test=");
 	}
 
 	@Test

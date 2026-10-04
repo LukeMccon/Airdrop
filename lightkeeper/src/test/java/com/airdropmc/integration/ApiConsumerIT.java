@@ -1,7 +1,6 @@
 package com.airdropmc.integration;
 
 import nl.pim16aap2.lightkeeper.framework.CapturedEventSnapshot;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
@@ -15,6 +14,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +29,6 @@ import static com.airdropmc.integration.EconomyIntegrationSupport.operationsFor;
 import static com.airdropmc.integration.EconomyIntegrationSupport.resetAccount;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class ApiConsumerIT {
 	private static final String EXPECTED_SEQUENCE =
@@ -45,13 +44,15 @@ class ApiConsumerIT {
 				framework, world, PACKAGE_PERMISSION);
 
 		try {
+			var ready = AirdropIntegrationSupport.consumerMarkers(framework, 0).stream()
+					.filter(marker -> "READY".equals(marker.type())).findFirst().orElseThrow();
+			int outputOffset = framework.server().output().size();
 			player.executeCommand("airdrop starter");
-			AirdropIntegrationSupport.awaitConsumerMarkers(
-					framework, 0, FREE_MARKER_TYPES.subList(0, 3));
 
-			List<AirdropIntegrationSupport.ConsumerMarker> markers =
-					AirdropIntegrationSupport.awaitConsumerMarkers(
-							framework, 0, FREE_MARKER_TYPES);
+			List<AirdropIntegrationSupport.ConsumerMarker> markers = new ArrayList<>();
+			markers.add(ready);
+			markers.addAll(AirdropIntegrationSupport.awaitConsumerMarkers(
+					framework, outputOffset, FREE_MARKER_TYPES.subList(1, FREE_MARKER_TYPES.size())));
 			assertThat(markers).as(EXPECTED_SEQUENCE).hasSize(6);
 			AirdropIntegrationSupport.assertCorrelatedPrimaryThreadSequence(markers);
 

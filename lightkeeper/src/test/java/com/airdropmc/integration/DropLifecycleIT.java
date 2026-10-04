@@ -4,7 +4,6 @@ import nl.pim16aap2.lightkeeper.framework.BlockPos;
 import nl.pim16aap2.lightkeeper.framework.BlockSpec;
 import nl.pim16aap2.lightkeeper.framework.CommandResult;
 import nl.pim16aap2.lightkeeper.framework.EventCaptureHandle;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
@@ -28,7 +27,6 @@ import static com.airdropmc.integration.AirdropIntegrationSupport.PACKAGE_PERMIS
 import static com.airdropmc.integration.AirdropIntegrationSupport.PLATFORM_POSITION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class DropLifecycleIT {
 	private static final String BLOCK_CHANGE_EVENT = "org.bukkit.event.entity.EntityChangeBlockEvent";
@@ -96,10 +94,7 @@ class DropLifecycleIT {
 			AirdropIntegrationSupport.awaitNoDropEntities(world);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			if (retryingPlayer != null) {
-				retryingPlayer.remove();
-			}
-			rejectedPlayer.remove();
+			cleanup(framework, world, rejectedPlayer, retryingPlayer);
 		}
 	}
 
@@ -145,10 +140,7 @@ class DropLifecycleIT {
 			assertThat(drops.getCapturedEvents()).hasSize(2);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			if (retryingPlayer != null) {
-				retryingPlayer.remove();
-			}
-			firstPlayer.remove();
+			cleanup(framework, world, firstPlayer, retryingPlayer);
 		}
 	}
 
@@ -194,10 +186,7 @@ class DropLifecycleIT {
 			assertThat(drops.getCapturedEvents()).hasSize(2);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			if (retryingPlayer != null) {
-				retryingPlayer.remove();
-			}
-			firstPlayer.remove();
+			cleanup(framework, world, firstPlayer, retryingPlayer);
 		}
 	}
 
@@ -239,10 +228,20 @@ class DropLifecycleIT {
 			assertThat(landings.getCapturedEvents()).hasSize(2);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			if (retryingPlayer != null) {
-				retryingPlayer.remove();
+			cleanup(framework, world, firstPlayer, retryingPlayer);
+		}
+	}
+
+	private static void cleanup(ILightkeeperFramework framework, WorldHandle world, PlayerHandle... players) {
+		try {
+			// Captures have closed; retire the retry crate before another method reuses the server.
+			AirdropIntegrationSupport.cleanupCrate(framework, world);
+		} finally {
+			for (PlayerHandle player : players) {
+				if (player != null) {
+					player.remove();
+				}
 			}
-			firstPlayer.remove();
 		}
 	}
 

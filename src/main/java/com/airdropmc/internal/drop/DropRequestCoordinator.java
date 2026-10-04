@@ -292,7 +292,7 @@ public final class DropRequestCoordinator {
 		int chunkZ = requested.getBlockZ() >> 4;
 		if (world.isChunkLoaded(chunkX, chunkZ)
 				&& world.getChunkAt(chunkX, chunkZ).getLoadLevel() == Chunk.LoadLevel.ENTITY_TICKING) {
-			process.releaseChunk = remoteChunks.retainIfOwned(world.getChunkAt(chunkX, chunkZ));
+			process.releaseChunk = remoteChunks.retain(world.getChunkAt(chunkX, chunkZ));
 			resolve.run();
 		} else {
 			// Cheap economy readiness avoids terrain work for a payment that cannot begin.

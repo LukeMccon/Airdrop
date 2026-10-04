@@ -1,7 +1,6 @@
 package com.airdropmc.integration;
 
 import nl.pim16aap2.lightkeeper.framework.CommandResult;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.InteractionResult;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
@@ -78,7 +77,6 @@ class StarterDropIT {
 	}
 
 	@Test
-	@FreshServer
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void malformedPackageReloadRetainsStarterAndReportsIndexedFailure(ILightkeeperFramework framework)
 			throws Exception {

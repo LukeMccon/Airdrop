@@ -90,7 +90,7 @@ val generatePluginDescription = tasks.register("generatePluginDescription") {
 			commands:
 			  airdrop-consumer:
 			    description: Console-only public API integration fixture
-			    usage: /airdrop-consumer <snapshot token package|request token player-uuid package>
+			    usage: /airdrop-consumer <snapshot token package|request token player-uuid package|platform token world x y z>
 			""".trimIndent() + "\n",
 			StandardCharsets.UTF_8
 		)

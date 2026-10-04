@@ -123,3 +123,14 @@ API compatibility decisions.
 
 See [the API version policy](development/api-versioning.md) for the supported
 package boundary and compatibility commands.
+
+## Package price command
+
+`/airdrop package price <package> <new-price>` requires `airdrop.admin` and works
+from players, console, and RCON. It preserves package items and uses atomic
+configuration saving. `price` is now a reserved package name in any casing;
+rename an existing package with that name in `packages.yml` and update its
+permission nodes before upgrading. Invalid names reject the entire package
+configuration. New locale entries are `commands.help.admin-price`,
+`packages.price-usage`, and `packages.price-changed` (placeholders `{name}`,
+`{old_price}`, and `{new_price}`).

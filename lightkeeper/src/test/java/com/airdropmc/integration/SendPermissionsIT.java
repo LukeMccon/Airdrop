@@ -1,6 +1,5 @@
 package com.airdropmc.integration;
 
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
@@ -23,7 +22,6 @@ import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertion
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Real LuckPerms effective wildcard/denial checks, isolated from attachment-only scenarios. */
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class SendPermissionsIT {
 	private static final List<String> LANDED = List.of("REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME");

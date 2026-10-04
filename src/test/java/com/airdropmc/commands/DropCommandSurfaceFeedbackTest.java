@@ -113,6 +113,8 @@ class DropCommandSurfaceFeedbackTest {
 	@Test
 	void formatsNegativeSurfaceHeight() {
 		WorldMock underground = new WorldMock(Material.AIR, -64, 320, -64) {
+			@Override public boolean addPluginChunkTicket(int x, int z, org.bukkit.plugin.Plugin owner) { return true; }
+			@Override public boolean removePluginChunkTicket(int x, int z, org.bukkit.plugin.Plugin owner) { return true; }
 			@Override public org.mockbukkit.mockbukkit.world.ChunkMock getChunkAt(int x, int z) {
 				var chunk = org.mockito.Mockito.spy(super.getChunkAt(x, z));
 				org.mockito.Mockito.doReturn(org.bukkit.Chunk.LoadLevel.ENTITY_TICKING).when(chunk).getLoadLevel();

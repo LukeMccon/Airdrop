@@ -99,7 +99,9 @@ final class AirdropIntegrationSupport {
 		} else {
 			assertThat(framework.server().plugin("LuckPerms")).isEmpty();
 		}
-		awaitConsumerMarkers(framework, 0, List.of("READY"));
+		// Startup is shared by every method in the class; earlier requests remain in the log.
+		eventually(Duration.ofSeconds(20), () -> assertThat(consumerMarkers(framework, 0))
+				.filteredOn(marker -> "READY".equals(marker.type())).singleElement());
 	}
 
 	static void enableEconomyProvider(ILightkeeperFramework framework) {
@@ -124,11 +126,7 @@ final class AirdropIntegrationSupport {
 				.build();
 
 		remoteFixture(framework, "prepare", world, LANDING_X, LANDING_Z);
-		for (int x = -2; x <= 2; x++) {
-			for (int z = -2; z <= 2; z++) {
-				world.setBlockAt(new BlockPos(x, PLATFORM_Y, z), "minecraft:stone");
-			}
-		}
+		placeLandingPlatform(framework, world, PLATFORM_POSITION);
 		return world;
 	}
 
@@ -144,6 +142,14 @@ final class AirdropIntegrationSupport {
 				.filter(line -> line.contains(marker)).findFirst().orElseThrow();
 		assertThat(result).contains("status=OK");
 		return result;
+	}
+
+	static void placeLandingPlatform(ILightkeeperFramework framework, WorldHandle world, BlockPos center) {
+		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
+				"airdrop-consumer platform %s %s %d %d %d".formatted(
+						UUID.randomUUID(), world.name(), center.x(), center.y(), center.z()));
+		assertThat(result.success()).as("place landing platform in %s", world.name()).isTrue();
+		assertThat(world.blockTypeAt(center)).as("landing platform was placed").isEqualTo("minecraft:stone");
 	}
 
 	static void keepLandingChunkLoaded(ILightkeeperFramework framework, WorldHandle world) {
