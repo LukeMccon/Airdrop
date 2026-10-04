@@ -16,6 +16,8 @@ import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -245,8 +247,9 @@ class RemoteDropPreparationTest {
 		assertEquals(0, world.tickets);
 	}
 
-	@Test
-	void initiallyTickingDestinationGetsItsOwnTicketUntilLanding() {
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void initiallyTickingDestinationRetainsTheFlyAwayUntilCleanupOrShutdown(boolean shutdown) {
 		var chunk = org.mockito.Mockito.spy(world.getChunkAt(100, 100));
 		org.mockito.Mockito.doReturn(Chunk.LoadLevel.ENTITY_TICKING).when(chunk).getLoadLevel();
 		world.ready.add("100:100");
@@ -259,7 +262,13 @@ class RemoteDropPreparationTest {
 		server.getPluginManager().callEvent(new org.bukkit.event.entity.EntityChangeBlockEvent(falling,
 				handle.context().orElseThrow().landingLocation().getBlock(), org.bukkit.Material.BARREL.createBlockData()));
 		assertInstanceOf(DropOutcome.Landed.class, handle.outcome().toCompletableFuture().getNow(null));
+		assertEquals(1, world.tickets, "Keep the local fly-away animation loaded");
+		assertTrue(world.getEntities().stream().anyMatch(entity -> entity instanceof org.bukkit.entity.Chicken));
+		if (shutdown) coordinator.stop();
+		else server.getScheduler().performTicks(62);
 		assertEquals(0, world.tickets);
+		assertTrue(world.getEntities().stream().noneMatch(entity -> entity instanceof org.bukkit.entity.Chicken
+				|| entity instanceof org.bukkit.entity.Slime));
 	}
 
 	@Test

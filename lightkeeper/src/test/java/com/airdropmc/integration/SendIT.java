@@ -96,8 +96,9 @@ class SendIT {
 				// Moving after spawn must not retarget the physical crate.
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
-				assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 0, 0))
-						.contains("tickets=0");
+				eventually(Duration.ofSeconds(10), () -> assertThat(
+						AirdropIntegrationSupport.remoteFixture(framework, "observe", destination, 0, 0))
+						.contains("tickets=0", "auxiliaries=0"));
 				var outcome = assertOutcome(framework, offset, LANDED_SEQUENCE, "LANDED", "CHARGED", "NONE");
 				String request = "Send request " + outcome.requestId();
 				awaitMessage(sender, senderMessages, request + ": premium is on its way to "

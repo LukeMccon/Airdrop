@@ -74,6 +74,7 @@ public final class DropRequestCoordinator {
 	private final DropSettingsResolver settingsResolver;
 	private final RemoteChunkLoader remoteChunks;
 	private final Map<UUID, DropRequestProcess> processes = new LinkedHashMap<>();
+	private final Map<Runnable, org.bukkit.scheduler.BukkitTask> landedChunkCleanup = new LinkedHashMap<>();
 	private volatile int pendingCount;
 	private boolean accepting;
 	private boolean stopping;
@@ -196,6 +197,11 @@ public final class DropRequestCoordinator {
 		for (DropRequestProcess process : List.copyOf(processes.values())) {
 			stop(process);
 		}
+		for (var entry : List.copyOf(landedChunkCleanup.entrySet())) {
+			entry.getValue().cancel();
+			entry.getKey().run();
+		}
+		landedChunkCleanup.clear();
 	}
 
 	int incompleteCount() {
@@ -575,11 +581,26 @@ public final class DropRequestCoordinator {
 	}
 
 	private void acceptLanded(DropRequestProcess process, Crate crate) {
-		if (process.releaseChunk != null) crate.cleanupParachutes();
 		if (process.phase == DropRequestProcess.Phase.TERMINAL
 				|| process.phase == DropRequestProcess.Phase.LANDED
 				|| process.phase == DropRequestProcess.Phase.REFUNDING) {
 			return;
+		}
+		if (process.remoteLoad != null) {
+			crate.cleanupParachutes();
+		} else if (process.releaseChunk != null) {
+			Runnable release = process.releaseChunk;
+			Runnable cleanup = () -> {
+				crate.cleanupParachutes();
+				release.run();
+			};
+			// The parachute task detects landing within two ticks, then flies away for 60.
+			var task = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+				landedChunkCleanup.remove(cleanup);
+				cleanup.run();
+			}, 62L);
+			landedChunkCleanup.put(cleanup, task);
+			process.releaseChunk = null;
 		}
 		ResolvedDropContext context = Objects.requireNonNull(process.context, "context");
 		LandedAirdropView view = new LandedAirdropView(
