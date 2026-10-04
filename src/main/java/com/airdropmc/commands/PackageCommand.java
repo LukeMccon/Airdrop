@@ -36,6 +36,11 @@ public class PackageCommand {
             return;
         }
 
+		if (Objects.equals(args[1], "price")) {
+			PackageController.pricePackageCommand(sender, args);
+			return;
+		}
+
         String packageName = args[1];
 
         try {

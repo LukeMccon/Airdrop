@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 public final class PackageNamePolicy {
 	private static final Pattern SUPPORTED_CHARACTERS = Pattern.compile("^[A-Za-z0-9_-]+$");
 	private static final Set<String> RESERVED_IDENTITIES = Set.of("all", "*");
-	private static final Set<String> PACKAGE_SUBCOMMAND_IDENTITIES = Set.of("create", "delete");
+	private static final Set<String> PACKAGE_SUBCOMMAND_IDENTITIES = Set.of("create", "delete", "price");
 
 	public enum Rejection {
 		MISSING,

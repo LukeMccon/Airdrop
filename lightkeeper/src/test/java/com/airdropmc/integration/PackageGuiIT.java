@@ -243,6 +243,82 @@ class PackageGuiIT {
 		}
 	}
 
+	@Test
+	@FreshServer
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	void priceCommandPreservesDefinitionsRefreshesCatalogAndRejectsInvalidRequests(
+			ILightkeeperFramework framework) throws Exception {
+		AirdropIntegrationSupport.awaitReady(framework);
+		Path file = packagesFile(framework);
+		byte[] original = Files.readAllBytes(file);
+		var baseline = ConsumerIntegrationSupport.snapshot(framework, "premium");
+		List<PlayerHandle> players = new ArrayList<>();
+		WorldHandle world = null;
+		try {
+			GuiReloadIntegrationSupport.enableEconomyProvider(framework);
+			baseline = ConsumerIntegrationSupport.snapshot(framework, "premium");
+			var unrelated = ConsumerIntegrationSupport.snapshot(framework, "paid");
+			world = AirdropIntegrationSupport.createLandingWorld(framework);
+			PlayerHandle admin = fundedPlayer(framework, world, players, "airdrop.admin");
+			PlayerHandle reader = fundedPlayer(framework, world, players, PREMIUM_PERMISSION);
+			PlayerHandle browsing = fundedPlayer(framework, world, players, PREMIUM_PERMISSION);
+			MenuHandle preview = openPreview(reader, "premium");
+			MenuHandle catalog = openCatalog(browsing);
+			int offset = framework.server().output().size();
+			try (var drops = framework.events().capture(DROP_EVENT);
+				 var operations = framework.events().capture(OPERATION_EVENT)) {
+				int deniedMessages = reader.receivedMessages().size();
+				reader.executeCommand("airdrop package price premium 2");
+				awaitMessage(reader, deniedMessages, "airdrop.admin");
+				for (String args : List.of("premium abc", "premium -1", "premium NaN", "premium Infinity",
+						"premium -Infinity", "premium 1e999", "premium", "", "premium 2 extra", "missing 2")) {
+					int messages = admin.receivedMessages().size();
+					admin.executeCommand("airdrop package price " + args);
+					String feedback = args.startsWith("missing") ? "not found"
+							: args.isEmpty() || args.equals("premium") || args.endsWith("extra")
+							? "Usage: /airdrop package price" : "finite non-negative";
+					awaitMessage(admin, messages, feedback);
+				}
+				assertUnchanged(framework, file, original, baseline, offset);
+				assertReadOnlyPreview(preview, "premium", "$10.25");
+
+				int messages = admin.receivedMessages().size();
+				admin.executeCommand("airdrop package price PrEmIuM 25.5");
+				awaitMessage(admin, messages, "price changed from $10.25 to $25.5");
+				var changed = ConsumerIntegrationSupport.snapshot(framework, "premium");
+				assertThat(changed.revision()).isEqualTo(baseline.revision() + 1);
+				assertThat(changed.name()).isEqualTo(baseline.name());
+				assertThat(changed.price()).isEqualTo("25.5");
+				assertThat(changed.items()).isEqualTo(baseline.items());
+				var other = ConsumerIntegrationSupport.snapshot(framework, "paid");
+				assertThat(other.name()).isEqualTo(unrelated.name());
+				assertThat(other.price()).isEqualTo(unrelated.price());
+				assertThat(other.items()).isEqualTo(unrelated.items());
+				assertThat(ConsumerIntegrationSupport.registryMarkers(framework, offset)).singleElement()
+						.satisfies(line -> assertThat(line).contains("cause=UPDATE", "updated=1", "created=0", "deleted=0"));
+				preview.andWaitForMenuClose(Duration.ofSeconds(10));
+				eventually(Duration.ofSeconds(10), () -> assertThat(itemAt(catalog, 0, CATALOG_SIZE).lore())
+						.contains("$25.5"));
+				assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
+						"airdrop package price premium 0").success()).isTrue();
+				eventually(Duration.ofSeconds(10), () -> assertThat(itemAt(catalog, 0, CATALOG_SIZE).lore())
+						.contains("Free"));
+				assertThat(ConsumerIntegrationSupport.snapshot(framework, "premium").revision())
+						.isEqualTo(baseline.revision() + 2);
+				assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
+						"airdrop package price premium 7").success()).isTrue();
+				eventually(Duration.ofSeconds(10), () -> assertThat(itemAt(catalog, 0, CATALOG_SIZE).lore())
+						.contains("$7.0"));
+				assertThat(ConsumerIntegrationSupport.snapshot(framework, "premium").revision())
+						.isEqualTo(baseline.revision() + 3);
+				assertNoActivity(framework, players, offset, drops.getCapturedEvents(), operations.getCapturedEvents());
+			}
+			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
+		} finally {
+			restoreAndCleanup(framework, players, world, file, original, baseline);
+		}
+	}
+
 	private static PlayerHandle fundedPlayer(ILightkeeperFramework framework, WorldHandle world,
 			List<PlayerHandle> players, String... permissions) {
 		// The default legacy spawn captures received feedback; pinned full-login bots do not.

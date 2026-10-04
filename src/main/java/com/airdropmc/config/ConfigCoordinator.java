@@ -6,6 +6,7 @@ import com.airdropmc.economy.EconomyProviderRefreshResult;
 import com.airdropmc.lang.LanguageManager;
 import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
+import com.airdropmc.packages.PackageNamePolicy;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -141,6 +142,29 @@ public final class ConfigCoordinator implements AutoCloseable {
 				return true;
 			};
 		});
+	}
+
+	public CompletionStage<PackagePriceChange> updatePackagePrice(String packageName, double price) {
+		String canonicalName = PackageNamePolicy.requireCanonical(packageName);
+		return enqueue(() -> {
+			YamlConfiguration source = readPackages();
+			YamlConfiguration candidate = PackageManager.updatePackagePriceCandidate(source, canonicalName, price);
+			Map<String, Package> materialized = PackageManager.materializePackages(candidate);
+			Package updated = materialized.get(canonicalName);
+			PackagePriceChange change = new PackagePriceChange(updated.getName(),
+					source.getDouble(PackageManager.PACKAGES_SECTION + "." + updated.getName() + ".price"),
+					updated.getPrice());
+			PackageCandidate prepared = new PackageCandidate(candidate, materialized, true, PackageRegistryCause.UPDATE);
+			store.write(packagesPath(), candidate);
+			return () -> {
+				packageCommit.accept(prepared);
+				return change;
+			};
+		});
+	}
+
+	/** The prices of a committed mutation, captured by the serialized configuration worker. */
+	public record PackagePriceChange(String packageName, double oldPrice, double newPrice) {
 	}
 
 	public CompletionStage<Boolean> deletePackage(String packageName) {

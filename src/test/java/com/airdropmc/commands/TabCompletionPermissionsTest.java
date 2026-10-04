@@ -170,6 +170,7 @@ class TabCompletionPermissionsTest {
 
 		assertFalse(results.contains("create"));
 		assertFalse(results.contains("delete"));
+		assertFalse(results.contains("price"));
 	}
 
 	@Test
@@ -183,6 +184,7 @@ class TabCompletionPermissionsTest {
 
 		assertTrue(results.contains("create"));
 		assertTrue(results.contains("delete"));
+		assertTrue(results.contains("price"));
 	}
 
 	@Test
@@ -268,6 +270,22 @@ class TabCompletionPermissionsTest {
 				new String[]{"package", "create", "starter", ""});
 
 		assertEquals(List.of(), results);
+	}
+
+	@Test
+	void priceCompletionOffersPackageNamesForAdminsOnlyAndNoArbitraryPrice() {
+		Command command = mock(Command.class);
+		PackageTabCompletion completer = new PackageTabCompletion();
+		PlayerMock player = server.addPlayer();
+		assertEquals(List.of(), completer.onTabComplete(player, command, "airdrop",
+				new String[]{"package", "price", "pR"}));
+		player.setOp(true);
+		assertEquals(List.of("Premium"), completer.onTabComplete(player, command, "airdrop",
+				new String[]{"package", "price", "pR"}));
+		assertEquals(List.of(), completer.onTabComplete(player, command, "airdrop",
+				new String[]{"package", "price", "Premium", ""}));
+		assertTrue(completer.onTabComplete(server.getConsoleSender(), command, "airdrop",
+				new String[]{"package", ""}).contains("price"));
 	}
 
 	@Test
