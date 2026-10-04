@@ -72,6 +72,19 @@ jobs:
 
   lightkeeper-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: economy-gui
+            task: lightkeeperScenarioTest
+            tests: PaidEconomyIT,PackageGuiIT,EconomyNoProviderIT,GiftGrantIT
+          - lane: lifecycle
+            task: lightkeeperScenarioTest
+            tests: StarterDropIT,DropLifecycleIT,ApiConsumerIT,InventoryReplacementIT,PaidCrateLifecycleIT
+          - lane: fresh-install
+            task: lightkeeperFreshInstallTest
+            tests: FreshInstallIT
 
     steps:
       - name: Checkout
@@ -96,7 +109,14 @@ jobs:
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Run LightKeeper Integration Test
-        run: ./gradlew --no-daemon lightkeeperTest
+        env:
+          LIGHTKEEPER_TASK: ${{ matrix.task }}
+          ORG_GRADLE_PROJECT_lightkeeperTests: ${{ matrix.tests }}
+        run: ./gradlew --no-daemon "$LIGHTKEEPER_TASK"
+
+      - name: Summarize LightKeeper Timings
+        if: always()
+        run: ./scripts/lightkeeper-timings >> "$GITHUB_STEP_SUMMARY"
 
       - name: Sanitize LightKeeper Runtime Manifest
         if: always()
@@ -115,7 +135,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lightkeeper-diagnostics
+          name: lightkeeper-diagnostics-${{ matrix.lane }}
           path: |
             lightkeeper/target/failsafe-reports
             lightkeeper/target/lightkeeper-reports

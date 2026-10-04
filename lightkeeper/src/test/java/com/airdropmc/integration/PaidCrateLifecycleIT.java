@@ -2,7 +2,6 @@ package com.airdropmc.integration;
 
 import nl.pim16aap2.lightkeeper.framework.BlockPos;
 import nl.pim16aap2.lightkeeper.framework.CommandResult;
-import nl.pim16aap2.lightkeeper.framework.FreshServer;
 import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
@@ -28,7 +27,6 @@ import static nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertion
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-@FreshServer
 @ExtendWith(LightkeeperExtension.class)
 class PaidCrateLifecycleIT {
 	// Well outside spawn tickets, and centered within a chunk so the complete platform is in that chunk.
@@ -166,11 +164,8 @@ class PaidCrateLifecycleIT {
 	private static WorldHandle createOffsetWorld(ILightkeeperFramework framework) {
 		WorldHandle world = framework.worlds().builder().withRandomName()
 				.withWorldType(WorldSpec.WorldType.FLAT).withSeed(87L).build();
-		for (int x = BARREL.x() - 2; x <= BARREL.x() + 2; x++) {
-			for (int z = BARREL.z() - 2; z <= BARREL.z() + 2; z++) {
-				world.setBlockAt(new BlockPos(x, BARREL.y() - 1, z), "minecraft:stone");
-			}
-		}
+		AirdropIntegrationSupport.placeLandingPlatform(framework, world,
+				new BlockPos(BARREL.x(), BARREL.y() - 1, BARREL.z()));
 		return world;
 	}
 
