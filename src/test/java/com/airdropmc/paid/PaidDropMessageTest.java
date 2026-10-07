@@ -16,8 +16,8 @@ class PaidDropMessageTest {
 		YamlConfiguration language = YamlConfiguration.loadConfiguration(
 				new File("src/main/resources/lang/en.yml"));
 
-		assertEquals(Set.of("charged", "failed", "refunded", "incoming", "incoming-charged",
-				"landed", "landed-other-world"),
+		assertEquals(Set.of("preparing", "charged", "failed", "refunded", "incoming", "incoming-charged",
+				"landed", "landed-other-world", "requested-cost"),
 				language.getConfigurationSection("drop").getKeys(false));
 		assertEquals("{accent}${amount}{primary} has been taken from your account",
 				language.getString("drop.charged"));

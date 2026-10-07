@@ -78,10 +78,13 @@ jobs:
         include:
           - lane: economy-gui
             task: lightkeeperScenarioTest
-            tests: PaidEconomyIT,PackageGuiIT,EconomyNoProviderIT,GiftGrantIT
+            tests: PaidEconomyIT,PackageGuiIT,EconomyNoProviderIT,SendIT
           - lane: lifecycle
             task: lightkeeperScenarioTest
-            tests: StarterDropIT,DropLifecycleIT,ApiConsumerIT,InventoryReplacementIT,PaidCrateLifecycleIT
+            tests: StarterDropIT,DropLifecycleIT,ApiConsumerIT,InventoryReplacementIT,PaidCrateLifecycleIT,RemoteDeliveryIT
+          - lane: send-permissions
+            task: lightkeeperSendPermissionsTest
+            tests: SendPermissionsIT
           - lane: fresh-install
             task: lightkeeperFreshInstallTest
             tests: FreshInstallIT
@@ -123,7 +126,8 @@ jobs:
         shell: bash
         run: |
           for manifest in lightkeeper/target/lightkeeper/runtime-manifest.json \
-              lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json; do
+              lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json \
+              lightkeeper/target/lightkeeper/runtime-manifest-send-permissions.json; do
             if [[ -f "$manifest" ]]; then
               mkdir -p lightkeeper/target/lightkeeper-diagnostics
               jq 'del(.agentAuthToken)' "$manifest" \

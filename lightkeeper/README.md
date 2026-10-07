@@ -1,6 +1,6 @@
 # Real-Paper integration tests
 
-AIRDR-87 extends the pinned LightKeeper suite; AIRDR-92 reduces repeated server startup and setup work. Run both lanes from the repository root with Java 21:
+AIRDR-87 extends the pinned LightKeeper suite; AIRDR-92 reduces repeated server startup and setup work. Run all lanes from the repository root with Java 21:
 
 ```bash
 ./gradlew --no-daemon lightkeeperTest
@@ -8,12 +8,13 @@ AIRDR-87 extends the pinned LightKeeper suite; AIRDR-92 reduces repeated server 
 
 The task builds the exact runtime and separately compiled public-API consumer JARs, archives previous server logs, resets generated server/manifests, and runs these lanes **serially**:
 
-- `lightkeeperScenarioTest` / Maven profile `scenarios`: deterministic package overlay and fixture plugin named `Vault`. Covers delivery, gifts/grants, destruction/hopper behavior, economy results and late confirmations, public API requests, package navigation/editing/repricing/reload, paid chunk recovery, and scheduled expiry. LuckPerms is absent; permission tests use Bukkit attachments.
+- `lightkeeperScenarioTest` / Maven profile `scenarios`: deterministic package overlay and fixture plugin named `Vault`. Covers delivery, targeted sends and remote destinations, destruction/hopper behavior, economy results and late confirmations, public API requests, package navigation/editing/repricing/reload, paid chunk recovery, and scheduled expiry. LuckPerms is absent; permission tests use Bukkit attachments.
+- `lightkeeperSendPermissionsTest` / Maven profile `send-permissions`: isolated real LuckPerms 5.5.71 coverage for default pricing, package/admin versus global wildcards, explicit send/cost denials, paid and exempt targeted sends, self-orders, and independent cooldown checks.
 - `lightkeeperFreshInstallTest` / Maven profile `fresh-install`: Airdrop and the consumer only, with no Airdrop overlay, Vault, or LuckPerms. Checks generated paid starter data, provider-unavailable rejection, and customized data preservation across a graceful stop/start.
 
-Each Gradle lane can also be run individually. Both depend on the same preparation/reset tasks. Full `clean` removes generated integration outputs; ordinary reruns retain diagnostics. Reports are under `target/failsafe-reports` and `target/lightkeeper-reports`, with fresh-install results in their `fresh-install` subdirectories. Runtime manifests contain authentication tokens: do not publish them. CI exports sanitized copies only.
+Each Gradle lane can also be run individually. All depend on the same preparation/reset tasks. Full `clean` removes generated integration outputs; ordinary reruns retain diagnostics. Reports are under `target/failsafe-reports` and `target/lightkeeper-reports`, with isolated results in their `fresh-install` and `send-permissions` subdirectories. Runtime manifests contain authentication tokens: do not publish them. CI exports sanitized copies only.
 
-Scenario methods share one Paper process per test class, with separate worlds and players for each method. CI runs economy/GUI, physical lifecycle, and fresh-install coverage in three independent jobs. Each job has its own checkout and Maven outputs; local lanes remain serial because they share the Maven module. A coverage check requires every integration class to appear in exactly one CI shard.
+Scenario methods share one Paper process per test class, with separate worlds and players for each method. CI runs economy/GUI, physical lifecycle, send-permissions, and fresh-install coverage in four independent jobs. Each job has its own checkout and Maven outputs; local lanes remain serial because they share the Maven module. A coverage check requires every integration class to appear in exactly one CI shard.
 
 Platform setup uses the consumer fixture's console-only `platform` command to batch the same native Bukkit block writes into one server call. Setup finishes before bots and event captures are created, and preserves the chunk lifecycle behavior exercised by the persistence tests.
 
@@ -45,4 +46,4 @@ The pinned adapter captures outbound chat only for legacy/default bots, not full
 
 Economy holds delay confirmation without blocking the fixture executor. A debit or credit may already have happened even when Airdrop reports `UNKNOWN`; tests must assert the ledger separately and observe request-correlated late-result reconciliation before checking for duplicate outcomes or money movement.
 
-The fixture commands and `Vault.jar` are test-only. Never deploy them, or the consumer fixture, to a normal server. This suite does not cover crash recovery, real LuckPerms/provider compatibility matrices, or genuine native player inventory transactions.
+The fixture commands and `Vault.jar` are test-only. Never deploy them, or the consumer fixture, to a normal server. This suite does not cover crash recovery, broader permissions/provider compatibility matrices, or genuine native player inventory transactions.

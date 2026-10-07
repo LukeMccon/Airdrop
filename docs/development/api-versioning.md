@@ -24,6 +24,14 @@ Consumers should discover `AirdropApi` through Bukkit's `ServicesManager` and
 compile only against supported API types. They should not shade the Airdrop JAR
 or construct implementation classes.
 
+## Current adoption status
+
+There are currently no public integrations depending on this API. Keep its
+identifier at `1.0.0`, update the reviewed signature baseline when the contract
+changes, and document the current behavior directly. No API version migration
+is required during this stage. The semantic version rules below apply once
+public integrations depend on the contract.
+
 ## Semantic versions describe consumer impact
 
 - An API minor may add compatible types, methods, events, or enum-independent

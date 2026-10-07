@@ -233,7 +233,61 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/FreshInstallIT.java</exclude>
+                                <exclude>**/SendPermissionsIT.java</exclude>
                             </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>send-permissions</id>
+            <properties>
+                <lightkeeper.runtime-manifest>${project.build.directory}/lightkeeper/runtime-manifest-send-permissions.json</lightkeeper.runtime-manifest>
+                <lightkeeper.server-work-directory>${project.build.directory}/lightkeeper-server/send-permissions</lightkeeper.server-work-directory>
+                <lightkeeper.failsafe-reports>${project.build.directory}/failsafe-reports/send-permissions</lightkeeper.failsafe-reports>
+                <lightkeeper.diagnostics-directory>${project.build.directory}/lightkeeper-reports/send-permissions</lightkeeper.diagnostics-directory>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.airdropmc.lightkeeper-adapter</groupId>
+                        <artifactId>lightkeeper-maven-plugin</artifactId>
+                        <configuration>
+                            <configOverlayPath>${project.basedir}/src/test/resources/overlay</configOverlayPath>
+                            <plugins>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${project.build.directory}/${project.build.finalName}-fixture.jar</path>
+                                    <renameTo>Vault.jar</renameTo>
+                                </plugin>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${airdrop.jar.path}</path>
+                                    <renameTo>Airdrop.jar</renameTo>
+                                </plugin>
+                                <plugin>
+                                    <sourceType>path</sourceType>
+                                    <path>${airdrop.consumer.jar.path}</path>
+                                    <renameTo>AirdropConsumerFixture.jar</renameTo>
+                                </plugin>
+                                <plugin>
+                                    <sourceType>modrinth</sourceType>
+                                    <modrinthVersionId>b0mk8uS6</modrinthVersionId>
+                                    <modrinthLoader>bukkit</modrinthLoader>
+                                    <modrinthGameVersion>1.21.11</modrinthGameVersion>
+                                    <renameTo>LuckPerms.jar</renameTo>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes combine.self="override">
+                                <include>**/SendPermissionsIT.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>

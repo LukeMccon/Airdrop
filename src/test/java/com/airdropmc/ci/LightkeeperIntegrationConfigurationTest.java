@@ -169,9 +169,12 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(pom, "${airdrop.consumer.jar.path}");
 		assertContains(pom, "<renameTo>Airdrop.jar</renameTo>");
 		assertContains(pom, "<renameTo>AirdropConsumerFixture.jar</renameTo>");
-		assertFalse(pom.contains("LuckPerms"), "The default real-server lane must exercise optional LuckPerms absence");
-		assertFalse(pom.contains("<sourceType>modrinth</sourceType>"),
-				"Every plugin under test must come from an exact packaged path");
+		String scenarios = pom.substring(pom.indexOf("<id>scenarios</id>"), pom.indexOf("<id>send-permissions</id>"));
+		assertFalse(scenarios.contains("LuckPerms"), "The default lane must exercise optional LuckPerms absence");
+		assertFalse(scenarios.contains("<sourceType>modrinth</sourceType>"));
+		assertContains(pom, "<modrinthVersionId>b0mk8uS6</modrinthVersionId>");
+		assertContains(pom, "runtime-manifest-send-permissions.json");
+		assertContains(pom, "**/SendPermissionsIT.java");
 	}
 
 	@Test
@@ -248,7 +251,7 @@ class LightkeeperIntegrationConfigurationTest {
 			assertContains(support, field);
 		}
 		assertContains(free, "READY, REQUEST, SPAWNED, LANDING_ATTEMPT, LANDED, OUTCOME");
-		assertContains(paid, "REQUEST, OUTCOME");
+		assertContains(paid, "HANDLE_OUTCOME");
 		assertContains(paid, "ECONOMY_PROVIDER_UNAVAILABLE");
 	}
 
@@ -276,14 +279,15 @@ class LightkeeperIntegrationConfigurationTest {
 		assertEquals(Boolean.FALSE, strategy.get("fail-fast"), "Collect results from every shard");
 		Map<?, ?> matrix = (Map<?, ?>) strategy.get("matrix");
 		List<?> shards = (List<?>) matrix.get("include");
-		assertEquals(3, shards.size());
+		assertEquals(4, shards.size());
 		List<String> selectedTests = new ArrayList<>();
 		for (Object entry : shards) {
 			Map<?, ?> shard = (Map<?, ?>) entry;
 			List<String> tests = List.of(shard.get("tests").toString().split(","));
 			selectedTests.addAll(tests);
 			assertEquals(tests.contains("FreshInstallIT")
-					? "lightkeeperFreshInstallTest" : "lightkeeperScenarioTest", shard.get("task"));
+					? "lightkeeperFreshInstallTest" : tests.contains("SendPermissionsIT")
+					? "lightkeeperSendPermissionsTest" : "lightkeeperScenarioTest", shard.get("task"));
 			if (tests.contains("FreshInstallIT")) {
 				assertEquals(List.of("FreshInstallIT"), tests, "Fresh install must retain its dependency-free server");
 			}

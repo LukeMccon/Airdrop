@@ -5,6 +5,7 @@ import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
 import nl.pim16aap2.lightkeeper.framework.WorldHandle;
+import nl.pim16aap2.lightkeeper.framework.WorldSpec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +19,6 @@ import static com.airdropmc.integration.AirdropIntegrationSupport.BARREL_POSITIO
 import static com.airdropmc.integration.AirdropIntegrationSupport.DROP_EVENT;
 import static com.airdropmc.integration.AirdropIntegrationSupport.LAND_EVENT;
 import static com.airdropmc.integration.AirdropIntegrationSupport.PACKAGE_PERMISSION;
-import static com.airdropmc.integration.AirdropIntegrationSupport.REJECTED_MARKER_TYPES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** AIRDR-87: separate provisioning lane, with neither the overlay nor optional dependency plugins. */
@@ -94,18 +94,22 @@ class FreshInstallIT {
 	}
 
 	private static void assertProviderlessRejection(ILightkeeperFramework framework) {
-		WorldHandle world = AirdropIntegrationSupport.createLandingWorld(framework);
+		WorldHandle world = framework.worlds().builder().withRandomName()
+				.withWorldType(WorldSpec.WorldType.FLAT).withSeed(26L).build();
+		// Only the separately packaged consumer is available in this dependency-free lane.
+		AirdropIntegrationSupport.placeLandingPlatform(framework, world,
+				AirdropIntegrationSupport.PLATFORM_POSITION);
 		PlayerHandle player = AirdropIntegrationSupport.createPlayer(framework, world, PACKAGE_PERMISSION);
-		int outputOffset = framework.server().output().size();
 		try (var drops = framework.events().capture(DROP_EVENT);
 			 var landings = framework.events().capture(LAND_EVENT)) {
-			player.executeCommand("airdrop starter");
-			var markers = AirdropIntegrationSupport.awaitConsumerMarkers(
-					framework, outputOffset, REJECTED_MARKER_TYPES);
-			AirdropIntegrationSupport.assertCorrelatedPrimaryThreadSequence(markers);
-			assertThat(markers.getLast().required("reason")).isEqualTo("ECONOMY_PROVIDER_UNAVAILABLE");
-			assertThat(markers.getLast().required("delivery")).isEqualTo("REJECTED");
-			assertThat(markers.getLast().required("payment")).isEqualTo("REJECTED");
+			var request = ConsumerIntegrationSupport.request(framework, player, "starter");
+			var spawn = ConsumerIntegrationSupport.awaitHandleResult(framework, request, "HANDLE_SPAWN");
+			var outcome = ConsumerIntegrationSupport.awaitHandleResult(framework, request, "HANDLE_OUTCOME");
+			assertThat(spawn.required("spawned")).isEqualTo("false");
+			assertThat(spawn.required("payment")).isEqualTo("REJECTED");
+			assertThat(outcome.required("reason")).isEqualTo("ECONOMY_PROVIDER_UNAVAILABLE");
+			assertThat(outcome.required("delivery")).isEqualTo("REJECTED");
+			assertThat(outcome.required("payment")).isEqualTo("REJECTED");
 			assertThat(drops.getCapturedEvents()).isEmpty();
 			assertThat(landings.getCapturedEvents()).isEmpty();
 			AirdropIntegrationSupport.awaitBlock(world, BARREL_POSITION, "minecraft:air");

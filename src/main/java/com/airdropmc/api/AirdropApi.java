@@ -79,6 +79,8 @@ public interface AirdropApi {
 
 	/**
 	 * Requests a permission- and economy-aware drop for a player.
+	 * The effective {@code airdrop.cost.bypass} permission exempts the initiator
+	 * from payment without bypassing package access or admission limits.
 	 *
 	 * <p>This method must be called on the primary server thread because it
 	 * inspects the supplied Bukkit player and location.</p>

@@ -1,5 +1,19 @@
 # Airdrop 4.1.0 adds delivery messages and a supported plugin API
 
+## Development additions: AIRDR-73 targeted delivery and remote destinations
+
+- `/airdrop send` delivers to named players or coordinates, with sender-only
+  payment, explicit cost exemption, and recipient notifications.
+- Remote terrain loads asynchronously after permission and admission checks.
+  New generation is disabled by default and requires the ticking neighborhood
+  to fit inside the world border; attempts, concurrency, and preparation
+  time are bounded. All deliveries retain their destination through landing
+  or failure. Local drops preserve their parachute fly-away animation before
+  releasing retention; remote preparations clean their parachutes on landing.
+- Extension API `1.0.0` fires request events after provisional admission and
+  terrain resolution. Early rejections have no context or lifecycle events.
+  There is no API migration while there are no public integrations.
+
 Release notes covering changes since 4.0.0.
 
 <!-- AIRDR-79: AIRDR-72 / PR #92 is deferred and excluded from 4.1. -->
@@ -19,6 +33,20 @@ lets other plugins request drops and follow delivery outcomes.
   target-resolution failures use `errors.invalid-target` without blaming the sky.
 - Root help and tab completion show commands and packages available to the
   sender. Package deletion suggests existing package names.
+
+## Send packages to players or coordinates
+
+- AIRDR-73: `/airdrop send <package> <player>` and
+  `/airdrop send <package> <x> <z> [world]` replace the unshipped gift/grant commands.
+  Player coordinates default to the caller's world; console requires a world.
+- `airdrop.send` defaults to true. `airdrop.cost.bypass` defaults to false and
+  exempts the sender from payment for targeted sends and self-orders; admin
+  authority alone does not make purchases free. Console requires both permissions.
+- Free player sends retain package access, recipient eligibility, cooldown,
+  pending-request, capacity, and protected landing checks. Recipient permission
+  checks apply only to named targets. Failed charged requests refund the original payer.
+- Named recipients see who sent their package, including an inline player head,
+  once it spawns. Destinations remain captured and crates remain public.
 
 ## LuckPerms is now optional
 

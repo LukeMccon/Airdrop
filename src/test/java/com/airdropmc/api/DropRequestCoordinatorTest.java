@@ -46,7 +46,10 @@ class DropRequestCoordinatorTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("request_world");
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "request_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);
 		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());
@@ -261,7 +264,7 @@ class DropRequestCoordinatorTest {
 						.outcome().toCompletableFuture().join());
 		assertEquals(DropRejectionReason.INSUFFICIENT_PERMISSION,
 				permission.rejection().reason());
-		assertTrue(permission.context().isPresent());
+		assertTrue(permission.context().isEmpty());
 
 		PlayerMock blocked = server.addPlayer("Blocked");
 		blocked.setOp(true);

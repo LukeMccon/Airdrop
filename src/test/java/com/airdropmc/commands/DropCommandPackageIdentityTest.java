@@ -57,7 +57,7 @@ class DropCommandPackageIdentityTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("command_world");
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "command_world");
 		YamlConfiguration config = new YamlConfiguration();
 		config.set("packages.Starter.price", 10.0);
 		config.set("packages.Starter.items", List.of(new ItemStack(Material.STONE)));
@@ -92,7 +92,7 @@ class DropCommandPackageIdentityTest {
 	}
 
 	@Test
-	void dropCommandResolvesAcceptedPackageWithoutCaseDifferences() {
+	void earlyPermissionDenialPreservesRequestedPackageSpelling() {
 		PlayerMock player = server.addPlayer();
 		player.teleport(new Location(world, 0, 100, 0));
 		DropRequestCoordinator requests = new DropRequestCoordinator(MockBukkit.createMockPlugin());
@@ -118,9 +118,7 @@ class DropCommandPackageIdentityTest {
 				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
 		assertEquals(DropRejectionReason.INSUFFICIENT_PERMISSION, outcome.rejection().reason());
 		assertEquals("STARTER", handle.descriptor().requestedPackageName());
-		assertEquals("Starter", handle.context().orElseThrow().airdropPackage().name());
-		assertEquals(List.of(new ItemStack(Material.STONE)),
-				handle.context().orElseThrow().airdropPackage().items());
+		assertTrue(handle.context().isEmpty());
 	}
 
 	@Test

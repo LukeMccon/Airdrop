@@ -25,6 +25,15 @@ drop:
   falling-speed: 0.3
   # Height in blocks from which to drop the crate
   height: 100
+  remote-loading:
+    # Remote sends load existing terrain asynchronously; generation is opt-in
+    generate-new-chunks: false
+    # Outstanding loads include requests that timed out before Paper finished
+    max-concurrent-loads: 2
+    # Applies to remote attempts, including failed and cost-exempt requests
+    attempt-cooldown-seconds: 5
+    # Destination preparation deadline, before any withdrawal
+    load-timeout-seconds: 10
   limits:
     # Minimum time between successful player-requested drops
     request-cooldown-seconds: 30
@@ -39,7 +48,8 @@ drop:
 
 # Gifting settings
 gifting:
-  # Whether gift recipients must also have permission to use the selected package
+  # Whether named-player send recipients need package access, including free sends.
+  # Coordinate sends have no named recipient and are unaffected.
   require-recipient-permission: false
 
 # Economy settings

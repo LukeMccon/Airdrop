@@ -34,40 +34,40 @@ public class AirdropTabCompleter implements TabCompleter {
 			boolean admin = PermissionsHelper.isAdmin(commandSender);
 			List<String> suggestions = new ArrayList<>(
 					AirdropCommandNames.visibleTo(admin, commandSender instanceof Player));
-			if (commandSender.hasPermission("airdrop.grant")) {
-				suggestions.add(AirdropCommandNames.GRANT);
+			if (TargetedDropCommand.canSend(commandSender)) {
+				suggestions.add(AirdropCommandNames.SEND);
 			}
 			if (commandSender instanceof Player player) {
-				if (player.hasPermission("airdrop.gift")) {
-					suggestions.add(AirdropCommandNames.GIFT);
-				}
 				PackageManager.getPackages().stream()
 						.filter(packageName -> PermissionsHelper.hasPermission(player, packageName))
 						.forEach(suggestions::add);
 			}
-			return TabCompletionFilter.filter(suggestions, args[0]);
+			return TabCompletionFilter.filter(suggestions.stream().distinct().toList(), args[0]);
 		}
 
 		if (TargetedDropCommand.isTargeted(args[0])) {
-			boolean gift = AirdropCommandNames.GIFT.equals(args[0]);
-			if (!commandSender.hasPermission("airdrop." + args[0])
-					|| gift && !(commandSender instanceof Player)) {
+			if (!TargetedDropCommand.canSend(commandSender)) {
 				return List.of();
 			}
 			if (args.length == 2) {
-				return TabCompletionFilter.filter(Bukkit.getOnlinePlayers().stream()
-						.filter(player -> !(commandSender instanceof Player viewer) || viewer.canSee(player))
-						.map(Player::getName).toList(), args[1]);
+				return TabCompletionFilter.filter(PackageManager.getPackages().stream()
+						.filter(name -> !(commandSender instanceof Player player) || PermissionsHelper.hasPermission(player, name))
+						.toList(), args[1]);
 			}
-			Player recipient = Bukkit.getPlayerExact(args[1]);
-			if (args.length != 3 || recipient == null) {
+			if (!PackageManager.has(args[1]) || commandSender instanceof Player player
+					&& !PermissionsHelper.hasPermission(player, args[1])) {
 				return List.of();
 			}
-			return TabCompletionFilter.filter(PackageManager.getPackages().stream()
-					.filter(name -> !gift || PermissionsHelper.hasPermission((Player) commandSender, name))
-					.filter(name -> !gift || !ConfigKeys.requiresGiftRecipientPermission()
-							|| PermissionsHelper.hasPermission(recipient, name))
-					.toList(), args[2]);
+			if (args.length == 3) {
+				return TabCompletionFilter.filter(Bukkit.getOnlinePlayers().stream()
+						.filter(player -> !(commandSender instanceof Player viewer) || viewer.canSee(player))
+						.filter(player -> !ConfigKeys.requiresGiftRecipientPermission() || PermissionsHelper.hasPermission(player, args[1]))
+						.map(Player::getName).toList(), args[2]);
+			}
+			if (args.length == 5 && TargetedDropCommand.isCoordinate(args[2]) && TargetedDropCommand.isCoordinate(args[3])) {
+				return TabCompletionFilter.filter(Bukkit.getWorlds().stream().map(org.bukkit.World::getName).toList(), args[4]);
+			}
+			return List.of();
 		}
 		if (AirdropCommandNames.PACKAGE.equals(args[0])) {
 			return new PackageTabCompletion().onTabComplete(commandSender, command, alias, args);

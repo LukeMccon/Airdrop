@@ -53,7 +53,10 @@ class AirdropEventOrderTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("event_order_world");
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "event_order_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);
 		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());
@@ -129,7 +132,7 @@ class AirdropEventOrderTest {
 	}
 
 	@Test
-	void resolvedPermissionRejectionPublishesRequestThenOutcomeOnly() {
+	void earlyPermissionRejectionHasNoContextOrEvents() {
 		PlayerMock denied = server.addPlayer("Denied");
 		denied.teleport(new Location(world, 12, 100, 12));
 
@@ -138,8 +141,9 @@ class AirdropEventOrderTest {
 		DropOutcome.Rejected outcome = assertInstanceOf(
 				DropOutcome.Rejected.class, handle.outcome().toCompletableFuture().join());
 		assertEquals(DropRejectionReason.INSUFFICIENT_PERMISSION, outcome.rejection().reason());
-		assertEquals(List.of("request", "outcome"), recorder.names);
-		assertEquals(List.of(handle.requestId(), handle.requestId()), recorder.supportedRequestIds);
+		assertTrue(handle.context().isEmpty());
+		assertTrue(recorder.names.isEmpty());
+		assertTrue(recorder.supportedRequestIds.isEmpty());
 		assertTrue(CrateManager.getCrateMap().isEmpty());
 	}
 

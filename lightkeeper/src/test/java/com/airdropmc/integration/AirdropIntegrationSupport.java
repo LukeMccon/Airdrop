@@ -77,6 +77,10 @@ final class AirdropIntegrationSupport {
 	}
 
 	static void awaitReady(ILightkeeperFramework framework) {
+		awaitReady(framework, false);
+	}
+
+	static void awaitReady(ILightkeeperFramework framework, boolean withLuckPerms) {
 		eventually(Duration.ofSeconds(20), () ->
 				assertThat(framework.server().output())
 						.anyMatch(line -> line.contains(
@@ -89,7 +93,12 @@ final class AirdropIntegrationSupport {
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
 		assertThat(framework.server().plugin("Vault"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
-		assertThat(framework.server().plugin("LuckPerms")).isEmpty();
+		if (withLuckPerms) {
+			assertThat(framework.server().plugin("LuckPerms"))
+					.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
+		} else {
+			assertThat(framework.server().plugin("LuckPerms")).isEmpty();
+		}
 		// Startup is shared by every method in the class; earlier requests remain in the log.
 		eventually(Duration.ofSeconds(20), () -> assertThat(consumerMarkers(framework, 0))
 				.filteredOn(marker -> "READY".equals(marker.type())).singleElement());
@@ -116,8 +125,23 @@ final class AirdropIntegrationSupport {
 				.withSeed(26L)
 				.build();
 
+		remoteFixture(framework, "prepare", world, LANDING_X, LANDING_Z);
 		placeLandingPlatform(framework, world, PLATFORM_POSITION);
 		return world;
+	}
+
+	static String remoteFixture(ILightkeeperFramework framework, String action, WorldHandle world, int x, int z) {
+		String token = UUID.randomUUID().toString();
+		String marker = "AIRDR_73_REMOTE token=" + token + " action=" + action;
+		int offset = framework.server().output().size();
+		assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
+				"lkremote " + action + " " + token + " " + world.name() + " " + x + " " + z).success()).isTrue();
+		framework.waitUntil(() -> framework.server().output().subList(offset, framework.server().output().size())
+				.stream().anyMatch(line -> line.contains(marker)), Duration.ofSeconds(20));
+		String result = framework.server().output().subList(offset, framework.server().output().size()).stream()
+				.filter(line -> line.contains(marker)).findFirst().orElseThrow();
+		assertThat(result).contains("status=OK");
+		return result;
 	}
 
 	static void placeLandingPlatform(ILightkeeperFramework framework, WorldHandle world, BlockPos center) {

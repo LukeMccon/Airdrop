@@ -172,7 +172,7 @@ class ModrinthDocsContractTest {
 				"UNKNOWN")) {
 			assertTrue(body.contains(paymentState), () -> "Missing payment state: " + paymentState);
 		}
-		assertTrue(body.contains("Resolution failures fire no request event"));
+		assertTrue(body.contains("Early permission, admission, and terrain failures"));
 		assertTrue(body.contains("exactly once"));
 		assertTrue(body.contains("never retry an `UNKNOWN` payment automatically"));
 	}

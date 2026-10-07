@@ -63,8 +63,8 @@ class TargetedDropCommandTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		server.getPluginManager().addPermission(new Permission("airdrop.gift", PermissionDefault.TRUE));
-		server.getPluginManager().addPermission(new Permission("airdrop.grant", PermissionDefault.OP));
+		server.getPluginManager().addPermission(new Permission("airdrop.send", PermissionDefault.TRUE));
+		server.getPluginManager().addPermission(new Permission("airdrop.cost.bypass", PermissionDefault.FALSE));
 		sender = server.addPlayer("Sender");
 		recipient = server.addPlayer("Recipient");
 		var world = server.addSimpleWorld("targeted_world");
@@ -89,232 +89,32 @@ class TargetedDropCommandTest {
 	}
 
 	@Test
-	void grantCanBeDelegatedWithoutAdminOrPackageAccess() {
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.grant", true);
-		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
-		DropHandle handle = pendingHandle();
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestSystemDrop(
-					recipient.getLocation(), "starter", DropRequestOptions.defaults())).thenReturn(handle);
-			command(sender, "grant", "Recipient", "starter");
-			drops.verify(() -> DropController.requestSystemDrop(
-					recipient.getLocation(), "starter", DropRequestOptions.defaults()));
-		}
-		assertTrue(messages(sender).contains(handle.requestId().toString()));
+	void incompleteSendShowsPositionalUsage() {
+		command(sender, "send", "starter");
+		assertTrue(messages(sender).contains("/airdrop send <package> <player>"));
 	}
 
 	@Test
-	void explicitGrantDenialBlocksEvenAnOperator() {
-		sender.setOp(true);
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.grant", false);
+	void sendWithoutDestinationNeverRequestsSelf() {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "grant", "Recipient", "starter");
+			command(sender, "send", "starter");
 			drops.verifyNoInteractions();
 		}
-		assertTrue(messages(sender).contains("airdrop.grant"));
 	}
 
 	@Test
-	void partialOnlineNamesAreRejectedBeforeRequestingADrop() {
-		sender.setOp(true);
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "grant", "Recip", "starter");
-			drops.verifyNoInteractions();
-		}
-		assertTrue(messages(sender).contains("online player"));
-	}
-
-	@Test
-	void wrongArgumentCountShowsSpecificGiftUsage() {
-		command(sender, "gift", "Recipient");
-		assertTrue(messages(sender).contains("Usage: /airdrop gift <player> <package>"));
-	}
-
-	@Test
-	void giftIsDiscoverableButGrantIsHiddenFromOrdinaryPlayers() {
-		List<String> suggestions = new AirdropTabCompleter().onTabComplete(
-				sender, mock(Command.class), "ad", new String[]{""});
-		assertTrue(suggestions.contains("gift"));
-		assertFalse(suggestions.contains("grant"));
+	void helpAndCompletionExposeSendWithoutDestinationKeywords() {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		var tabs = new AirdropTabCompleter();
+		assertTrue(tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{""}).contains("send"));
+		assertEquals(List.of("starter"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "st"}));
+		assertEquals(List.of("Recipient"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
+		assertEquals(List.of("targeted_world"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "1", "2", "tar"}));
 		command(sender);
 		String help = messages(sender);
-		assertTrue(help.contains("/airdrop gift <player> <package>"));
-		assertFalse(help.contains("/airdrop grant <player> <package>"));
-	}
-
-	@Test
-	void giftCompletionUsesSenderPackageAccessAndExactRecipientNames() {
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		AirdropTabCompleter completer = new AirdropTabCompleter();
-		assertEquals(List.of("Recipient"), completer.onTabComplete(
-				sender, mock(Command.class), "ad", new String[]{"gift", "Re"}));
-		assertEquals(List.of("starter"), completer.onTabComplete(
-				sender, mock(Command.class), "ad", new String[]{"gift", "Recipient", "st"}));
-	}
-
-	@ParameterizedTest
-	@ValueSource(booleans = {false, true})
-	void giftRoutesThePayerRecipientAndConfiguredPermissionPolicy(boolean requireRecipientPermission) {
-		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, requireRecipientPermission);
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		if (requireRecipientPermission) {
-			recipient.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		}
-		DefaultDropHandle handle = pendingGiftHandle();
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestGiftDrop(sender, recipient, "starter",
-					DropRequestOptions.defaults(), requireRecipientPermission)).thenReturn(handle);
-			command(sender, "gift", "Recipient", "starter");
-			drops.verify(() -> DropController.requestGiftDrop(sender, recipient, "starter",
-					DropRequestOptions.defaults(), requireRecipientPermission));
-			drops.verifyNoMoreInteractions();
-		}
-		String feedback = messages(sender);
-		assertTrue(feedback.contains("Gift request " + handle.requestId()), feedback);
-		assertTrue(feedback.contains("starter at Recipient's location"), feedback);
-	}
-
-	@Test
-	void strictGiftRejectsAnIneligibleRecipientBeforeRequestingEvenForAnOperator() {
-		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
-		sender.setOp(true);
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "gift", "Recipient", "starter");
-			drops.verifyNoInteractions();
-		}
-		String feedback = messages(sender);
-		assertTrue(feedback.contains("Recipient cannot receive package starter"), feedback);
-	}
-
-	@Test
-	void giftPermissionRevokedDuringRequestReportsTheGiftNodeInsteadOfPackageAccess() {
-		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		recipient.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		DefaultDropHandle handle = pendingGiftHandle();
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestGiftDrop(sender, recipient, "starter",
-					DropRequestOptions.defaults(), true)).thenAnswer(ignored -> {
-				sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.gift", false);
-				assertTrue(handle.completeNotSpawned(new DropOutcome.Rejected(handle.descriptor(), Optional.of(context(handle)),
-						DropRejection.of(DropRejectionReason.INSUFFICIENT_PERMISSION, "gift permission revoked"),
-						PaymentStatus.NOT_APPLICABLE)));
-				return handle;
-			});
-			command(sender, "gift", "Recipient", "starter");
-			drops.verify(() -> DropController.requestGiftDrop(sender, recipient, "starter",
-					DropRequestOptions.defaults(), true));
-		}
-		String feedback = messages(sender);
-		assertTrue(feedback.contains("You need airdrop.gift permission"), feedback);
-		assertFalse(feedback.contains("airdrop.package.starter"), feedback);
-		assertTrue(feedback.contains(handle.requestId().toString()), feedback);
-	}
-
-	@Test
-	void recipientAccessRevokedDuringStrictGiftReportsRecipientEligibility() {
-		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		recipient.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		DefaultDropHandle handle = pendingGiftHandle();
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestGiftDrop(sender, recipient, "starter",
-					DropRequestOptions.defaults(), true)).thenAnswer(ignored -> {
-				recipient.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", false);
-				assertTrue(handle.completeNotSpawned(new DropOutcome.Rejected(handle.descriptor(), Optional.of(context(handle)),
-						DropRejection.of(DropRejectionReason.INSUFFICIENT_PERMISSION, "recipient access revoked"),
-						PaymentStatus.NOT_APPLICABLE)));
-				return handle;
-			});
-			command(sender, "gift", "Recipient", "starter");
-			drops.verify(() -> DropController.requestGiftDrop(sender, recipient, "starter",
-					DropRequestOptions.defaults(), true));
-		}
-		String feedback = messages(sender);
-		assertTrue(feedback.contains("Recipient cannot receive package starter"), feedback);
-		assertFalse(feedback.contains("airdrop.package.starter"), feedback);
-		assertTrue(feedback.contains(handle.requestId().toString()), feedback);
-	}
-
-	@Test
-	void giftRejectsASenderWithoutPackageAccessBeforeRequesting() {
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "gift", "Recipient", "starter");
-			drops.verifyNoInteractions();
-		}
-		assertTrue(messages(sender).contains("airdrop.package.starter"));
-	}
-
-	@Test
-	void consoleCanGrantAnOnlinePlayerAPricedPackage() {
-		var console = server.getConsoleSender();
-		DefaultDropHandle handle = pendingHandle();
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestSystemDrop(
-					recipient.getLocation(), "starter", DropRequestOptions.defaults())).thenReturn(handle);
-			command(console, "grant", "Recipient", "starter");
-			drops.verify(() -> DropController.requestSystemDrop(
-					recipient.getLocation(), "starter", DropRequestOptions.defaults()));
-			drops.verifyNoMoreInteractions();
-		}
-		assertTrue(console.nextMessage().contains("Grant request " + handle.requestId()));
-	}
-
-	@Test
-	void consoleCannotBuyAGift() {
-		var console = server.getConsoleSender();
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(console, "gift", "Recipient", "starter");
-			drops.verifyNoInteractions();
-		}
-		assertTrue(console.nextMessage().contains("Must be a player"));
-		assertFalse(new AirdropTabCompleter().onTabComplete(console, mock(Command.class), "drop",
-				new String[]{""}).contains("gift"));
-	}
-
-	@Test
-	void explicitGiftDenialBlocksAnOperatorAndHidesGiftHelpAndCompletion() {
-		sender.setOp(true);
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.gift", false);
-		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "gift", "Recipient", "starter");
-			drops.verifyNoInteractions();
-		}
-		assertTrue(messages(sender).contains("airdrop.gift"));
-		assertFalse(new AirdropTabCompleter().onTabComplete(sender, mock(Command.class), "ad",
-				new String[]{""}).contains("gift"));
-		command(sender);
-		assertFalse(messages(sender).contains("/airdrop gift <player> <package>"));
-	}
-
-	@Test
-	void delegatedGrantHelpAndCompletionIncludeAllPackagesWithoutAdministrativeCommands() {
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.grant", true);
-		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
-		PackageManager.publishPackages(Map.of(
-				"starter", new Package("starter", 10, List.of(new ItemStack(Material.BREAD))),
-				"premium", new Package("premium", 25, List.of(new ItemStack(Material.DIAMOND)))));
-		AirdropTabCompleter completer = new AirdropTabCompleter();
-		assertTrue(completer.onTabComplete(sender, mock(Command.class), "drop", new String[]{""})
-				.contains("grant"));
-		assertEquals(List.of("Recipient"), completer.onTabComplete(sender, mock(Command.class), "ad",
-				new String[]{"grant", "Re"}));
-		assertEquals(List.of("premium", "starter"), completer.onTabComplete(
-				sender, mock(Command.class), "ad", new String[]{"grant", "Recipient", ""}));
-		command(sender);
-		String help = messages(sender);
-		assertTrue(help.contains("/airdrop grant <player> <package>"), help);
-		assertFalse(help.contains("/airdrop reload") || help.contains("/airdrop package create"), help);
-	}
-
-	@ParameterizedTest
-	@ValueSource(booleans = {false, true})
-	void giftCompletionObeysTheConfiguredRecipientPolicy(boolean requireRecipientPermission) {
-		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, requireRecipientPermission);
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		assertEquals(requireRecipientPermission ? List.of() : List.of("starter"),
-				new AirdropTabCompleter().onTabComplete(sender, mock(Command.class), "ad",
-						new String[]{"gift", "Recipient", ""}));
+		assertTrue(help.contains("/airdrop send <package> <player>"), help);
+		assertTrue(help.contains("<x> <z> [world]"), help);
+		assertFalse(help.contains("/airdrop gift") || help.contains("/airdrop grant"), help);
 	}
 
 	@Test
@@ -323,7 +123,7 @@ class TargetedDropCommandTest {
 		DefaultDropHandle handle = pendingGiftHandle();
 		requestGift(handle);
 		String requested = messages(sender);
-		assertTrue(requested.contains(handle.requestId().toString()), requested);
+		assertTrue(requested.contains("Preparing the destination"), requested);
 		assertFalse(requested.contains("was taken from your account"), requested);
 		ResolvedDropContext context = spawn(handle, PaymentStatus.CHARGED);
 		String spawned = messages(sender);
@@ -331,8 +131,7 @@ class TargetedDropCommandTest {
 		assertTrue(spawned.contains("$10 was taken from your account"), spawned);
 		String incoming = messages(recipient);
 		assertTrue(incoming.contains("Sender is sending you package starter"), incoming);
-		assertTrue(incoming.contains("at your location when requested"), incoming);
-		assertTrue(incoming.contains(handle.requestId().toString()), incoming);
+		assertFalse(incoming.contains(handle.requestId().toString()), incoming);
 		assertTrue(incoming.contains("You will not be charged"), incoming);
 		assertFalse(incoming.contains("was taken from your account"), incoming);
 		recipient.teleport(recipient.getLocation().add(100, 0, 100));
@@ -341,8 +140,9 @@ class TargetedDropCommandTest {
 		assertTrue(handle.completeOutcome(new DropOutcome.Landed(context, landed, PaymentStatus.CHARGED)));
 		String senderLanded = messages(sender);
 		String recipientLanded = messages(recipient);
+		assertTrue(senderLanded.contains(handle.requestId().toString()), senderLanded);
+		assertFalse(recipientLanded.contains(handle.requestId().toString()), recipientLanded);
 		for (String feedback : List.of(senderLanded, recipientLanded)) {
-			assertTrue(feedback.contains(handle.requestId().toString()), feedback);
 			assertTrue(feedback.contains("X: 8, Y: 65, Z: -4 in targeted_world"), feedback);
 			assertFalse(feedback.contains("was taken from your account"), feedback);
 		}
@@ -350,13 +150,14 @@ class TargetedDropCommandTest {
 
 	@Test
 	void grantingAPricedPackageReportsNoPaymentAtSpawn() {
-		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.grant", true);
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.cost.bypass", true);
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
 		DefaultDropHandle handle = pendingHandle();
 		requestGrant(handle);
 		messages(sender);
 		spawn(handle, PaymentStatus.NOT_APPLICABLE);
 		String feedback = messages(sender);
-		assertTrue(feedback.contains("Grant request " + handle.requestId()), feedback);
+		assertTrue(feedback.contains("Send request " + handle.requestId()), feedback);
 		assertTrue(feedback.contains("no payment was taken"), feedback);
 		assertFalse(feedback.contains("was taken from your account"), feedback);
 		assertTrue(messages(recipient).contains("You will not be charged"));
@@ -378,7 +179,8 @@ class TargetedDropCommandTest {
 			sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
 			requestGift(handle);
 		} else {
-			sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.grant", true);
+			sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.cost.bypass", true);
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
 			requestGrant(handle);
 		}
 		ResolvedDropContext context = spawn(handle, gift ? PaymentStatus.CHARGED : PaymentStatus.NOT_APPLICABLE);
@@ -413,19 +215,143 @@ class TargetedDropCommandTest {
 		assertEquals("", messages(recipient));
 	}
 
+	@ParameterizedTest
+	@CsvSource({"1,2", "-12.5,0.25"})
+	void coordinateSendUsesCallerWorldAndAllowsExplicitOverride(String x, String z) {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
+		var other = server.addSimpleWorld("override_world");
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			drops.when(() -> DropController.requestSendDrop(eq(sender), any(Location.class), eq("starter"),
+					eq(DropRequestOptions.defaults()))).thenReturn(pendingGiftHandle());
+			command(sender, "send", "starter", x, z);
+			drops.verify(() -> DropController.requestSendDrop(sender, new Location(sender.getWorld(),
+					Double.parseDouble(x), sender.getWorld().getMaxHeight() - 1, Double.parseDouble(z)),
+					"starter", DropRequestOptions.defaults()));
+			command(sender, "send", "starter", x, z, "override_world");
+			drops.verify(() -> DropController.requestSendDrop(sender, new Location(other,
+					Double.parseDouble(x), other.getMaxHeight() - 1, Double.parseDouble(z)),
+					"starter", DropRequestOptions.defaults()));
+		}
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"NaN", "Infinity", "-Infinity", "30000000", "-30000000", "~1", "^2", "foo"})
+	void invalidCoordinatesRejectBeforeRequest(String invalid) {
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			command(sender, "send", "starter", invalid, "2");
+			drops.verifyNoInteractions();
+		}
+		assertTrue(messages(sender).contains("finite absolute X/Z"));
+	}
+
+	@Test
+	void unknownWorldInvalidShapeAndPartialPlayerNeverSubstituteAnotherTarget() {
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			command(sender, "send", "starter", "1", "2", "missing_world");
+			assertTrue(messages(sender).contains("Unknown world missing_world"));
+			command(sender, "send", "starter", "Recipient", "unexpected");
+			command(sender, "send", "starter", "1", "2", "targeted_world", "extra");
+			command(sender, "send", "starter", "Recip");
+			assertTrue(messages(sender).contains("Could not find online player Recip"));
+			drops.verifyNoInteractions();
+		}
+	}
+
+	@Test
+	void consoleRequiresCostExemptionAndExplicitWorld() {
+		org.bukkit.command.CommandSender console = mock(org.bukkit.command.CommandSender.class);
+		when(console.hasPermission("airdrop.send")).thenReturn(true);
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			command(console, "send", "starter", "1", "2", "targeted_world");
+			drops.verifyNoInteractions();
+			verify(console).sendMessage(contains("airdrop.cost.bypass"));
+			when(console.hasPermission("airdrop.cost.bypass")).thenReturn(true);
+			command(console, "send", "starter", "1", "2");
+			drops.verifyNoInteractions();
+			verify(console).sendMessage(contains("trailing world"));
+			when(console.getName()).thenReturn("Console");
+			drops.when(() -> DropController.requestSendDrop(eq(console), any(Location.class), eq("starter"),
+					eq(DropRequestOptions.defaults()))).thenReturn(pendingHandle());
+			command(console, "send", "starter", "1", "2", "targeted_world");
+			drops.verify(() -> DropController.requestSendDrop(console, new Location(sender.getWorld(), 1,
+					sender.getWorld().getMaxHeight() - 1, 2), "starter", DropRequestOptions.defaults()));
+		}
+	}
+
+	@Test
+	void freeSendStillRequiresSenderAndNamedRecipientPackageAccess() {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.cost.bypass", true);
+		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			command(sender, "send", "starter", "Recipient");
+			assertTrue(messages(sender).contains("airdrop.package.starter"));
+			sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+			command(sender, "send", "starter", "Recipient");
+			assertTrue(messages(sender).contains("Recipient cannot receive"));
+			drops.verifyNoInteractions();
+		}
+	}
+
+	@Test
+	void explicitSendDenialHidesHelpAndCompletionEvenForAdmin() {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.admin", true);
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.send", false);
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			command(sender, "send", "starter", "Recipient");
+			drops.verifyNoInteractions();
+		}
+		assertTrue(messages(sender).contains("airdrop.send permission"));
+		command(sender);
+		assertFalse(messages(sender).contains("/airdrop send"));
+		assertEquals(List.of(), new AirdropTabCompleter().onTabComplete(sender, mock(Command.class), "ad",
+				new String[]{"send", ""}));
+	}
+
+	@Test
+	void sendPackageSelfShorthandCoexistsWithTargetedSend() {
+		PackageManager.publishPackages(Map.of("send", new Package("send", 0, List.of())));
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.send", true);
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			drops.when(() -> DropController.requestPlayerDrop(sender, "send", DropRequestOptions.defaults()))
+					.thenReturn(pendingGiftHandle());
+			drops.when(() -> DropController.requestSendDrop(sender, recipient, "send", DropRequestOptions.defaults(), false))
+					.thenReturn(pendingGiftHandle());
+			command(sender, "send");
+			drops.verify(() -> DropController.requestPlayerDrop(sender, "send", DropRequestOptions.defaults()));
+			command(sender, "send", "send", "Recipient");
+			drops.verify(() -> DropController.requestSendDrop(sender, recipient, "send", DropRequestOptions.defaults(), false));
+		}
+		var tabs = new AirdropTabCompleter();
+		assertEquals(1, tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"se"}).stream().filter("send"::equals).count());
+		assertEquals(List.of("send"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", ""}));
+	}
+
+	@Test
+	void completionHidesInvisibleAndIneligibleRecipients() {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
+		var tabs = new AirdropTabCompleter();
+		assertEquals(List.of(), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
+		recipient.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		assertEquals(List.of("Recipient"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
+		sender.hidePlayer(MockBukkit.createMockPlugin(), recipient);
+		assertEquals(List.of(), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
+	}
+
 	private void requestGift(DefaultDropHandle handle) {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestGiftDrop(sender, recipient, "starter",
+			drops.when(() -> DropController.requestSendDrop(sender, recipient, "starter",
 					DropRequestOptions.defaults(), false)).thenReturn(handle);
-			command(sender, "gift", "Recipient", "starter");
+			command(sender, "send", "starter", "Recipient");
 		}
 	}
 
 	private void requestGrant(DefaultDropHandle handle) {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestSystemDrop(recipient.getLocation(), "starter",
-					DropRequestOptions.defaults())).thenReturn(handle);
-			command(sender, "grant", "Recipient", "starter");
+			drops.when(() -> DropController.requestSendDrop(sender, recipient, "starter",
+					DropRequestOptions.defaults(), false)).thenReturn(handle);
+			command(sender, "send", "starter", "Recipient");
 		}
 	}
 

@@ -52,7 +52,9 @@ class PaidCrateLifecycleIT {
 			UUID account = player.uniqueId();
 			EconomyIntegrationSupport.resetAccount(framework, account, "100.00");
 			int outputOffset = framework.server().output().size();
-			player.executeCommand("airdrop premium");
+			var handleRequest = ConsumerIntegrationSupport.request(framework, player, "premium");
+			var spawn = ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_SPAWN");
+			assertThat(spawn.required("spawned")).as(() -> ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_OUTCOME").toString()).isEqualTo("true");
 			framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 			moveBesideBarrel(player, world);
 			framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -113,7 +115,9 @@ class PaidCrateLifecycleIT {
 			UUID account = player.uniqueId();
 			EconomyIntegrationSupport.resetAccount(framework, account, "100.00");
 			int outputOffset = framework.server().output().size();
-			player.executeCommand("airdrop premium");
+			var handleRequest = ConsumerIntegrationSupport.request(framework, player, "premium");
+			var spawn = ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_SPAWN");
+			assertThat(spawn.required("spawned")).as(() -> ConsumerIntegrationSupport.awaitHandleResult(framework, handleRequest, "HANDLE_OUTCOME").toString()).isEqualTo("true");
 			framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 			moveBesideBarrel(player, world);
 			framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -164,6 +168,7 @@ class PaidCrateLifecycleIT {
 	private static WorldHandle createOffsetWorld(ILightkeeperFramework framework) {
 		WorldHandle world = framework.worlds().builder().withRandomName()
 				.withWorldType(WorldSpec.WorldType.FLAT).withSeed(87L).build();
+		AirdropIntegrationSupport.remoteFixture(framework, "prepare", world, BARREL.x(), BARREL.z());
 		AirdropIntegrationSupport.placeLandingPlatform(framework, world,
 				new BlockPos(BARREL.x(), BARREL.y() - 1, BARREL.z()));
 		return world;

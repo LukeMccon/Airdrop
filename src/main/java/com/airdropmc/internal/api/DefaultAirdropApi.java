@@ -20,6 +20,7 @@ import com.airdropmc.limits.DropLocationKey;
 import com.airdropmc.packages.Package;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.command.CommandSender;
 import org.bukkit.block.Block;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Player;
@@ -113,10 +114,17 @@ final class DefaultAirdropApi implements AirdropApi, InternalDropRequests {
 	}
 
 	@Override
-	public DropHandle requestGiftDrop(Player sender, Player recipient, String packageName,
+	public DropHandle requestSendDrop(CommandSender sender, Player recipient, String packageName,
 			DropRequestOptions options, boolean requireRecipientPermission) {
-		requirePrimaryThread("requestGiftDrop");
-		return requests.requestGiftDrop(sender, recipient, packageName, options, requireRecipientPermission);
+		requirePrimaryThread("requestSendDrop");
+		return requests.requestSendDrop(sender, recipient, packageName, options, requireRecipientPermission);
+	}
+
+	@Override
+	public DropHandle requestSendDrop(CommandSender sender, Location location, String packageName,
+			DropRequestOptions options) {
+		requirePrimaryThread("requestSendDrop");
+		return requests.requestSendDrop(sender, location, packageName, options);
 	}
 
 	@Override

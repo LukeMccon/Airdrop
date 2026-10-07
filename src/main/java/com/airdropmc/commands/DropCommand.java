@@ -32,6 +32,7 @@ public final class DropCommand {
 			return;
 		}
 		String packageName = args[0];
+		boolean costExempt = player.hasPermission("airdrop.cost.bypass");
 		DropHandle handle;
 		try {
 			handle = DropController.requestPlayerDrop(
@@ -41,6 +42,17 @@ public final class DropCommand {
 			return;
 		}
 
+		if (!handle.outcome().toCompletableFuture().isDone()) {
+			if (handle.context().isEmpty()) {
+				ChatHandler.send(player, MessageKey.DROP_PREPARING);
+			}
+			handle.context().ifPresent(context -> ChatHandler.send(player, MessageKey.DROP_REQUESTED_COST, Map.of(
+					"name", context.airdropPackage().name(), "request_id", handle.requestId().toString(),
+					"cost", ChatHandler.get(costExempt ? MessageKey.TARGETED_COST_EXEMPT
+							: context.airdropPackage().price().signum() == 0 ? MessageKey.TARGETED_COST_ZERO
+									: MessageKey.TARGETED_COST_PAID,
+							Map.of("amount", context.airdropPackage().price().toPlainString())))));
+		}
 		handle.spawn().thenAccept(result -> sendSpawnFeedback(player, result));
 		handle.outcome().thenAccept(outcome -> sendOutcomeFeedback(player, handle, outcome));
 	}
@@ -98,6 +110,12 @@ public final class DropCommand {
 
 	static void sendRejection(CommandSender player, DropHandle handle, DropOutcome.Rejected rejected) {
 		switch (rejected.rejection().reason()) {
+			case REMOTE_LOAD_CAPACITY -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_BUSY);
+			case REMOTE_LOAD_THROTTLED -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_THROTTLED,
+					Map.of("seconds", Long.toString(rejected.rejection().retryAfter().orElseThrow().toSeconds())));
+			case TARGET_LOAD_TIMEOUT -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_TIMEOUT);
+			case TARGET_NOT_GENERATED -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_TERRAIN);
+			case OUTSIDE_WORLD_BORDER -> ChatHandler.sendError(player, MessageKey.ERROR_OUTSIDE_BORDER);
 			case UNKNOWN_PACKAGE -> ChatHandler.sendError(
 					player,
 					MessageKey.ERROR_PACKAGE_NOT_FOUND,

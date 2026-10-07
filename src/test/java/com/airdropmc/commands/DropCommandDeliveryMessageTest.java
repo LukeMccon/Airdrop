@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
@@ -222,6 +223,7 @@ class DropCommandDeliveryMessageTest {
 			controller.when(() -> DropController.requestPlayerDrop(
 					player, "STARTER", DropRequestOptions.defaults())).thenReturn(handle);
 			DropCommand.onCommand(player, new String[]{"STARTER"});
+			assertTrue(nextMessage(player).contains("Preparing the destination"));
 		}
 	}
 

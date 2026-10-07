@@ -15,13 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PluginYmlPermissionsTest {
 	@Test
-	void giftingAndGrantPrivilegesHaveIndependentDefaultsAndAdminInheritance() throws Exception {
+	void sendAndCostExemptionHaveIndependentDefaultsAndAdminInheritance() throws Exception {
 		Map<?, ?> permissions = castMap(loadPluginYml().get("permissions"), "permissions");
-		assertEquals("true", String.valueOf(castMap(permissions.get("airdrop.gift"), "gift").get("default")));
-		assertEquals("op", String.valueOf(castMap(permissions.get("airdrop.grant"), "grant").get("default")));
+		assertEquals("true", String.valueOf(castMap(permissions.get("airdrop.send"), "gift").get("default")));
+		assertEquals("false", String.valueOf(castMap(permissions.get("airdrop.cost.bypass"), "grant").get("default")));
 		Map<?, ?> children = castMap(castMap(permissions.get("airdrop.admin"), "admin").get("children"), "children");
-		assertEquals("true", String.valueOf(children.get("airdrop.gift")));
-		assertEquals("true", String.valueOf(children.get("airdrop.grant")));
+		assertEquals("true", String.valueOf(children.get("airdrop.send")));
+		assertNull(children.get("airdrop.cost.bypass"));
+		assertNull(permissions.get("airdrop.gift"));
+		assertNull(permissions.get("airdrop.grant"));
 	}
 
 	@Test

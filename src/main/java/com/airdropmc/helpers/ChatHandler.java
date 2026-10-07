@@ -6,6 +6,9 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 
 import java.util.Map;
+import java.util.HashMap;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class ChatHandler {
 
@@ -71,6 +74,17 @@ public class ChatHandler {
 
 	public static void send(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
 		sendMessage(sender, get(key, placeholders));
+	}
+
+	/** Inserts a rich sender label without losing the configured locale or chat theme. */
+	public static void sendWithSender(CommandSender recipient, MessageKey key,
+			Map<String, String> placeholders, Component senderLabel) {
+		Map<String, String> textPlaceholders = new HashMap<>(placeholders);
+		textPlaceholders.remove("sender");
+		String message = formatMessage(getChatPrefix() + ChatTheme.primary() + " " + get(key, textPlaceholders));
+		Component component = LegacyComponentSerializer.legacySection().deserialize(message)
+				.replaceText(builder -> builder.matchLiteral("{sender}").replacement(senderLabel));
+		recipient.sendMessage(component);
 	}
 
 	public static void sendWithoutPrefix(CommandSender sender, MessageKey key, Map<String, String> placeholders) {
