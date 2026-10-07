@@ -10,9 +10,9 @@
   time are bounded. All deliveries retain their destination through landing
   or failure. Local drops preserve their parachute fly-away animation before
   releasing retention; remote preparations clean their parachutes on landing.
-- Extension API `2.0.0` moves request events after provisional admission and
+- Extension API `1.0.0` fires request events after provisional admission and
   terrain resolution. Early rejections have no context or lifecycle events.
-  See [API migration](docs/development/api-versioning.md#migrating-from-api-1-to-api-2).
+  There is no API migration while there are no public integrations.
 
 Release notes covering changes since 4.0.0.
 

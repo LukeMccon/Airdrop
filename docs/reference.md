@@ -677,9 +677,9 @@ snapshots. A resolved successful request has this order:
 Early permission, admission, and terrain failures have no resolved context and
 fire no lifecycle events. Both handle stages still complete. Cancelling a request
 event releases its provisional admission and terrain ticket without starting
-payment or committing purchase cooldown. See [API 2 migration](development/api-versioning.md#migrating-from-api-1-to-api-2). Cancelling a
-landing attempt removes the falling crate, releases admission, and makes at
-most the single documented refund attempt after a confirmed charge.
+payment or committing purchase cooldown. Cancelling a landing attempt removes
+the falling crate, releases admission, and makes at most the single documented
+refund attempt after a confirmed charge.
 
 Protection plugins can cancel `AirdropLandingAttemptEvent` for an Airdrop-only
 rule. They can also cancel Paper's `EntityChangeBlockEvent`; Airdrop continues

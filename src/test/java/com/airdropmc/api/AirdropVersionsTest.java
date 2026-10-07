@@ -19,7 +19,7 @@ class AirdropVersionsTest {
 		assertNotNull(projectVersion, "Gradle must provide the active project version");
 
 		assertEquals(projectVersion, metadata.getProperty("plugin-version"));
-		assertEquals("2.0.0", metadata.getProperty("extension-api-version"));
+		assertEquals("1.0.0", metadata.getProperty("extension-api-version"));
 		assertEquals("1.21.11", metadata.getProperty("paper-compatibility-version"));
 		assertEquals("21", metadata.getProperty("java-version"));
 		assertNotEquals(

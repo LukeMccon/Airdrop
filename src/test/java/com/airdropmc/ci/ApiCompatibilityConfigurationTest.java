@@ -25,7 +25,7 @@ class ApiCompatibilityConfigurationTest {
 		}
 
 		assertEquals("4.1.0-SNAPSHOT", properties.getProperty("airdropPluginVersion"));
-		assertEquals("2.0.0", properties.getProperty("airdropExtensionApiVersion"));
+		assertEquals("1.0.0", properties.getProperty("airdropExtensionApiVersion"));
 		assertEquals("1.21.11", properties.getProperty("airdropPaperVersion"));
 		assertEquals("21", properties.getProperty("airdropJavaVersion"));
 		assertEquals("0.26.1", properties.getProperty("airdropJapicmpVersion"));

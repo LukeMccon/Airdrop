@@ -19,7 +19,7 @@ economy support, and in-game package editing.
 
 | Airdrop | Extension API | Paper | Java | Automated lanes |
 | --- | --- | --- | --- | --- |
-| Current source (`4.1.0-SNAPSHOT`) | `2.0.0` | `1.21.11` | `21` | unit + LightKeeper |
+| Current source (`4.1.0-SNAPSHOT`) | `1.0.0` | `1.21.11` | `21` | unit + LightKeeper |
 
 Paper `1.21.11` and Java `21` are the exact supported runtime. LuckPerms,
 VaultUnlocked, Vault, and an economy provider are optional. The first-start
