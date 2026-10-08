@@ -33,6 +33,12 @@ public class LanguageManager {
 			{text}
 			Airdrop Version: {accent}{version}{text}
 			Spigot API Version: {accent}{api_version}""";
+	private static final Map<MessageKey, String> LEGACY_CONSOLE_SEND_MESSAGES = Map.of(
+			MessageKey.COMMANDS_HELP_SEND_CONSOLE,
+			"{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; console requires cost exemption",
+			MessageKey.ERROR_SEND_CONSOLE_COST,
+			"Console sends require airdrop.cost.bypass; console cannot pay for a package.",
+			MessageKey.TARGETED_COST_EXEMPT, "cost exempt (airdrop.cost.bypass)");
 	private static final Pattern SAFE_LANGUAGE_CODE_PATTERN = Pattern.compile("^[a-z]{2}(?:-[A-Z]{2})?$");
 
 	private final Airdrop plugin;
@@ -68,8 +74,8 @@ public class LanguageManager {
 
 	/**
 	 * Performs all language file I/O and parsing without changing the live language state.
-	 * When {@code writeMissingKeys} is true, resource defaults missing from the configured
-	 * file are persisted before this method returns.
+	 * When {@code writeMissingKeys} is true, missing resource defaults and recognized
+	 * unchanged stock-message migrations are persisted before this method returns.
 	 */
 	public LanguageCandidate prepareLanguage(String langCode, boolean writeMissingKeys)
 			throws IOException, InvalidConfigurationException {
@@ -170,6 +176,9 @@ public class LanguageManager {
 
 	private boolean mergeMissingDefaults(YamlConfiguration configuration, YamlConfiguration defaults) {
 		boolean updated = migrateStockVersionInfo(configuration, defaults);
+		if (migrateStockConsoleSendMessages(configuration, defaults)) {
+			updated = true;
+		}
 		for (String key : defaults.getKeys(true)) {
 			if (!configuration.isSet(key)) {
 				configuration.set(key, defaults.get(key));
@@ -188,6 +197,20 @@ public class LanguageManager {
 			return true;
 		}
 		return false;
+	}
+
+	private boolean migrateStockConsoleSendMessages(YamlConfiguration configuration, YamlConfiguration defaults) {
+		boolean updated = false;
+		for (Map.Entry<MessageKey, String> entry : LEGACY_CONSOLE_SEND_MESSAGES.entrySet()) {
+			String key = entry.getKey().getKey();
+			String replacement = defaults.getString(key);
+			// Refresh only the exact previous stock text; preserve customized translations.
+			if (replacement != null && entry.getValue().equals(configuration.getString(key))) {
+				configuration.set(key, replacement);
+				updated = true;
+			}
+		}
+		return updated;
 	}
 
 	void writeAtomically(Path target, byte[] contents, boolean replaceExisting) throws IOException {
