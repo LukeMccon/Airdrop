@@ -34,6 +34,7 @@ import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.helpers.SendPermissions;
 import com.airdropmc.internal.api.ApiModelMapper;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
@@ -136,7 +137,7 @@ public final class DropRequestCoordinator {
 		CommandSender requiredSender = Objects.requireNonNull(sender, "sender");
 		Player player = requiredSender instanceof Player initiator ? initiator : null;
 		// Capture the effective payment policy once; later permission changes cannot change the charge.
-		boolean costExempt = requiredSender.hasPermission("airdrop.cost.bypass");
+		boolean costExempt = SendPermissions.isCostExempt(requiredSender);
 		DropRequestDescriptor descriptor = new DropRequestDescriptor(UUID.randomUUID(),
 				player == null ? DropSource.SYSTEM : DropSource.PLAYER,
 				player == null ? null : player.getUniqueId(), requirePackageName(packageName),
@@ -239,7 +240,7 @@ public final class DropRequestCoordinator {
 					process.payment);
 		}
 
-		if (targetedSender != null && (!targetedSender.hasPermission("airdrop.send")
+		if (targetedSender != null && (!SendPermissions.hasSendPermission(targetedSender)
 				|| player == null && !costExempt)) {
 			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
 					"Send requires authorization and a console cost exemption",
@@ -401,7 +402,7 @@ public final class DropRequestCoordinator {
 
 	private static boolean hasRequestPermissions(Player player, Player recipient, CommandSender sender,
 			String name, boolean requireRecipientPermission) {
-		return (sender == null || sender.hasPermission("airdrop.send"))
+		return (sender == null || SendPermissions.hasSendPermission(sender))
 				&& (player == null || PermissionsHelper.hasPermission(player, name))
 				&& (recipient == null || !requireRecipientPermission
 						|| PermissionsHelper.hasPermission(recipient, name));

@@ -1,6 +1,7 @@
 package com.airdropmc.lightkeeper.economy;
 
 import com.airdropmc.integration.support.BlockExplosionCommand;
+import com.airdropmc.integration.support.ConsoleSendCommand;
 import com.airdropmc.integration.support.InventoryReplacementCommand;
 import com.airdropmc.integration.support.MenuCloseCommand;
 import com.airdropmc.integration.support.PaidCrateLifecycleCommand;
@@ -30,6 +31,8 @@ public final class LightkeeperEconomyPlugin extends JavaPlugin {
 
 	@Override
 	public void onEnable() {
+		Objects.requireNonNull(getCommand("lkconsole"), "console send command")
+				.setExecutor(new ConsoleSendCommand(this));
 		Objects.requireNonNull(getCommand("airdrop-lightkeeper-block-explode"), "block explosion command")
 				.setExecutor(new BlockExplosionCommand());
 		Objects.requireNonNull(getCommand("airdrop-lightkeeper-inventory-replacement"), "inventory replacement command")

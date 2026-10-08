@@ -259,7 +259,7 @@ class TargetedDropCommandTest {
 	}
 
 	@Test
-	void consoleRequiresCostExemptionAndExplicitWorld() {
+	void otherNonPlayerSenderRequiresCostExemptionAndExplicitWorld() {
 		org.bukkit.command.CommandSender console = mock(org.bukkit.command.CommandSender.class);
 		when(console.hasPermission("airdrop.send")).thenReturn(true);
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
@@ -271,6 +271,28 @@ class TargetedDropCommandTest {
 			drops.verifyNoInteractions();
 			verify(console).sendMessage(contains("trailing world"));
 			when(console.getName()).thenReturn("Console");
+			drops.when(() -> DropController.requestSendDrop(eq(console), any(Location.class), eq("starter"),
+					eq(DropRequestOptions.defaults()))).thenReturn(pendingHandle());
+			command(console, "send", "starter", "1", "2", "targeted_world");
+			drops.verify(() -> DropController.requestSendDrop(console, new Location(sender.getWorld(), 1,
+					sender.getWorld().getMaxHeight() - 1, 2), "starter", DropRequestOptions.defaults()));
+		}
+	}
+
+	@Test
+	void nativeConsoleWithoutCostGrantCanSendAndRequiresExplicitWorld() {
+		var console = mock(org.bukkit.command.ConsoleCommandSender.class);
+		when(console.hasPermission("airdrop.send")).thenReturn(true);
+		when(console.getName()).thenReturn("Console");
+		assertTrue(TargetedDropCommand.canSend(console));
+		assertTrue(new AirdropTabCompleter().onTabComplete(console, mock(Command.class), "ad",
+				new String[]{""}).contains("send"));
+		command(console);
+		verify(console).sendMessage(contains("/airdrop send <package> <player>"));
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			command(console, "send", "starter", "1", "2");
+			drops.verifyNoInteractions();
+			verify(console).sendMessage(contains("trailing world"));
 			drops.when(() -> DropController.requestSendDrop(eq(console), any(Location.class), eq("starter"),
 					eq(DropRequestOptions.defaults()))).thenReturn(pendingHandle());
 			command(console, "send", "starter", "1", "2", "targeted_world");

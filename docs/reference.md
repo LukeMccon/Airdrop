@@ -99,7 +99,7 @@ failures can be diagnosed.
 | --- | --- | --- |
 | `/airdrop` | Show sender-appropriate help | Everyone, including console |
 | `/airdrop <package>` | Request a package at the player's location | Player with `airdrop.package.<package>` or `airdrop.package.all` |
-| `/airdrop send <package> <player>` | Send to an exact online player's captured location | `airdrop.send` and normal sender package access; console also requires `airdrop.cost.bypass` |
+| `/airdrop send <package> <player>` | Send to an exact online player's captured location | `airdrop.send` and normal player sender package access; native console and RCON are cost-exempt by default |
 | `/airdrop send <package> <x> <z> [world]` | Send to the surface at absolute X/Z | Same sender permissions; world defaults to a player's current world, required for console |
 | `/airdrop package <name>` | Inspect a package and its price | Everyone, including console |
 | `/airdrop package create <name> <price>` | Create a package and open its editor | In-game player with `airdrop.admin` |
@@ -143,12 +143,20 @@ The generated Bukkit permissions are:
 | `airdrop.cooldown.bypass` | Bypass only the per-player request cooldown | Operator |
 | `airdrop.admin` | Use admin commands and all packages; includes send authority and cooldown bypass, but not cost exemption | Operator |
 
-Airdrop uses the effective `airdrop.cost.bypass` permission on the sender. Operator
+Airdrop uses the effective `airdrop.cost.bypass` permission on player senders. Operator
 status or `airdrop.admin` alone does not make a package free. An effective
 `airdrop.*` or global wildcard can include cost exemption; `airdrop.package.*`
 and `airdrop.package.all` alone cannot. Effective explicit denials of send,
-cost exemption, and cooldown bypass are respected. Console and RCON send requests
-require both `airdrop.send` and `airdrop.cost.bypass`; they cannot make paid requests.
+cost exemption, and cooldown bypass are respected.
+
+Native server console and RCON sends are cost-exempt by default, including reward
+plugins dispatching through the server console. No console permission grant is
+needed. They still require `airdrop.send`; an effective Bukkit attachment denying
+either `airdrop.send` or `airdrop.cost.bypass` blocks sends, including inherited
+attachment denials and when Paper's console `has-all-permissions` is enabled.
+Other non-player command senders require an effective `airdrop.cost.bypass` grant;
+non-player senders cannot make paid requests. The permission itself stays false by
+default and is not included in `airdrop.admin`.
 Inventory editing and self-orders require an in-game player.
 
 ### Send to a player or coordinates
@@ -210,8 +218,10 @@ airdrop send starter 120 -45 world
 ```
 
 Replace `{player}` with the exact online-name placeholder supplied by your reward
-plugin. Add a leading slash only if it requires one. Ensure the command sender's
-effective permissions include send authority and cost exemption. Named targets
+plugin. Add a leading slash only if it requires one. Native console execution works
+without a cost-bypass grant; check for explicit send or cost-bypass denials if it
+is rejected. A plugin using its own non-player sender must supply send authority
+and cost exemption. Named targets
 still obey `gifting.require-recipient-permission` when enabled. Check failure
 handling in the reward plugin; Airdrop does not queue offline rewards.
 
@@ -410,8 +420,9 @@ syntax.
   `airdrop.package.all`. LuckPerms itself is not required.
 - **A send is rejected:** check `airdrop.send`, sender package access, balance,
   cooldown, and pending requests. Check recipient access for named targets when
-  `gifting.require-recipient-permission` is enabled. Console requires cost exemption
-  and an explicit world for coordinates.
+  `gifting.require-recipient-permission` is enabled. Native console and RCON need
+  an explicit world for coordinates; effective attachment denials of send or
+  cost bypass also block them.
 - **An exempt request is rejected:** exemption skips payment only. Package access,
   recipient eligibility, player admission, shared limits, reservations, and
   landing protection still apply.

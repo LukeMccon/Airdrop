@@ -7,7 +7,7 @@ commands:
   package-specify: "Must specify a package name"
   package-example: "Example: /airdrop starter"
   help:
-    send-console: "{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; console requires cost exemption"
+    send-console: "{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; native console and RCON are cost-exempt"
     send-coordinates: "{text}/airdrop send <package> <x> <z> [world]{primary} — send to the surface; defaults to your current world"
     send-player: "{text}/airdrop send <package> <player>{primary} — send to an online player; sender pays unless cost is exempt"
     header: "{primary}Airdrop commands"
@@ -48,7 +48,7 @@ packages:
   capacity-limit: "Cannot configure {accent}{count}{error} packages; the limit is {accent}{limit}{error}. Delete an existing package first."
 
 errors:
-  send-console-cost: "Console sends require airdrop.cost.bypass; console cannot pay for a package."
+  send-console-cost: "This sender cannot send without cost exemption; check airdrop.cost.bypass. Non-player senders cannot pay for a package."
   send-console-world: "Console coordinate sends require a trailing world."
   send-world: "Unknown world {world}; no package was sent."
   send-coordinates: "Coordinates must be finite absolute X/Z numbers between -30000000 and 30000000 (exclusive)."
@@ -136,7 +136,7 @@ system:
 targeted:
   cost-paid: "cost ${amount} from your account"
   cost-zero: "free package ($0)"
-  cost-exempt: "cost exempt (airdrop.cost.bypass)"
+  cost-exempt: "cost exempt"
   action-send: "Send"
   requested: "{action} request {request_id} for {name} at {player} accepted for processing; {cost}."
   spawned: "{action} request {request_id}: {name} is on its way to {player}; no payment was taken."

@@ -126,6 +126,37 @@ class DropRequestCoordinatorGiftTest {
 	}
 
 	@Test
+	void defaultConsoleUsesSystemAdmissionAndDoesNotChargeRecipient() {
+		var console = mock(org.bukkit.command.ConsoleCommandSender.class);
+		when(console.hasPermission("airdrop.send")).thenReturn(true);
+		DropHandle handle = DropController.requestSendDrop(console, recipient, "paid", options(), false);
+		var spawned = assertInstanceOf(DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().join());
+		assertEquals(PaymentStatus.NOT_APPLICABLE, spawned.payment());
+		assertEquals(DropSource.SYSTEM, handle.descriptor().source());
+		assertTrue(handle.descriptor().playerId().isEmpty());
+		assertTrue(economy.affordabilityChecks.isEmpty());
+		assertTrue(economy.withdrawals.isEmpty());
+		land(handle);
+		assertInstanceOf(DropOutcome.Landed.class, handle.outcome().toCompletableFuture().join());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"airdrop.send", "airdrop.cost.bypass"})
+	void explicitConsoleDenialsAlsoRejectDirectCoordinatorCalls(String permission) {
+		var console = server.getConsoleSender();
+		var attachment = console.addAttachment(plugin, permission, false);
+		try {
+			DropHandle handle = DropController.requestSendDrop(console, recipient, "paid", options(), false);
+			assertEquals(DropRejectionReason.INSUFFICIENT_PERMISSION, rejection(handle).rejection().reason());
+			assertTrue(economy.affordabilityChecks.isEmpty());
+			assertTrue(economy.withdrawals.isEmpty());
+			assertEquals(0, Airdrop.getDropAdmissionController().snapshot().pending());
+		} finally {
+			console.removeAttachment(attachment);
+		}
+	}
+
+	@Test
 	void adminSenderStillPaysForGift() {
 		sender.addAttachment(plugin, "airdrop.admin", true);
 		sender.addAttachment(plugin, "airdrop.package.paid", false);
