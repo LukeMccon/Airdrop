@@ -456,10 +456,13 @@ wrappers, `Crate`, and `com.airdropmc.events` are implementation details.
 
 ### Compile against Airdrop without shading it
 
+The examples below target the upcoming 4.2.0 release. Until it is published,
+build this branch locally or use 4.1.0 with its matching API contract.
+
 Do not shade Airdrop into a consumer plugin. Use the released plugin as a
 compile-only dependency, and declare Paper explicitly because Airdrop's Maven
-POM deliberately has no transitive dependencies. A `v4.1.0` release tag is
-published at Maven version `4.1.0`; the tag prefix is never part of the
+POM deliberately has no transitive dependencies. A `v4.2.0` release tag will be
+published at Maven version `4.2.0`; the tag prefix is never part of the
 consumer coordinate. For Gradle:
 
 ```kotlin
@@ -469,7 +472,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("maven.modrinth:airdrop:4.1.0")
+    compileOnly("maven.modrinth:airdrop:4.2.0")
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
 }
 ```
@@ -491,7 +494,7 @@ For Maven, use the same Modrinth coordinate and mark both plugins as provided:
   <dependency>
     <groupId>maven.modrinth</groupId>
     <artifactId>airdrop</artifactId>
-    <version>4.1.0</version>
+    <version>4.2.0</version>
     <scope>provided</scope>
   </dependency>
   <dependency>
