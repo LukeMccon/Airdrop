@@ -340,6 +340,76 @@ class RemoteDropPreparationTest {
 		assertEquals(0, world.tickets);
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {"break", "block-explosion", "entity-explosion"})
+	void nativeRemovalReconciliationReleasesSharedTicketOnlyAfterLastFreeCrate(String eventType) {
+		DropHandle first = request(1600);
+		world.completeTicking(0);
+		server.getScheduler().performOneTick();
+		DropHandle second = request(1601);
+		land(first);
+		land(second);
+		assertEquals(1, world.tickets);
+		for (DropHandle handle : List.of(first, second)) {
+			Location location = handle.context().orElseThrow().landingLocation();
+			var crate = CrateManager.getCrate(location);
+			// Overlapping native signals must reconcile the same expected owner only once.
+			signalNativeRemoval(location.getBlock(), eventType);
+			signalNativeRemoval(location.getBlock(), eventType);
+			assertEquals(crate, CrateManager.getCrate(location));
+			location.getBlock().setType(org.bukkit.Material.STONE);
+			server.getScheduler().performOneTick();
+			assertNull(CrateManager.getCrate(location));
+			assertEquals(org.bukkit.Material.STONE, location.getBlock().getType(),
+					"Native finalization must preserve replacement blocks");
+			assertFalse(CrateManager.finalizeCrateBreak(location, crate));
+			if (handle == first) {
+				assertEquals(1, world.tickets);
+				assertEquals(0, world.ticketRemovals);
+				assertEquals(1, Airdrop.getDropAdmissionController().snapshot().landedClaims());
+			} else {
+				assertEquals(0, world.tickets);
+				assertEquals(1, world.ticketRemovals);
+				assertEquals(0, Airdrop.getDropAdmissionController().snapshot().landedClaims());
+			}
+		}
+		CrateManager.clearAll();
+		assertEquals(1, world.ticketRemovals);
+	}
+
+	private void signalNativeRemoval(Block block, String eventType) {
+		switch (eventType) {
+			case "break" -> server.getPluginManager().callEvent(
+					new org.bukkit.event.block.BlockBreakEvent(block, server.addPlayer()));
+			case "block-explosion" -> {
+				var event = org.mockito.Mockito.mock(org.bukkit.event.block.BlockExplodeEvent.class);
+				org.mockito.Mockito.when(event.blockList()).thenReturn(List.of(block));
+				new com.airdropmc.listeners.CrateCleanupListener(plugin).onBlockExplode(event);
+			}
+			case "entity-explosion" -> {
+				var event = org.mockito.Mockito.mock(org.bukkit.event.entity.EntityExplodeEvent.class);
+				org.mockito.Mockito.when(event.blockList()).thenReturn(List.of(block));
+				new com.airdropmc.listeners.CrateCleanupListener(plugin).onEntityExplode(event);
+			}
+		}
+	}
+
+	@Test
+	void suspensionReleasesRetentionButPreservesItsAdmissionClaim() {
+		DropHandle handle = request(1600);
+		world.completeTicking(0);
+		server.getScheduler().performOneTick();
+		land(handle);
+		var lease = CrateManager.getCrate(handle.context().orElseThrow().landingLocation()).suspendLandedBarrel();
+		try {
+			assertEquals(0, world.tickets);
+			assertEquals(1, world.ticketRemovals);
+			assertEquals(1, Airdrop.getDropAdmissionController().snapshot().landedClaims());
+		} finally {
+			lease.close();
+		}
+	}
+
 	@Test
 	void fullLandedCapacityDoesNotAcquireAnotherTicket() {
 		Airdrop.getConfiguration().getConfig().set("drop.limits.max-landed", 1);
@@ -567,6 +637,7 @@ class RemoteDropPreparationTest {
 		boolean completingNeighborhood;
 		int surfaceReads;
 		int tickets;
+		int ticketRemovals;
 
 		@Override
 		public boolean isChunkLoaded(int x, int z) {
@@ -611,6 +682,7 @@ class RemoteDropPreparationTest {
 		@Override
 		public boolean removePluginChunkTicket(int x, int z, Plugin owner) {
 			tickets--;
+			ticketRemovals++;
 			return true;
 		}
 
