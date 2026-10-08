@@ -67,7 +67,7 @@ class SendPermissionsTest {
 			String parent = "test.console." + type.getSimpleName().toLowerCase(java.util.Locale.ROOT);
 			server.getPluginManager().addPermission(new Permission(parent, PermissionDefault.FALSE,
 					Map.of("airdrop.cost.bypass", true, "airdrop.send", true)));
-			attachment = permissions.addAttachment(plugin, parent, false);
+			permissions.addAttachment(plugin, parent, false);
 			assertFalse(SendPermissions.isCostExempt(console));
 			assertFalse(SendPermissions.hasSendPermission(console));
 			// A later effective grant overrides an older denial, following Bukkit's actual result.
