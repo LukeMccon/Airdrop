@@ -37,6 +37,7 @@ import java.util.concurrent.locks.LockSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RemoteDropPreparationTest {
@@ -91,7 +92,8 @@ class RemoteDropPreparationTest {
 	}
 
 	@Test
-	void retainedRemoteChunkWaitsForEntityTickingBeforeResolvingThenCleansUpOnLanding() {
+	void retainedRemoteChunkWaitsForEntityTickingThenKeepsFreeCrateThroughExpiry() {
+		Airdrop.getConfiguration().getConfig().set("drop.limits.landed-lifetime-seconds", 30);
 		DropHandle handle = request(1600);
 		Chunk chunk = world.complete(0);
 		org.mockito.Mockito.doReturn(Chunk.LoadLevel.BORDER).when(chunk).getLoadLevel();
@@ -108,9 +110,17 @@ class RemoteDropPreparationTest {
 		server.getPluginManager().callEvent(new org.bukkit.event.entity.EntityChangeBlockEvent(falling,
 				handle.context().orElseThrow().landingLocation().getBlock(), org.bukkit.Material.BARREL.createBlockData()));
 		assertInstanceOf(DropOutcome.Landed.class, handle.outcome().toCompletableFuture().getNow(null));
-		assertEquals(0, world.tickets);
+		assertEquals(1, world.tickets, "Free rewards must remain collectable without nearby players");
+		var location = handle.context().orElseThrow().landingLocation();
+		assertFalse(CrateManager.getCrate(location).isPaid());
+		assertNull(com.airdropmc.Crate.readPaidPersistence((org.bukkit.block.Barrel) location.getBlock().getState()));
 		assertTrue(world.getEntities().stream().noneMatch(e -> e instanceof org.bukkit.entity.Chicken
 				|| e instanceof org.bukkit.entity.Slime));
+		Airdrop.getConfiguration().getConfig().set("drop.limits.landed-lifetime-seconds", 86_400);
+		server.getScheduler().performTicks(600);
+		assertEquals(0, world.tickets);
+		assertEquals(org.bukkit.Material.AIR, location.getBlock().getType());
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().landedClaims());
 	}
 
 	@Test
@@ -224,7 +234,7 @@ class RemoteDropPreparationTest {
 	}
 
 	@Test
-	void sharedChunkTicketSurvivesOneFailureUntilTheOtherDeliveryLands() {
+	void sharedChunkTicketSurvivesOneFailureUntilTheOtherFreeCrateIsRemoved() {
 		PlayerMock first = server.addPlayer("First");
 		PlayerMock second = server.addPlayer("Second");
 		first.setOp(true);
@@ -244,12 +254,14 @@ class RemoteDropPreparationTest {
 		server.getPluginManager().callEvent(new org.bukkit.event.entity.EntityChangeBlockEvent(remaining,
 				b.context().orElseThrow().landingLocation().getBlock(), org.bukkit.Material.BARREL.createBlockData()));
 		assertInstanceOf(DropOutcome.Landed.class, b.outcome().toCompletableFuture().getNow(null));
+		assertEquals(1, world.tickets);
+		CrateManager.removeCrateAndDestroy(b.context().orElseThrow().landingLocation());
 		assertEquals(0, world.tickets);
 	}
 
 	@ParameterizedTest
 	@ValueSource(booleans = {false, true})
-	void initiallyTickingDestinationRetainsTheFlyAwayUntilCleanupOrShutdown(boolean shutdown) {
+	void initiallyTickingDestinationKeepsFreeRewardsAfterFlyAwayUntilRemoval(boolean shutdown) {
 		var chunk = org.mockito.Mockito.spy(world.getChunkAt(100, 100));
 		org.mockito.Mockito.doReturn(Chunk.LoadLevel.ENTITY_TICKING).when(chunk).getLoadLevel();
 		world.ready.add("100:100");
@@ -264,11 +276,93 @@ class RemoteDropPreparationTest {
 		assertInstanceOf(DropOutcome.Landed.class, handle.outcome().toCompletableFuture().getNow(null));
 		assertEquals(1, world.tickets, "Keep the local fly-away animation loaded");
 		assertTrue(world.getEntities().stream().anyMatch(entity -> entity instanceof org.bukkit.entity.Chicken));
-		if (shutdown) coordinator.stop();
-		else server.getScheduler().performTicks(62);
+		server.getScheduler().performTicks(62);
+		assertEquals(1, world.tickets, "Animation cleanup must not retire the free reward");
+		if (shutdown) {
+			coordinator.stop();
+			CrateManager.prepareForShutdown(plugin);
+		} else {
+			CrateManager.removeCrateAndDestroy(handle.context().orElseThrow().landingLocation());
+		}
 		assertEquals(0, world.tickets);
 		assertTrue(world.getEntities().stream().noneMatch(entity -> entity instanceof org.bukkit.entity.Chicken
 				|| entity instanceof org.bukkit.entity.Slime));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"clear", "world", "empty", "listener"})
+	void freeRetentionIsReleasedByExistingRetirementPaths(String retirement) {
+		if (retirement.equals("listener")) {
+			server.getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+				@org.bukkit.event.EventHandler
+				public void onLanded(com.airdropmc.api.event.AirdropLandedEvent event) {
+					CrateManager.clearAll();
+				}
+			}, plugin);
+		}
+		DropHandle handle = request(1600);
+		world.completeTicking(0);
+		server.getScheduler().performOneTick();
+		land(handle);
+		var location = handle.context().orElseThrow().landingLocation();
+		if (!retirement.equals("listener")) {
+			assertEquals(1, world.tickets);
+		}
+		switch (retirement) {
+			case "clear" -> CrateManager.clearAll();
+			case "world" -> assertTrue(CrateManager.prepareWorldForUnload(world, plugin));
+			case "empty" -> {
+				var barrel = (org.bukkit.block.Barrel) location.getBlock().getState();
+				var player = server.addPlayer();
+				player.openInventory(barrel.getInventory());
+				player.closeInventory();
+			}
+		}
+		assertEquals(0, world.tickets);
+		assertEquals(org.bukkit.Material.AIR, location.getBlock().getType());
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().landedClaims());
+		CrateManager.clearAll();
+		assertEquals(0, world.tickets, "Retirement must release each claim only once");
+	}
+
+	@Test
+	void landedFreeCratesShareTicketUntilBothAreRemoved() {
+		DropHandle first = request(1600);
+		world.completeTicking(0);
+		server.getScheduler().performOneTick();
+		DropHandle second = request(1601);
+		land(first);
+		land(second);
+		assertEquals(1, world.tickets);
+		CrateManager.removeCrateAndDestroy(first.context().orElseThrow().landingLocation());
+		assertEquals(1, world.tickets);
+		CrateManager.removeCrateAndDestroy(second.context().orElseThrow().landingLocation());
+		assertEquals(0, world.tickets);
+	}
+
+	@Test
+	void fullLandedCapacityDoesNotAcquireAnotherTicket() {
+		Airdrop.getConfiguration().getConfig().set("drop.limits.max-landed", 1);
+		DropHandle first = request(1600);
+		world.completeTicking(0);
+		server.getScheduler().performOneTick();
+		land(first);
+		assertEquals(1, world.tickets);
+		DropHandle denied = request(1616);
+		assertEquals(DropRejectionReason.LANDED_CAPACITY, rejected(denied).rejection().reason());
+		assertEquals(1, world.tickets);
+		assertEquals(1, world.loads.size());
+		CrateManager.clearAll();
+		assertEquals(0, world.tickets);
+	}
+
+	private void land(DropHandle handle) {
+		var id = ((DropSpawnResult.Spawned) handle.spawn().toCompletableFuture().getNow(null)).airdrop().fallingEntityId();
+		var falling = CrateManager.getCrateMap().keySet().stream()
+				.filter(entity -> entity.getUniqueId().equals(id)).findFirst().orElseThrow();
+		server.getPluginManager().callEvent(new org.bukkit.event.entity.EntityChangeBlockEvent(falling,
+				handle.context().orElseThrow().landingLocation().getBlock(), org.bukkit.Material.BARREL.createBlockData()));
+		assertInstanceOf(DropOutcome.Landed.class, handle.outcome().toCompletableFuture().getNow(null));
 	}
 
 	@Test
@@ -352,6 +446,9 @@ class RemoteDropPreparationTest {
 		org.mockito.Mockito.verify(selectedProvider).withdraw(
 				new com.airdropmc.economy.EconomyPlayer(sender.getUniqueId(), sender.getName()), new java.math.BigDecimal("10.0"));
 		org.mockito.Mockito.verifyNoInteractions(oldProvider);
+		land(handle);
+		assertTrue(CrateManager.getCrate(handle.context().orElseThrow().landingLocation()).isPaid());
+		assertEquals(0, world.tickets, "Paid crates retain their existing unload/recovery policy");
 	}
 
 	@Test

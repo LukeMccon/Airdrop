@@ -123,6 +123,7 @@ public class Crate {
 	private BukkitTask smokeTask;
 	private BukkitTask landingEffectTask;
 	private BukkitTask expiryTask;
+	private Runnable landedChunkRelease;
 	private long expiresAtMillis;
 	private boolean barrelIdentityPersisted;
 	private RenderFlareTask flareEffect;
@@ -317,6 +318,15 @@ public class Crate {
 	/** Removes temporary parachute entities before releasing remote chunk retention. */
 	public void cleanupParachutes() {
 		parachuteSystem.cancel();
+	}
+
+	/** Transfers the prepared destination ticket to a free crate until its bounded retirement. */
+	public synchronized void retainLandedChunk(Runnable release) {
+		if (destroyed) {
+			release.run();
+		} else {
+			landedChunkRelease = release;
+		}
 	}
 
 	/**
@@ -692,6 +702,7 @@ public class Crate {
 		destroyed = true;
 		stopAllTasks();
 		boolean deliveryAbsent = state != State.LANDED || removeOwnedLandedBarrelConfirmed();
+		releaseLandedChunk();
 		lease.close();
 		if (deliveryAbsent) {
 			reportOutcome(terminalOutcome);
@@ -714,8 +725,17 @@ public class Crate {
 				cleanupResource("landed barrel", this::removeOwnedLandedBarrel);
 			}
 		} finally {
+			releaseLandedChunk();
 			lease.close();
 			reportOutcome(Outcome.FAILED);
+		}
+	}
+
+	private void releaseLandedChunk() {
+		Runnable release = landedChunkRelease;
+		landedChunkRelease = null;
+		if (release != null) {
+			cleanupResource("landed chunk retention", release);
 		}
 	}
 
