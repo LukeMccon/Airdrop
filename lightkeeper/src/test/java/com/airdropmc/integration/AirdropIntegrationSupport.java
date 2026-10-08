@@ -136,9 +136,9 @@ final class AirdropIntegrationSupport {
 		int offset = framework.server().output().size();
 		assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
 				"lkremote " + action + " " + token + " " + world.name() + " " + x + " " + z).success()).isTrue();
-		framework.waitUntil(() -> framework.server().output().subList(offset, framework.server().output().size())
+		framework.waitUntil(() -> newOutput(framework, offset)
 				.stream().anyMatch(line -> line.contains(marker)), Duration.ofSeconds(20));
-		String result = framework.server().output().subList(offset, framework.server().output().size()).stream()
+		String result = newOutput(framework, offset).stream()
 				.filter(line -> line.contains(marker)).findFirst().orElseThrow();
 		assertThat(result).contains("status=OK");
 		return result;
