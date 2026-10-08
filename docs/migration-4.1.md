@@ -95,6 +95,14 @@ terminal outcome instead of treating a method return as proof of payment or
 delivery. Payment status can remain `UNKNOWN` when an external economy result
 is ambiguous; integrations must not retry or refund that state automatically.
 
+`requestPlayerDrop(...)` bills the initiating player unless their effective
+`airdrop.cost.bypass` permission exempts them. `requestSystemDrop(...)` remains
+explicitly unpaid and does not take a command sender. For reward plugins using
+commands, native console and RCON `/airdrop send` requests are unpaid by default;
+effective Bukkit attachment denials of send or cost bypass still block them.
+See the [send command policy](reference.md#send-to-a-player-or-coordinates) for
+destination syntax and recipient eligibility.
+
 ## Replace legacy post-events with the supported lifecycle
 
 `PackageDropEvent` and `PackageLandEvent` are unsupported deprecated adapters.
