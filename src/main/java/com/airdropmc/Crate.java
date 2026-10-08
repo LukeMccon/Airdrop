@@ -531,6 +531,7 @@ public class Crate {
 		}
 		destroyed = true;
 		stopAllTasks();
+		releaseLandedChunk();
 		lease.close();
 	}
 
@@ -540,6 +541,7 @@ public class Crate {
 		}
 		destroyed = true;
 		stopAllTasks();
+		releaseLandedChunk();
 		return lease;
 	}
 

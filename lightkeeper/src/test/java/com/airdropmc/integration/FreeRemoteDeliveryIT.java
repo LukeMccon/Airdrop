@@ -5,6 +5,7 @@ import nl.pim16aap2.lightkeeper.framework.ILightkeeperFramework;
 import nl.pim16aap2.lightkeeper.framework.LightkeeperExtension;
 import nl.pim16aap2.lightkeeper.framework.WorldHandle;
 import nl.pim16aap2.lightkeeper.framework.WorldSpec;
+import nl.pim16aap2.lightkeeper.protocol.CommandSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,12 +26,69 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 class FreeRemoteDeliveryIT {
 	private static final BlockPos BARREL = new BlockPos(4104, 81, 4104);
 	private static final List<String> LANDED = List.of("REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME");
+	private static final String EXPLOSION_LOOT = "loot={BARREL=1, BREAD=2, IRON_BOOTS=1, "
+			+ "IRON_CHESTPLATE=1, IRON_HELMET=1, IRON_LEGGINGS=1}";
+	private static long lastConsoleSendNanos;
+
+	@Test
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	void explodingSharedFreeCratesReleasesFinalTicketAndPreservesNativeLoot(
+			ILightkeeperFramework framework) {
+		AirdropIntegrationSupport.awaitReady(framework);
+		awaitConsoleCooldown(framework);
+		WorldHandle world = framework.worlds().builder().withRandomName()
+				.withWorldType(WorldSpec.WorldType.FLAT).withSeed(96L).build();
+		List<BlockPos> positions = List.of(new BlockPos(4097, 81, 4097), new BlockPos(4110, 81, 4110));
+		List<UUID> requests = new java.util.ArrayList<>();
+		try {
+			for (BlockPos position : positions) {
+				AirdropIntegrationSupport.remoteFixture(framework, "prepare-explosion", world, position.x(), position.z());
+			}
+			awaitUnloaded(world);
+			int offset = framework.server().output().size();
+			for (BlockPos position : positions) {
+				int requestOffset = framework.server().output().size();
+				sendFree(framework, world, position);
+				var markers = AirdropIntegrationSupport.awaitConsumerMarkers(framework, requestOffset, LANDED);
+				AirdropIntegrationSupport.assertCorrelatedPrimaryThreadSequence(markers);
+				assertThat(markers.getLast().required("payment")).isEqualTo("NOT_APPLICABLE");
+				requests.add(markers.getFirst().requestId());
+				AirdropIntegrationSupport.assertStarterContents(framework, world, position);
+			}
+			assertThat(observe(framework, world)).contains("tickets=1");
+			for (int index = 0; index < positions.size(); index++) {
+				BlockPos position = positions.get(index);
+				UUID request = requests.get(index);
+				assertThat(AirdropIntegrationSupport.remoteFixture(framework,
+						"explode-free", world, position.x(), position.z())).contains(EXPLOSION_LOOT);
+				eventually(Duration.ofSeconds(10), () -> assertThat(lifecycle(framework, offset, "RETIRED", request))
+						.singleElement().satisfies(line -> assertThat(line).contains("reason=EXPLODED")));
+				assertThat(observe(framework, world)).contains("tickets=" + (index == 0 ? 1 : 0));
+			}
+			awaitUnloaded(world);
+			world.loadChunk(BARREL.x() >> 4, BARREL.z() >> 4);
+			for (int index = 0; index < positions.size(); index++) {
+				assertThat(world.blockTypeAt(positions.get(index))).isEqualTo("minecraft:air");
+				assertThat(lifecycle(framework, offset, "RECOVERED", requests.get(index))).isEmpty();
+				assertThat(lifecycle(framework, offset, "RETIRED", requests.get(index))).hasSize(1);
+			}
+			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
+		} finally {
+			AirdropIntegrationSupport.remoteFixture(framework, "cleanup", world, BARREL.x(), BARREL.z());
+			// Reload the generated neighborhood so loose native drops are removed even after chunk unload.
+			AirdropIntegrationSupport.remoteFixture(framework, "prepare", world, BARREL.x(), BARREL.z());
+			framework.server().executeCommand(CommandSource.CONSOLE,
+					"minecraft:execute in minecraft:%s run kill @e[type=minecraft:item]".formatted(world.name()));
+			assertThat(observe(framework, world)).contains("tickets=0", "auxiliaries=0");
+		}
+	}
 
 	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void consoleRewardStaysCollectableUntilExpiryThenReleasesChunkWithoutReplay(
 			ILightkeeperFramework framework) throws Exception {
 		AirdropIntegrationSupport.awaitReady(framework);
+		awaitConsoleCooldown(framework);
 		var configFile = SendIT.configFile(framework);
 		byte[] originalConfig = Files.readAllBytes(configFile);
 		WorldHandle world = framework.worlds().builder().withRandomName()
@@ -44,7 +102,7 @@ class FreeRemoteDeliveryIT {
 			AirdropIntegrationSupport.remoteFixture(framework, "prepare", world, BARREL.x(), BARREL.z());
 			awaitUnloaded(world);
 			int offset = framework.server().output().size();
-			AirdropIntegrationSupport.remoteFixture(framework, "send-free", world, BARREL.x(), BARREL.z());
+			sendFree(framework, world, BARREL);
 			var markers = AirdropIntegrationSupport.awaitConsumerMarkers(framework, offset, LANDED);
 			AirdropIntegrationSupport.assertCorrelatedPrimaryThreadSequence(markers);
 			assertThat(markers.getLast().required("delivery")).isEqualTo("LANDED");
@@ -87,6 +145,19 @@ class FreeRemoteDeliveryIT {
 
 	private static String observe(ILightkeeperFramework framework, WorldHandle world) {
 		return AirdropIntegrationSupport.remoteFixture(framework, "observe", world, BARREL.x(), BARREL.z());
+	}
+
+	private static void sendFree(ILightkeeperFramework framework, WorldHandle world, BlockPos position) {
+		AirdropIntegrationSupport.remoteFixture(framework, "send-free", world, position.x(), position.z());
+		lastConsoleSendNanos = System.nanoTime();
+	}
+
+	private static void awaitConsoleCooldown(ILightkeeperFramework framework) {
+		// The class shares a server and the default five-second console remote-attempt bucket.
+		if (lastConsoleSendNanos != 0) {
+			framework.waitUntil(() -> System.nanoTime() - lastConsoleSendNanos >= Duration.ofSeconds(5).toNanos(),
+					Duration.ofSeconds(6));
+		}
 	}
 
 	private static void awaitUnloaded(WorldHandle world) {

@@ -27,7 +27,7 @@ public final class RemoteDeliveryCommand implements CommandExecutor {
 			int x = Integer.parseInt(args[3]);
 			int z = Integer.parseInt(args[4]);
 			Plugin airdrop = Objects.requireNonNull(Bukkit.getPluginManager().getPlugin("Airdrop"));
-			if (args[0].equals("prepare")) {
+			if (args[0].equals("prepare") || args[0].equals("prepare-explosion")) {
 				var loads = new ArrayList<CompletableFuture<?>>();
 				for (int cx = (x >> 4) - 2; cx <= (x >> 4) + 2; cx++) {
 					for (int cz = (z >> 4) - 2; cz <= (z >> 4) + 2; cz++) {
@@ -39,7 +39,15 @@ public final class RemoteDeliveryCommand implements CommandExecutor {
 						sender.sendMessage(marker + " status=FAILED detail=" + failure);
 						return;
 					}
-					world.getBlockAt(x, 80, z).setType(Material.STONE);
+					if (args[0].equals("prepare-explosion")) {
+						for (int dx = -2; dx <= 2; dx++) {
+							for (int dz = -2; dz <= 2; dz++) {
+								world.getBlockAt(x + dx, 80, z + dz).setType(Material.BEDROCK);
+							}
+						}
+					} else {
+						world.getBlockAt(x, 80, z).setType(Material.STONE);
+					}
 					world.save();
 					sender.sendMessage(marker + " status=OK");
 				});
@@ -97,6 +105,23 @@ public final class RemoteDeliveryCommand implements CommandExecutor {
 						.invoke(null, world.getChunkAt(x >> 4, z >> 4));
 				world.save();
 				sender.sendMessage(marker + " status=OK");
+			} else if (args[0].equals("explode-free")) {
+				var rule = org.bukkit.GameRules.BLOCK_EXPLOSION_DROP_DECAY;
+				boolean decay = Boolean.TRUE.equals(world.getGameRuleValue(rule));
+				var loot = new java.util.TreeMap<String, Integer>();
+				try {
+					world.setGameRule(rule, false);
+					world.createExplosion(x + 0.5, 81.5, z + 0.5, 2.0f, false, true);
+					for (var entity : world.getNearbyEntities(new Location(world, x, 81, z), 6, 6, 6)) {
+						if (entity instanceof org.bukkit.entity.Item item) {
+							var stack = item.getItemStack();
+							loot.merge(stack.getType().name(), stack.getAmount(), Integer::sum);
+						}
+					}
+				} finally {
+					world.setGameRule(rule, decay);
+				}
+				sender.sendMessage(marker + " status=OK loot=" + loot);
 			} else return false;
 		} catch (ReflectiveOperationException | RuntimeException failure) {
 			sender.sendMessage(marker + " status=FAILED detail=" + failure);

@@ -22,6 +22,8 @@ ticket prevents native chunk unload through the configured 30-second lifetime,
 then verifies scheduled expiry releases the ticket and a real unload/reload
 does not recreate loot. The scenario scopes an explicit console cost-bypass
 attachment to dispatch because this lane has no permissions provider.
+Its shared-chunk explosion scenario also checks exact native loot and releases
+the ticket only after both free crates have retired.
 
 Platform setup uses the consumer fixture's console-only `platform` command to batch the same native Bukkit block writes into one server call. Setup finishes before bots and event captures are created, and preserves the chunk lifecycle behavior exercised by the persistence tests.
 
