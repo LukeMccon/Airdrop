@@ -57,8 +57,11 @@ class RemoteDeliveryIT {
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 8200, 8200)).contains("generated=false", "loaded=false");
 			int messages = denied.receivedMessages().size();
 			denied.executeCommand("airdrop send premium 8200 8200 " + world.name());
-			eventually(Duration.ofSeconds(15), () -> assertThat(denied.receivedMessages().subList(messages,
-					denied.receivedMessages().size())).anyMatch(text -> text.contains("generation is disabled")));
+			eventually(Duration.ofSeconds(15), () -> {
+				List<String> receivedMessages = denied.receivedMessages();
+				assertThat(receivedMessages.subList(messages, receivedMessages.size()))
+						.anyMatch(text -> text.contains("generation is disabled"));
+			});
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 8200, 8200)).contains("generated=false", "tickets=0");
 			EconomyIntegrationSupport.assertAccountState(framework, denied.uniqueId(), "100.00", 0, 0, 0);
 
@@ -76,8 +79,11 @@ class RemoteDeliveryIT {
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 5016, 0)).contains("generated=false");
 			int edgeMessages = edge.receivedMessages().size();
 			edge.executeCommand("airdrop send premium 4990 0 " + world.name());
-			eventually(Duration.ofSeconds(10), () -> assertThat(edge.receivedMessages().subList(edgeMessages,
-					edge.receivedMessages().size())).anyMatch(text -> text.contains("outside the world border")));
+			eventually(Duration.ofSeconds(10), () -> {
+				List<String> receivedMessages = edge.receivedMessages();
+				assertThat(receivedMessages.subList(edgeMessages, receivedMessages.size()))
+						.anyMatch(text -> text.contains("outside the world border"));
+			});
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 4990, 0)).contains("generated=false", "tickets=0");
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 5016, 0)).contains("generated=false", "tickets=0");
 			EconomyIntegrationSupport.assertAccountState(framework, edge.uniqueId(), "100.00", 0, 0, 0);
