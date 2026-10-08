@@ -6,6 +6,7 @@ import nl.pim16aap2.lightkeeper.framework.PlayerHandle;
 import nl.pim16aap2.lightkeeper.framework.WorldHandle;
 import nl.pim16aap2.lightkeeper.framework.BlockPos;
 import nl.pim16aap2.lightkeeper.protocol.CommandSource;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,22 +33,39 @@ class SendPermissionsIT {
 		AirdropIntegrationSupport.awaitReady(framework, true);
 		var configFile = SendIT.configFile(framework);
 		byte[] config = Files.readAllBytes(configFile);
+		var languageFile = framework.server().pluginDataDirectory("Airdrop").resolve("lang/en.yml");
+		byte[] language = Files.readAllBytes(languageFile);
 		List<PlayerHandle> players = new ArrayList<>();
 		WorldHandle world = null;
 		try {
+			// Simulate an existing installation whose locale still contains the previous stock messages.
+			YamlConfiguration previousLanguage = new YamlConfiguration();
+			previousLanguage.load(languageFile.toFile());
+			previousLanguage.set("commands.help.send-console",
+					"{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; console requires cost exemption");
+			previousLanguage.set("errors.send-console-cost",
+					"Console sends require airdrop.cost.bypass; console cannot pay for a package.");
+			previousLanguage.set("targeted.cost-exempt", "cost exempt (airdrop.cost.bypass)");
+			Files.writeString(languageFile, previousLanguage.saveToString());
+			GuiReloadIntegrationSupport.reloadSuccessfully(framework);
+			YamlConfiguration migratedLanguage = new YamlConfiguration();
+			migratedLanguage.load(languageFile.toFile());
+			assertThat(migratedLanguage.getString("targeted.cost-exempt")).isEqualTo("cost exempt");
 			world = SendIT.createWorld(framework);
 			PlayerHandle recipient = fullLoginPlayer(framework, world, players);
 			resetAccount(framework, recipient.uniqueId(), "7.00");
 			assertConsoleOutput(framework, "lkconsole inspect airdrop",
 					"native=com.destroystokyo.paper.console.TerminalConsoleCommandSender", "cost=false costSet=false complete=[send]",
-					"/airdrop send <package> <player>", "<x> <z> <world>");
+					"/airdrop send <package> <player>", "<x> <z> <world>", "native console and RCON are cost-exempt");
 			assertConsoleOutput(framework, "airdrop send premium 0 0", "trailing world");
 			assertConsoleOutput(framework, "airdrop send premium NaN 0 " + world.name(), "finite absolute X/Z");
 			assertConsoleOutput(framework, "airdrop send premium 0 0 missing_console_world", "Unknown world");
 
 			try (var operations = framework.events().capture(EconomyIntegrationSupport.OPERATION_EVENT)) {
 				for (String denial : List.of("deny-cost", "deny-send")) {
-					String message = denial.equals("deny-cost") ? "airdrop.cost.bypass" : "airdrop.send permission";
+					String message = denial.equals("deny-cost")
+							? "This sender cannot send without cost exemption; check airdrop.cost.bypass."
+							: "airdrop.send permission";
 					int offset = framework.server().output().size();
 					assertConsoleOutput(framework, "lkconsole " + denial + " airdrop send premium " + recipient.name(),
 							"complete=[]", message);
@@ -69,7 +87,11 @@ class SendPermissionsIT {
 			}
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
-			SendIT.restoreAndCleanup(framework, world, players, configFile, config);
+			try {
+				Files.write(languageFile, language);
+			} finally {
+				SendIT.restoreAndCleanup(framework, world, players, configFile, config);
+			}
 		}
 	}
 

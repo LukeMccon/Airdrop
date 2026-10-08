@@ -389,7 +389,10 @@ two-letter language form such as `en`, optionally followed by a hyphen and an
 uppercase region such as `pt-BR`. Unsafe or blank codes fall back to `en`.
 
 The English locale is bundled. A missing local English file is recreated, and
-new bundled keys are added without replacing existing translations. For a safe
+new bundled keys are added without replacing existing translations. Startup and
+reload also replace the unchanged previous English defaults for
+`commands.help.send-console`, `errors.send-console-cost`, and
+`targeted.cost-exempt`; edited values are preserved. For a safe
 custom code with no bundled file, Airdrop loads the local file if present and
 uses its hard-coded English message default for each missing or blank key.
 
