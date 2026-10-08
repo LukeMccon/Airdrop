@@ -81,7 +81,7 @@ jobs:
             tests: PaidEconomyIT,PackageGuiIT,EconomyNoProviderIT,SendIT
           - lane: lifecycle
             task: lightkeeperScenarioTest
-            tests: StarterDropIT,DropLifecycleIT,ApiConsumerIT,InventoryReplacementIT,PaidCrateLifecycleIT,RemoteDeliveryIT
+            tests: StarterDropIT,DropLifecycleIT,ApiConsumerIT,InventoryReplacementIT,PaidCrateLifecycleIT,RemoteDeliveryIT,FreeRemoteDeliveryIT
           - lane: send-permissions
             task: lightkeeperSendPermissionsTest
             tests: SendPermissionsIT
