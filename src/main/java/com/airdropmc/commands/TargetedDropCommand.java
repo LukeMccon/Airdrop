@@ -14,6 +14,7 @@ import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.helpers.SendPermissions;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.packages.PackageNamePolicy;
@@ -41,8 +42,7 @@ public final class TargetedDropCommand {
 	}
 
 	public static boolean canSend(CommandSender sender) {
-		return sender.hasPermission("airdrop.send")
-				&& (sender instanceof Player || sender.hasPermission("airdrop.cost.bypass"));
+		return SendPermissions.canSend(sender);
 	}
 
 	public static boolean isCoordinate(String value) {
@@ -55,12 +55,12 @@ public final class TargetedDropCommand {
 	}
 
 	public static void onCommand(CommandSender sender, String[] args) {
-		if (!sender.hasPermission("airdrop.send")) {
+		if (!SendPermissions.hasSendPermission(sender)) {
 			ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PERMISSION,
 					Map.of("permission", "airdrop.send"));
 			return;
 		}
-		boolean costExempt = sender.hasPermission("airdrop.cost.bypass");
+		boolean costExempt = SendPermissions.isCostExempt(sender);
 		if (!(sender instanceof Player) && !costExempt) {
 			ChatHandler.sendError(sender, MessageKey.ERROR_SEND_CONSOLE_COST);
 			return;
@@ -178,7 +178,7 @@ public final class TargetedDropCommand {
 					if (rejected.rejection().reason() == DropRejectionReason.SKY_NOT_CLEAR) {
 						ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_SKY, details);
 					} else if (rejected.rejection().reason() == DropRejectionReason.INSUFFICIENT_PERMISSION
-							&& !sender.hasPermission("airdrop.send")) {
+							&& !SendPermissions.hasSendPermission(sender)) {
 						ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PERMISSION,
 								Map.of("permission", "airdrop.send"));
 					} else if (rejected.rejection().reason() == DropRejectionReason.INSUFFICIENT_PERMISSION

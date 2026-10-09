@@ -95,6 +95,8 @@ public interface AirdropApi {
 
 	/**
 	 * Requests an explicitly unpaid system drop.
+	 * This API operation has no command sender or command permission checks;
+	 * native console and RCON sends use the separate command authorization policy.
 	 *
 	 * <p>This method must be called on the primary server thread because it
 	 * accepts a Bukkit location.</p>
