@@ -28,7 +28,9 @@ or a location. Administrators can change prices without reopening an editor.
   Operator status or `airdrop.admin` alone does not bypass payment.
   Effective permission wildcards can include the cost bypass.
 - `airdrop.send` defaults to true; senders still need package access.
-  Console and RCON require both send authority and cost exemption.
+  Native console and RCON sends are free by default; explicit send or cost
+  permission denials still block them. Other non-player senders need an
+  explicit cost exemption.
   Free player requests still obey cooldowns, pending-request guards, capacity,
   and protected landing rules.
 - Destinations are captured when accepted; movement or disconnects do not
@@ -55,6 +57,10 @@ or a location. Administrators can change prices without reopening an editor.
   border. Destinations stay retained through landing or failure, and falling
   time is bounded. Local drops keep their parachute fly-away animation;
   remote preparations clean their parachutes on landing.
+- Free remote crates keep their destination loaded until collection, cleanup,
+  or their configured expiry (ten minutes by default). They remain free crates,
+  not paid recoverable barrels; unloading the world or stopping the plugin
+  still removes them. Paid crates keep their existing recovery behavior.
 
 ## Change prices atomically and identify blocked drops
 
@@ -75,7 +81,8 @@ or a location. Administrators can change prices without reopening an editor.
   and its data before upgrading. Existing package files keep their rewards
   and prices; missing new settings use the defaults above.
 - New English message keys merge into existing locales without replacing
-  customized values. Custom locales can translate the catalog, send, price,
+  customized values. Unchanged stock send messages update to explain the
+  new console policy. Custom locales can translate the catalog, send, price,
   and destination feedback.
 - Extension API `1.0.0` remains the initial-adoption identifier. Request events
   now fire after provisional admission and terrain resolution. Early
