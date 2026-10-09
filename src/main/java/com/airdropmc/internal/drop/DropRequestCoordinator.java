@@ -586,6 +586,12 @@ public final class DropRequestCoordinator {
 				|| process.phase == DropRequestProcess.Phase.REFUNDING) {
 			return;
 		}
+		if (!crate.isPaid() && process.releaseChunk != null) {
+			// Free crates have no durable recovery. Keep their existing destination ticket
+			// through the captured expiry, transferring before any landed event can retire them.
+			crate.retainLandedChunk(process.releaseChunk);
+			process.releaseChunk = null;
+		}
 		if (process.remoteLoad != null) {
 			crate.cleanupParachutes();
 		} else if (process.releaseChunk != null) {
