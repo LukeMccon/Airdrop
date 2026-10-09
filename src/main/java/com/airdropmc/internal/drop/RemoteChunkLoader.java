@@ -3,6 +3,7 @@ package com.airdropmc.internal.drop;
 import com.airdropmc.api.DropRejection;
 import com.airdropmc.api.DropRejectionReason;
 import com.airdropmc.config.ConfigKeys;
+import com.airdropmc.helpers.AirdropLogger;
 import org.bukkit.Chunk;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -18,9 +19,11 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 import java.util.function.LongSupplier;
+import java.util.logging.Level;
 
 /** Main-thread loading budget and shared plugin-ticket ownership; no request queue. */
 final class RemoteChunkLoader {
+	private static final long RELEASE_RETRY_TICKS = 20L;
 
 	private record ChunkKey(UUID world, int x, int z) {}
 	private record Attempt(long started, long duration) {}
@@ -128,16 +131,41 @@ final class RemoteChunkLoader {
 		tickets.merge(key, 1, Integer::sum);
 		return new Runnable() {
 			private boolean released;
+			private boolean failureLogged;
+			private BukkitTask retryTask;
+
 			@Override
 			public void run() {
 				if (released) return;
-				released = true;
-				int remaining = tickets.get(key) - 1;
-				if (remaining == 0) {
-					world.removePluginChunkTicket(key.x, key.z, plugin);
-					tickets.remove(key);
-				} else {
-					tickets.put(key, remaining);
+				try {
+					int remaining = tickets.get(key) - 1;
+					if (remaining == 0) {
+						world.removePluginChunkTicket(key.x, key.z, plugin);
+						tickets.remove(key);
+					} else {
+						tickets.put(key, remaining);
+					}
+					released = true;
+				} catch (RuntimeException failure) {
+					// Callers discard their release callback when retiring. Keep ownership here
+					// until removal succeeds, without interrupting crate/request cleanup.
+					if (retryTask == null && plugin.isEnabled()) {
+						try {
+							retryTask = plugin.getServer().getScheduler().runTaskTimer(
+									plugin, this, RELEASE_RETRY_TICKS, RELEASE_RETRY_TICKS);
+						} catch (RuntimeException schedulingFailure) {
+							failure.addSuppressed(schedulingFailure);
+						}
+					}
+					if (!failureLogged) {
+						failureLogged = true;
+						AirdropLogger.log(Level.WARNING, "Could not release destination chunk ticket " + key, failure);
+					}
+					return;
+				}
+				if (retryTask != null) {
+					retryTask.cancel();
+					retryTask = null;
 				}
 			}
 		};
