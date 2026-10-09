@@ -221,6 +221,43 @@ class RemoteDropPreparationTest {
 		assertEquals(0, world.surfaceReads);
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {"expiry", "destroy", "readiness-timeout"})
+	void failedTicketRemovalIsRetriedAfterItsOwnerFinishes(String retirement) {
+		Airdrop.getConfiguration().getConfig().set("drop.limits.landed-lifetime-seconds", 30);
+		DropHandle handle = request(1600);
+		world.ticketRemovalFailures = 1;
+		if (retirement.equals("readiness-timeout")) {
+			world.complete(0);
+			clock.addAndGet(Duration.ofSeconds(10).toNanos());
+			server.getScheduler().performOneTick();
+			assertEquals(DropRejectionReason.TARGET_LOAD_TIMEOUT, rejected(handle).rejection().reason());
+		} else {
+			world.completeTicking(0);
+			server.getScheduler().performOneTick();
+			land(handle);
+			var location = handle.context().orElseThrow().landingLocation();
+			if (retirement.equals("expiry")) {
+				server.getScheduler().performTicks(600);
+			} else {
+				CrateManager.removeCrateAndDestroy(location);
+			}
+			assertNull(CrateManager.getCrate(location));
+			assertEquals(org.bukkit.Material.AIR, location.getBlock().getType());
+		}
+		assertEquals(0, coordinator.incompleteCount());
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().falling());
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().landedClaims());
+		assertEquals(1, world.tickets, "Injected failure leaves the physical ticket held");
+		assertEquals(0, world.ticketRemovalFailures, "The retirement must attempt removal");
+
+		server.getScheduler().performTicks(20);
+		assertEquals(0, world.tickets, "Cleanup must retry without the retired crate or request");
+		assertEquals(1, world.ticketRemovals);
+		server.getScheduler().performTicks(40);
+		assertEquals(1, world.ticketRemovals, "A successful retry must finish exactly once");
+	}
+
 	@Test
 	void readinessTimeoutReleasesTicketAndReservation() {
 		DropHandle handle = request(1600);
@@ -638,6 +675,7 @@ class RemoteDropPreparationTest {
 		int surfaceReads;
 		int tickets;
 		int ticketRemovals;
+		int ticketRemovalFailures;
 
 		@Override
 		public boolean isChunkLoaded(int x, int z) {
@@ -681,6 +719,10 @@ class RemoteDropPreparationTest {
 
 		@Override
 		public boolean removePluginChunkTicket(int x, int z, Plugin owner) {
+			if (ticketRemovalFailures > 0) {
+				ticketRemovalFailures--;
+				throw new IllegalStateException("ticket removal failed");
+			}
 			tickets--;
 			ticketRemovals++;
 			return true;
