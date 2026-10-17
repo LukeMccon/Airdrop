@@ -55,6 +55,8 @@ import static org.mockito.Mockito.*;
 
 class TargetedDropCommandTest {
 
+	@org.junit.jupiter.api.io.TempDir
+	java.nio.file.Path tempDir;
 	private ServerMock server;
 	private PlayerMock sender;
 	private PlayerMock recipient;
@@ -127,7 +129,7 @@ class TargetedDropCommandTest {
 		assertFalse(requested.contains("was taken from your account"), requested);
 		ResolvedDropContext context = spawn(handle, PaymentStatus.CHARGED);
 		String spawned = messages(sender);
-		assertTrue(spawned.contains(handle.requestId().toString()), spawned);
+		assertFalse(spawned.contains(handle.requestId().toString()), spawned);
 		assertTrue(spawned.contains("$10 was taken from your account"), spawned);
 		String incoming = messages(recipient);
 		assertTrue(incoming.contains("Sender is sending you package starter"), incoming);
@@ -140,7 +142,7 @@ class TargetedDropCommandTest {
 		assertTrue(handle.completeOutcome(new DropOutcome.Landed(context, landed, PaymentStatus.CHARGED)));
 		String senderLanded = messages(sender);
 		String recipientLanded = messages(recipient);
-		assertTrue(senderLanded.contains(handle.requestId().toString()), senderLanded);
+		assertFalse(senderLanded.contains(handle.requestId().toString()), senderLanded);
 		assertFalse(recipientLanded.contains(handle.requestId().toString()), recipientLanded);
 		for (String feedback : List.of(senderLanded, recipientLanded)) {
 			assertTrue(feedback.contains("X: 8, Y: 65, Z: -4 in targeted_world"), feedback);
@@ -157,7 +159,7 @@ class TargetedDropCommandTest {
 		messages(sender);
 		spawn(handle, PaymentStatus.NOT_APPLICABLE);
 		String feedback = messages(sender);
-		assertTrue(feedback.contains("Send request " + handle.requestId()), feedback);
+		assertFalse(feedback.contains(handle.requestId().toString()), feedback);
 		assertTrue(feedback.contains("no payment was taken"), feedback);
 		assertFalse(feedback.contains("was taken from your account"), feedback);
 		assertTrue(messages(recipient).contains("You will not be charged"));
@@ -188,8 +190,9 @@ class TargetedDropCommandTest {
 		messages(recipient);
 		assertTrue(handle.completeOutcome(new DropOutcome.Failed(context, delivery, payment)));
 		String feedback = messages(sender);
-		assertTrue(feedback.contains(handle.requestId().toString()), feedback);
-		assertTrue(feedback.contains("starter at Recipient failed"), feedback);
+		assertEquals(payment == PaymentStatus.REFUND_FAILED || payment == PaymentStatus.CHARGED
+				|| payment == PaymentStatus.UNKNOWN, feedback.contains(handle.requestId().toString()), feedback);
+		assertTrue(feedback.contains("starter to Recipient failed"), feedback);
 		assertTrue(feedback.contains(expected), feedback);
 		assertEquals(payment == PaymentStatus.REFUNDED, feedback.contains("your payment was refunded"), feedback);
 		assertEquals(payment == PaymentStatus.REFUND_FAILED,
@@ -200,7 +203,7 @@ class TargetedDropCommandTest {
 	}
 
 	@Test
-	void immediateGiftRejectionIncludesTheRequestIdAndDoesNotReportASpawnOrCharge() {
+	void immediateGiftRejectionOmitsTheRequestIdAndDoesNotReportASpawnOrCharge() {
 		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
 		DefaultDropHandle handle = pendingGiftHandle();
 		assertTrue(handle.completeNotSpawned(new DropOutcome.Rejected(handle.descriptor(), Optional.of(context(handle)),
@@ -208,7 +211,7 @@ class TargetedDropCommandTest {
 				PaymentStatus.REJECTED)));
 		requestGift(handle);
 		String feedback = messages(sender);
-		assertTrue(feedback.contains(handle.requestId().toString()), feedback);
+		assertFalse(feedback.contains(handle.requestId().toString()), feedback);
 		assertTrue(feedback.contains("was rejected; no payment was taken"), feedback);
 		assertTrue(feedback.contains("cannot afford package price"), feedback);
 		assertFalse(feedback.contains("accepted for processing") || feedback.contains("on its way"), feedback);
@@ -361,6 +364,229 @@ class TargetedDropCommandTest {
 		assertEquals(List.of(), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
 	}
 
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void resolvedSendHasNoAcceptanceOrPreparationMessage(boolean alreadySpawned) {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		handle.publishContext(context(handle));
+		if (alreadySpawned) {
+			spawn(handle, PaymentStatus.CHARGED);
+		}
+		requestGift(handle);
+		if (!alreadySpawned) {
+			assertEquals("", messages(sender));
+			assertEquals("", messages(recipient));
+			spawn(handle, PaymentStatus.CHARGED);
+		}
+		String feedback = messages(sender);
+		assertEquals(1, feedback.lines().count());
+		assertTrue(feedback.contains("starter is on its way to Recipient. $10 was taken"), feedback);
+		assertFalse(feedback.contains(handle.requestId().toString()), feedback);
+		assertFalse(handle.outcome().toCompletableFuture().isDone());
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void customLocaleKeepsOptionalReferencesAndActualSpawnAmount(boolean charged) throws Exception {
+		useLocale("""
+				targeted:
+				  spawned: 'Anflug {name}; {amount}; {cost}; {request_id}'
+				  spawned-charged: 'Bezahlt {name}; {amount}; {cost}; {request_id}'
+				  landed: 'Gelandet {name}; {amount}; {cost}'
+				  cost-paid: 'Kosten {amount}'
+				  cost-exempt: 'Gratis'
+				  recipient-incoming: 'Geschenk {name} von {sender}'
+				""");
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		requestGift(handle);
+		messages(sender);
+		// Change catalog and permissions after request; feedback follows the captured result.
+		PackageManager.publishPackages(Map.of("starter", new Package("starter", 99, List.of())));
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.cost.bypass", charged);
+		ResolvedDropContext context = spawn(handle, charged ? PaymentStatus.CHARGED : PaymentStatus.NOT_APPLICABLE);
+		assertEquals("[Airdrop] " + (charged ? "Bezahlt starter; 10; Kosten 10; " : "Anflug starter; 0; Gratis; ")
+				+ handle.requestId() + "\n", messages(sender));
+		var recipientMessage = recipient.nextComponentMessage();
+		assertNotNull(recipientMessage);
+		String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+				.serialize(recipientMessage);
+		assertTrue(plain.contains("Geschenk starter von "), plain);
+		assertTrue(plain.endsWith("Sender"), plain);
+		var head = net.kyori.adventure.text.Component.object(
+				net.kyori.adventure.text.object.ObjectContents.playerHead(sender.getUniqueId()))
+				.append(net.kyori.adventure.text.Component.space())
+				.append(net.kyori.adventure.text.Component.text(sender.getName()));
+		assertTrue(recipientMessage.contains(head, (actual, expected) ->
+				actual instanceof net.kyori.adventure.text.ObjectComponent object
+						&& object.contents().equals(head.contents())));
+		assertEquals("", messages(recipient));
+		assertTrue(handle.completeOutcome(new DropOutcome.Landed(context,
+				new LandedAirdropView(UUID.randomUUID(), context.landingPosition(), context, 1L, false),
+				charged ? PaymentStatus.CHARGED : PaymentStatus.NOT_APPLICABLE)));
+		assertEquals("[Airdrop] Gelandet starter; " + (charged ? "10; Kosten 10" : "0; Gratis") + "\n",
+				messages(sender));
+	}
+
+	@ParameterizedTest
+	@org.junit.jupiter.params.provider.MethodSource("preSpawnFailures")
+	void customPreSpawnFailureUsesTerminalPaymentWithoutAcceptanceSpam(
+			String timing, PaymentStatus payment, DeliveryStatus delivery, String amount, String cost) throws Exception {
+		useLocale("""
+				targeted:
+				  refunded: 'Refunded {name}; {amount}; {cost}'
+				  refund-failed: 'Refund failed {name}; {amount}; {cost}'
+				  charged-failed: 'Still charged {name}; {amount}; {cost}'
+				  payment-unknown: 'Uncertain {name}; {amount}; {cost}'
+				  failed: 'No charge {name}; {amount}; {cost}'
+				  cost-paid: 'Captured cost {amount}'
+				  cost-exempt: 'Exempt'
+				  cost-unknown: 'Uncertain payment'
+				  amount-unknown: 'Unknown amount'
+				""");
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		ResolvedDropContext context = context(handle);
+		DropOutcome.Failed failure = new DropOutcome.Failed(context, delivery, payment);
+		if (timing.equals("resolved")) {
+			handle.publishContext(context);
+		} else if (timing.equals("completed")) {
+			assertTrue(handle.completeNotSpawned(failure));
+		}
+		requestGift(handle);
+		if (!timing.equals("completed")) {
+			String initial = messages(sender);
+			assertEquals(timing.equals("pending") ? "[Airdrop] Preparing the destination for your package…\n" : "", initial);
+			// Neither a later catalog price nor a changed exemption may determine payment feedback.
+			PackageManager.publishPackages(Map.of("starter", new Package("starter", 99, List.of())));
+			sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.cost.bypass",
+					payment != PaymentStatus.NOT_APPLICABLE);
+			assertTrue(handle.completeNotSpawned(failure));
+		}
+		assertInstanceOf(DropSpawnResult.NotSpawned.class, handle.spawn().toCompletableFuture().join());
+		String feedback = messages(sender);
+		assertEquals(1, feedback.lines().count(), feedback);
+		assertTrue(feedback.endsWith("starter; " + amount + "; " + cost + "\n"), feedback);
+		assertFalse(feedback.contains("{") || feedback.contains("99"), feedback);
+		assertEquals("", messages(recipient));
+	}
+
+	private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> preSpawnFailures() {
+		return java.util.stream.Stream.of("pending", "resolved", "completed").flatMap(timing ->
+				java.util.stream.Stream.of(
+						new Object[]{PaymentStatus.REFUNDED, DeliveryStatus.FAILED, "10", "Captured cost 10"},
+						new Object[]{PaymentStatus.REFUND_FAILED, DeliveryStatus.FAILED, "10", "Captured cost 10"},
+						new Object[]{PaymentStatus.CHARGED, DeliveryStatus.SHUTDOWN, "10", "Captured cost 10"},
+						new Object[]{PaymentStatus.UNKNOWN, DeliveryStatus.FAILED, "Unknown amount", "Uncertain payment"},
+						new Object[]{PaymentStatus.NOT_APPLICABLE, DeliveryStatus.FAILED, "0", "Exempt"},
+						new Object[]{PaymentStatus.REFUNDED, DeliveryStatus.CANCELLED, "10", "Captured cost 10"}
+				).map(values -> org.junit.jupiter.params.provider.Arguments.of(
+						timing, values[0], values[1], values[2], values[3])));
+	}
+
+	@ParameterizedTest
+	@CsvSource({"false,REJECTED", "true,REJECTED", "false,NOT_APPLICABLE", "true,NOT_APPLICABLE"})
+	void customRejectionHasZeroAmountEvenWithoutResolvedContext(boolean resolved, PaymentStatus payment) throws Exception {
+		useLocale("""
+				targeted:
+				  rejected: 'Rejected {name}; {amount}; {cost}'
+				  cost-uncharged: 'Uncharged'
+				  cost-exempt: 'Exempt'
+				""");
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		assertTrue(handle.completeNotSpawned(new DropOutcome.Rejected(handle.descriptor(),
+				resolved ? Optional.of(context(handle)) : Optional.empty(),
+				DropRejection.of(DropRejectionReason.SKY_NOT_CLEAR, "blocked"), payment)));
+		requestGift(handle);
+		String feedback = messages(sender);
+		assertTrue(feedback.startsWith("[Airdrop] Rejected starter; 0; "
+				+ (resolved && payment == PaymentStatus.NOT_APPLICABLE ? "Exempt" : "Uncharged") + "\n"), feedback);
+		assertFalse(feedback.contains("{") || feedback.contains("accepted"), feedback);
+		assertEquals("", messages(recipient));
+	}
+
+	@Test
+	void customFreePackageFailureUsesZeroAmountAndFreeCost() throws Exception {
+		useLocale("""
+				targeted:
+				  failed: 'Failed {amount}; {cost}'
+				  cost-zero: 'Free {amount}'
+				""");
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		ResolvedDropContext free = context(handle, BigDecimal.ZERO);
+		handle.publishContext(free);
+		requestGift(handle);
+		assertEquals("", messages(sender));
+		PackageManager.publishPackages(Map.of("starter", new Package("starter", 99, List.of())));
+		assertTrue(handle.completeNotSpawned(new DropOutcome.Failed(free, DeliveryStatus.FAILED, PaymentStatus.NOT_APPLICABLE)));
+		assertEquals("[Airdrop] Failed 0; Free 0\n", messages(sender));
+	}
+
+	@Test
+	void unknownTerminalPaymentReplacesEarlierChargedPlaceholders() throws Exception {
+		useLocale("""
+				targeted:
+				  payment-unknown: 'Uncertain {amount}; {cost}; {request_id}'
+				""");
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		requestGift(handle);
+		ResolvedDropContext context = spawn(handle, PaymentStatus.CHARGED);
+		messages(sender);
+		assertTrue(handle.completeOutcome(new DropOutcome.Failed(context, DeliveryStatus.FAILED, PaymentStatus.UNKNOWN)));
+		assertEquals("[Airdrop] Uncertain unknown; payment outcome is uncertain; " + handle.requestId() + "\n",
+				messages(sender));
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void offlineSenderAndRecipientDoNotReceiveLaterMilestones(boolean disconnectSender) {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		requestGift(handle);
+		messages(sender);
+		PlayerMock offline = disconnectSender ? sender : recipient;
+		offline.disconnect();
+		ResolvedDropContext context = spawn(handle, PaymentStatus.CHARGED);
+		assertEquals("", messages(offline));
+		handle.completeOutcome(new DropOutcome.Landed(context,
+				new LandedAirdropView(UUID.randomUUID(), context.landingPosition(), context, 1L, false),
+				PaymentStatus.CHARGED));
+		assertEquals("", messages(offline));
+	}
+
+	@Test
+	void selfSendDoesNotDuplicateRecipientNotifications() {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		DefaultDropHandle handle = pendingGiftHandle();
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			drops.when(() -> DropController.requestSendDrop(sender, sender, "starter",
+					DropRequestOptions.defaults(), false)).thenReturn(handle);
+			command(sender, "send", "starter", "Sender");
+		}
+		messages(sender);
+		ResolvedDropContext context = spawn(handle, PaymentStatus.CHARGED);
+		assertEquals(1, messages(sender).lines().count());
+		handle.completeOutcome(new DropOutcome.Landed(context,
+				new LandedAirdropView(UUID.randomUUID(), context.landingPosition(), context, 1L, false),
+				PaymentStatus.CHARGED));
+		assertEquals(1, messages(sender).lines().count());
+		assertEquals("", messages(recipient));
+	}
+
+	private void useLocale(String yaml) throws Exception {
+		java.nio.file.Files.createDirectories(tempDir.resolve("lang"));
+		java.nio.file.Files.writeString(tempDir.resolve("lang/de.yml"), yaml);
+		Airdrop plugin = mock(Airdrop.class);
+		when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+		var language = new com.airdropmc.lang.LanguageManager(plugin);
+		language.loadLanguage("de");
+		ChatHandler.init(language);
+	}
+
 	private void requestGift(DefaultDropHandle handle) {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
 			drops.when(() -> DropController.requestSendDrop(sender, recipient, "starter",
@@ -378,7 +604,7 @@ class TargetedDropCommandTest {
 	}
 
 	private ResolvedDropContext spawn(DefaultDropHandle handle, PaymentStatus payment) {
-		ResolvedDropContext context = context(handle);
+		ResolvedDropContext context = handle.context().orElseGet(() -> context(handle));
 		FallingAirdropView falling = new FallingAirdropView(UUID.randomUUID(), UUID.randomUUID(),
 				context.spawnPosition(), context);
 		assertTrue(handle.completeSpawned(new DropSpawnResult.Spawned(context, falling, payment)));
@@ -386,9 +612,13 @@ class TargetedDropCommandTest {
 	}
 
 	private ResolvedDropContext context(DefaultDropHandle handle) {
+		return context(handle, BigDecimal.TEN);
+	}
+
+	private ResolvedDropContext context(DefaultDropHandle handle, BigDecimal price) {
 		Location landing = handle.descriptor().requestedLocation();
 		return new ResolvedDropContext(handle.descriptor(),
-				new AirdropPackage("starter", BigDecimal.TEN, List.of(new ItemStack(Material.BREAD))),
+				new AirdropPackage("starter", price, List.of(new ItemStack(Material.BREAD))),
 				landing.clone().add(0, 100, 0), landing,
 				new ResolvedDropSettings(5, 0.3, 100, true, true, true, false, 20,
 						Duration.ofSeconds(30), 3, 10, Duration.ofMinutes(10)));
@@ -412,7 +642,7 @@ class TargetedDropCommandTest {
 		StringBuilder result = new StringBuilder();
 		String message;
 		while ((message = player.nextMessage()) != null) {
-			result.append(message).append('\n');
+			result.append(org.bukkit.ChatColor.stripColor(message)).append('\n');
 		}
 		return result.toString();
 	}

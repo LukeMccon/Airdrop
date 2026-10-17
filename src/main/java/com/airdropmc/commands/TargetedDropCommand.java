@@ -9,6 +9,7 @@ import com.airdropmc.api.DropOutcome;
 import com.airdropmc.api.DropRequestOptions;
 import com.airdropmc.api.DropSpawnResult;
 import com.airdropmc.api.PaymentStatus;
+import com.airdropmc.api.ResolvedDropContext;
 import com.airdropmc.api.WorldPosition;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.controllers.DropController;
@@ -26,6 +27,7 @@ import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /** Targeted sends share player admission and charge only the initiating sender. */
 public final class TargetedDropCommand {
@@ -131,25 +133,16 @@ public final class TargetedDropCommand {
 				"action", ChatHandler.get(MessageKey.TARGETED_ACTION_SEND),
 				"request_id", handle.requestId().toString(), "player", destinationName,
 				"sender", sender.getName(), "name", packageName));
-		if (!handle.outcome().toCompletableFuture().isDone() && canNotify(sender)) {
-			if (handle.context().isEmpty()) {
-				ChatHandler.send(sender, MessageKey.DROP_PREPARING);
-			} else {
-				var context = handle.context().orElseThrow();
-				String amount = context.airdropPackage().price().toPlainString();
-				details.put("amount", costExempt ? "0" : amount);
-				details.put("cost", ChatHandler.get(costExempt ? MessageKey.TARGETED_COST_EXEMPT
-						: context.airdropPackage().price().signum() == 0 ? MessageKey.TARGETED_COST_ZERO
-								: MessageKey.TARGETED_COST_PAID, Map.of("amount", amount)));
-				ChatHandler.send(sender, MessageKey.TARGETED_REQUESTED, details);
-			}
+		if (!handle.spawn().toCompletableFuture().isDone()
+				&& !handle.outcome().toCompletableFuture().isDone()
+				&& handle.context().isEmpty() && canNotify(sender)) {
+			ChatHandler.send(sender, MessageKey.DROP_PREPARING);
 		}
 		handle.spawn().thenAccept(result -> {
 			if (!(result instanceof DropSpawnResult.Spawned spawned)) {
 				return;
 			}
-			details.put("name", spawned.resolvedContext().airdropPackage().name());
-			details.put("amount", spawned.resolvedContext().airdropPackage().price().toPlainString());
+			populatePaymentDetails(details, spawned.context(), spawned.payment());
 			if (canNotify(sender)) {
 				ChatHandler.send(sender, spawned.payment() == PaymentStatus.CHARGED
 						? MessageKey.TARGETED_SPAWNED_CHARGED : MessageKey.TARGETED_SPAWNED, details);
@@ -159,10 +152,11 @@ public final class TargetedDropCommand {
 			}
 		});
 		handle.outcome().thenAccept(outcome -> {
+			populatePaymentDetails(details, outcome.context(), outcome.payment());
 			if (outcome instanceof DropOutcome.Landed landed) {
 				WorldPosition position = landed.airdrop().position();
 				World world = Bukkit.getWorld(position.worldId());
-				details.put("world", world == null ? position.worldId().toString() : world.getName());
+				details.put("world", world == null ? ChatHandler.get(MessageKey.DROP_UNKNOWN_WORLD) : world.getName());
 				details.put("x", Integer.toString((int) Math.floor(position.x())));
 				details.put("y", Integer.toString((int) Math.floor(position.y())));
 				details.put("z", Integer.toString((int) Math.floor(position.z())));
@@ -194,6 +188,27 @@ public final class TargetedDropCommand {
 				}
 			}
 		});
+	}
+
+	private static void populatePaymentDetails(Map<String, String> details,
+			Optional<ResolvedDropContext> context, PaymentStatus payment) {
+		context.ifPresent(resolved -> details.put("name", resolved.airdropPackage().name()));
+		// Terminal failures can precede Spawned; never infer a charge from today's price or permissions.
+		String amount = switch (payment) {
+			case CHARGED, REFUNDED, REFUND_FAILED -> context.orElseThrow().airdropPackage().price().toPlainString();
+			case NOT_APPLICABLE, REJECTED -> "0";
+			case UNKNOWN -> ChatHandler.get(MessageKey.TARGETED_AMOUNT_UNKNOWN);
+		};
+		details.put("amount", amount);
+		MessageKey cost = switch (payment) {
+			case CHARGED, REFUNDED, REFUND_FAILED -> MessageKey.TARGETED_COST_PAID;
+			case REJECTED -> MessageKey.TARGETED_COST_UNCHARGED;
+			case UNKNOWN -> MessageKey.TARGETED_COST_UNKNOWN;
+			case NOT_APPLICABLE -> context.map(resolved -> resolved.airdropPackage().price().signum() == 0
+					? MessageKey.TARGETED_COST_ZERO : MessageKey.TARGETED_COST_EXEMPT)
+					.orElse(MessageKey.TARGETED_COST_UNCHARGED);
+		};
+		details.put("cost", ChatHandler.get(cost, Map.of("amount", amount)));
 	}
 
 	private static MessageKey failureKey(PaymentStatus payment) {
