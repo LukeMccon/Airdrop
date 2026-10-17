@@ -95,6 +95,20 @@ class AirdropLoggerTest {
 		assertEquals(List.of(), messages);
 	}
 
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.EnumSource(com.airdropmc.api.PaymentStatus.class)
+	void terminalFailureIncludesCorrelationAndPaymentWhenDebugIsDisabled(
+			com.airdropmc.api.PaymentStatus payment) throws Exception {
+		setDebugEnabled(false);
+		UUID requestId = UUID.randomUUID();
+		List<String> messages = capture(() -> {
+			AirdropLogger.requestFailure(requestId, DeliveryStatus.FAILED, payment);
+			AirdropLogger.debugRequest(requestId, AirdropLogger.RequestPhase.TERMINAL, DeliveryStatus.FAILED);
+		});
+		assertEquals(List.of("Delivery failed request=" + requestId
+				+ " delivery=FAILED payment=" + payment), messages);
+	}
+
 	@Test
 	void runtimeBoundariesEmitEachSupportedDebugCategory() throws Exception {
 		ServerMock server = MockBukkit.mock();
