@@ -19,6 +19,10 @@ public class AirdropTabCompleter implements TabCompleter {
 
 	@Override
 	public List<String> onTabComplete(CommandSender commandSender, Command command, String alias, String[] args) {
+		return complete(commandSender, args);
+	}
+
+	public List<String> complete(CommandSender commandSender, String[] args) {
 		if (!Airdrop.isReady()) {
 			boolean admin = PermissionsHelper.isAdmin(commandSender);
 			return args.length == 1
@@ -59,10 +63,17 @@ public class AirdropTabCompleter implements TabCompleter {
 				return List.of();
 			}
 			if (args.length == 3) {
-				return TabCompletionFilter.filter(Bukkit.getOnlinePlayers().stream()
+				List<String> destinations = new ArrayList<>(Bukkit.getOnlinePlayers().stream()
 						.filter(player -> !(commandSender instanceof Player viewer) || viewer.canSee(player))
 						.filter(player -> !ConfigKeys.requiresGiftRecipientPermission() || PermissionsHelper.hasPermission(player, args[1]))
-						.map(Player::getName).toList(), args[2]);
+						.map(Player::getName).toList());
+				addCoordinate(destinations, commandSender, true);
+				return TabCompletionFilter.filter(destinations.stream().distinct().toList(), args[2]);
+			}
+			if (args.length == 4 && TargetedDropCommand.isCoordinate(args[2])) {
+				List<String> coordinates = new ArrayList<>();
+				addCoordinate(coordinates, commandSender, false);
+				return TabCompletionFilter.filter(coordinates, args[3]);
 			}
 			if (args.length == 5 && TargetedDropCommand.isCoordinate(args[2]) && TargetedDropCommand.isCoordinate(args[3])) {
 				return TabCompletionFilter.filter(Bukkit.getWorlds().stream().map(org.bukkit.World::getName).toList(), args[4]);
@@ -70,8 +81,19 @@ public class AirdropTabCompleter implements TabCompleter {
 			return List.of();
 		}
 		if (AirdropCommandNames.PACKAGE.equals(args[0])) {
-			return new PackageTabCompletion().onTabComplete(commandSender, command, alias, args);
+			return new PackageTabCompletion().complete(commandSender, args);
 		}
 		return List.of();
+	}
+
+	private static void addCoordinate(List<String> suggestions, CommandSender sender, boolean x) {
+		String coordinate = "0";
+		if (sender instanceof Player player) {
+			var location = player.getLocation();
+			coordinate = Integer.toString(x ? location.getBlockX() : location.getBlockZ());
+		}
+		if (TargetedDropCommand.isCoordinate(coordinate)) {
+			suggestions.add(coordinate);
+		}
 	}
 }

@@ -281,7 +281,7 @@ class SendIT {
 				assertAccountState(framework, sender.uniqueId(), "100.00", 0, 0, 0);
 				assertThat(drops.getCapturedEvents()).isEmpty();
 				int offset = framework.server().output().size();
-				sender.executeCommand("airdrop send premium 0 0 " + world.name());
+				sender.executeCommand("airdrop:airdrop send premium +0 0e1 " + world.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				AirdropIntegrationSupport.moveAway(sender, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -290,6 +290,46 @@ class SendIT {
 				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
 				assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			}
+			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
+		} finally {
+			restoreAndCleanup(framework, world, players, configFile, originalConfig);
+		}
+	}
+
+	@Test
+	@Timeout(value = 90, unit = TimeUnit.SECONDS)
+	void installedNativeTreeSerializesBothDestinationsAndRetainsSuggestionTooltips(
+			ILightkeeperFramework framework) throws Exception {
+		AirdropIntegrationSupport.awaitReady(framework);
+		Path configFile = configFile(framework);
+		byte[] originalConfig = Files.readAllBytes(configFile);
+		List<PlayerHandle> players = new ArrayList<>();
+		WorldHandle world = null;
+		try {
+			world = createWorld(framework);
+			PlayerHandle sender = framework.bots().builder().withRandomName()
+					.atLocation(world, 32.5, BARREL_Y, 0.5).withPermissions(PREMIUM_PERMISSION).fullLogin().build();
+			players.add(sender);
+			PlayerHandle numeric = framework.bots().builder().withName("123")
+					.atLocation(world, 0.5, BARREL_Y, 0.5).withPermissions(PREMIUM_PERMISSION).build();
+			players.add(numeric);
+			// String completions alone do not prove the client tree. The fixture also
+			// observes Paper's outgoing tree and runs the real command packet encoder.
+			assertThat(sender.tabComplete("airdrop send premium ")).contains("32", "123");
+			assertThat(sender.tabComplete("ad send premium +1 ")).containsExactly("0");
+			assertThat(sender.tabComplete("airdrop:airdrop send premium +1 1e2 ")).contains(world.name());
+			int offset = framework.server().output().size();
+			assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
+					"lkconsole tree " + sender.name()).success()).isTrue();
+			eventually(Duration.ofSeconds(10), () -> {
+				var output = GuiReloadIntegrationSupport.outputSince(framework, offset);
+				assertThat(output).anyMatch(line -> line.contains("AIRDR_TREE player=" + sender.name())
+						&& line.contains("paths=send/package/player,send/package/x/z/world")
+						&& line.contains("aliases=airdrop,ad,drop,airdrop:airdrop")
+						&& line.matches(".*bytes=[1-9][0-9]*.*"));
+				assertThat(output).anyMatch(line -> line.contains("AIRDR_HINT player=" + sender.name())
+						&& line.contains("text=32 tooltip=") && line.contains("<player>") && line.contains("<x> <z> [world]"));
+			});
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
 			restoreAndCleanup(framework, world, players, configFile, originalConfig);
