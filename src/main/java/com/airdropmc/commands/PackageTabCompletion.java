@@ -20,6 +20,10 @@ public class PackageTabCompletion implements TabCompleter {
 	public List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command,
 			@NotNull String alias, String[] args) {
 
+		return complete(commandSender, args);
+	}
+
+	public List<String> complete(CommandSender commandSender, String[] args) {
 		String commandArg = args.length > 1 ? args[1] : "";
 		boolean isAdmin = PermissionsHelper.isAdmin(commandSender);
 		boolean canCreate = commandSender instanceof Player && isAdmin;

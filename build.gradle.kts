@@ -1082,13 +1082,7 @@ bukkit {
     description = "Call in customizable care packages that fall from the sky"
     website = "https://modrinth.com/plugin/airdrop"
 
-    commands {
-        register("airdrop") {
-            description = "Call in an airdrop!"
-            aliases = listOf("drop", "ad")
-            usage = "/airdrop <package name>"
-        }
-    }
+    // The native Paper lifecycle registration owns airdrop, drop and ad.
 
     permissions {
         register("airdrop.package.all") {
