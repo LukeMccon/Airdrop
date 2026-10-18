@@ -43,10 +43,10 @@ public final class AirdropCommandRegistration {
 		// Both branches accept raw tokens. A single numeric token is still a player
 		// name; only a second destination token selects coordinate delivery in CmdAirdrop.
 		send.addChild(token("package")
-				.then(token("x").then(token("z").then(token("world", StringArgumentType.greedyString()).then(remainder()))))
+				.then(token("x").then(token("z").then(token("world").then(remainder()))))
 				// x supplies both player/X choices. Even an empty custom provider becomes
 				// ask_server on the wire, issuing a second request that cancels the first.
-				.then(Commands.argument("player", new RawToken(StringArgumentType.word())).executes(AirdropCommandRegistration::execute))
+				.then(Commands.argument("player", new RawToken()).executes(AirdropCommandRegistration::execute))
 				.build());
 		root.then(send);
 		// Keep unrelated commands and malformed/extra arguments on the existing router.
@@ -55,11 +55,7 @@ public final class AirdropCommandRegistration {
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> token(String name) {
-		return token(name, StringArgumentType.word());
-	}
-
-	private static RequiredArgumentBuilder<CommandSourceStack, String> token(String name, ArgumentType<String> nativeType) {
-		return Commands.argument(name, new RawToken(nativeType))
+		return Commands.argument(name, new RawToken())
 				.suggests((context, builder) -> suggest(context, builder, false))
 				.executes(AirdropCommandRegistration::execute);
 	}
@@ -144,14 +140,8 @@ public final class AirdropCommandRegistration {
 		}
 	}
 
-	/** Native words preserve branch hints; the terminal world needs greedy wire parsing for Unicode/punctuation. */
+	/** Use a native word on the wire, but leave all server-side validation to our router. */
 	private static final class RawToken implements CustomArgumentType<String, String> {
-		private final ArgumentType<String> nativeType;
-
-		private RawToken(ArgumentType<String> nativeType) {
-			this.nativeType = nativeType;
-		}
-
 		@Override
 		public String parse(StringReader reader) {
 			// Brigadier consumes only one separator; native function calls may have more.
@@ -167,7 +157,7 @@ public final class AirdropCommandRegistration {
 
 		@Override
 		public ArgumentType<String> getNativeType() {
-			return nativeType;
+			return StringArgumentType.word();
 		}
 	}
 }
