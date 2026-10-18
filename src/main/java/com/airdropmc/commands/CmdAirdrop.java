@@ -28,6 +28,11 @@ public class CmdAirdrop implements CommandExecutor {
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
 			@NotNull String label, String[] args) {
 
+		return execute(sender, args);
+	}
+
+	/** Shared execution entry point for Bukkit callers and the native Paper command tree. */
+	public boolean execute(CommandSender sender, String[] args) {
 		if (args.length == 0) {
 			sendHelp(sender);
 			return true;

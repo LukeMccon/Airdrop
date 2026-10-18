@@ -174,6 +174,25 @@ surface; they do not specify Y. Relative coordinates and extra destination
 keywords are not supported. Invalid input, offline players, and unknown worlds
 are rejected before payment. A targeted send always requires a destination.
 
+Paper's native command tree exposes both `player` and `x` → `z` → `world`
+arguments while typing. After `/airdrop send <package> `, completion offers visible,
+eligible online players and your current block X; after X and a space it offers your
+block Z. After a valid X/Z pair it offers loaded worlds. Console gets `0` as a
+coordinate example and must supply a world. Suggestions carry localized send-usage
+hints; they never insert literal placeholders or relative/local coordinates.
+Package and destination suggestions use current permissions and live server data,
+including `gifting.require-recipient-permission` and player visibility. The syntax
+tree itself remains available during startup and permission changes; a visible
+syntax branch is not an authorization grant. Execution still reports localized
+readiness, permission and input errors. Aliases `ad` and `drop`, and namespaced
+invocations such as `/airdrop:airdrop`, use the same command tree.
+
+Coordinates accept absolute numeric forms such as `+1`, `1e2`, `-12.5` and `.25`.
+They must be finite and strictly between -30000000 and 30000000. A single numeric
+name such as `/airdrop send starter 123` still means the online player named `123`;
+`/airdrop send starter 123 0` instead means X/Z coordinates. No Y, selectors, `~`
+or `^` syntax is supported.
+
 Without cost exemption, the initiating player pays the package's normal price;
 the recipient pays nothing. With `airdrop.cost.bypass`, or for a zero-price package,
 no withdrawal is made. Cost exemption also applies to self-orders and their shared
