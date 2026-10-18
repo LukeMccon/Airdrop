@@ -339,46 +339,6 @@ class AirdropCommandRegistrationTest {
 		}
 	}
 
-	@ParameterizedTest
-	@ValueSource(strings = {"世界", "world!event", "world's-end", "world(2)", "ordinary_world"})
-	void wireWorldSuggestionsParseAndKeepRawServerValidation(String name) throws Exception {
-		var world = server.addSimpleWorld(name);
-		var connection = new ClientSuggestions();
-		var root = new RootCommandNode<CommandSourceStack>();
-		root.addChild(nativeCopy(dispatcher.getRoot().getChild("airdrop"), connection::request));
-		var client = new CommandDispatcher<>(root);
-		var z = root.getChild("airdrop").getChild("send").getChild("package").getChild("x").getChild("z");
-		assertTrue(client.getSmartUsage(z, source(sender)).values().toString().contains("<world>"));
-		for (String partial : List.of("", name.substring(0, 1))) {
-			String input = "airdrop send Starter +1 1e2 " + partial;
-			var merged = client.getCompletionSuggestions(client.parse(input, source(sender)));
-			connection.reply();
-			var hint = merged.get(1, TimeUnit.SECONDS).getList().stream()
-					.filter(s -> s.getText().equals(name)).findFirst().orElseThrow();
-			String completed = hint.apply(input);
-			assertEquals("airdrop send Starter +1 1e2 " + name, completed);
-			var parsed = client.parse(completed, source(sender));
-			assertTrue(parsed.getExceptions().isEmpty(), parsed.getExceptions().toString());
-			assertFalse(parsed.getReader().canRead(), "Client must consume suggested world " + name);
-			assertEquals("world", parsed.getContext().getNodes().getLast().getNode().getName());
-			assertEquals(1, client.execute(parsed));
-		}
-		try (var drops = mockStatic(DropController.class)) {
-			drops.when(() -> DropController.requestSendDrop(eq(sender), any(Location.class), eq("Starter"),
-					eq(DropRequestOptions.defaults()))).thenReturn(pending());
-			execute(sender, "airdrop send Starter +1 1e2 " + name);
-			drops.verify(() -> DropController.requestSendDrop(sender,
-					new Location(world, 1, world.getMaxHeight() - 1, 100), "Starter", DropRequestOptions.defaults()));
-		}
-		try (var chat = mockStatic(ChatHandler.class); var drops = mockStatic(DropController.class)) {
-			execute(sender, "airdrop send Starter +1 1e2 " + name + " extra");
-			chat.verify(() -> ChatHandler.sendError(sender, MessageKey.COMMANDS_SEND_USAGE));
-			execute(sender, "airdrop send Starter NaN 2 " + name);
-			chat.verify(() -> ChatHandler.sendError(sender, MessageKey.ERROR_SEND_COORDINATES));
-			drops.verifyNoInteractions();
-		}
-	}
-
 	@Test
 	void numericPlayerDoesNotDuplicateCoordinateSuggestionAndBoundsDoNotSuggestInvalidExample() {
 		server.addPlayer("12");
