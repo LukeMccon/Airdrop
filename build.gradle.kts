@@ -31,7 +31,7 @@ plugins {
     `java-library`
     jacoco
     `maven-publish`
-    id("org.sonarqube") version "7.2.3.7755"
+    id("org.sonarqube") version "7.5.0.8588"
     id("xyz.jpenilla.run-paper") version "3.1.0" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
