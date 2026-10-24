@@ -60,7 +60,10 @@ final class CommandTreeProbe implements Listener {
 			for (String input : List.of("airdrop send premium ", "airdrop send premium to ",
 					"airdrop send premium at ", "airdrop send premium at +1 ",
 					"airdrop send premium at +1 1e2 ")) {
-				var suggestions = dispatcher.getCompletionSuggestions(dispatcher.parse(input, source(event.getPlayer()))).join();
+				var source = source(event.getPlayer());
+				logSmartUsage("outgoing", new CommandDispatcher<>(root), source, event.getPlayer().getName(), input);
+				logSmartUsage("native", dispatcher, source, event.getPlayer().getName(), input);
+				var suggestions = dispatcher.getCompletionSuggestions(dispatcher.parse(input, source)).join();
 				for (var hint : suggestions.getList()) {
 					plugin.getLogger().info("AIRDR_HINT player=" + event.getPlayer().getName() + " input=" + input
 							+ " text=" + hint.getText() + " tooltip=" + (hint.getTooltip() == null ? "NONE" : hint.getTooltip().getString()));
@@ -69,6 +72,16 @@ final class CommandTreeProbe implements Listener {
 		} catch (ReflectiveOperationException | RuntimeException failure) {
 			throw new IllegalStateException("Native command tree probe failed", failure);
 		}
+	}
+
+	private void logSmartUsage(String tree, CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandSourceStack source, String player, String input) {
+		// Match the client's usage lookup at the current suggestion cursor.
+		var parsed = dispatcher.parse(input, source);
+		var cursor = parsed.getContext().findSuggestionContext(input.length());
+		plugin.getLogger().info("AIRDR_USAGE player=" + player + " tree=" + tree + " input=" + input
+				+ "node=" + cursor.parent.getName() + " usage="
+				+ String.join("|", dispatcher.getSmartUsage(cursor.parent, source).values()));
 	}
 
 	private static <S> CommandNode<S> child(CommandNode<S> parent, String name) {

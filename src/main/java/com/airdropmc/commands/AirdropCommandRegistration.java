@@ -42,9 +42,10 @@ public final class AirdropCommandRegistration {
 		var send = new SuggestedLiteral(Commands.literal("send").executes(AirdropCommandRegistration::execute));
 		send.addChild(token("package")
 				.then(new SuggestedLiteral(Commands.literal("to").executes(AirdropCommandRegistration::execute)
-						.then(token("player").then(remainder()))))
-				.then(new SuggestedLiteral(Commands.literal("at").executes(AirdropCommandRegistration::execute)
-						.then(token("x").then(token("z").then(token("world").then(remainder()))))))
+						.then(token("player"))))
+				// Required axes and empty value suggestions expose vanilla's visible usage hint.
+				.then(new SuggestedLiteral(Commands.literal("at")
+						.then(argument("x").then(token("z").then(token("world"))))))
 				// Keep invalid bare destinations on the router for localized usage feedback.
 				.then(remainder())
 				.build());
@@ -55,9 +56,12 @@ public final class AirdropCommandRegistration {
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> token(String name) {
+		return argument(name).executes(AirdropCommandRegistration::execute);
+	}
+
+	private static RequiredArgumentBuilder<CommandSourceStack, String> argument(String name) {
 		return Commands.argument(name, new RawToken())
-				.suggests((context, builder) -> suggest(context, builder, false))
-				.executes(AirdropCommandRegistration::execute);
+				.suggests((context, builder) -> suggest(context, builder, false));
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> remainder() {

@@ -72,16 +72,6 @@ public class AirdropTabCompleter implements TabCompleter {
 						.map(Player::getName).toList());
 				return TabCompletionFilter.filter(destinations, args[3]);
 			}
-			if (args.length == 4 && "at".equals(args[2])) {
-				List<String> coordinates = new ArrayList<>();
-				addCoordinate(coordinates, commandSender, true);
-				return TabCompletionFilter.filter(coordinates, args[3]);
-			}
-			if (args.length == 5 && "at".equals(args[2]) && TargetedDropCommand.isCoordinate(args[3])) {
-				List<String> coordinates = new ArrayList<>();
-				addCoordinate(coordinates, commandSender, false);
-				return TabCompletionFilter.filter(coordinates, args[4]);
-			}
 			if (args.length == 6 && "at".equals(args[2]) && TargetedDropCommand.isCoordinate(args[3])
 					&& TargetedDropCommand.isCoordinate(args[4])) {
 				return TabCompletionFilter.filter(Bukkit.getWorlds().stream().map(org.bukkit.World::getName).toList(), args[5]);
@@ -92,16 +82,5 @@ public class AirdropTabCompleter implements TabCompleter {
 			return new PackageTabCompletion().complete(commandSender, args);
 		}
 		return List.of();
-	}
-
-	private static void addCoordinate(List<String> suggestions, CommandSender sender, boolean x) {
-		String coordinate = "0";
-		if (sender instanceof Player player) {
-			var location = player.getLocation();
-			coordinate = Integer.toString(x ? location.getBlockX() : location.getBlockZ());
-		}
-		if (TargetedDropCommand.isCoordinate(coordinate)) {
-			suggestions.add(coordinate);
-		}
 	}
 }

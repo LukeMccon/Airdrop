@@ -318,9 +318,10 @@ class SendIT {
 			// observes Paper's outgoing tree and runs the real command packet encoder.
 			assertThat(sender.tabComplete("airdrop send premium ")).containsExactlyInAnyOrder("to", "at");
 			assertThat(sender.tabComplete("airdrop send premium to ")).contains("123").doesNotContain("32");
-			assertThat(sender.tabComplete("airdrop send premium at ")).containsExactly("32");
-			assertThat(sender.tabComplete("ad send premium at +1 ")).containsExactly("0");
+			assertThat(sender.tabComplete("airdrop send premium at ")).isEmpty();
+			assertThat(sender.tabComplete("ad send premium at +1 ")).isEmpty();
 			assertThat(sender.tabComplete("airdrop:airdrop send premium at +1 1e2 ")).contains(world.name());
+			String senderWorldName = world.name();
 			int offset = framework.server().output().size();
 			assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
 					"lkconsole tree " + sender.name()).success()).isTrue();
@@ -333,7 +334,16 @@ class SendIT {
 				assertThat(output).anyMatch(line -> line.contains("AIRDR_HINT player=" + sender.name())
 						&& line.contains("text=123 tooltip=") && line.contains("to <player>"));
 				assertThat(output).anyMatch(line -> line.contains("AIRDR_HINT player=" + sender.name())
-						&& line.contains("text=32 tooltip=") && line.contains("at <x> <z> [world]"));
+						&& line.contains("text=" + senderWorldName + " tooltip=")
+						&& line.contains("at <x> <z> [world]"));
+				for (String tree : List.of("outgoing", "native")) {
+					assertThat(output).anyMatch(line -> line.contains("AIRDR_USAGE player=" + sender.name()
+							+ " tree=" + tree + " input=airdrop send premium at node=at usage=")
+							&& line.endsWith("usage=<x> <z> [<world>]"));
+					assertThat(output).anyMatch(line -> line.contains("AIRDR_USAGE player=" + sender.name()
+							+ " tree=" + tree + " input=airdrop send premium at +1 node=x usage=")
+							&& line.endsWith("usage=<z> [<world>]"));
+				}
 			});
 			assertThat(sender.permissions().has(SEND_PERMISSION)).isTrue();
 			assertThat(sender.permissions().has(PREMIUM_PERMISSION)).isTrue();
@@ -341,7 +351,8 @@ class SendIT {
 			try (var operations = framework.events().capture(OPERATION_EVENT);
 				 var drops = framework.events().capture(DROP_EVENT)) {
 				int rejectedOffset = framework.server().output().size();
-				for (String destination : List.of("", "123", "0 0", "to", "at", "at 0")) {
+				for (String destination : List.of("", "123", "0 0", "to", "at", "at 0",
+						"to 123 extra", "at 0 0 " + world.name() + " extra")) {
 					String input = "airdrop send premium" + (destination.isEmpty() ? "" : " " + destination);
 					int commandOffset = framework.server().output().size();
 					assertThat(framework.server().executeCommand(CommandSource.CONSOLE,

@@ -177,16 +177,17 @@ are rejected before payment. A targeted send always requires a destination.
 Paper's native command tree exposes `to` → `player` and
 `at` → `x` → `z` → `world` arguments while typing. After
 `/airdrop send <package> `, completion offers `to` and `at`. After `to ` it offers
-visible, eligible online players; after `at ` it offers your current block X,
-and after X and a space it offers your block Z. After a valid X/Z pair it offers
-loaded worlds. Console gets `0` as a coordinate example and must supply a world.
-Suggestions carry localized send-usage hints; they never insert literal
-placeholders or relative/local coordinates.
+visible, eligible online players. After `at ` the client shows `<x> <z> [<world>]`;
+after X and a space it shows `<z> [<world>]`. X and Z are required, with no
+current-coordinate suggestions. After a valid X/Z pair, completion offers loaded
+worlds. Console must supply a world. Player and world suggestions carry localized
+send-usage hints.
 Package and destination suggestions use current permissions and live server data,
 including `gifting.require-recipient-permission` and player visibility. The syntax
 tree itself remains available during startup and permission changes; a visible
-syntax branch is not an authorization grant. Execution still reports localized
-readiness, permission and input errors. Aliases `ad` and `drop`, and namespaced
+syntax branch is not an authorization grant. Incomplete `at`/X input and extra
+arguments receive native command syntax errors before any request or payment. Execution reports localized readiness, permission,
+and other input errors. Aliases `ad` and `drop`, and namespaced
 invocations such as `/airdrop:airdrop`, use the same command tree.
 
 Coordinates accept absolute numeric forms such as `+1`, `1e2`, `-12.5` and `.25`.

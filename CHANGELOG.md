@@ -24,8 +24,10 @@ or a location. Administrators can change prices without reopening an editor.
   `/airdrop send <package> at <x> <z> [world]` for absolute surface coordinates.
   A player's current world is implicit; console must supply a world.
 - AIRDR-99: Completion offers explicit `to` and `at` destination choices. Bare
-  destinations are rejected. Unchanged stock English usage/help migrate;
-  customized text is preserved.
+  destinations are rejected. X/Z entry shows required-axis usage hints instead
+  of numeric suggestions; player and world-name completion remain available.
+  Incomplete coordinates and extra arguments receive native syntax errors.
+  Unchanged stock English usage/help migrate; customized text is preserved.
 - The initiating player pays the package price, not the recipient.
   `airdrop.cost.bypass` makes sends and self-orders free and defaults to false.
   Operator status or `airdrop.admin` alone does not bypass payment.
