@@ -278,6 +278,18 @@ barrel. When a paid barrel expires with items still inside, Airdrop removes its
 metadata and effects and leaves it as an ordinary barrel rather than deleting
 paid contents.
 
+Free and cost-exempt sends retain their destination chunk while the landed
+crate is collectable, including when no player is nearby. The existing
+`max-landed` limit bounds these crates (default `10`, maximum `256`), and each
+ticket ends at the crate's captured lifetime (default `600` seconds, configurable
+from `30` to `86400` seconds) or earlier removal. Crates sharing a destination
+chunk share its ticket until the last retained crate is removed. Emptying,
+breaking, or clearing a crate releases its claim; expiry removes free contents.
+Paper may also keep neighboring chunks loaded for normal entity ticking.
+Reloading configuration does not extend an existing deadline. Explicit world
+unload and plugin/server shutdown still remove free crates and release their
+tickets. Free crates do not become paid or gain paid restart recovery.
+
 ## Package files
 
 Package definitions live in `plugins/Airdrop/packages.yml`. Prefer the in-game
