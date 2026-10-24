@@ -56,10 +56,10 @@ class SendPermissionsIT {
 			resetAccount(framework, recipient.uniqueId(), "7.00");
 			assertConsoleOutput(framework, "lkconsole inspect airdrop",
 					"native=com.destroystokyo.paper.console.TerminalConsoleCommandSender", "cost=false costSet=false complete=[send]",
-					"/airdrop send <package> <player>", "<x> <z> <world>", "native console and RCON are cost-exempt");
-			assertConsoleOutput(framework, "airdrop send premium 0 0", "trailing world");
-			assertConsoleOutput(framework, "airdrop send premium NaN 0 " + world.name(), "finite absolute X/Z");
-			assertConsoleOutput(framework, "airdrop send premium 0 0 missing_console_world", "Unknown world");
+					"/airdrop send <package> to <player>", "at <x> <z> <world>", "native console and RCON are cost-exempt");
+			assertConsoleOutput(framework, "airdrop send premium at 0 0", "trailing world");
+			assertConsoleOutput(framework, "airdrop send premium at NaN 0 " + world.name(), "finite absolute X/Z");
+			assertConsoleOutput(framework, "airdrop send premium at 0 0 missing_console_world", "Unknown world");
 
 			try (var operations = framework.events().capture(EconomyIntegrationSupport.OPERATION_EVENT)) {
 				for (String denial : List.of("deny-cost", "deny-send")) {
@@ -67,11 +67,11 @@ class SendPermissionsIT {
 							? "This sender cannot send without cost exemption; check airdrop.cost.bypass."
 							: "airdrop.send permission";
 					int offset = framework.server().output().size();
-					assertConsoleOutput(framework, "lkconsole " + denial + " airdrop send premium " + recipient.name(),
+					assertConsoleOutput(framework, "lkconsole " + denial + " airdrop send premium to " + recipient.name(),
 							"complete=[]", message);
 					assertThat(AirdropIntegrationSupport.consumerMarkers(framework, offset)).isEmpty();
 				}
-				for (String target : List.of(recipient.name(), "0 0 " + world.name())) {
+				for (String target : List.of("to " + recipient.name(), "at 0 0 " + world.name())) {
 					// Crate cleanup explodes the terrain too; restore the surface for each request.
 					AirdropIntegrationSupport.placeLandingPlatform(framework, world, AirdropIntegrationSupport.PLATFORM_POSITION);
 					int offset = framework.server().output().size();
@@ -122,7 +122,7 @@ class SendPermissionsIT {
 			assertThat(sender.permissions().has("airdrop.cost.bypass")).isFalse();
 			resetAccount(framework, sender.uniqueId(), "100.00");
 			int offset = framework.server().output().size();
-			sender.executeCommand("airdrop send premium 0 0");
+			sender.executeCommand("airdrop send premium at 0 0");
 			SendIT.assertOutcome(framework, offset, LANDED, "LANDED", "CHARGED", "NONE");
 			assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
@@ -169,13 +169,13 @@ class SendPermissionsIT {
 			// Explicit send denial must override the admin/wildcard grants without charging.
 			setPermission(framework, sender, "airdrop.send", false);
 			int deniedOffset = framework.server().output().size();
-			sender.executeCommand("airdrop send premium " + recipient.name());
+			sender.executeCommand("airdrop send premium to " + recipient.name());
 			assertAccountState(framework, sender.uniqueId(), "100.00", 0, 0, 0);
 			assertThat(AirdropIntegrationSupport.consumerMarkers(framework, deniedOffset)).isEmpty();
 			setPermission(framework, sender, "airdrop.send", true);
 
 			int paidOffset = framework.server().output().size();
-			sender.executeCommand("airdrop send premium " + recipient.name());
+			sender.executeCommand("airdrop send premium to " + recipient.name());
 			SendIT.assertOutcome(framework, paidOffset, LANDED, "LANDED", "CHARGED", "NONE");
 			assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			assertAccountState(framework, recipient.uniqueId(), "7.00", 0, 0, 0);
@@ -185,7 +185,7 @@ class SendPermissionsIT {
 			setPermission(framework, sender, "airdrop.cost.bypass", true);
 			setPermission(framework, sender, "airdrop.cooldown.bypass", false);
 			int cooldownOffset = framework.server().output().size();
-			sender.executeCommand("airdrop send premium 0 0");
+			sender.executeCommand("airdrop send premium at 0 0");
 			// Full-login bots do not expose chat capture; the shared handle reports early rejections.
 			var cooldown = ConsumerIntegrationSupport.request(framework, sender, "premium");
 			var rejected = ConsumerIntegrationSupport.awaitHandleResult(framework, cooldown, "HANDLE_OUTCOME");
@@ -195,7 +195,7 @@ class SendPermissionsIT {
 			assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			setPermission(framework, sender, "airdrop.cooldown.bypass", true);
 			int freeOffset = framework.server().output().size();
-			sender.executeCommand("airdrop send premium 0 0");
+			sender.executeCommand("airdrop send premium at 0 0");
 			SendIT.assertOutcome(framework, freeOffset, LANDED, "LANDED", "NOT_APPLICABLE", "NONE");
 			assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			AirdropIntegrationSupport.cleanupCrate(framework, world);

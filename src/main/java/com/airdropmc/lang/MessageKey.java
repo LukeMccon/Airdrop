@@ -2,10 +2,10 @@ package com.airdropmc.lang;
 
 public enum MessageKey {
 	DROP_REQUESTED_COST("drop.requested-cost", "Request {request_id} for {name} accepted for processing; {cost}."),
-	COMMANDS_SEND_USAGE("commands.send-usage", "Usage: /airdrop send <package> <player> | /airdrop send <package> <x> <z> [world]"),
-	COMMANDS_HELP_SEND_PLAYER("commands.help.send-player", "{text}/airdrop send <package> <player>{primary} — send to an online player; sender pays unless cost is exempt"),
-	COMMANDS_HELP_SEND_COORDINATES("commands.help.send-coordinates", "{text}/airdrop send <package> <x> <z> [world]{primary} — send to the surface; defaults to your current world"),
-	COMMANDS_HELP_SEND_CONSOLE("commands.help.send-console", "{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; native console and RCON are cost-exempt"),
+	COMMANDS_SEND_USAGE("commands.send-usage", "Usage: /airdrop send <package> to <player> | /airdrop send <package> at <x> <z> [world]"),
+	COMMANDS_HELP_SEND_PLAYER("commands.help.send-player", "{text}/airdrop send <package> to <player>{primary} — send to an online player; sender pays unless cost is exempt"),
+	COMMANDS_HELP_SEND_COORDINATES("commands.help.send-coordinates", "{text}/airdrop send <package> at <x> <z> [world]{primary} — send to the surface; defaults to your current world"),
+	COMMANDS_HELP_SEND_CONSOLE("commands.help.send-console", "{text}/airdrop send <package> at <x> <z> <world>{primary} — send to the surface; native console and RCON are cost-exempt"),
 	ERROR_SEND_COORDINATES("errors.send-coordinates", "Coordinates must be finite absolute X/Z numbers between -30000000 and 30000000 (exclusive)."),
 	ERROR_SEND_WORLD("errors.send-world", "Unknown world {accent}{world}{error}; no package was sent."),
 	ERROR_SEND_CONSOLE_WORLD("errors.send-console-world", "Console coordinate sends require a trailing world."),

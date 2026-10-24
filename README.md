@@ -34,7 +34,7 @@ Plugin developers should use only `com.airdropmc.api`. See the
 
 Run `/airdrop packages` in game to browse packages you can request, compare prices,
 and preview their items. Administrators can edit packages in the same item view.
-Use `/airdrop send <package> <player>` or `/airdrop send <package> <x> <z> [world]`
+Use `/airdrop send <package> to <player>` or `/airdrop send <package> at <x> <z> [world]`
 to send a package. A player sender pays unless their effective `airdrop.cost.bypass`
 permission exempts them; exemption also applies to self-orders. Native console and
 RCON sends are free by default and require a world for coordinate targets. Explicit

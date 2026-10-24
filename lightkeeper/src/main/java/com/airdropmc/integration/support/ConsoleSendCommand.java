@@ -30,6 +30,19 @@ public final class ConsoleSendCommand implements CommandExecutor {
 			treeProbe.inspect(args[1]);
 			return true;
 		}
+		if (args[0].equals("player") && args.length > 2) {
+			var player = java.util.Objects.requireNonNull(Bukkit.getPlayerExact(args[1]));
+			String input = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+			try {
+				CommandTreeProbe.dispatcher().execute(input, CommandTreeProbe.source(player));
+			} catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) {
+				// A native parser rejection is expected for malformed command probes.
+			} catch (ReflectiveOperationException failure) {
+				throw new IllegalStateException("Native player dispatch failed", failure);
+			}
+			sender.sendMessage("AIRDR_PLAYER_COMPLETE player=" + player.getName() + " input=" + input);
+			return true;
+		}
 		var console = Bukkit.getConsoleSender();
 		PermissionAttachment denial = switch (args[0]) {
 			case "deny-cost" -> console.addAttachment(plugin, "airdrop.cost.bypass", false);

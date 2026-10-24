@@ -91,9 +91,38 @@ class TargetedDropCommandTest {
 	}
 
 	@Test
+	void explicitPlayerModeRequestsTheNamedRecipient() {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			drops.when(() -> DropController.requestSendDrop(sender, recipient, "starter",
+					DropRequestOptions.defaults(), false)).thenReturn(pendingGiftHandle());
+			command(sender, "send", "starter", "to", "Recipient");
+			drops.verify(() -> DropController.requestSendDrop(sender, recipient, "starter",
+					DropRequestOptions.defaults(), false));
+		}
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"Recipient", "1 2", "1 2 targeted_world", "to", "at", "at 1", "to Recipient extra"})
+	void bareAndIncompleteDestinationsNeverRequestADrop(String destination) {
+		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
+		server.addPlayer("to");
+		server.addPlayer("at");
+		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
+			drops.when(() -> DropController.requestSendDrop(eq(sender), any(org.bukkit.entity.Player.class),
+					eq("starter"), eq(DropRequestOptions.defaults()), eq(false))).thenReturn(pendingGiftHandle());
+			drops.when(() -> DropController.requestSendDrop(eq(sender), any(Location.class),
+					eq("starter"), eq(DropRequestOptions.defaults()))).thenReturn(pendingHandle());
+			command(sender, ("send starter " + destination).split(" "));
+			drops.verifyNoInteractions();
+		}
+		assertTrue(messages(sender).contains("Usage: /airdrop send"));
+	}
+
+	@Test
 	void incompleteSendShowsPositionalUsage() {
 		command(sender, "send", "starter");
-		assertTrue(messages(sender).contains("/airdrop send <package> <player>"));
+		assertTrue(messages(sender).contains("/airdrop send <package> to <player>"));
 	}
 
 	@Test
@@ -105,16 +134,16 @@ class TargetedDropCommandTest {
 	}
 
 	@Test
-	void helpAndCompletionExposeSendWithoutDestinationKeywords() {
+	void helpAndCompletionExposeExplicitDestinationModes() {
 		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
 		var tabs = new AirdropTabCompleter();
 		assertTrue(tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{""}).contains("send"));
 		assertEquals(List.of("starter"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "st"}));
-		assertEquals(List.of("Recipient"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
-		assertEquals(List.of("targeted_world"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "1", "2", "tar"}));
+		assertEquals(List.of("Recipient"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "to", "Re"}));
+		assertEquals(List.of("targeted_world"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "at", "1", "2", "tar"}));
 		command(sender);
 		String help = messages(sender);
-		assertTrue(help.contains("/airdrop send <package> <player>"), help);
+		assertTrue(help.contains("/airdrop send <package> to <player>"), help);
 		assertTrue(help.contains("<x> <z> [world]"), help);
 		assertFalse(help.contains("/airdrop gift") || help.contains("/airdrop grant"), help);
 	}
@@ -227,11 +256,11 @@ class TargetedDropCommandTest {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
 			drops.when(() -> DropController.requestSendDrop(eq(sender), any(Location.class), eq("starter"),
 					eq(DropRequestOptions.defaults()))).thenReturn(pendingGiftHandle());
-			command(sender, "send", "starter", x, z);
+			command(sender, "send", "starter", "at", x, z);
 			drops.verify(() -> DropController.requestSendDrop(sender, new Location(sender.getWorld(),
 					Double.parseDouble(x), sender.getWorld().getMaxHeight() - 1, Double.parseDouble(z)),
 					"starter", DropRequestOptions.defaults()));
-			command(sender, "send", "starter", x, z, "override_world");
+			command(sender, "send", "starter", "at", x, z, "override_world");
 			drops.verify(() -> DropController.requestSendDrop(sender, new Location(other,
 					Double.parseDouble(x), other.getMaxHeight() - 1, Double.parseDouble(z)),
 					"starter", DropRequestOptions.defaults()));
@@ -242,7 +271,7 @@ class TargetedDropCommandTest {
 	@ValueSource(strings = {"NaN", "Infinity", "-Infinity", "30000000", "-30000000", "~1", "^2", "foo"})
 	void invalidCoordinatesRejectBeforeRequest(String invalid) {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "send", "starter", invalid, "2");
+			command(sender, "send", "starter", "at", invalid, "2");
 			drops.verifyNoInteractions();
 		}
 		assertTrue(messages(sender).contains("finite absolute X/Z"));
@@ -251,11 +280,11 @@ class TargetedDropCommandTest {
 	@Test
 	void unknownWorldInvalidShapeAndPartialPlayerNeverSubstituteAnotherTarget() {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "send", "starter", "1", "2", "missing_world");
+			command(sender, "send", "starter", "at", "1", "2", "missing_world");
 			assertTrue(messages(sender).contains("Unknown world missing_world"));
-			command(sender, "send", "starter", "Recipient", "unexpected");
-			command(sender, "send", "starter", "1", "2", "targeted_world", "extra");
-			command(sender, "send", "starter", "Recip");
+			command(sender, "send", "starter", "to", "Recipient", "unexpected");
+			command(sender, "send", "starter", "at", "1", "2", "targeted_world", "extra");
+			command(sender, "send", "starter", "to", "Recip");
 			assertTrue(messages(sender).contains("Could not find online player Recip"));
 			drops.verifyNoInteractions();
 		}
@@ -266,17 +295,17 @@ class TargetedDropCommandTest {
 		org.bukkit.command.CommandSender console = mock(org.bukkit.command.CommandSender.class);
 		when(console.hasPermission("airdrop.send")).thenReturn(true);
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(console, "send", "starter", "1", "2", "targeted_world");
+			command(console, "send", "starter", "at", "1", "2", "targeted_world");
 			drops.verifyNoInteractions();
 			verify(console).sendMessage(contains("airdrop.cost.bypass"));
 			when(console.hasPermission("airdrop.cost.bypass")).thenReturn(true);
-			command(console, "send", "starter", "1", "2");
+			command(console, "send", "starter", "at", "1", "2");
 			drops.verifyNoInteractions();
 			verify(console).sendMessage(contains("trailing world"));
 			when(console.getName()).thenReturn("Console");
 			drops.when(() -> DropController.requestSendDrop(eq(console), any(Location.class), eq("starter"),
 					eq(DropRequestOptions.defaults()))).thenReturn(pendingHandle());
-			command(console, "send", "starter", "1", "2", "targeted_world");
+			command(console, "send", "starter", "at", "1", "2", "targeted_world");
 			drops.verify(() -> DropController.requestSendDrop(console, new Location(sender.getWorld(), 1,
 					sender.getWorld().getMaxHeight() - 1, 2), "starter", DropRequestOptions.defaults()));
 		}
@@ -291,14 +320,14 @@ class TargetedDropCommandTest {
 		assertTrue(new AirdropTabCompleter().onTabComplete(console, mock(Command.class), "ad",
 				new String[]{""}).contains("send"));
 		command(console);
-		verify(console).sendMessage(contains("/airdrop send <package> <player>"));
+		verify(console).sendMessage(contains("/airdrop send <package> to <player>"));
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(console, "send", "starter", "1", "2");
+			command(console, "send", "starter", "at", "1", "2");
 			drops.verifyNoInteractions();
 			verify(console).sendMessage(contains("trailing world"));
 			drops.when(() -> DropController.requestSendDrop(eq(console), any(Location.class), eq("starter"),
 					eq(DropRequestOptions.defaults()))).thenReturn(pendingHandle());
-			command(console, "send", "starter", "1", "2", "targeted_world");
+			command(console, "send", "starter", "at", "1", "2", "targeted_world");
 			drops.verify(() -> DropController.requestSendDrop(console, new Location(sender.getWorld(), 1,
 					sender.getWorld().getMaxHeight() - 1, 2), "starter", DropRequestOptions.defaults()));
 		}
@@ -309,10 +338,10 @@ class TargetedDropCommandTest {
 		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.cost.bypass", true);
 		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "send", "starter", "Recipient");
+			command(sender, "send", "starter", "to", "Recipient");
 			assertTrue(messages(sender).contains("airdrop.package.starter"));
 			sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-			command(sender, "send", "starter", "Recipient");
+			command(sender, "send", "starter", "to", "Recipient");
 			assertTrue(messages(sender).contains("Recipient cannot receive"));
 			drops.verifyNoInteractions();
 		}
@@ -323,7 +352,7 @@ class TargetedDropCommandTest {
 		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.admin", true);
 		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.send", false);
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
-			command(sender, "send", "starter", "Recipient");
+			command(sender, "send", "starter", "to", "Recipient");
 			drops.verifyNoInteractions();
 		}
 		assertTrue(messages(sender).contains("airdrop.send permission"));
@@ -344,7 +373,7 @@ class TargetedDropCommandTest {
 					.thenReturn(pendingGiftHandle());
 			command(sender, "send");
 			drops.verify(() -> DropController.requestPlayerDrop(sender, "send", DropRequestOptions.defaults()));
-			command(sender, "send", "send", "Recipient");
+			command(sender, "send", "send", "to", "Recipient");
 			drops.verify(() -> DropController.requestSendDrop(sender, recipient, "send", DropRequestOptions.defaults(), false));
 		}
 		var tabs = new AirdropTabCompleter();
@@ -357,11 +386,11 @@ class TargetedDropCommandTest {
 		sender.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
 		configuration.set(ConfigKeys.GIFT_REQUIRE_RECIPIENT_PERMISSION, true);
 		var tabs = new AirdropTabCompleter();
-		assertEquals(List.of(), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
+		assertEquals(List.of(), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "to", "Re"}));
 		recipient.addAttachment(MockBukkit.createMockPlugin(), "airdrop.package.starter", true);
-		assertEquals(List.of("Recipient"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
+		assertEquals(List.of("Recipient"), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "to", "Re"}));
 		sender.hidePlayer(MockBukkit.createMockPlugin(), recipient);
-		assertEquals(List.of(), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "Re"}));
+		assertEquals(List.of(), tabs.onTabComplete(sender, mock(Command.class), "ad", new String[]{"send", "starter", "to", "Re"}));
 	}
 
 	@ParameterizedTest
@@ -565,7 +594,7 @@ class TargetedDropCommandTest {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
 			drops.when(() -> DropController.requestSendDrop(sender, sender, "starter",
 					DropRequestOptions.defaults(), false)).thenReturn(handle);
-			command(sender, "send", "starter", "Sender");
+			command(sender, "send", "starter", "to", "Sender");
 		}
 		messages(sender);
 		ResolvedDropContext context = spawn(handle, PaymentStatus.CHARGED);
@@ -591,7 +620,7 @@ class TargetedDropCommandTest {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
 			drops.when(() -> DropController.requestSendDrop(sender, recipient, "starter",
 					DropRequestOptions.defaults(), false)).thenReturn(handle);
-			command(sender, "send", "starter", "Recipient");
+			command(sender, "send", "starter", "to", "Recipient");
 		}
 	}
 
@@ -599,7 +628,7 @@ class TargetedDropCommandTest {
 		try (MockedStatic<DropController> drops = mockStatic(DropController.class)) {
 			drops.when(() -> DropController.requestSendDrop(sender, recipient, "starter",
 					DropRequestOptions.defaults(), false)).thenReturn(handle);
-			command(sender, "send", "starter", "Recipient");
+			command(sender, "send", "starter", "to", "Recipient");
 		}
 	}
 

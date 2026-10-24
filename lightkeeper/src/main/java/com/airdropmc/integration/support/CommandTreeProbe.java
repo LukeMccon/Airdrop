@@ -46,16 +46,20 @@ final class CommandTreeProbe implements Listener {
 					command = command.getRedirect();
 				}
 				var pkg = child(child(command, "send"), "package");
-				child(pkg, "player");
-				child(child(child(pkg, "x"), "z"), "world");
+				child(child(pkg, "to"), "player");
+				child(child(child(child(pkg, "at"), "x"), "z"), "world");
+				if (pkg.getChild("player") != null || pkg.getChild("x") != null) {
+					throw new IllegalStateException("Bare send destination remains in client tree");
+				}
 			}
 			int bytes = encodePacket(root);
 			plugin.getLogger().info("AIRDR_TREE player=" + event.getPlayer().getName()
-					+ " paths=send/package/player,send/package/x/z/world aliases=airdrop,ad,drop,airdrop:airdrop bytes=" + bytes);
+					+ " paths=send/package/to/player,send/package/at/x/z/world aliases=airdrop,ad,drop,airdrop:airdrop bytes=" + bytes);
 			// Unlike CommandMap.tabComplete, retain and inspect the actual suggestion tooltips.
 			var dispatcher = dispatcher();
-			for (String input : List.of("airdrop send premium ", "airdrop send premium +1 ",
-					"airdrop send premium +1 1e2 ")) {
+			for (String input : List.of("airdrop send premium ", "airdrop send premium to ",
+					"airdrop send premium at ", "airdrop send premium at +1 ",
+					"airdrop send premium at +1 1e2 ")) {
 				var suggestions = dispatcher.getCompletionSuggestions(dispatcher.parse(input, source(event.getPlayer()))).join();
 				for (var hint : suggestions.getList()) {
 					plugin.getLogger().info("AIRDR_HINT player=" + event.getPlayer().getName() + " input=" + input

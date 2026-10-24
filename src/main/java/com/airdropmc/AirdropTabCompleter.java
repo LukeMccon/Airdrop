@@ -63,20 +63,28 @@ public class AirdropTabCompleter implements TabCompleter {
 				return List.of();
 			}
 			if (args.length == 3) {
+				return TabCompletionFilter.filter(List.of("to", "at"), args[2]);
+			}
+			if (args.length == 4 && "to".equals(args[2])) {
 				List<String> destinations = new ArrayList<>(Bukkit.getOnlinePlayers().stream()
 						.filter(player -> !(commandSender instanceof Player viewer) || viewer.canSee(player))
 						.filter(player -> !ConfigKeys.requiresGiftRecipientPermission() || PermissionsHelper.hasPermission(player, args[1]))
 						.map(Player::getName).toList());
-				addCoordinate(destinations, commandSender, true);
-				return TabCompletionFilter.filter(destinations.stream().distinct().toList(), args[2]);
+				return TabCompletionFilter.filter(destinations, args[3]);
 			}
-			if (args.length == 4 && TargetedDropCommand.isCoordinate(args[2])) {
+			if (args.length == 4 && "at".equals(args[2])) {
 				List<String> coordinates = new ArrayList<>();
-				addCoordinate(coordinates, commandSender, false);
+				addCoordinate(coordinates, commandSender, true);
 				return TabCompletionFilter.filter(coordinates, args[3]);
 			}
-			if (args.length == 5 && TargetedDropCommand.isCoordinate(args[2]) && TargetedDropCommand.isCoordinate(args[3])) {
-				return TabCompletionFilter.filter(Bukkit.getWorlds().stream().map(org.bukkit.World::getName).toList(), args[4]);
+			if (args.length == 5 && "at".equals(args[2]) && TargetedDropCommand.isCoordinate(args[3])) {
+				List<String> coordinates = new ArrayList<>();
+				addCoordinate(coordinates, commandSender, false);
+				return TabCompletionFilter.filter(coordinates, args[4]);
+			}
+			if (args.length == 6 && "at".equals(args[2]) && TargetedDropCommand.isCoordinate(args[3])
+					&& TargetedDropCommand.isCoordinate(args[4])) {
+				return TabCompletionFilter.filter(Bukkit.getWorlds().stream().map(org.bukkit.World::getName).toList(), args[5]);
 			}
 			return List.of();
 		}
