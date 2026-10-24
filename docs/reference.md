@@ -99,8 +99,8 @@ failures can be diagnosed.
 | --- | --- | --- |
 | `/airdrop` | Show sender-appropriate help | Everyone, including console |
 | `/airdrop <package>` | Request a package at the player's location | Player with `airdrop.package.<package>` or `airdrop.package.all` |
-| `/airdrop send <package> <player>` | Send to an exact online player's captured location | `airdrop.send` and normal player sender package access; native console and RCON are cost-exempt by default |
-| `/airdrop send <package> <x> <z> [world]` | Send to the surface at absolute X/Z | Same sender permissions; world defaults to a player's current world, required for console |
+| `/airdrop send <package> to <player>` | Send to an exact online player's captured location | `airdrop.send` and normal player sender package access; native console and RCON are cost-exempt by default |
+| `/airdrop send <package> at <x> <z> [world]` | Send to the surface at absolute X/Z | Same sender permissions; world defaults to a player's current world, required for console |
 | `/airdrop package <name>` | Inspect a package and its price | Everyone, including console |
 | `/airdrop package create <name> <price>` | Create a package and open its editor | In-game player with `airdrop.admin` |
 | `/airdrop package price <package> <new-price>` | Change a package price atomically | `airdrop.admin`; players, console, and RCON |
@@ -163,23 +163,25 @@ Inventory editing and self-orders require an in-game player.
 
 ```text
 /airdrop starter
-/airdrop send starter Alex
-/airdrop send starter 120 -45
-/airdrop send starter 120 -45 world_nether
+/airdrop send starter to Alex
+/airdrop send starter at 120 -45
+/airdrop send starter at 120 -45 world_nether
 ```
 
-Use one destination argument for an exact online player name, or two absolute
+Use `to` followed by an exact online player name, or `at` followed by absolute
 numeric X/Z arguments with an optional trailing world. Coordinates land on the
-surface; they do not specify Y. Relative coordinates and extra destination
+surface; they do not specify Y. Bare destinations and alternative destination
 keywords are not supported. Invalid input, offline players, and unknown worlds
 are rejected before payment. A targeted send always requires a destination.
 
-Paper's native command tree exposes both `player` and `x` → `z` → `world`
-arguments while typing. After `/airdrop send <package> `, completion offers visible,
-eligible online players and your current block X; after X and a space it offers your
-block Z. After a valid X/Z pair it offers loaded worlds. Console gets `0` as a
-coordinate example and must supply a world. Suggestions carry localized send-usage
-hints; they never insert literal placeholders or relative/local coordinates.
+Paper's native command tree exposes `to` → `player` and
+`at` → `x` → `z` → `world` arguments while typing. After
+`/airdrop send <package> `, completion offers `to` and `at`. After `to ` it offers
+visible, eligible online players; after `at ` it offers your current block X,
+and after X and a space it offers your block Z. After a valid X/Z pair it offers
+loaded worlds. Console gets `0` as a coordinate example and must supply a world.
+Suggestions carry localized send-usage hints; they never insert literal
+placeholders or relative/local coordinates.
 Package and destination suggestions use current permissions and live server data,
 including `gifting.require-recipient-permission` and player visibility. The syntax
 tree itself remains available during startup and permission changes; a visible
@@ -188,9 +190,9 @@ readiness, permission and input errors. Aliases `ad` and `drop`, and namespaced
 invocations such as `/airdrop:airdrop`, use the same command tree.
 
 Coordinates accept absolute numeric forms such as `+1`, `1e2`, `-12.5` and `.25`.
-They must be finite and strictly between -30000000 and 30000000. A single numeric
-name such as `/airdrop send starter 123` still means the online player named `123`;
-`/airdrop send starter 123 0` instead means X/Z coordinates. No Y, selectors, `~`
+They must be finite and strictly between -30000000 and 30000000.
+`/airdrop send starter to 123` targets the online player named `123`;
+`/airdrop send starter at 123 0` targets X/Z coordinates. No Y, selectors, `~`
 or `^` syntax is supported.
 
 Without cost exemption, the initiating player pays the package's normal price;
@@ -238,7 +240,7 @@ The head uses Minecraft's native chat component on supported clients (1.21.9+).
 Offline players are not notified, and sending to yourself does not duplicate recipient messages.
 
 Package names `send`, `gift`, and `grant` are legal. `/airdrop send` requests a
-package named `send` when configured; `/airdrop send send Alex` targets that
+package named `send` when configured; `/airdrop send send to Alex` targets that
 package to Alex. With no such package, `/airdrop send` shows send usage.
 
 ### Reward plugins can run the send command
@@ -246,8 +248,8 @@ package to Alex. With no such package, `/airdrop send` shows send usage.
 For a reward plugin that executes commands as console:
 
 ```text
-airdrop send starter {player}
-airdrop send starter 120 -45 world
+airdrop send starter to {player}
+airdrop send starter at 120 -45 world
 ```
 
 Replace `{player}` with the exact online-name placeholder supplied by your reward
@@ -436,9 +438,11 @@ uppercase region such as `pt-BR`. Unsafe or blank codes fall back to `en`.
 The English locale is bundled. A missing local English file is recreated, and
 new bundled keys are added without replacing existing translations. Startup and
 reload also replace the unchanged previous English defaults for
-`commands.help.send-console`, `errors.send-console-cost`, and
-`targeted.cost-exempt`, plus the previous stock delivery messages (including
-`drop.failed` and targeted spawn/landing/payment feedback). Only exact old stock
+`commands.send-usage`, `commands.help.send-player`,
+`commands.help.send-coordinates`, `commands.help.send-console`,
+`errors.send-console-cost`, and `targeted.cost-exempt`, plus the previous stock
+delivery messages (including `drop.failed` and targeted spawn/landing/payment
+feedback). Only exact old stock
 values migrate; customized text and translations are preserved. Legacy acceptance
 keys remain available but are no longer sent by these commands. Custom delivery
 templates may still include `{request_id}` intentionally; IDs are not globally

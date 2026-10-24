@@ -43,7 +43,7 @@ class RemoteDeliveryIT {
 			PlayerHandle sender = SendIT.player(framework, world, players, "airdrop.package.premium");
 			EconomyIntegrationSupport.resetAccount(framework, sender.uniqueId(), "100.00");
 			int offset = framework.server().output().size();
-			sender.executeCommand("airdrop send premium 4104 4104 " + world.name());
+			sender.executeCommand("airdrop send premium at 4104 4104 " + world.name());
 			SendIT.assertOutcome(framework, offset, LANDED, "LANDED", "CHARGED", "NONE");
 			EconomyIntegrationSupport.assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
 			// Reload for a positive post-delivery observation even if Paper has already unloaded it.
@@ -56,7 +56,7 @@ class RemoteDeliveryIT {
 			EconomyIntegrationSupport.resetAccount(framework, denied.uniqueId(), "100.00");
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 8200, 8200)).contains("generated=false", "loaded=false");
 			int messages = denied.receivedMessages().size();
-			denied.executeCommand("airdrop send premium 8200 8200 " + world.name());
+			denied.executeCommand("airdrop send premium at 8200 8200 " + world.name());
 			eventually(Duration.ofSeconds(15), () -> {
 				List<String> receivedMessages = denied.receivedMessages();
 				assertThat(receivedMessages.subList(messages, receivedMessages.size()))
@@ -69,7 +69,7 @@ class RemoteDeliveryIT {
 			PlayerHandle generating = SendIT.player(framework, world, players, "airdrop.package.premium");
 			EconomyIntegrationSupport.resetAccount(framework, generating.uniqueId(), "100.00");
 			offset = framework.server().output().size();
-			generating.executeCommand("airdrop send premium 8200 8200 " + world.name());
+			generating.executeCommand("airdrop send premium at 8200 8200 " + world.name());
 			SendIT.assertOutcome(framework, offset, LANDED, "LANDED", "CHARGED", "NONE");
 			EconomyIntegrationSupport.assertAccountState(framework, generating.uniqueId(), "89.75", 1, 1, 0);
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 8200, 8200)).contains("generated=true", "tickets=0", "auxiliaries=0");
@@ -78,7 +78,7 @@ class RemoteDeliveryIT {
 			EconomyIntegrationSupport.resetAccount(framework, edge.uniqueId(), "100.00");
 			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 5016, 0)).contains("generated=false");
 			int edgeMessages = edge.receivedMessages().size();
-			edge.executeCommand("airdrop send premium 4990 0 " + world.name());
+			edge.executeCommand("airdrop send premium at 4990 0 " + world.name());
 			eventually(Duration.ofSeconds(10), () -> {
 				List<String> receivedMessages = edge.receivedMessages();
 				assertThat(receivedMessages.subList(edgeMessages, receivedMessages.size()))

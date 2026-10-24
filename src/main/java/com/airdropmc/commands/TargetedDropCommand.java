@@ -67,38 +67,40 @@ public final class TargetedDropCommand {
 			ChatHandler.sendError(sender, MessageKey.ERROR_SEND_CONSOLE_COST);
 			return;
 		}
-		if (args.length < 3 || args.length > 5) {
+		boolean playerTarget = args.length == 4 && "to".equals(args[2]);
+		boolean coordinateTarget = (args.length == 5 || args.length == 6) && "at".equals(args[2]);
+		if (!playerTarget && !coordinateTarget) {
 			sendUsage(sender);
 			return;
 		}
 		String packageName = args[1];
-		Player recipient = args.length == 3 ? Bukkit.getPlayerExact(args[2]) : null;
+		Player recipient = playerTarget ? Bukkit.getPlayerExact(args[3]) : null;
 		Location destination;
 		String destinationName;
-		if (args.length == 3) {
+		if (playerTarget) {
 			if (recipient == null || !recipient.isOnline()) {
-				ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PLAYER, Map.of("player", args[2]));
+				ChatHandler.sendError(sender, MessageKey.ERROR_TARGETED_PLAYER, Map.of("player", args[3]));
 				return;
 			}
 			destination = recipient.getLocation();
 			destinationName = recipient.getName();
 		} else {
-			if (!isCoordinate(args[2]) || !isCoordinate(args[3])) {
+			if (!isCoordinate(args[3]) || !isCoordinate(args[4])) {
 				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_COORDINATES);
 				return;
 			}
-			if (args.length == 4 && !(sender instanceof Player)) {
+			if (args.length == 5 && !(sender instanceof Player)) {
 				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_CONSOLE_WORLD);
 				return;
 			}
-			World world = args.length == 5 ? Bukkit.getWorld(args[4]) : ((Player) sender).getWorld();
+			World world = args.length == 6 ? Bukkit.getWorld(args[5]) : ((Player) sender).getWorld();
 			if (world == null) {
-				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_WORLD, Map.of("world", args[4]));
+				ChatHandler.sendError(sender, MessageKey.ERROR_SEND_WORLD, Map.of("world", args[5]));
 				return;
 			}
-			destination = new Location(world, Double.parseDouble(args[2]), world.getMaxHeight() - 1.0,
-					Double.parseDouble(args[3]));
-			destinationName = args[2] + ", " + args[3] + " in " + world.getName();
+			destination = new Location(world, Double.parseDouble(args[3]), world.getMaxHeight() - 1.0,
+					Double.parseDouble(args[4]));
+			destinationName = args[3] + ", " + args[4] + " in " + world.getName();
 		}
 		boolean requireRecipientPermission = ConfigKeys.requiresGiftRecipientPermission();
 		if (PackageManager.has(packageName)) {
