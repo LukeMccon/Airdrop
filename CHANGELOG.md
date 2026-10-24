@@ -38,7 +38,10 @@ lets other plugins request drops and follow delivery outcomes.
 
 - AIRDR-99: Send destinations use explicit `to` and `at` keywords; bare
   destinations and compatibility forms are not supported. Unchanged stock English
-  send usage and help migrate; customized messages are preserved.
+  send usage and help migrate; customized messages are preserved. Required X/Z
+  usage stays visible while typing, without current-coordinate suggestions.
+  Incomplete coordinates and extra arguments use native command syntax errors
+  before any request or payment.
 - AIRDR-73: `/airdrop send <package> to <player>` and
   `/airdrop send <package> at <x> <z> [world]` replace the unshipped gift/grant commands.
   Player coordinates default to the caller's world; console requires a world.

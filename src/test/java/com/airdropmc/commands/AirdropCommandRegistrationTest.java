@@ -92,11 +92,26 @@ class AirdropCommandRegistrationTest {
 	}
 
 	@Test
+	void coordinateEntryExposesRequiredUsageInsteadOfNumericCompletions() {
+		var nativeRoot = new RootCommandNode<CommandSourceStack>();
+		nativeRoot.addChild(nativeCopy(dispatcher.getRoot().getChild("airdrop"),
+				(context, builder) -> Suggestions.empty()));
+		var client = new CommandDispatcher<>(nativeRoot);
+		for (var entry : Map.of("airdrop send Starter at ", "<x> <z> [<world>]",
+				"airdrop send Starter at 12 ", "<z> [<world>]").entrySet()) {
+			String input = entry.getKey();
+			assertEquals(List.of(), texts(sender, input), "Value suggestions would hide native usage");
+			var context = client.parse(input, source(sender)).getContext().findSuggestionContext(input.length());
+			assertEquals(List.of(entry.getValue()), List.copyOf(client.getSmartUsage(context.parent, source(sender)).values()));
+		}
+	}
+
+	@Test
 	void destinationModesAreTheOnlyChoicesAfterPackage() {
 		server.addPlayer("Recipient");
 		assertEquals(List.of("at", "to"), texts(sender, "airdrop send Starter "));
 		assertEquals(List.of("Recipient"), texts(sender, "airdrop send Starter to Re"));
-		assertEquals(List.of("12"), texts(sender, "airdrop send Starter at "));
+		assertEquals(List.of(), texts(sender, "airdrop send Starter at "));
 	}
 
 	@Test
@@ -148,7 +163,7 @@ class AirdropCommandRegistrationTest {
 				chat.verify(() -> ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_HEADER, Map.of()));
 			}
 			for (var completion : Map.of(" se", "send", " send St", "Starter",
-					" send Starter at +1 ", "-4", " send Starter at 1 2 hints", "hints_world",
+					" send Starter at 1 2 hints", "hints_world",
 					" package price St", "Starter").entrySet()) {
 				String input = command + completion.getKey();
 				var results = suggestions(sender, input);
@@ -174,9 +189,9 @@ class AirdropCommandRegistrationTest {
 					new String[]{"send", "Starter", "at", "+1", "1e2", "hints_world"}), times(3));
 			execute(sender, root + " send Starter to  123");
 			target.verify(() -> TargetedDropCommand.onCommand(sender, new String[]{"send", "Starter", "to", "123"}));
-			execute(sender, root + " send Starter at -1.25  .5 hints_world  extra");
+			execute(sender, root + " send Starter at -1.25  .5 hints_world");
 			target.verify(() -> TargetedDropCommand.onCommand(sender,
-					new String[]{"send", "Starter", "at", "-1.25", ".5", "hints_world", "extra"}));
+					new String[]{"send", "Starter", "at", "-1.25", ".5", "hints_world"}));
 			execute(sender, root + " package  price Starter  1.25 ");
 			pkg.verify(() -> PackageCommand.onCommand(sender, new String[]{"package", "price", "Starter", "1.25"}));
 		}
@@ -185,7 +200,7 @@ class AirdropCommandRegistrationTest {
 			chat.verify(() -> ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_HEADER, Map.of()));
 		}
 		// Completion still needs the trailing empty slot to select the Z argument.
-		assertEquals(List.of("-4"), texts(sender, root + " send Starter at +1 "));
+		assertEquals(List.of(), texts(sender, root + " send Starter at +1 "));
 	}
 
 	@Test
@@ -253,13 +268,16 @@ class AirdropCommandRegistrationTest {
 	}
 
 	@Test
-	void incompleteAndExtraArgumentsPreserveRouterFeedback() throws Exception {
+	void incompleteAndExtraArgumentsNeverRequestADrop() throws Exception {
 		try (var chat = mockStatic(ChatHandler.class); var drops = mockStatic(DropController.class)) {
-			for (String command : List.of("airdrop send", "airdrop send Starter",
-					"airdrop send Starter at 1 2 hints_world extra", "airdrop send Starter at 1 2 hints_world extra more")) {
+			for (String command : List.of("airdrop send", "airdrop send Starter")) {
 				execute(sender, command);
 			}
-			chat.verify(() -> ChatHandler.sendError(sender, MessageKey.COMMANDS_SEND_USAGE), times(4));
+			chat.verify(() -> ChatHandler.sendError(sender, MessageKey.COMMANDS_SEND_USAGE), times(2));
+			for (String input : List.of("airdrop send Starter at", "airdrop send Starter at 1",
+					"airdrop send Starter at 1 2 hints_world extra", "airdrop send Starter to Sender extra")) {
+				assertThrows(com.mojang.brigadier.exceptions.CommandSyntaxException.class, () -> execute(sender, input));
+			}
 			execute(sender, "airdrop send Starter at 1 2 absent");
 			chat.verify(() -> ChatHandler.sendError(sender, MessageKey.ERROR_SEND_WORLD, Map.of("world", "absent")));
 			execute(sender, "airdrop send Starter to missing");
@@ -309,7 +327,7 @@ class AirdropCommandRegistrationTest {
 		assertEquals(1, connection.requests, "Sibling arguments must not cancel the client's pending request");
 		var choices = merged.get(1, TimeUnit.SECONDS).getList();
 		assertEquals(texts(sender, input), choices.stream().map(Suggestion::getText).toList());
-		assertEquals(partial.equals("at ") ? 1 : 0,
+		assertEquals(0,
 				choices.stream().filter(s -> s.getText().equals("12")).count());
 		assertTrue(choices.stream().allMatch(s -> partial.isEmpty() ? s.getTooltip() == null : s.getTooltip() != null));
 	}
@@ -375,12 +393,12 @@ class AirdropCommandRegistrationTest {
 		assertEquals(List.of("Starter"), texts(sender, "ad send st"));
 		assertEquals(List.of("at", "to"), texts(sender, "ad send Starter "));
 		assertEquals(List.of("Recipient"), texts(sender, "ad send Starter to Re"));
-		assertEquals(List.of("12"), texts(sender, "ad send Starter at "));
-		assertEquals(List.of("-4"), texts(sender, "ad send Starter at +1 "));
+		assertEquals(List.of(), texts(sender, "ad send Starter at "));
+		assertEquals(List.of(), texts(sender, "ad send Starter at +1 "));
 		assertTrue(texts(sender, "ad send Starter at +1 1e2 ").contains("hints_world"));
 		assertEquals(List.of(), texts(sender, "ad send Starter at ~1 "));
 		assertEquals(List.of(), texts(sender, "ad send Starter at 1 NaN "));
-		var hints = suggestions(sender, "ad send Starter at ");
+		var hints = suggestions(sender, "ad send Starter at 1 2 ");
 		assertTrue(hints.stream().allMatch(hint -> hint.getTooltip() != null));
 		assertTrue(hints.getFirst().getTooltip().getString().contains("<x> <z> [world]"));
 		assertTrue(hints.stream().noneMatch(hint -> hint.getText().contains("<") || hint.getText().contains("~")));
@@ -446,8 +464,8 @@ class AirdropCommandRegistrationTest {
 	void consoleUsesZeroExamplesRequiresWorldAndHonorsEffectiveDenials() throws Exception {
 		var console = mock(ConsoleCommandSender.class);
 		when(console.hasPermission("airdrop.send")).thenReturn(true);
-		assertTrue(texts(console, "airdrop send Starter at ").contains("0"));
-		assertEquals(List.of("0"), texts(console, "airdrop send Starter at 1 "));
+		assertEquals(List.of(), texts(console, "airdrop send Starter at "));
+		assertEquals(List.of(), texts(console, "airdrop send Starter at 1 "));
 		try (var chat = mockStatic(ChatHandler.class)) {
 			execute(console, "airdrop send Starter at 1 2");
 			chat.verify(() -> ChatHandler.sendError(console, MessageKey.ERROR_SEND_CONSOLE_WORLD));
