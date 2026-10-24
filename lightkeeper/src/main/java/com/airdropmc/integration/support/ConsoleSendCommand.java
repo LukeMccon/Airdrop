@@ -14,15 +14,21 @@ import java.util.Arrays;
 public final class ConsoleSendCommand implements CommandExecutor {
 
 	private final Plugin plugin;
+	private final CommandTreeProbe treeProbe;
 
 	public ConsoleSendCommand(Plugin plugin) {
 		this.plugin = plugin;
+		this.treeProbe = new CommandTreeProbe(plugin);
 	}
 
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 		if (!(sender instanceof ConsoleCommandSender) || args.length < 1) {
 			return false;
+		}
+		if (args[0].equals("tree") && args.length == 2) {
+			treeProbe.inspect(args[1]);
+			return true;
 		}
 		var console = Bukkit.getConsoleSender();
 		PermissionAttachment denial = switch (args[0]) {
@@ -32,16 +38,22 @@ public final class ConsoleSendCommand implements CommandExecutor {
 			default -> throw new IllegalArgumentException("Unknown console fixture action");
 		};
 		try {
-			var airdrop = Bukkit.getPluginCommand("airdrop");
+			var dispatcher = CommandTreeProbe.dispatcher();
+			var source = CommandTreeProbe.source(console);
+			var completions = dispatcher.getCompletionSuggestions(dispatcher.parse("airdrop se", source)).join();
 			console.sendMessage("AIRDR_CONSOLE native=" + console.getClass().getName()
 					+ " send=" + console.hasPermission("airdrop.send")
 					+ " cost=" + console.hasPermission("airdrop.cost.bypass")
 					+ " costSet=" + console.isPermissionSet("airdrop.cost.bypass")
-					+ " complete=" + airdrop.tabComplete(console, "airdrop", new String[]{"se"}));
+					+ " complete=" + completions.getList().stream().map(com.mojang.brigadier.suggestion.Suggestion::getText).toList());
 			if (args.length > 1 && args[1].equals("airdrop")) {
-				// Paper may defer nested dispatch; execute the registered command while the denial is attached.
-				airdrop.execute(console, "airdrop", Arrays.copyOfRange(args, 2, args.length));
+				// VanillaCommandWrapper.execute also defers nested dispatch. Invoke the real
+				// installed Brigadier dispatcher synchronously, before removing the denial.
+				CommandTreeProbe.dispatcher().execute(String.join(" ", Arrays.copyOfRange(args, 1, args.length)),
+						CommandTreeProbe.source(console));
 			}
+		} catch (ReflectiveOperationException | com.mojang.brigadier.exceptions.CommandSyntaxException failure) {
+			throw new IllegalStateException("Native console dispatch failed", failure);
 		} finally {
 			if (denial != null) {
 				console.removeAttachment(denial);

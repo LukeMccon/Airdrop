@@ -7,7 +7,7 @@ description: Deterministic economy provider for Airdrop LightKeeper tests
 commands:
   lkconsole:
     description: Inspects native console send permissions with temporary denials
-    usage: /lkconsole <inspect|deny-send|deny-cost> [command]
+    usage: /lkconsole <inspect|deny-send|deny-cost|tree> [command|player]
   airdrop-lightkeeper-inventory-replacement:
     description: Verifies stale inventory events against a replacement crate
     usage: /airdrop-lightkeeper-inventory-replacement <capture|verify> <arguments>
