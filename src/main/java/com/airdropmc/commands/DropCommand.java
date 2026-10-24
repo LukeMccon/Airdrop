@@ -32,7 +32,6 @@ public final class DropCommand {
 			return;
 		}
 		String packageName = args[0];
-		boolean costExempt = player.hasPermission("airdrop.cost.bypass");
 		DropHandle handle;
 		try {
 			handle = DropController.requestPlayerDrop(
@@ -42,16 +41,9 @@ public final class DropCommand {
 			return;
 		}
 
-		if (!handle.outcome().toCompletableFuture().isDone()) {
-			if (handle.context().isEmpty()) {
-				ChatHandler.send(player, MessageKey.DROP_PREPARING);
-			}
-			handle.context().ifPresent(context -> ChatHandler.send(player, MessageKey.DROP_REQUESTED_COST, Map.of(
-					"name", context.airdropPackage().name(), "request_id", handle.requestId().toString(),
-					"cost", ChatHandler.get(costExempt ? MessageKey.TARGETED_COST_EXEMPT
-							: context.airdropPackage().price().signum() == 0 ? MessageKey.TARGETED_COST_ZERO
-									: MessageKey.TARGETED_COST_PAID,
-							Map.of("amount", context.airdropPackage().price().toPlainString())))));
+		if (!handle.spawn().toCompletableFuture().isDone()
+				&& !handle.outcome().toCompletableFuture().isDone() && handle.context().isEmpty()) {
+			ChatHandler.send(player, MessageKey.DROP_PREPARING);
 		}
 		handle.spawn().thenAccept(result -> sendSpawnFeedback(player, result));
 		handle.outcome().thenAccept(outcome -> sendOutcomeFeedback(player, handle, outcome));
@@ -62,13 +54,11 @@ public final class DropCommand {
 			return;
 		}
 		String name = spawned.resolvedContext().airdropPackage().name();
-		if (spawned.payment() == PaymentStatus.CHARGED) {
-			ChatHandler.send(player, MessageKey.DROP_INCOMING_CHARGED, Map.of(
-					"name", name,
-					"amount", spawned.resolvedContext().airdropPackage().price().toPlainString()));
-		} else {
-			ChatHandler.send(player, MessageKey.DROP_INCOMING, Map.of("name", name));
-		}
+		ChatHandler.send(player, spawned.payment() == PaymentStatus.CHARGED
+				? MessageKey.DROP_INCOMING_CHARGED : MessageKey.DROP_INCOMING, Map.of(
+				"name", name, "request_id", spawned.requestId().toString(),
+				"amount", spawned.payment() == PaymentStatus.CHARGED
+						? spawned.resolvedContext().airdropPackage().price().toPlainString() : "0"));
 	}
 
 	private static void sendOutcomeFeedback(Player player, DropHandle handle, DropOutcome outcome) {
@@ -84,11 +74,14 @@ public final class DropCommand {
 			return;
 		}
 		if (outcome instanceof DropOutcome.Failed failed) {
-			if (failed.payment() == PaymentStatus.REFUNDED) {
-				ChatHandler.sendError(player, MessageKey.DROP_REFUNDED);
-			} else {
-				ChatHandler.sendError(player, MessageKey.DROP_FAILED);
-			}
+			MessageKey key = switch (failed.payment()) {
+				case REFUNDED -> MessageKey.DROP_REFUNDED;
+				case REFUND_FAILED -> MessageKey.DROP_REFUND_FAILED;
+				case CHARGED -> MessageKey.DROP_CHARGED_FAILED;
+				case UNKNOWN -> MessageKey.DROP_PAYMENT_UNKNOWN;
+				case NOT_APPLICABLE, REJECTED -> MessageKey.DROP_FAILED;
+			};
+			ChatHandler.sendError(player, key, Map.of("request_id", failed.requestId().toString()));
 		}
 	}
 
@@ -96,13 +89,14 @@ public final class DropCommand {
 		WorldPosition position = landed.airdrop().position();
 		Map<String, String> placeholders = new HashMap<>(Map.of(
 				"name", landed.resolvedContext().airdropPackage().name(),
+				"request_id", landed.requestId().toString(),
 				"x", Integer.toString((int) Math.floor(position.x())),
 				"y", Integer.toString((int) Math.floor(position.y())),
 				"z", Integer.toString((int) Math.floor(position.z()))));
 		MessageKey key = MessageKey.DROP_LANDED;
 		if (!player.getWorld().getUID().equals(position.worldId())) {
 			World world = Bukkit.getWorld(position.worldId());
-			placeholders.put("world", world == null ? position.worldId().toString() : world.getName());
+			placeholders.put("world", world == null ? ChatHandler.get(MessageKey.DROP_UNKNOWN_WORLD) : world.getName());
 			key = MessageKey.DROP_LANDED_OTHER_WORLD;
 		}
 		ChatHandler.send(player, key, placeholders);

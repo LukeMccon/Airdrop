@@ -100,15 +100,17 @@ class SendIT {
 						AirdropIntegrationSupport.remoteFixture(framework, "observe", destination, 0, 0))
 						.contains("tickets=0", "auxiliaries=0"));
 				var outcome = assertOutcome(framework, offset, LANDED_SEQUENCE, "LANDED", "CHARGED", "NONE");
-				String request = "Send request " + outcome.requestId();
-				awaitMessage(sender, senderMessages, request + ": premium is on its way to "
+				awaitMessage(sender, senderMessages, "premium is on its way to "
 						+ recipient.name() + ". $10.25 was taken from your account.");
-				awaitMessage(sender, senderMessages, request + ": premium for " + recipient.name()
+				awaitMessage(sender, senderMessages, "premium for " + recipient.name()
 						+ " landed at X: 0, Y: 81, Z: 0 in " + world.name() + ".");
 				awaitMessage(recipient, recipientMessages, sender.name()
 						+ " is sending you package premium. You will not be charged.");
 				awaitMessage(recipient, recipientMessages, sender.name()
 						+ " landed at X: 0, Y: 81, Z: 0 in " + world.name() + ".");
+				assertThat(sender.receivedMessages().stream().skip(senderMessages))
+						.noneMatch(message -> message.contains(outcome.requestId().toString())
+								|| message.contains("accepted for processing"));
 				assertLanding(landings.getCapturedEvents().getFirst(), world);
 				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
 				AirdropIntegrationSupport.awaitBlock(world, CALLER_POSITION, "minecraft:air");
@@ -238,8 +240,11 @@ class SendIT {
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
 				var outcome = assertOutcome(framework, offset, LANDED_SEQUENCE, "LANDED", "NOT_APPLICABLE", "NONE");
-				awaitMessage(sender, senderMessages, "Send request " + outcome.requestId()
-						+ ": premium is on its way to " + recipient.name() + "; no payment was taken.");
+				awaitMessage(sender, senderMessages,
+						"premium is on its way to " + recipient.name() + "; no payment was taken.");
+				assertThat(sender.receivedMessages().stream().skip(senderMessages))
+						.noneMatch(message -> message.contains(outcome.requestId().toString())
+								|| message.contains("accepted for processing"));
 				assertLanding(landings.getCapturedEvents().getFirst(), world);
 				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
 				assertAccountState(framework, sender.uniqueId(), "0.00", 0, 0, 0);

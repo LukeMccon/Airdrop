@@ -40,6 +40,38 @@ class LanguageManagerTest {
 			"Console sends require airdrop.cost.bypass; console cannot pay for a package.",
 			MessageKey.TARGETED_COST_EXEMPT, "cost exempt (airdrop.cost.bypass)");
 
+	private static final Map<MessageKey, String> PREVIOUS_DELIVERY_MESSAGES = Map.ofEntries(
+			Map.entry(MessageKey.ERROR_SEND_WORLD,
+					"Unknown world {world}; no package was sent."),
+			Map.entry(MessageKey.ERROR_GIFT_RECIPIENT_PERMISSION,
+					"{player} cannot receive package {name}; the server requires recipient package permission."),
+			Map.entry(MessageKey.ERROR_TARGETED_SKY,
+					"The sky at {player} must be clear to deliver a package."),
+			Map.entry(MessageKey.TARGETED_SPAWNED,
+					"{action} request {request_id}: {name} is on its way to {player}; no payment was taken."),
+			Map.entry(MessageKey.TARGETED_SPAWNED_CHARGED,
+					"{action} request {request_id}: {name} is on its way to {player}. ${amount} was taken from your account."),
+			Map.entry(MessageKey.TARGETED_LANDED,
+					"{action} request {request_id}: {name} for {player} landed at X: {x}, Y: {y}, Z: {z} in {world}."),
+			Map.entry(MessageKey.TARGETED_REJECTED,
+					"{action} request {request_id} for {name} at {player} was rejected; no payment was taken."),
+			Map.entry(MessageKey.TARGETED_FAILED,
+					"{action} request {request_id} for {name} at {player} failed; no payment was taken."),
+			Map.entry(MessageKey.TARGETED_REFUNDED,
+					"{action} request {request_id} for {name} at {player} failed; your payment was refunded."),
+			Map.entry(MessageKey.TARGETED_CHARGED_FAILED,
+					"{action} request {request_id} for {name} at {player} failed; your payment remains charged. Contact an administrator with this request ID."),
+			Map.entry(MessageKey.TARGETED_REFUND_FAILED,
+					"{action} request {request_id} for {name} at {player} failed and your payment could not be refunded. Contact an administrator with this request ID."),
+			Map.entry(MessageKey.TARGETED_PAYMENT_UNKNOWN,
+					"{action} request {request_id} for {name} at {player} failed; your payment outcome is uncertain. Contact an administrator with this request ID."),
+			Map.entry(MessageKey.TARGETED_RECIPIENT_INCOMING,
+					"{sender} is sending you package {name}. You will not be charged."),
+			Map.entry(MessageKey.TARGETED_RECIPIENT_LANDED,
+					"Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world}."),
+			Map.entry(MessageKey.DROP_FAILED,
+					"Airdrop failed; no crate was created"));
+
 	@TempDir
 	Path tempDir;
 
@@ -184,6 +216,75 @@ class LanguageManagerTest {
 		YamlConfiguration configuration = new YamlConfiguration();
 		configuration.loadFromString(resource);
 		PREVIOUS_CONSOLE_SEND_MESSAGES.forEach((key, value) -> configuration.set(key.getKey(), value));
+		Files.createDirectories(languageFile("en").getParent());
+		Files.writeString(languageFile("en"), configuration.saveToString());
+	}
+
+	@Test
+	void preparationMigratesPreviousStockDeliveryMessagesWithoutPublishingEarlyOrRewritingOnSecondLoad() throws Exception {
+		String resource = Files.readString(Path.of("src/main/resources/lang/en.yml"));
+		writePreviousDeliveryMessages(resource);
+		FailingLanguageManager manager = failingManagerWithResources(Map.of("lang/en.yml", resource));
+		manager.publishLanguage(managerWithResources(Map.of()).prepareLanguage("en", false));
+		Map<MessageKey, String> previousPublished = new HashMap<>();
+		PREVIOUS_DELIVERY_MESSAGES.keySet().forEach(key -> previousPublished.put(key, manager.get(key)));
+
+		LanguageManager.LanguageCandidate candidate = manager.prepareLanguage("en");
+
+		previousPublished.forEach((key, value) -> assertEquals(value, manager.get(key)));
+		YamlConfiguration written = strictLoad(languageFile("en"));
+		PREVIOUS_DELIVERY_MESSAGES.keySet().forEach(key ->
+				assertEquals(key.getDefault(), written.getString(key.getKey())));
+		manager.publishLanguage(candidate);
+		LanguageManager defaults = managerWithResources(Map.of());
+		PREVIOUS_DELIVERY_MESSAGES.keySet().forEach(key -> assertEquals(defaults.get(key), manager.get(key)));
+
+		byte[] migrated = Files.readAllBytes(languageFile("en"));
+		manager.failWrites = true;
+		manager.publishLanguage(manager.prepareLanguage("en"));
+		assertArrayEquals(migrated, Files.readAllBytes(languageFile("en")));
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = MessageKey.class, names = {
+			"ERROR_SEND_WORLD", "ERROR_GIFT_RECIPIENT_PERMISSION", "ERROR_TARGETED_SKY", "TARGETED_SPAWNED", "TARGETED_SPAWNED_CHARGED", "TARGETED_LANDED", "TARGETED_REJECTED", "TARGETED_FAILED", "TARGETED_REFUNDED", "TARGETED_CHARGED_FAILED", "TARGETED_REFUND_FAILED", "TARGETED_PAYMENT_UNKNOWN", "TARGETED_RECIPIENT_INCOMING", "TARGETED_RECIPIENT_LANDED", "DROP_FAILED"})
+	void deliveryMessageMigrationPreservesCustomizedValuesWhileUpdatingRemainingStock(MessageKey customKey) throws Exception {
+		String resource = Files.readString(Path.of("src/main/resources/lang/en.yml"));
+		writePreviousDeliveryMessages(resource);
+		YamlConfiguration customized = strictLoad(languageFile("en"));
+		String customValue = "Custom: " + PREVIOUS_DELIVERY_MESSAGES.get(customKey);
+		customized.set(customKey.getKey(), customValue);
+		Files.writeString(languageFile("en"), customized.saveToString());
+		LanguageManager manager = managerWithResources(Map.of("lang/en.yml", resource));
+
+		manager.loadLanguage("en");
+		manager.reload();
+
+		YamlConfiguration written = strictLoad(languageFile("en"));
+		PREVIOUS_DELIVERY_MESSAGES.keySet().forEach(key -> assertEquals(
+				key == customKey ? customValue : key.getDefault(), written.getString(key.getKey())));
+		assertTrue(manager.get(customKey).startsWith("Custom: "));
+	}
+
+	@Test
+	void stockDeliveryMessageMigrationRespectsDisabledWriteback() throws Exception {
+		String resource = Files.readString(Path.of("src/main/resources/lang/en.yml"));
+		writePreviousDeliveryMessages(resource);
+		byte[] original = Files.readAllBytes(languageFile("en"));
+		FailingLanguageManager manager = failingManagerWithResources(Map.of("lang/en.yml", resource));
+		manager.failWrites = true;
+
+		manager.publishLanguage(manager.prepareLanguage("en", false));
+
+		assertArrayEquals(original, Files.readAllBytes(languageFile("en")));
+		LanguageManager defaults = managerWithResources(Map.of());
+		PREVIOUS_DELIVERY_MESSAGES.keySet().forEach(key -> assertEquals(defaults.get(key), manager.get(key)));
+	}
+
+	private void writePreviousDeliveryMessages(String resource) throws Exception {
+		YamlConfiguration configuration = new YamlConfiguration();
+		configuration.loadFromString(resource);
+		PREVIOUS_DELIVERY_MESSAGES.forEach((key, value) -> configuration.set(key.getKey(), value));
 		Files.createDirectories(languageFile("en").getParent());
 		Files.writeString(languageFile("en"), configuration.saveToString());
 	}

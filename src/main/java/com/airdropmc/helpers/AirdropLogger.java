@@ -5,6 +5,7 @@ import com.airdropmc.api.DeliveryStatus;
 import com.airdropmc.api.DropRejectionReason;
 import com.airdropmc.api.EconomyState;
 import com.airdropmc.api.PackageRegistryCause;
+import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.api.ReadinessState;
 import com.airdropmc.config.ConfigKeys;
 import com.airdropmc.internal.diagnostics.AirdropDiagnostics;
@@ -105,6 +106,13 @@ public final class AirdropLogger {
 		String suffix = reason == null ? "" : " reason=" + reason;
 		debugLine("admission request=" + Objects.requireNonNull(requestId, "requestId")
 				+ " decision=" + requiredDecision + suffix);
+	}
+
+	/** Keeps terminal delivery failures correlatable even when debug logging is disabled. */
+	public static void requestFailure(UUID requestId, DeliveryStatus delivery, PaymentStatus payment) {
+		warning("Delivery failed request=" + Objects.requireNonNull(requestId, "requestId")
+				+ " delivery=" + Objects.requireNonNull(delivery, "delivery")
+				+ " payment=" + Objects.requireNonNull(payment, "payment"));
 	}
 
 	public static void debugRequest(UUID requestId, RequestPhase phase) {

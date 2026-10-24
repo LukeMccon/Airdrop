@@ -216,12 +216,26 @@ The setting applies only to named-player targets; coordinates have no recipient
 permission to validate. Failures refund only actual charges to the original payer.
 A failed purchase never becomes a free drop.
 
-Localized messages distinguish processing acceptance, spawn, landing, rejection,
-refunds, and unresolved payment results. Sender feedback includes the request UUID;
-recipient notifications omit it. On spawn,
-a named recipient sees the sender's name and inline player head, the package name,
-and confirmation that they will not be charged. Console senders appear as text.
+Localized messages report preparation only while the destination is unresolved,
+incoming delivery after a confirmed spawn, and landing at the actual block coordinates.
+There is no separate acceptance acknowledgement. Charges use the captured package
+price and actual payment result, not current permissions or a later catalog price.
+Exempt deliveries report no charge, even for priced packages.
+
+Ordinary success, rejection, failure without a charge, and successful-refund messages
+omit request UUIDs. Both self-orders and sends distinguish successful refunds,
+failed refunds, still-charged payments, and uncertain payment outcomes. Only unresolved
+money problems ask the sender to contact an administrator with a request reference.
+Each terminal delivery failure also logs its request UUID, delivery status, and
+payment status once, even with debug logging off; existing payment-operation warnings
+remain available for reconciliation.
+
+Package names, prices, coordinates, and worlds use the configured accent color,
+returning to the primary or error color for surrounding text. On spawn, a named
+recipient sees the sender's name and inline player head, the package name, and
+confirmation that they will not be charged. Console senders appear as text.
 The head uses Minecraft's native chat component on supported clients (1.21.9+).
+Offline players are not notified, and sending to yourself does not duplicate recipient messages.
 
 Package names `send`, `gift`, and `grant` are legal. `/airdrop send` requests a
 package named `send` when configured; `/airdrop send send Alex` targets that
@@ -411,7 +425,14 @@ The English locale is bundled. A missing local English file is recreated, and
 new bundled keys are added without replacing existing translations. Startup and
 reload also replace the unchanged previous English defaults for
 `commands.help.send-console`, `errors.send-console-cost`, and
-`targeted.cost-exempt`; edited values are preserved. For a safe
+`targeted.cost-exempt`, plus the previous stock delivery messages (including
+`drop.failed` and targeted spawn/landing/payment feedback). Only exact old stock
+values migrate; customized text and translations are preserved. Legacy acceptance
+keys remain available but are no longer sent by these commands. Custom delivery
+templates may still include `{request_id}` intentionally; IDs are not globally
+stripped. The `{amount}` at spawn is zero when payment is not applicable. An unloaded
+landing world uses the localized `drop.unknown-world` label rather than a world UUID.
+For a safe
 custom code with no bundled file, Airdrop loads the local file if present and
 uses its hard-coded English message default for each missing or blank key.
 

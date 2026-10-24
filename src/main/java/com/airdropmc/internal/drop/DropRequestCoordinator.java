@@ -732,6 +732,7 @@ public final class DropRequestCoordinator {
 				? process.handle.completeOutcome(outcome)
 				: process.handle.completeNotSpawned(outcome);
 		if (completed) {
+			AirdropLogger.requestFailure(process.handle.requestId(), delivery, payment);
 			AirdropLogger.debugRequest(
 					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL, delivery);
 			publishOutcome(process, outcome);
