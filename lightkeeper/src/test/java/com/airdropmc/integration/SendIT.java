@@ -315,7 +315,7 @@ class SendIT {
 					.atLocation(world, 0.5, BARREL_Y, 0.5).withPermissions(PREMIUM_PERMISSION).build();
 			players.add(numeric);
 			// String completions alone do not prove the client tree. The fixture also
-			// observes Paper's outgoing tree and runs the real command packet encoder.
+			// checks outgoing providers and round-trips their flags through the packet codec.
 			assertThat(sender.tabComplete("airdrop send premium ")).containsExactlyInAnyOrder("to", "at");
 			assertThat(sender.tabComplete("airdrop send premium to ")).contains("123").doesNotContain("32");
 			assertThat(sender.tabComplete("airdrop send premium at ")).isEmpty();
@@ -330,7 +330,14 @@ class SendIT {
 				assertThat(output).anyMatch(line -> line.contains("AIRDR_TREE player=" + sender.name())
 						&& line.contains("paths=send/package/to/player,send/package/at/x/z/world")
 						&& line.contains("aliases=airdrop,ad,drop,airdrop:airdrop")
+						&& line.contains("packetSuggestions=verified")
 						&& line.matches(".*bytes=[1-9][0-9]*.*"));
+				// Coordinate providers would make the client await an empty server reply;
+				// Paper may cancel that reply, leaving the required argument usage blank.
+				for (String alias : List.of("airdrop", "ad", "drop", "airdrop:airdrop")) {
+					assertThat(output).anyMatch(line -> line.contains("AIRDR_SUGGESTIONS player=" + sender.name())
+							&& line.contains(" alias=" + alias + " x=client z=client player=server world=server"));
+				}
 				assertThat(output).anyMatch(line -> line.contains("AIRDR_HINT player=" + sender.name())
 						&& line.contains("text=123 tooltip=") && line.contains("to <player>"));
 				assertThat(output).anyMatch(line -> line.contains("AIRDR_HINT player=" + sender.name())
