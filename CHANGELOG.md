@@ -25,7 +25,8 @@ or a location. Administrators can change prices without reopening an editor.
   A player's current world is implicit; console must supply a world.
 - AIRDR-99: Completion offers explicit `to` and `at` destination choices. Bare
   destinations are rejected. X/Z entry shows required-axis usage hints instead
-  of numeric suggestions; player and world-name completion remain available.
+  of numeric suggestions, resolving locally without an empty server reply.
+  Player and world-name completion remain available.
   Incomplete coordinates and extra arguments receive native syntax errors.
   Unchanged stock English usage/help migrate; customized text is preserved.
 - The initiating player pays the package price, not the recipient.

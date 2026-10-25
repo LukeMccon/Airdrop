@@ -43,9 +43,11 @@ public final class AirdropCommandRegistration {
 		send.addChild(token("package")
 				.then(new SuggestedLiteral(Commands.literal("to").executes(AirdropCommandRegistration::execute)
 						.then(token("player"))))
-				// Required axes and empty value suggestions expose vanilla's visible usage hint.
+				// Resolve axes locally: Paper suppresses empty server replies, which would
+				// leave the client waiting instead of displaying its native usage hint.
 				.then(new SuggestedLiteral(Commands.literal("at")
-						.then(argument("x").then(token("z").then(token("world"))))))
+						.then(argument("x").then(argument("z").executes(AirdropCommandRegistration::execute)
+								.then(token("world"))))))
 				// Keep invalid bare destinations on the router for localized usage feedback.
 				.then(remainder())
 				.build());
@@ -56,12 +58,12 @@ public final class AirdropCommandRegistration {
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> token(String name) {
-		return argument(name).executes(AirdropCommandRegistration::execute);
+		return argument(name).suggests((context, builder) -> suggest(context, builder, false))
+				.executes(AirdropCommandRegistration::execute);
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> argument(String name) {
-		return Commands.argument(name, new RawToken())
-				.suggests((context, builder) -> suggest(context, builder, false));
+		return Commands.argument(name, new RawToken());
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> remainder() {

@@ -92,6 +92,22 @@ class AirdropCommandRegistrationTest {
 	}
 
 	@Test
+	void coordinateUsageDoesNotWaitForAnEmptyServerReply() {
+		var connection = new ClientSuggestions();
+		var nativeRoot = new RootCommandNode<CommandSourceStack>();
+		nativeRoot.addChild(nativeCopy(dispatcher.getRoot().getChild("airdrop"), connection::request));
+		nativeRoot.addChild(Commands.literal("ad").redirect(nativeRoot.getChild("airdrop")).build());
+		var client = new CommandDispatcher<>(nativeRoot);
+		for (String input : List.of("airdrop send Starter at ", "airdrop send Starter at 12 ",
+				"ad send Starter at ", "ad send Starter at 12 ")) {
+			var suggestions = client.getCompletionSuggestions(client.parse(input, source(sender)));
+			assertTrue(suggestions.isDone(), "Coordinate usage must resolve locally: Paper suppresses empty replies");
+			assertTrue(suggestions.join().isEmpty());
+		}
+		assertEquals(0, connection.requests, "Coordinate axes must not use minecraft:ask_server");
+	}
+
+	@Test
 	void coordinateEntryExposesRequiredUsageInsteadOfNumericCompletions() {
 		var nativeRoot = new RootCommandNode<CommandSourceStack>();
 		nativeRoot.addChild(nativeCopy(dispatcher.getRoot().getChild("airdrop"),
@@ -311,7 +327,7 @@ class AirdropCommandRegistrationTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"", "to Re", "at "})
+	@ValueSource(strings = {"", "to Re"})
 	void wireDestinationSuggestionsUseOneServerRequestAndComplete(String partial) throws Exception {
 		server.addPlayer("Recipient");
 		server.addPlayer("12");
