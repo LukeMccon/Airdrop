@@ -70,6 +70,15 @@ public class LanguageManager {
 					"Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world}."),
 			Map.entry(MessageKey.DROP_FAILED,
 					"Airdrop failed; no crate was created"));
+	private static final Map<MessageKey, String> LEGACY_SEND_SYNTAX_MESSAGES = Map.of(
+			MessageKey.COMMANDS_SEND_USAGE,
+			"Usage: /airdrop send <package> <player> | /airdrop send <package> <x> <z> [world]",
+			MessageKey.COMMANDS_HELP_SEND_PLAYER,
+			"{text}/airdrop send <package> <player>{primary} — send to an online player; sender pays unless cost is exempt",
+			MessageKey.COMMANDS_HELP_SEND_COORDINATES,
+			"{text}/airdrop send <package> <x> <z> [world]{primary} — send to the surface; defaults to your current world",
+			MessageKey.COMMANDS_HELP_SEND_CONSOLE,
+			"{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; native console and RCON are cost-exempt");
 	private static final Pattern SAFE_LANGUAGE_CODE_PATTERN = Pattern.compile("^[a-z]{2}(?:-[A-Z]{2})?$");
 
 	private final Airdrop plugin;
@@ -208,6 +217,9 @@ public class LanguageManager {
 	private boolean mergeMissingDefaults(YamlConfiguration configuration, YamlConfiguration defaults) {
 		boolean updated = migrateStockVersionInfo(configuration, defaults);
 		if (migrateStockMessages(configuration, defaults, LEGACY_CONSOLE_SEND_MESSAGES)) {
+			updated = true;
+		}
+		if (migrateStockMessages(configuration, defaults, LEGACY_SEND_SYNTAX_MESSAGES)) {
 			updated = true;
 		}
 		if (migrateStockMessages(configuration, defaults, LEGACY_DELIVERY_MESSAGES)) {

@@ -87,7 +87,7 @@ class SendIT {
 				int offset = framework.server().output().size();
 				int senderMessages = sender.receivedMessages().size();
 				int recipientMessages = recipient.receivedMessages().size();
-				sender.executeCommand("airdrop send premium " + recipient.name());
+				sender.executeCommand("airdrop send premium to " + recipient.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 0, 0))
 						.contains("tickets=1");
@@ -169,7 +169,7 @@ class SendIT {
 				 var landings = framework.events().capture(LAND_EVENT)) {
 				int rejectedOffset = framework.server().output().size();
 				int messages = sender.receivedMessages().size();
-				sender.executeCommand("airdrop send premium " + recipient.name());
+				sender.executeCommand("airdrop send premium to " + recipient.name());
 				awaitMessage(sender, messages, recipient.name()
 						+ " cannot receive package premium; the server requires recipient package permission.");
 				assertThat(AirdropIntegrationSupport.consumerMarkers(framework, rejectedOffset)).isEmpty();
@@ -181,7 +181,7 @@ class SendIT {
 
 				recipient.permissions().grant(PREMIUM_PERMISSION);
 				int retryOffset = framework.server().output().size();
-				sender.executeCommand("airdrop send premium " + recipient.name());
+				sender.executeCommand("airdrop send premium to " + recipient.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -223,7 +223,7 @@ class SendIT {
 				 var landings = framework.events().capture(LAND_EVENT)) {
 				int rejectedOffset = framework.server().output().size();
 				int messages = sender.receivedMessages().size();
-				sender.executeCommand("airdrop send premium " + recipient.name());
+				sender.executeCommand("airdrop send premium to " + recipient.name());
 				awaitMessage(sender, messages, "You need airdrop.send permission to use this command.");
 				assertThat(AirdropIntegrationSupport.consumerMarkers(framework, rejectedOffset)).isEmpty();
 				assertThat(operations.getCapturedEvents()).isEmpty();
@@ -235,7 +235,7 @@ class SendIT {
 				assertThat(recipient.permissions().has(PREMIUM_PERMISSION)).isTrue();
 				int offset = framework.server().output().size();
 				int senderMessages = sender.receivedMessages().size();
-				sender.executeCommand("airdrop send premium " + recipient.name());
+				sender.executeCommand("airdrop send premium to " + recipient.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				AirdropIntegrationSupport.moveAway(recipient, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -276,12 +276,12 @@ class SendIT {
 				 var landings = framework.events().capture(LAND_EVENT)) {
 				// A malformed destination cannot become a paid self-order.
 				int invalidMessages = sender.receivedMessages().size();
-				sender.executeCommand("airdrop send premium NaN 0 " + world.name());
+				sender.executeCommand("airdrop send premium at NaN 0 " + world.name());
 				awaitMessage(sender, invalidMessages, "Coordinates must be finite absolute X/Z");
 				assertAccountState(framework, sender.uniqueId(), "100.00", 0, 0, 0);
 				assertThat(drops.getCapturedEvents()).isEmpty();
 				int offset = framework.server().output().size();
-				sender.executeCommand("airdrop:airdrop send premium +0 0e1 " + world.name());
+				sender.executeCommand("airdrop:airdrop send premium at +0 0e1 " + world.name());
 				framework.waitUntil(() -> drops.getCapturedEvents().size() == 1, Duration.ofSeconds(20));
 				AirdropIntegrationSupport.moveAway(sender, world);
 				framework.waitUntil(() -> landings.getCapturedEvents().size() == 1, Duration.ofSeconds(30));
@@ -298,7 +298,7 @@ class SendIT {
 
 	@Test
 	@Timeout(value = 90, unit = TimeUnit.SECONDS)
-	void installedNativeTreeSerializesBothDestinationsAndRetainsSuggestionTooltips(
+	void installedNativeTreeUsesExplicitDestinationsAndRejectsBareOrIncompleteSends(
 			ILightkeeperFramework framework) throws Exception {
 		AirdropIntegrationSupport.awaitReady(framework);
 		Path configFile = configFile(framework);
@@ -306,6 +306,7 @@ class SendIT {
 		List<PlayerHandle> players = new ArrayList<>();
 		WorldHandle world = null;
 		try {
+			GuiReloadIntegrationSupport.enableEconomyProvider(framework);
 			world = createWorld(framework);
 			PlayerHandle sender = framework.bots().builder().withRandomName()
 					.atLocation(world, 32.5, BARREL_Y, 0.5).withPermissions(PREMIUM_PERMISSION).fullLogin().build();
@@ -314,22 +315,65 @@ class SendIT {
 					.atLocation(world, 0.5, BARREL_Y, 0.5).withPermissions(PREMIUM_PERMISSION).build();
 			players.add(numeric);
 			// String completions alone do not prove the client tree. The fixture also
-			// observes Paper's outgoing tree and runs the real command packet encoder.
-			assertThat(sender.tabComplete("airdrop send premium ")).contains("32", "123");
-			assertThat(sender.tabComplete("ad send premium +1 ")).containsExactly("0");
-			assertThat(sender.tabComplete("airdrop:airdrop send premium +1 1e2 ")).contains(world.name());
+			// checks outgoing providers and round-trips their flags through the packet codec.
+			assertThat(sender.tabComplete("airdrop send premium ")).containsExactlyInAnyOrder("to", "at");
+			assertThat(sender.tabComplete("airdrop send premium to ")).contains("123").doesNotContain("32");
+			assertThat(sender.tabComplete("airdrop send premium at ")).isEmpty();
+			assertThat(sender.tabComplete("ad send premium at +1 ")).isEmpty();
+			assertThat(sender.tabComplete("airdrop:airdrop send premium at +1 1e2 ")).contains(world.name());
+			String senderWorldName = world.name();
 			int offset = framework.server().output().size();
 			assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
 					"lkconsole tree " + sender.name()).success()).isTrue();
 			eventually(Duration.ofSeconds(10), () -> {
 				var output = GuiReloadIntegrationSupport.outputSince(framework, offset);
 				assertThat(output).anyMatch(line -> line.contains("AIRDR_TREE player=" + sender.name())
-						&& line.contains("paths=send/package/player,send/package/x/z/world")
+						&& line.contains("paths=send/package/to/player,send/package/at/x/z/world")
 						&& line.contains("aliases=airdrop,ad,drop,airdrop:airdrop")
+						&& line.contains("packetSuggestions=verified")
 						&& line.matches(".*bytes=[1-9][0-9]*.*"));
+				// Coordinate providers would make the client await an empty server reply;
+				// Paper may cancel that reply, leaving the required argument usage blank.
+				for (String alias : List.of("airdrop", "ad", "drop", "airdrop:airdrop")) {
+					assertThat(output).anyMatch(line -> line.contains("AIRDR_SUGGESTIONS player=" + sender.name())
+							&& line.contains(" alias=" + alias + " x=client z=client player=server world=server"));
+				}
 				assertThat(output).anyMatch(line -> line.contains("AIRDR_HINT player=" + sender.name())
-						&& line.contains("text=32 tooltip=") && line.contains("<player>") && line.contains("<x> <z> [world]"));
+						&& line.contains("text=123 tooltip=") && line.contains("to <player>"));
+				assertThat(output).anyMatch(line -> line.contains("AIRDR_HINT player=" + sender.name())
+						&& line.contains("text=" + senderWorldName + " tooltip=")
+						&& line.contains("at <x> <z> [world]"));
+				for (String tree : List.of("outgoing", "native")) {
+					assertThat(output).anyMatch(line -> line.contains("AIRDR_USAGE player=" + sender.name()
+							+ " tree=" + tree + " input=airdrop send premium at node=at usage=")
+							&& line.endsWith("usage=<x> <z> [<world>]"));
+					assertThat(output).anyMatch(line -> line.contains("AIRDR_USAGE player=" + sender.name()
+							+ " tree=" + tree + " input=airdrop send premium at +1 node=x usage=")
+							&& line.endsWith("usage=<z> [<world>]"));
+				}
 			});
+			assertThat(sender.permissions().has(SEND_PERMISSION)).isTrue();
+			assertThat(sender.permissions().has(PREMIUM_PERMISSION)).isTrue();
+			resetAccount(framework, sender.uniqueId(), "100.00");
+			try (var operations = framework.events().capture(OPERATION_EVENT);
+				 var drops = framework.events().capture(DROP_EVENT)) {
+				int rejectedOffset = framework.server().output().size();
+				for (String destination : List.of("", "123", "0 0", "to", "at", "at 0",
+						"to 123 extra", "at 0 0 " + world.name() + " extra")) {
+					String input = "airdrop send premium" + (destination.isEmpty() ? "" : " " + destination);
+					int commandOffset = framework.server().output().size();
+					assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
+							"lkconsole player " + sender.name() + " " + input).success()).isTrue();
+					eventually(Duration.ofSeconds(10), () -> assertThat(
+							GuiReloadIntegrationSupport.outputSince(framework, commandOffset))
+							.anyMatch(line -> line.contains("AIRDR_PLAYER_COMPLETE player=" + sender.name()
+									+ " input=" + input)));
+				}
+				assertThat(AirdropIntegrationSupport.consumerMarkers(framework, rejectedOffset)).isEmpty();
+				assertThat(operations.getCapturedEvents()).isEmpty();
+				assertThat(drops.getCapturedEvents()).isEmpty();
+				assertAccountState(framework, sender.uniqueId(), "100.00", 0, 0, 0);
+			}
 			AirdropIntegrationSupport.assertNoUnexpectedServerErrors(framework);
 		} finally {
 			restoreAndCleanup(framework, world, players, configFile, originalConfig);

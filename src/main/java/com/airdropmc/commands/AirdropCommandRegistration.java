@@ -39,14 +39,17 @@ public final class AirdropCommandRegistration {
 		var root = Commands.literal("airdrop").executes(AirdropCommandRegistration::execute);
 		// No permission/readiness predicates: they would prune syntax during startup and
 		// bypass our localized errors. In particular, /airdrop send can order package 'send'.
-		var send = new SendLiteral(Commands.literal("send").executes(AirdropCommandRegistration::execute));
-		// Both branches accept raw tokens. A single numeric token is still a player
-		// name; only a second destination token selects coordinate delivery in CmdAirdrop.
+		var send = new SuggestedLiteral(Commands.literal("send").executes(AirdropCommandRegistration::execute));
 		send.addChild(token("package")
-				.then(token("x").then(token("z").then(token("world").then(remainder()))))
-				// x supplies both player/X choices. Even an empty custom provider becomes
-				// ask_server on the wire, issuing a second request that cancels the first.
-				.then(Commands.argument("player", new RawToken()).executes(AirdropCommandRegistration::execute))
+				.then(new SuggestedLiteral(Commands.literal("to").executes(AirdropCommandRegistration::execute)
+						.then(token("player"))))
+				// Resolve axes locally: Paper suppresses empty server replies, which would
+				// leave the client waiting instead of displaying its native usage hint.
+				.then(new SuggestedLiteral(Commands.literal("at")
+						.then(argument("x").then(argument("z").executes(AirdropCommandRegistration::execute)
+								.then(token("world"))))))
+				// Keep invalid bare destinations on the router for localized usage feedback.
+				.then(remainder())
 				.build());
 		root.then(send);
 		// Keep unrelated commands and malformed/extra arguments on the existing router.
@@ -55,9 +58,12 @@ public final class AirdropCommandRegistration {
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> token(String name) {
-		return Commands.argument(name, new RawToken())
-				.suggests((context, builder) -> suggest(context, builder, false))
+		return argument(name).suggests((context, builder) -> suggest(context, builder, false))
 				.executes(AirdropCommandRegistration::execute);
+	}
+
+	private static RequiredArgumentBuilder<CommandSourceStack, String> argument(String name) {
+		return Commands.argument(name, new RawToken());
 	}
 
 	private static RequiredArgumentBuilder<CommandSourceStack, String> remainder() {
@@ -98,13 +104,15 @@ public final class AirdropCommandRegistration {
 			if (args.length == 1 && suggestion.equals("send") != sendLiteral) {
 				continue;
 			}
-			// The client's local send literal has no tooltip; match it so the merge deduplicates.
-			MessageKey tooltip = (args.length > 1 && args.length <= 3 && args[0].equals("send"))
-					? MessageKey.COMMANDS_SEND_USAGE
-					: args.length >= 3 && args[0].equals("send")
-							? sender instanceof Player ? MessageKey.COMMANDS_HELP_SEND_COORDINATES
-									: MessageKey.COMMANDS_HELP_SEND_CONSOLE
-							: null;
+			// Native literals have no tooltip; match them so the client merge deduplicates.
+			MessageKey tooltip = null;
+			if (args.length == 2 && args[0].equals("send")) {
+				tooltip = MessageKey.COMMANDS_SEND_USAGE;
+			} else if (args.length >= 4 && args[0].equals("send")) {
+				tooltip = "to".equals(args[2]) ? MessageKey.COMMANDS_HELP_SEND_PLAYER
+						: sender instanceof Player ? MessageKey.COMMANDS_HELP_SEND_COORDINATES
+						: MessageKey.COMMANDS_HELP_SEND_CONSOLE;
+			}
 			if (tooltip == null) {
 				current.suggest(suggestion);
 			} else {
@@ -116,8 +124,8 @@ public final class AirdropCommandRegistration {
 	}
 
 	/** Paper rebuilds literals on registration; keep server-side filtering through that copy. */
-	private static final class SendLiteral extends LiteralCommandNode<CommandSourceStack> {
-		private SendLiteral(LiteralArgumentBuilder<CommandSourceStack> builder) {
+	private static final class SuggestedLiteral extends LiteralCommandNode<CommandSourceStack> {
+		private SuggestedLiteral(LiteralArgumentBuilder<CommandSourceStack> builder) {
 			super(builder.getLiteral(), builder.getCommand(), builder.getRequirement(), builder.getRedirect(),
 					builder.getRedirectModifier(), builder.isFork());
 			builder.getArguments().forEach(this::addChild);
@@ -128,7 +136,7 @@ public final class AirdropCommandRegistration {
 			return new LiteralArgumentBuilder<CommandSourceStack>(getLiteral()) {
 				@Override
 				public LiteralCommandNode<CommandSourceStack> build() {
-					return new SendLiteral(this);
+					return new SuggestedLiteral(this);
 				}
 			}.executes(getCommand()).requires(getRequirement()).forward(getRedirect(), getRedirectModifier(), isFork());
 		}
@@ -136,7 +144,7 @@ public final class AirdropCommandRegistration {
 		@Override
 		public CompletableFuture<Suggestions> listSuggestions(CommandContext<CommandSourceStack> context,
 				SuggestionsBuilder builder) {
-			return suggest(context, builder, true);
+			return suggest(context, builder, "send".equals(getLiteral()));
 		}
 	}
 

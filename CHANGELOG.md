@@ -39,8 +39,15 @@ lets other plugins request drops and follow delivery outcomes.
 
 ## Send packages to players or coordinates
 
-- AIRDR-73: `/airdrop send <package> <player>` and
-  `/airdrop send <package> <x> <z> [world]` replace the unshipped gift/grant commands.
+- AIRDR-99: Send destinations use explicit `to` and `at` keywords; bare
+  destinations and compatibility forms are not supported. Unchanged stock English
+  send usage and help migrate; customized messages are preserved. Required X/Z
+  usage resolves locally while typing, without current-coordinate suggestions or
+  waiting for an empty server completion reply.
+  Incomplete coordinates and extra arguments use native command syntax errors
+  before any request or payment.
+- AIRDR-73: `/airdrop send <package> to <player>` and
+  `/airdrop send <package> at <x> <z> [world]` replace the unshipped gift/grant commands.
   Player coordinates default to the caller's world; console requires a world.
 - `airdrop.send` defaults to true. `airdrop.cost.bypass` defaults to false and
   exempts the sender from payment for targeted sends and self-orders; admin
