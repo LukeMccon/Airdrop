@@ -26,6 +26,25 @@ class RemoteDeliveryIT {
 	private static final List<String> LANDED = List.of("REQUEST", "SPAWNED", "LANDING_ATTEMPT", "LANDED", "OUTCOME");
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	void nativeHolderLossSuppressesOnlyParachuteLeadDrops(ILightkeeperFramework framework) {
+		AirdropIntegrationSupport.awaitReady(framework);
+		WorldHandle world = SendIT.createWorld(framework);
+		List<PlayerHandle> players = new ArrayList<>();
+		try {
+			SendIT.player(framework, world, players).teleport(world, 0.5, 200, 0.5);
+			String result = AirdropIntegrationSupport.remoteFixture(framework, "holder-loss", world, 0, 0);
+			assertThat(result).as("ordinary chickens retain native lead drops")
+					.contains("controlEvent=HOLDER_GONE:true", "controlLeadItems=1");
+			assertThat(result).as("Airdrop parachutes never drop leads when their real holder disappears")
+					.contains("parachuteEvent=HOLDER_GONE:false", "parachuteLeadItems=0");
+		} finally {
+			players.forEach(PlayerHandle::remove);
+			AirdropIntegrationSupport.awaitNoDropEntities(world);
+		}
+	}
+
+	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	void remoteDeliveryUsesExistingTerrainAndOnlyGeneratesAfterOptIn(ILightkeeperFramework framework) throws Exception {
 		AirdropIntegrationSupport.awaitReady(framework);
@@ -46,11 +65,13 @@ class RemoteDeliveryIT {
 			sender.executeCommand("airdrop send premium 4104 4104 " + world.name());
 			SendIT.assertOutcome(framework, offset, LANDED, "LANDED", "CHARGED", "NONE");
 			EconomyIntegrationSupport.assertAccountState(framework, sender.uniqueId(), "89.75", 1, 1, 0);
-			// Reload for a positive post-delivery observation even if Paper has already unloaded it.
+			// Reload for observation even if Paper has already unloaded the landing chunk.
 			world.loadChunk(256, 256);
 			AirdropIntegrationSupport.assertStarterContents(framework, world,
 					new nl.pim16aap2.lightkeeper.framework.BlockPos(4104, 81, 4104));
-			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 4104, 4104)).contains("tickets=0", "auxiliaries=0");
+			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 4104, 4104))
+					.as("remote landing cleans up parachutes without dropping leads in the isolated world")
+					.contains("tickets=0", "auxiliaries=0", "leadItems=0");
 
 			PlayerHandle denied = SendIT.player(framework, world, players, "airdrop.package.premium");
 			EconomyIntegrationSupport.resetAccount(framework, denied.uniqueId(), "100.00");
@@ -72,7 +93,10 @@ class RemoteDeliveryIT {
 			generating.executeCommand("airdrop send premium 8200 8200 " + world.name());
 			SendIT.assertOutcome(framework, offset, LANDED, "LANDED", "CHARGED", "NONE");
 			EconomyIntegrationSupport.assertAccountState(framework, generating.uniqueId(), "89.75", 1, 1, 0);
-			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 8200, 8200)).contains("generated=true", "tickets=0", "auxiliaries=0");
+			world.loadChunk(512, 512);
+			assertThat(AirdropIntegrationSupport.remoteFixture(framework, "observe", world, 8200, 8200))
+					.as("generated-terrain landing also leaves no parachute lead items")
+					.contains("generated=true", "tickets=0", "auxiliaries=0", "leadItems=0");
 			AirdropIntegrationSupport.remoteFixture(framework, "border", world, 10_000, 0);
 			PlayerHandle edge = SendIT.player(framework, world, players, "airdrop.package.premium");
 			EconomyIntegrationSupport.resetAccount(framework, edge.uniqueId(), "100.00");

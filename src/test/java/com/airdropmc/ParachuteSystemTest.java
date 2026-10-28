@@ -3,6 +3,9 @@ package com.airdropmc;
 import com.airdropmc.config.DropOptions;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Chicken;
@@ -37,7 +40,7 @@ class ParachuteSystemTest {
 	void initialize_retainsOwnershipWhenChickenMutationFails() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken chicken = mock(Chicken.class);
+		Chicken chicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Airdrop plugin = mock(Airdrop.class);
 
@@ -64,7 +67,7 @@ class ParachuteSystemTest {
 	void cancel_removesEntitiesWhenTaskCancellationFails() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken chicken = mock(Chicken.class);
+		Chicken chicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Server server = mock(Server.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -99,8 +102,8 @@ class ParachuteSystemTest {
 	void cancel_continuesRemovingEntitiesWhenOneRemovalFails() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken firstChicken = mock(Chicken.class);
-		Chicken secondChicken = mock(Chicken.class);
+		Chicken firstChicken = chicken();
+		Chicken secondChicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Airdrop plugin = mock(Airdrop.class);
 
@@ -128,7 +131,7 @@ class ParachuteSystemTest {
 	void initialize_spawnsParachutesWithStaggeredHeights() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken chicken = mock(Chicken.class);
+		Chicken chicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Server server = mock(Server.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -174,7 +177,7 @@ class ParachuteSystemTest {
 	void legacyOptionsAreSnapshottedBeforeCallerMutation() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken chicken = mock(Chicken.class);
+		Chicken chicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Airdrop plugin = mock(Airdrop.class);
 		when(world.spawnEntity(any(Location.class), eq(EntityType.SLIME))).thenReturn(slime);
@@ -186,13 +189,15 @@ class ParachuteSystemTest {
 		parachuteSystem.initialize(new Location(world, 0, 100, 0), fallingCrate, plugin);
 
 		verify(world, times(1)).spawnEntity(any(Location.class), eq(EntityType.CHICKEN));
+		verify(chicken.getPersistentDataContainer()).set(NamespacedKey.fromString("airdrop:parachute"),
+				PersistentDataType.BYTE, (byte) 1);
 	}
 
 	@Test
 	void fallingCrateDeath_releasesParachutesWithoutCancellingTaskFromWithinRun() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken chicken = mock(Chicken.class);
+		Chicken chicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Server server = mock(Server.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -232,7 +237,7 @@ class ParachuteSystemTest {
 	void cancel_cancelsRepeatingTask() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken chicken = mock(Chicken.class);
+		Chicken chicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Server server = mock(Server.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -263,7 +268,7 @@ class ParachuteSystemTest {
 	void delayedCleanup_skipsInvalidEntities() {
 		World world = mock(World.class);
 		Slime slime = mock(Slime.class);
-		Chicken chicken = mock(Chicken.class);
+		Chicken chicken = chicken();
 		FallingBlock fallingCrate = mock(FallingBlock.class);
 		Server server = mock(Server.class);
 		BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -304,5 +309,10 @@ class ParachuteSystemTest {
 
 		verify(chicken, never()).remove();
 		verify(slime, never()).remove();
+	}
+	private static Chicken chicken() {
+		Chicken chicken = mock(Chicken.class);
+		when(chicken.getPersistentDataContainer()).thenReturn(mock(PersistentDataContainer.class));
+		return chicken;
 	}
 }
