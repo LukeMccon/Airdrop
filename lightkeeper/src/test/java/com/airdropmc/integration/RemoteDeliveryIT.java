@@ -40,7 +40,14 @@ class RemoteDeliveryIT {
 					.contains("parachuteEvent=HOLDER_GONE:false", "parachuteLeadItems=0");
 		} finally {
 			players.forEach(PlayerHandle::remove);
-			AirdropIntegrationSupport.awaitNoDropEntities(world);
+			eventually(Duration.ofSeconds(10), () -> {
+				for (String type : List.of("minecraft:falling_block", "minecraft:chicken", "minecraft:slime", "minecraft:item")) {
+					assertThat(world.entities().ofType(type)
+							.within(new nl.pim16aap2.lightkeeper.framework.BlockPos(-16, 160, -16),
+									new nl.pim16aap2.lightkeeper.framework.BlockPos(24, 240, 16)).count())
+							.as("holder-loss fixture cleans up %s entities and dropped leads", type).isZero();
+				}
+			});
 		}
 	}
 
