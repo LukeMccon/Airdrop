@@ -2,6 +2,9 @@
 
 ## Development additions: AIRDR-73 targeted delivery and remote destinations
 
+- AIRDR-101: Parachute chickens no longer drop lead items when their leash
+  breaks, including holder loss at remote destinations. Ordinary leashes keep
+  their normal drops.
 - `/airdrop send` delivers to named players or coordinates, with sender-only
   payment, explicit cost exemption, and recipient notifications.
 - Remote terrain loads asynchronously after permission and admission checks.

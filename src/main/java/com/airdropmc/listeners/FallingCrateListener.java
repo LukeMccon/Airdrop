@@ -3,17 +3,29 @@ package com.airdropmc.listeners;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
+import org.bukkit.entity.Chicken;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.EntityUnleashEvent;
+import org.bukkit.persistence.PersistentDataType;
 
 import com.airdropmc.Crate;
+import com.airdropmc.ParachuteSystem;
 import com.airdropmc.api.RetirementReason;
 import com.airdropmc.api.WorldPosition;
 import com.airdropmc.helpers.CrateManager;
 
 public class FallingCrateListener implements Listener {
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onParachuteUnleash(EntityUnleashEvent event) {
+		if (event.getEntity() instanceof Chicken chicken
+				&& chicken.getPersistentDataContainer().has(ParachuteSystem.PARACHUTE_KEY, PersistentDataType.BYTE)) {
+			// These leashes are visual equipment, not player-owned lead items.
+			event.setDropLeash(false);
+		}
+	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void onEntityChangeBlockEvent(EntityChangeBlockEvent e) {
