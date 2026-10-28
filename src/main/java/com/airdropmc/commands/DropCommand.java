@@ -8,6 +8,7 @@ import com.airdropmc.api.PaymentStatus;
 import com.airdropmc.api.WorldPosition;
 import com.airdropmc.controllers.DropController;
 import com.airdropmc.helpers.ChatHandler;
+import com.airdropmc.internal.drop.DefaultDropHandle;
 import com.airdropmc.lang.MessageKey;
 import com.airdropmc.packages.PackageNamePolicy;
 import org.bukkit.Bukkit;
@@ -16,6 +17,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** Translates typed request results into localized command feedback. */
@@ -39,8 +41,12 @@ public final class DropCommand {
 			return;
 		}
 
+		if (!handle.spawn().toCompletableFuture().isDone()
+				&& !handle.outcome().toCompletableFuture().isDone() && handle.context().isEmpty()) {
+			ChatHandler.send(player, MessageKey.DROP_PREPARING);
+		}
 		handle.spawn().thenAccept(result -> sendSpawnFeedback(player, result));
-		handle.outcome().thenAccept(outcome -> sendOutcomeFeedback(player, outcome));
+		handle.outcome().thenAccept(outcome -> sendOutcomeFeedback(player, handle, outcome));
 	}
 
 	private static void sendSpawnFeedback(Player player, DropSpawnResult result) {
@@ -48,16 +54,14 @@ public final class DropCommand {
 			return;
 		}
 		String name = spawned.resolvedContext().airdropPackage().name();
-		if (spawned.payment() == PaymentStatus.CHARGED) {
-			ChatHandler.send(player, MessageKey.DROP_INCOMING_CHARGED, Map.of(
-					"name", name,
-					"amount", spawned.resolvedContext().airdropPackage().price().toPlainString()));
-		} else {
-			ChatHandler.send(player, MessageKey.DROP_INCOMING, Map.of("name", name));
-		}
+		ChatHandler.send(player, spawned.payment() == PaymentStatus.CHARGED
+				? MessageKey.DROP_INCOMING_CHARGED : MessageKey.DROP_INCOMING, Map.of(
+				"name", name, "request_id", spawned.requestId().toString(),
+				"amount", spawned.payment() == PaymentStatus.CHARGED
+						? spawned.resolvedContext().airdropPackage().price().toPlainString() : "0"));
 	}
 
-	private static void sendOutcomeFeedback(Player player, DropOutcome outcome) {
+	private static void sendOutcomeFeedback(Player player, DropHandle handle, DropOutcome outcome) {
 		if (!player.isOnline()) {
 			return;
 		}
@@ -66,15 +70,18 @@ public final class DropCommand {
 			return;
 		}
 		if (outcome instanceof DropOutcome.Rejected rejected) {
-			sendRejection(player, rejected);
+			sendRejection(player, handle, rejected);
 			return;
 		}
 		if (outcome instanceof DropOutcome.Failed failed) {
-			if (failed.payment() == PaymentStatus.REFUNDED) {
-				ChatHandler.sendError(player, MessageKey.DROP_REFUNDED);
-			} else {
-				ChatHandler.sendError(player, MessageKey.DROP_FAILED);
-			}
+			MessageKey key = switch (failed.payment()) {
+				case REFUNDED -> MessageKey.DROP_REFUNDED;
+				case REFUND_FAILED -> MessageKey.DROP_REFUND_FAILED;
+				case CHARGED -> MessageKey.DROP_CHARGED_FAILED;
+				case UNKNOWN -> MessageKey.DROP_PAYMENT_UNKNOWN;
+				case NOT_APPLICABLE, REJECTED -> MessageKey.DROP_FAILED;
+			};
+			ChatHandler.sendError(player, key, Map.of("request_id", failed.requestId().toString()));
 		}
 	}
 
@@ -82,20 +89,27 @@ public final class DropCommand {
 		WorldPosition position = landed.airdrop().position();
 		Map<String, String> placeholders = new HashMap<>(Map.of(
 				"name", landed.resolvedContext().airdropPackage().name(),
+				"request_id", landed.requestId().toString(),
 				"x", Integer.toString((int) Math.floor(position.x())),
 				"y", Integer.toString((int) Math.floor(position.y())),
 				"z", Integer.toString((int) Math.floor(position.z()))));
 		MessageKey key = MessageKey.DROP_LANDED;
 		if (!player.getWorld().getUID().equals(position.worldId())) {
 			World world = Bukkit.getWorld(position.worldId());
-			placeholders.put("world", world == null ? position.worldId().toString() : world.getName());
+			placeholders.put("world", world == null ? ChatHandler.get(MessageKey.DROP_UNKNOWN_WORLD) : world.getName());
 			key = MessageKey.DROP_LANDED_OTHER_WORLD;
 		}
 		ChatHandler.send(player, key, placeholders);
 	}
 
-	private static void sendRejection(Player player, DropOutcome.Rejected rejected) {
+	static void sendRejection(CommandSender player, DropHandle handle, DropOutcome.Rejected rejected) {
 		switch (rejected.rejection().reason()) {
+			case REMOTE_LOAD_CAPACITY -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_BUSY);
+			case REMOTE_LOAD_THROTTLED -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_THROTTLED,
+					Map.of("seconds", Long.toString(rejected.rejection().retryAfter().orElseThrow().toSeconds())));
+			case TARGET_LOAD_TIMEOUT -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_TIMEOUT);
+			case TARGET_NOT_GENERATED -> ChatHandler.sendError(player, MessageKey.ERROR_REMOTE_TERRAIN);
+			case OUTSIDE_WORLD_BORDER -> ChatHandler.sendError(player, MessageKey.ERROR_OUTSIDE_BORDER);
 			case UNKNOWN_PACKAGE -> ChatHandler.sendError(
 					player,
 					MessageKey.ERROR_PACKAGE_NOT_FOUND,
@@ -107,8 +121,8 @@ public final class DropCommand {
 						"permission", PackageNamePolicy.permissionNode(canonical),
 						"package", canonical));
 			}
-			case SKY_NOT_CLEAR, INVALID_TARGET ->
-					ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
+			case SKY_NOT_CLEAR -> sendSkyRejection(player, handle);
+			case INVALID_TARGET -> ChatHandler.sendError(player, MessageKey.ERROR_INVALID_TARGET);
 			case REQUEST_PENDING ->
 					ChatHandler.sendError(player, MessageKey.ERROR_DROP_REQUEST_PENDING);
 			case COOLDOWN -> ChatHandler.sendError(player, MessageKey.ERROR_DROP_COOLDOWN,
@@ -133,6 +147,18 @@ public final class DropCommand {
 					ChatHandler.sendError(player, MessageKey.DROP_FAILED);
 			case SERVICE_UNAVAILABLE, SHUTTING_DOWN ->
 					ChatHandler.sendError(player, MessageKey.ERROR_DROP_SHUTTING_DOWN);
+		}
+	}
+
+	private static void sendSkyRejection(CommandSender player, DropHandle handle) {
+		if (handle instanceof DefaultDropHandle internal) {
+			internal.blockedSurface().ifPresentOrElse(
+					surface -> ChatHandler.sendError(player, MessageKey.ERROR_SKY_BLOCKED_SURFACE, Map.of(
+							"material", surface.material().name().toLowerCase(Locale.ROOT).replace('_', ' '),
+							"y", Integer.toString(surface.y()))),
+					() -> ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR));
+		} else {
+			ChatHandler.sendError(player, MessageKey.ERROR_SKY_NOT_CLEAR);
 		}
 	}
 }

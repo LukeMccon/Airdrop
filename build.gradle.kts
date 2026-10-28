@@ -11,7 +11,6 @@ import java.util.jar.JarFile
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
-import org.gradle.api.artifacts.verification.DependencyVerificationMode
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.Exec
@@ -30,7 +29,9 @@ import org.gradle.external.javadoc.StandardJavadocDocletOptions
 
 plugins {
     `java-library`
+    jacoco
     `maven-publish`
+    id("org.sonarqube") version "7.2.3.7755"
     id("xyz.jpenilla.run-paper") version "3.1.0" // Adds the runServer task for testing
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
 }
@@ -72,6 +73,17 @@ val supportedJUnitVersion = "6.1.3"
 group = "com.airdropmc"
 version = configuredReleaseVersion ?: sourceDevelopmentVersion
 description = "Airdrop - Minecraft care package plugin"
+
+sonar {
+    properties {
+        property("sonar.projectKey", "LukeMccon_Airdrop")
+        property("sonar.organization", "luke-m")
+        property(
+            "sonar.coverage.jacoco.xmlReportPaths",
+            "build/reports/jacoco/test/jacocoTestReport.xml"
+        )
+    }
+}
 
 java {
     // Configure the java toolchain. Use Java 21 per Paper recommendations.
@@ -134,8 +146,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:$supportedJUnitVersion"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.yaml:snakeyaml:2.7")
-    testImplementation("org.mockito:mockito-core:5.23.0")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.23.0")
+    testImplementation("org.mockito:mockito-core:5.24.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.24.0")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.116.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -158,6 +170,7 @@ tasks {
 
     test {
         useJUnitPlatform()
+        finalizedBy("jacocoTestReport")
         systemProperty("airdrop.projectVersion", project.version.toString())
         systemProperty("airdrop.sourceDevelopmentVersion", sourceDevelopmentVersion)
         systemProperty("airdrop.extensionApiVersion", extensionApiVersion)
@@ -186,6 +199,19 @@ tasks {
         delete(layout.projectDirectory.dir("lightkeeper/target"))
     }
 
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+tasks.named("sonar") {
+    dependsOn(tasks.named("jacocoTestReport"))
 }
 
 val generatedAirdropMetadataDirectory = layout.buildDirectory.dir("generated/resources/airdrop-metadata")
@@ -585,7 +611,6 @@ val consumerFixtureTest = tasks.register<GradleBuild>("consumerFixtureTest") {
         "airdropVersion" to project.version.toString(),
         "paperVersion" to supportedPaperApiVersion
     )
-    startParameter.dependencyVerificationMode = DependencyVerificationMode.STRICT
     inputs.files(
         fileTree(layout.projectDirectory.dir("consumer-fixture")) {
             exclude("build/**")
@@ -662,7 +687,6 @@ val verifyReproducibleRuntimeJar = tasks.register("verifyReproducibleRuntimeJar"
                 "./gradlew",
                 "--no-daemon",
                 "--console=plain",
-                "--dependency-verification=strict",
                 "clean",
                 "jar"
             )
@@ -709,7 +733,9 @@ val resetLightkeeperRuntime = tasks.register<Delete>("resetLightkeeperRuntime") 
     dependsOn(archiveLightkeeperDiagnostics)
     delete(
         "lightkeeper/target/lightkeeper-server",
-        "lightkeeper/target/lightkeeper/runtime-manifest.json"
+        "lightkeeper/target/lightkeeper/runtime-manifest.json",
+        "lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json",
+        "lightkeeper/target/lightkeeper/runtime-manifest-send-permissions.json"
     )
 }
 
@@ -732,30 +758,50 @@ val prepareLightkeeperPluginAdapter = tasks.register<Exec>("prepareLightkeeperPl
     outputs.upToDateWhen { false }
 }
 
-tasks.register<Exec>("lightkeeperTest") {
-    group = "verification"
-    description = "Runs LightKeeper integration tests against a real Paper server"
-    dependsOn("jar")
-    dependsOn(consumerFixtureTest)
-    dependsOn(resetLightkeeperRuntime)
-    dependsOn(prepareLightkeeperPluginAdapter)
-    workingDir(layout.projectDirectory.dir("lightkeeper"))
-    inputs.file(releaseJar.flatMap { it.archiveFile })
-    inputs.file(consumerFixtureJar)
-    outputs.upToDateWhen { false }
+val lightkeeperLanes = listOf(
+    "lightkeeperScenarioTest" to "scenarios",
+    "lightkeeperFreshInstallTest" to "fresh-install",
+    "lightkeeperSendPermissionsTest" to "send-permissions"
+).map { (taskName, profile) ->
+    tasks.register<Exec>(taskName) {
+        group = "verification"
+        description = "Runs the LightKeeper $profile lane against a real Paper server"
+        dependsOn("jar")
+        dependsOn(consumerFixtureTest)
+        dependsOn(resetLightkeeperRuntime)
+        dependsOn(prepareLightkeeperPluginAdapter)
+        workingDir(layout.projectDirectory.dir("lightkeeper"))
+        inputs.file(releaseJar.flatMap { it.archiveFile })
+        inputs.file(consumerFixtureJar)
+        outputs.upToDateWhen { false }
 
-    doFirst {
-        val pluginJar = releaseJar.get().archiveFile.get().asFile.absoluteFile
-        val consumerJar = consumerFixtureJar.asFile.absoluteFile
-        commandLine(
-            "./mvnw",
-            "--batch-mode",
-            "--no-transfer-progress",
-            "verify",
-            "-Dairdrop.jar.path=${pluginJar.path}",
-            "-Dairdrop.consumer.jar.path=${consumerJar.path}"
-        )
+        doFirst {
+            val pluginJar = releaseJar.get().archiveFile.get().asFile.absoluteFile
+            val consumerJar = consumerFixtureJar.asFile.absoluteFile
+            val mavenArguments = mutableListOf(
+                "./mvnw",
+                "--batch-mode",
+                "--no-transfer-progress",
+                "verify",
+                "-P$profile",
+                "-Dairdrop.jar.path=${pluginJar.path}",
+                "-Dairdrop.consumer.jar.path=${consumerJar.path}"
+            )
+            providers.gradleProperty("lightkeeperTests").orNull?.let { selection ->
+                mavenArguments.add("-Dit.test=$selection")
+            }
+            commandLine(mavenArguments)
+        }
     }
+}
+
+// All lanes build the same Maven module, so never run them concurrently.
+lightkeeperLanes[1].configure { mustRunAfter(lightkeeperLanes[0]) }
+lightkeeperLanes[2].configure { mustRunAfter(lightkeeperLanes[0], lightkeeperLanes[1]) }
+tasks.register("lightkeeperTest") {
+    group = "verification"
+    description = "Runs the scenario, dependency-free fresh-install, and send-permissions LightKeeper lanes"
+    dependsOn(lightkeeperLanes)
 }
 
 val verifyReleaseLine = tasks.register<Exec>("verifyReleaseLine") {
@@ -770,7 +816,7 @@ val verifyReleaseLine = tasks.register<Exec>("verifyReleaseLine") {
         layout.projectDirectory.file("scripts/verify-release-line"),
         layout.projectDirectory.file("scripts/modrinth-docs"),
         layout.projectDirectory.file("docs/development/api-versioning.md"),
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
         layout.projectDirectory.file("lightkeeper/pom.xml")
     )
 }
@@ -991,11 +1037,11 @@ val verifyDependencyMatrix = tasks.register("verifyDependencyMatrix") {
 
 val verifyModrinthDocs = tasks.register<Exec>("verifyModrinthDocs") {
     group = "verification"
-    description = "Validates the canonical Modrinth project description without network access"
+    description = "Validates the GitHub documentation reference without network access"
     workingDir(layout.projectDirectory)
     commandLine("./scripts/modrinth-docs", "check-local")
     inputs.files(
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
         layout.projectDirectory.file("scripts/modrinth-docs")
     )
 }
@@ -1013,7 +1059,9 @@ tasks.named<Test>("test") {
     dependsOn(consumerFixtureTest)
     inputs.files(
         consumerFixtureJar,
-        layout.projectDirectory.file("docs/modrinth.md"),
+        layout.projectDirectory.file("docs/reference.md"),
+        layout.projectDirectory.file("docs/README.md"),
+        layout.projectDirectory.file("docs/modrinth-description.md"),
         layout.projectDirectory.file("docs/migration-4.1.md")
     )
     inputs.dir(layout.projectDirectory.dir("consumer-fixture/src/main/java/dev/airdropmc/example"))
@@ -1034,13 +1082,7 @@ bukkit {
     description = "Call in customizable care packages that fall from the sky"
     website = "https://modrinth.com/plugin/airdrop"
 
-    commands {
-        register("airdrop") {
-            description = "Call in an airdrop!"
-            aliases = listOf("drop", "ad")
-            usage = "/airdrop <package name>"
-        }
-    }
+    // The native Paper lifecycle registration owns airdrop, drop and ad.
 
     permissions {
         register("airdrop.package.all") {
@@ -1056,10 +1098,19 @@ bukkit {
             description = "Bypasses only the per-player airdrop request cooldown"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
         }
+        register("airdrop.send") {
+            description = "Allows targeted package delivery to online players or coordinates"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
+        }
+        register("airdrop.cost.bypass") {
+            description = "Exempts the initiating sender from package payment"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.FALSE
+        }
         register("airdrop.admin") {
             description = "Allows full administrative access to Airdrop commands and GUIs"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
-            children = listOf("airdrop.package.all", "airdrop.package.*", "airdrop.cooldown.bypass")
+            children = listOf("airdrop.package.all", "airdrop.package.*", "airdrop.cooldown.bypass",
+                "airdrop.send")
         }
     }
 }

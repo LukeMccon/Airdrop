@@ -14,11 +14,16 @@ FIELD 0x4019 com.airdropmc.api.DropRejectionReason.INSUFFICIENT_PERMISSION DESCR
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.INVALID_TARGET DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.LANDED_CAPACITY DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.LOCATION_RESERVED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.OUTSIDE_WORLD_BORDER DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.PAYMENT_REJECTED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.REMOTE_LOAD_CAPACITY DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.REMOTE_LOAD_THROTTLED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.REQUEST_PENDING DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.SERVICE_UNAVAILABLE DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.SHUTTING_DOWN DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.SKY_NOT_CLEAR DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.TARGET_LOAD_TIMEOUT DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
+FIELD 0x4019 com.airdropmc.api.DropRejectionReason.TARGET_NOT_GENERATED DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropRejectionReason.UNKNOWN_PACKAGE DESCRIPTOR Lcom/airdropmc/api/DropRejectionReason; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropSource.PLAYER DESCRIPTOR Lcom/airdropmc/api/DropSource; GENERIC - CONSTANT -
 FIELD 0x4019 com.airdropmc.api.DropSource.SYSTEM DESCRIPTOR Lcom/airdropmc/api/DropSource; GENERIC - CONSTANT -

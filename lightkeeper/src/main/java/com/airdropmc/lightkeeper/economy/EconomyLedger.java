@@ -14,9 +14,27 @@ final class EconomyLedger {
 	}
 
 	private final Map<UUID, Account> accounts = new HashMap<>();
+	private final Map<UUID, Integer> pending = new HashMap<>();
 
 	synchronized void reset(UUID playerId, BigDecimal balance) {
+		if (pending.containsKey(playerId)) {
+			throw new IllegalArgumentException("Account has pending operations: " + playerId);
+		}
 		accounts.put(playerId, new Account(balance));
+	}
+
+	synchronized void begin(UUID playerId) {
+		pending.merge(playerId, 1, Integer::sum);
+	}
+
+	synchronized void finish(UUID playerId) {
+		pending.computeIfPresent(playerId, (ignored, count) -> count == 1 ? null : count - 1);
+	}
+
+	synchronized Transaction rejectDeposit(UUID playerId, String detail) {
+		Account account = account(playerId);
+		account.deposits++;
+		return new Transaction(false, account.balance, detail);
 	}
 
 	synchronized Transaction canWithdraw(UUID playerId, BigDecimal amount) {

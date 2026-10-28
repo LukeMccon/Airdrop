@@ -33,6 +33,52 @@ public class LanguageManager {
 			{text}
 			Airdrop Version: {accent}{version}{text}
 			Spigot API Version: {accent}{api_version}""";
+	private static final Map<MessageKey, String> LEGACY_CONSOLE_SEND_MESSAGES = Map.of(
+			MessageKey.COMMANDS_HELP_SEND_CONSOLE,
+			"{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; console requires cost exemption",
+			MessageKey.ERROR_SEND_CONSOLE_COST,
+			"Console sends require airdrop.cost.bypass; console cannot pay for a package.",
+			MessageKey.TARGETED_COST_EXEMPT, "cost exempt (airdrop.cost.bypass)");
+	private static final Map<MessageKey, String> LEGACY_DELIVERY_MESSAGES = Map.ofEntries(
+			Map.entry(MessageKey.ERROR_SEND_WORLD,
+					"Unknown world {world}; no package was sent."),
+			Map.entry(MessageKey.ERROR_GIFT_RECIPIENT_PERMISSION,
+					"{player} cannot receive package {name}; the server requires recipient package permission."),
+			Map.entry(MessageKey.ERROR_TARGETED_SKY,
+					"The sky at {player} must be clear to deliver a package."),
+			Map.entry(MessageKey.TARGETED_SPAWNED,
+					"{action} request {request_id}: {name} is on its way to {player}; no payment was taken."),
+			Map.entry(MessageKey.TARGETED_SPAWNED_CHARGED,
+					"{action} request {request_id}: {name} is on its way to {player}. ${amount} was taken from your account."),
+			Map.entry(MessageKey.TARGETED_LANDED,
+					"{action} request {request_id}: {name} for {player} landed at X: {x}, Y: {y}, Z: {z} in {world}."),
+			Map.entry(MessageKey.TARGETED_REJECTED,
+					"{action} request {request_id} for {name} at {player} was rejected; no payment was taken."),
+			Map.entry(MessageKey.TARGETED_FAILED,
+					"{action} request {request_id} for {name} at {player} failed; no payment was taken."),
+			Map.entry(MessageKey.TARGETED_REFUNDED,
+					"{action} request {request_id} for {name} at {player} failed; your payment was refunded."),
+			Map.entry(MessageKey.TARGETED_CHARGED_FAILED,
+					"{action} request {request_id} for {name} at {player} failed; your payment remains charged. Contact an administrator with this request ID."),
+			Map.entry(MessageKey.TARGETED_REFUND_FAILED,
+					"{action} request {request_id} for {name} at {player} failed and your payment could not be refunded. Contact an administrator with this request ID."),
+			Map.entry(MessageKey.TARGETED_PAYMENT_UNKNOWN,
+					"{action} request {request_id} for {name} at {player} failed; your payment outcome is uncertain. Contact an administrator with this request ID."),
+			Map.entry(MessageKey.TARGETED_RECIPIENT_INCOMING,
+					"{sender} is sending you package {name}. You will not be charged."),
+			Map.entry(MessageKey.TARGETED_RECIPIENT_LANDED,
+					"Package {name} from {sender} landed at X: {x}, Y: {y}, Z: {z} in {world}."),
+			Map.entry(MessageKey.DROP_FAILED,
+					"Airdrop failed; no crate was created"));
+	private static final Map<MessageKey, String> LEGACY_SEND_SYNTAX_MESSAGES = Map.of(
+			MessageKey.COMMANDS_SEND_USAGE,
+			"Usage: /airdrop send <package> <player> | /airdrop send <package> <x> <z> [world]",
+			MessageKey.COMMANDS_HELP_SEND_PLAYER,
+			"{text}/airdrop send <package> <player>{primary} — send to an online player; sender pays unless cost is exempt",
+			MessageKey.COMMANDS_HELP_SEND_COORDINATES,
+			"{text}/airdrop send <package> <x> <z> [world]{primary} — send to the surface; defaults to your current world",
+			MessageKey.COMMANDS_HELP_SEND_CONSOLE,
+			"{text}/airdrop send <package> <x> <z> <world>{primary} — send to the surface; native console and RCON are cost-exempt");
 	private static final Pattern SAFE_LANGUAGE_CODE_PATTERN = Pattern.compile("^[a-z]{2}(?:-[A-Z]{2})?$");
 
 	private final Airdrop plugin;
@@ -68,8 +114,8 @@ public class LanguageManager {
 
 	/**
 	 * Performs all language file I/O and parsing without changing the live language state.
-	 * When {@code writeMissingKeys} is true, resource defaults missing from the configured
-	 * file are persisted before this method returns.
+	 * When {@code writeMissingKeys} is true, missing resource defaults and recognized
+	 * unchanged stock-message migrations are persisted before this method returns.
 	 */
 	public LanguageCandidate prepareLanguage(String langCode, boolean writeMissingKeys)
 			throws IOException, InvalidConfigurationException {
@@ -170,6 +216,15 @@ public class LanguageManager {
 
 	private boolean mergeMissingDefaults(YamlConfiguration configuration, YamlConfiguration defaults) {
 		boolean updated = migrateStockVersionInfo(configuration, defaults);
+		if (migrateStockMessages(configuration, defaults, LEGACY_CONSOLE_SEND_MESSAGES)) {
+			updated = true;
+		}
+		if (migrateStockMessages(configuration, defaults, LEGACY_SEND_SYNTAX_MESSAGES)) {
+			updated = true;
+		}
+		if (migrateStockMessages(configuration, defaults, LEGACY_DELIVERY_MESSAGES)) {
+			updated = true;
+		}
 		for (String key : defaults.getKeys(true)) {
 			if (!configuration.isSet(key)) {
 				configuration.set(key, defaults.get(key));
@@ -188,6 +243,21 @@ public class LanguageManager {
 			return true;
 		}
 		return false;
+	}
+
+	private boolean migrateStockMessages(YamlConfiguration configuration, YamlConfiguration defaults,
+			Map<MessageKey, String> legacyMessages) {
+		boolean updated = false;
+		for (Map.Entry<MessageKey, String> entry : legacyMessages.entrySet()) {
+			String key = entry.getKey().getKey();
+			String replacement = defaults.getString(key);
+			// Refresh only the exact previous stock text; preserve customized translations.
+			if (replacement != null && entry.getValue().equals(configuration.getString(key))) {
+				configuration.set(key, replacement);
+				updated = true;
+			}
+		}
+		return updated;
 	}
 
 	void writeAtomically(Path target, byte[] contents, boolean replaceExisting) throws IOException {

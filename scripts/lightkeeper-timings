@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""Summarize Failsafe timings and optional Paper launch counts (AIRDR-92)."""
+
+import argparse
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+
+
+def read_reports(directory):
+    reports = []
+    for path in sorted(directory.rglob("TEST-*IT.xml")):
+        suite = ET.parse(path).getroot()
+        reports.append({
+            "name": suite.attrib["name"].rsplit(".", 1)[-1],
+            "tests": int(suite.attrib["tests"]),
+            "failures": int(suite.attrib.get("failures", 0)),
+            "errors": int(suite.attrib.get("errors", 0)),
+            "skipped": int(suite.attrib.get("skipped", 0)),
+            "seconds": float(suite.attrib["time"]),
+        })
+    if not reports:
+        raise ValueError(f"No Failsafe integration reports found in {directory}")
+    return reports
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reports", type=Path, default=Path(__file__).resolve().parents[1]
+                        / "lightkeeper/target/failsafe-reports")
+    parser.add_argument("--log", type=Path, help="Gradle/Maven console log for Paper launch counts")
+    parser.add_argument("--compare", type=Path, help="Saved baseline Failsafe report directory")
+    args = parser.parse_args()
+    try:
+        reports = read_reports(args.reports)
+        baseline = read_reports(args.compare) if args.compare else None
+        launches = args.log.read_text().count("LK_FRAMEWORK: Starting Minecraft server") if args.log else None
+    except (OSError, ValueError, ET.ParseError) as error:
+        parser.exit(1, f"{error}\n")
+
+    print("| Suite | Tests | Failures/errors | Skipped | Seconds |")
+    print("| --- | ---: | ---: | ---: | ---: |")
+    for report in sorted(reports, key=lambda report: report["seconds"], reverse=True):
+        print(f"| {report['name']} | {report['tests']} | {report['failures'] + report['errors']} "
+              f"| {report['skipped']} | {report['seconds']:.2f} |")
+    total = sum(report["seconds"] for report in reports)
+    print(f"\nSummed suite time: {total:.2f}s; tests: {sum(report['tests'] for report in reports)}.")
+    print("Suite time includes server lifecycle callbacks; it excludes Gradle/Maven preparation.")
+    if launches is not None:
+        print(f"\nPaper launches: {launches}.")
+    if baseline:
+        previous = sum(report["seconds"] for report in baseline)
+        print(f"\nBaseline suite time: {previous:.2f}s; tests: {sum(report['tests'] for report in baseline)}.")
+        if previous:
+            print(f"Suite time change: {total - previous:+.2f}s ({(total / previous - 1) * 100:+.1f}%).")
+    return 1 if any(report["failures"] or report["errors"] for report in reports) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -5,15 +5,27 @@ api-version: '1.21.11'
 load: STARTUP
 description: Deterministic economy provider for Airdrop LightKeeper tests
 commands:
+  lkconsole:
+    description: Inspects native console send permissions with temporary denials
+    usage: /lkconsole <inspect|deny-send|deny-cost|tree> [command|player]
   airdrop-lightkeeper-inventory-replacement:
     description: Verifies stale inventory events against a replacement crate
     usage: /airdrop-lightkeeper-inventory-replacement <capture|verify> <arguments>
   airdrop-lightkeeper-block-explode:
     description: Triggers a source-less Paper block explosion for integration tests
     usage: /airdrop-lightkeeper-block-explode <world> <x> <y> <z> <power>
+  lkmenu-close:
+    description: Closes the player's current inventory through Paper for integration tests
+    usage: /lkmenu-close <playerUUID> <token>
+  airdrop-lightkeeper-paid-lifecycle:
+    description: Observes paid crate persistence and scheduled expiry for integration tests
+    usage: /airdrop-lightkeeper-paid-lifecycle <action> <token> <arguments>
+  lkremote:
+    description: Prepares and observes remote delivery terrain for integration tests
+    usage: /lkremote <prepare|observe|generation|border> <token> <world> <x> <z>
   lkeconomy:
     description: Controls the LightKeeper economy fixture
-    usage: /lkeconomy enable | /lkeconomy <reset|report> <player UUID> <balance|correlation ID>
+    usage: /lkeconomy <enable|disable|reset|report|fault|release|clear> <arguments>
     permission: lkeconomy.admin
 permissions:
   lkeconomy.admin:

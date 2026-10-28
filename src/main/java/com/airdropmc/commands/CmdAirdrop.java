@@ -21,12 +21,18 @@ import java.util.logging.Level;
 public class CmdAirdrop implements CommandExecutor {
 	private static final String CREATE = "create";
 	private static final String DELETE = "delete";
-	private static final String MODRINTH_URL = "https://modrinth.com/plugin/airdrop";
+	private static final String PRICE = "price";
+	private static final String DOCS_URL = "https://github.com/LukeMccon/Airdrop/tree/develop/docs";
 
 	@Override
 	public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
 			@NotNull String label, String[] args) {
 
+		return execute(sender, args);
+	}
+
+	/** Shared execution entry point for Bukkit callers and the native Paper command tree. */
+	public boolean execute(CommandSender sender, String[] args) {
 		if (args.length == 0) {
 			sendHelp(sender);
 			return true;
@@ -35,6 +41,7 @@ public class CmdAirdrop implements CommandExecutor {
 			PackageCommand.onCommand(sender, args);
 			return true;
 		}
+
 		if (hasInvalidGenericArgumentCount(args)) {
 			sendHelp(sender);
 			return true;
@@ -48,7 +55,7 @@ public class CmdAirdrop implements CommandExecutor {
 					"extension_api_version", known(Airdrop.getExtensionApiVersion()),
 					"paper_version", known(Airdrop.getPaperApiVersion()),
 					"java_version", known(Airdrop.getJavaCompatibilityVersion()),
-					"docs_url", MODRINTH_URL));
+					"docs_url", DOCS_URL));
 			return true;
 		}
 		if (AirdropCommandNames.STATUS.equals(args[0])) {
@@ -65,6 +72,13 @@ public class CmdAirdrop implements CommandExecutor {
 			case AirdropCommandNames.PACKAGE -> PackageCommand.onCommand(sender, args);
 			case AirdropCommandNames.PACKAGES -> PackagesCommand.onCommand(sender);
 			case AirdropCommandNames.RELOAD -> reload(sender);
+			case AirdropCommandNames.SEND -> {
+				if (args.length == 1 && com.airdropmc.packages.PackageManager.has(AirdropCommandNames.SEND)) {
+					DropCommand.onCommand(sender, args);
+				} else {
+					TargetedDropCommand.onCommand(sender, args);
+				}
+			}
 			default -> DropCommand.onCommand(sender, args);
 		}
 		return true;
@@ -74,27 +88,37 @@ public class CmdAirdrop implements CommandExecutor {
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_HEADER, Map.of());
 		if (sender instanceof Player) {
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_DROP, Map.of());
+			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_PACKAGES, Map.of());
 		}
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_PACKAGE, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_VERSION, Map.of());
+
+		if (TargetedDropCommand.canSend(sender)) {
+			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_SEND_PLAYER, Map.of());
+			ChatHandler.sendWithoutPrefix(sender, sender instanceof Player
+					? MessageKey.COMMANDS_HELP_SEND_COORDINATES : MessageKey.COMMANDS_HELP_SEND_CONSOLE, Map.of());
+		}
 
 		if (!PermissionsHelper.isAdmin(sender)) {
 			return;
 		}
 		if (sender instanceof Player) {
 			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_CREATE, Map.of());
-			ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_PACKAGES, Map.of());
 		}
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_DELETE, Map.of());
+		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_PRICE, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_RELOAD, Map.of());
 		ChatHandler.sendWithoutPrefix(sender, MessageKey.COMMANDS_HELP_ADMIN_STATUS, Map.of());
 	}
 
 	private static boolean hasInvalidGenericArgumentCount(String[] args) {
+		if (TargetedDropCommand.isTargeted(args[0])) {
+			return false;
+		}
 		if (!AirdropCommandNames.PACKAGE.equals(args[0])) {
 			return args.length != 1;
 		}
-		if (args.length == 1 || CREATE.equals(args[1]) || DELETE.equals(args[1])) {
+		if (args.length == 1 || CREATE.equals(args[1]) || DELETE.equals(args[1]) || PRICE.equals(args[1])) {
 			return false;
 		}
 		return args.length != 2;
@@ -108,7 +132,8 @@ public class CmdAirdrop implements CommandExecutor {
 			return true;
 		}
 		return CREATE.equals(args[1]) && args.length != 4
-				|| DELETE.equals(args[1]) && args.length != 3;
+				|| DELETE.equals(args[1]) && args.length != 3
+				|| PRICE.equals(args[1]) && args.length != 4;
 	}
 
 	private static void reload(CommandSender sender) {

@@ -7,6 +7,9 @@ import com.airdropmc.Crate;
 import com.airdropmc.helpers.CrateManager;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Chicken;
+import org.bukkit.entity.Slime;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.block.Block;
@@ -14,10 +17,14 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.EntityUnleashEvent;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -49,6 +56,32 @@ class FallingCrateListenerTest {
 	void tearDown() {
 		clearCrateManager();
 		MockBukkit.unmock();
+	}
+
+	@Test
+	void ordinaryLeashesAndUnrelatedMarkedEntitiesKeepTheirDrops() {
+		server.getPluginManager().registerEvents(listener, plugin);
+		var ordinary = world.spawn(new Location(world, 0, 70, 0), Chicken.class);
+		var other = world.spawn(new Location(world, 1, 70, 0), Slime.class);
+		other.getPersistentDataContainer().set(NamespacedKey.fromString("airdrop:parachute"), PersistentDataType.BYTE, (byte) 1);
+		for (var entity : java.util.List.of(ordinary, other)) {
+			var event = new EntityUnleashEvent(entity, EntityUnleashEvent.UnleashReason.HOLDER_GONE, true);
+			server.getPluginManager().callEvent(event);
+			assertTrue(event.isDropLeash());
+			assertFalse(event.isCancelled());
+		}
+	}
+
+	@ParameterizedTest
+	@EnumSource(EntityUnleashEvent.UnleashReason.class)
+	void parachuteLeashBreaksDoNotCreateLeadItems(EntityUnleashEvent.UnleashReason reason) {
+		server.getPluginManager().registerEvents(listener, plugin);
+		var chicken = world.spawn(new Location(world, 0, 70, 0), Chicken.class);
+		chicken.getPersistentDataContainer().set(NamespacedKey.fromString("airdrop:parachute"), PersistentDataType.BYTE, (byte) 1);
+		var event = new EntityUnleashEvent(chicken, reason, true);
+		server.getPluginManager().callEvent(event);
+		assertFalse(event.isDropLeash(), "Parachute visuals must not create lead items");
+		assertFalse(event.isCancelled(), "Detachment must still proceed");
 	}
 
 	@Test

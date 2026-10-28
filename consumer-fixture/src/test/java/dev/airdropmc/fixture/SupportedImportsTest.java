@@ -75,6 +75,7 @@ class SupportedImportsTest {
 		assertTrue(pluginYml.contains("name: AirdropConsumerFixture"));
 		assertTrue(pluginYml.contains("main: dev.airdropmc.fixture.AirdropConsumerFixture"));
 		assertTrue(pluginYml.contains("depend: [Airdrop]"));
+		assertTrue(pluginYml.contains("commands:\n  airdrop-consumer:"));
 	}
 
 	private static String requiredProperty(String name) {

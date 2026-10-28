@@ -65,6 +65,9 @@ class FirstRunOnboardingTest {
 	@Test
 	void startupKeepsExistingPackageContentsAndPrices() throws Exception {
 		server = MockBukkit.mock();
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
 		Airdrop plugin = (Airdrop) server.getPluginManager().loadPlugin(Airdrop.class, new Object[0]);
 		Path dataDirectory = plugin.getDataFolder().toPath();
 		Files.createDirectories(dataDirectory);
@@ -109,6 +112,9 @@ class FirstRunOnboardingTest {
 
 	private Airdrop loadUnconfiguredPlugin() {
 		server = MockBukkit.mock();
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
 		Airdrop plugin = (Airdrop) server.getPluginManager().loadPlugin(Airdrop.class, new Object[0]);
 		server.getPluginManager().enablePlugin(plugin);
 		awaitReady(plugin);

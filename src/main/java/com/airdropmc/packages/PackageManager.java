@@ -327,6 +327,20 @@ public class PackageManager {
 		return deletePackageCandidate(source, packageName);
 	}
 
+	/** Creates and validates a detached price change without mutating the source or live registry. */
+	public static YamlConfiguration updatePackagePriceCandidate(
+			FileConfiguration source, String packageName, double price)
+			throws PackageMaterializationException, PackageNotFoundException {
+		if (!Package.isValidPrice(price)) {
+			throw new IllegalArgumentException("Package price must be finite and non-negative");
+		}
+		Package pkg = findPackage(materializePackages(source), packageName);
+		YamlConfiguration candidate = copyConfiguration(source);
+		candidate.set(PACKAGES_SECTION + "." + pkg.getName() + ".price", price);
+		materializePackages(candidate);
+		return candidate;
+	}
+
 	private static Package findPackage(Map<String, Package> snapshot, String packageName)
 			throws PackageNotFoundException {
 		PackageNamePolicy.Result validation = PackageNamePolicy.validate(packageName);

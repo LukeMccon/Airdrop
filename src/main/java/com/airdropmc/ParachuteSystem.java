@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.logging.Level;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.EntityType;
@@ -13,6 +14,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Effect;
 import org.bukkit.util.Vector;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.persistence.PersistentDataType;
 
 import com.airdropmc.api.ResolvedDropSettings;
 import com.airdropmc.config.ConfigKeys;
@@ -27,6 +29,8 @@ import org.jetbrains.annotations.ApiStatus;
  */
 @ApiStatus.Internal
 public class ParachuteSystem {
+	public static final NamespacedKey PARACHUTE_KEY = Objects.requireNonNull(
+			NamespacedKey.fromString("airdrop:parachute"));
     private final World world;
 	private final ArrayList<Chicken> chickenParachutes;
 	private final ResolvedDropSettings settings;
@@ -97,6 +101,7 @@ public class ParachuteSystem {
             Chicken chicken = (Chicken) world.spawnEntity(
                     chickenLocation, EntityType.CHICKEN);
 			chickenParachutes.add(chicken);
+			chicken.getPersistentDataContainer().set(PARACHUTE_KEY, PersistentDataType.BYTE, (byte) 1);
             chicken.setInvulnerable(true);
             chicken.setLeashHolder(parachuteLeash);
         }

@@ -70,6 +70,64 @@ public class PackageController {
 		}
 	}
 
+	public static void pricePackageCommand(CommandSender sender, String[] args) {
+		if (args.length != 4) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_USAGE);
+			return;
+		}
+		if (!PermissionsHelper.isAdmin(sender)) {
+			ChatHandler.sendError(sender, MessageKey.ADMIN_PERMISSION_REQUIRED);
+			return;
+		}
+		double price;
+		try {
+			price = Double.parseDouble(args[3]);
+		} catch (NumberFormatException failure) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_INVALID);
+			return;
+		}
+		if (!Package.isValidPrice(price)) {
+			ChatHandler.sendError(sender, MessageKey.PACKAGES_PRICE_INVALID);
+			return;
+		}
+		if (!PackageNamePolicy.validate(args[2]).accepted()) {
+			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_NOT_FOUND, Map.of("name", args[2]));
+			return;
+		}
+		Airdrop plugin = Airdrop.getPluginInstance();
+		if (plugin == null || !Airdrop.isReady()) {
+			ChatHandler.sendError(sender, MessageKey.ERROR_PLUGIN_NOT_READY);
+			return;
+		}
+		try {
+			plugin.updatePackagePriceAsync(args[2], price).whenComplete((change, failure) -> {
+				if (Airdrop.isShuttingDown() || Airdrop.getPluginInstance() != plugin) {
+					return;
+				}
+				if (failure == null && change != null) {
+					ChatHandler.send(sender, MessageKey.PACKAGES_PRICE_CHANGED, Map.of(
+							"name", change.packageName(), "old_price", String.valueOf(change.oldPrice()),
+							"new_price", String.valueOf(change.newPrice())));
+				} else {
+					handlePriceFailure(sender, failure);
+				}
+			});
+		} catch (RuntimeException failure) {
+			if (!Airdrop.isShuttingDown() && Airdrop.getPluginInstance() == plugin) {
+				handlePriceFailure(sender, failure);
+			}
+		}
+	}
+
+	private static void handlePriceFailure(CommandSender sender, Throwable failure) {
+		Throwable cause = unwrapCompletionException(failure);
+		if (cause instanceof PackageNotFoundException missing) {
+			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_NOT_FOUND, Map.of("name", missing.getPackageName()));
+		} else {
+			ChatHandler.sendError(sender, MessageKey.ERROR_PACKAGE_SAVE_FAILED);
+		}
+	}
+
 	private static void handleDeleteCompletion(
 			CommandSender sender,
 			String packageName,
