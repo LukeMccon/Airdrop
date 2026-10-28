@@ -1,6 +1,6 @@
 # Airdrop 4.2.0 adds package previews and targeted deliveries
 
-Draft release notes covering changes since 4.1.0. Not yet released.
+Release notes covering changes since 4.1.0.
 
 <!-- AIRDR-93: Release preparation; catalog checkout (AIRDR-89) is not included. -->
 
@@ -86,6 +86,10 @@ or a location. Administrators can change prices without reopening an editor.
 
 ## Review new settings and integration event timing before upgrading
 
+- If the destination surface changes while a crate is falling, delivery can
+  fail instead of moving the reserved destination. Confirmed charges follow
+  the normal refund path while the plugin remains active. The original
+  reported landing mismatch remains under investigation (AIRDR-100).
 - The supported runtime remains Paper 1.21.11 with Java 21. Back up the plugin
   and its data before upgrading. Existing package files keep their rewards
   and prices; missing new settings use the defaults above.

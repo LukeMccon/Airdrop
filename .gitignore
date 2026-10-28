@@ -63,6 +63,7 @@ docs/*
 docs/development/*
 !docs/development/api-versioning.md
 !docs/development/releasing-4.1.md
+!docs/development/releasing-4.2.md
 !docs/migration-4.1.md
 !docs/modrinth.md
 !docs/modrinth-description.md

@@ -527,13 +527,13 @@ wrappers, `Crate`, and `com.airdropmc.events` are implementation details.
 
 ### Compile against Airdrop without shading it
 
-The examples below target the upcoming 4.2.0 release. Until it is published,
-build this branch locally or use 4.1.0 with its matching API contract.
+The examples below target Airdrop 4.2.0. Use the dependency version matching
+the plugin installed on your server.
 
 Do not shade Airdrop into a consumer plugin. Use the released plugin as a
 compile-only dependency, and declare Paper explicitly because Airdrop's Maven
-POM deliberately has no transitive dependencies. A `v4.2.0` release tag will be
-published at Maven version `4.2.0`; the tag prefix is never part of the
+POM deliberately has no transitive dependencies. The `v4.2.0` release tag maps
+to Maven version `4.2.0`; the tag prefix is never part of the
 consumer coordinate. For Gradle:
 
 ```kotlin

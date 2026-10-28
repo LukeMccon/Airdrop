@@ -97,8 +97,7 @@ public final class RemoteDeliveryCommand implements CommandExecutor {
 				var console = Bukkit.getConsoleSender();
 				var exemption = console.addAttachment(airdrop, "airdrop.cost.bypass", true);
 				try {
-					Objects.requireNonNull(Bukkit.getPluginCommand("airdrop")).execute(console, "airdrop",
-							new String[]{"send", "premium", Integer.toString(x), Integer.toString(z), world.getName()});
+					Bukkit.dispatchCommand(console, "airdrop send premium at " + x + " " + z + " " + world.getName());
 				} finally {
 					console.removeAttachment(exemption);
 				}
