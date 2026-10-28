@@ -20,6 +20,9 @@ or a location. Administrators can change prices without reopening an editor.
 
 ## Send packages to players or coordinates
 
+- AIRDR-101: Parachute chickens no longer drop lead items when their leash
+  breaks, including holder loss at remote destinations. Ordinary leashes retain
+  their normal drops.
 - Use `/airdrop send <package> to <player>` for an exact online player, or
   `/airdrop send <package> at <x> <z> [world]` for absolute surface coordinates.
   A player's current world is implicit; console must supply a world.
