@@ -129,8 +129,47 @@ public final class DropAdmissionController {
 
 	private Lease acquire(UUID playerId, boolean cooldownBypass,
 			DropLocationKey location, DropLimitSettings settings) throws DropLimitException {
-		if (location == null || settings == null) {
-			throw new IllegalArgumentException("location and settings are required");
+		if (location == null) {
+			throw new IllegalArgumentException("location is required");
+		}
+		Lease lease = prepare(playerId, cooldownBypass, settings);
+		try {
+			bind(lease, location);
+			return lease;
+		} catch (DropLimitException | RuntimeException failure) {
+			lease.close();
+			throw failure;
+		}
+	}
+
+	public synchronized Lease preparePlayer(UUID playerId, boolean cooldownBypass,
+			DropLimitSettings settings) throws DropLimitException {
+		if (playerId == null) {
+			throw new IllegalArgumentException("playerId is required");
+		}
+		return prepare(playerId, cooldownBypass, settings);
+	}
+
+	public synchronized Lease prepareSystem(DropLimitSettings settings) throws DropLimitException {
+		return prepare(null, true, settings);
+	}
+
+	private synchronized void bind(Lease lease, DropLocationKey location) throws DropLimitException {
+		if (lease.state != LeaseState.RESERVED || lease.location != null) {
+			throw new IllegalStateException("Lease is not awaiting a landing location");
+		}
+		if (location == null) {
+			throw new IllegalArgumentException("location is required");
+		}
+		if (!locations.add(location)) {
+			throw new DropLimitException(Reason.LOCATION_RESERVED);
+		}
+		lease.location = location;
+	}
+
+	private Lease prepare(UUID playerId, boolean cooldownBypass, DropLimitSettings settings) throws DropLimitException {
+		if (settings == null) {
+			throw new IllegalArgumentException("settings are required");
 		}
 		long now = nanoTime.getAsLong();
 		if (!accepting) {
@@ -152,15 +191,11 @@ public final class DropAdmissionController {
 		if (landedClaims >= settings.maxLanded()) {
 			throw new DropLimitException(Reason.LANDED_CAPACITY);
 		}
-		if (locations.contains(location)) {
-			throw new DropLimitException(Reason.LOCATION_RESERVED);
-		}
 
-		Lease lease = new Lease(playerId, cooldownBypass, location, settings.requestCooldown());
+		Lease lease = new Lease(playerId, cooldownBypass, null, settings.requestCooldown());
 		liveLeases.add(lease);
 		falling++;
 		landedClaims++;
-		locations.add(location);
 		if (playerId != null) {
 			pending.add(playerId);
 		}
@@ -172,7 +207,7 @@ public final class DropAdmissionController {
 	}
 
 	private synchronized void commitSpawn(Lease lease) {
-		if (lease.state != LeaseState.RESERVED) {
+		if (lease.state != LeaseState.RESERVED || lease.location == null) {
 			throw new IllegalStateException("Lease is not reserved");
 		}
 		lease.state = LeaseState.FALLING;
@@ -214,7 +249,7 @@ public final class DropAdmissionController {
 
 		private final UUID playerId;
 		private final boolean cooldownBypass;
-		private final DropLocationKey location;
+		private DropLocationKey location;
 		private final Duration cooldown;
 		private LeaseState state = LeaseState.RESERVED;
 		private boolean requestCommitted;
@@ -224,6 +259,10 @@ public final class DropAdmissionController {
 			this.cooldownBypass = cooldownBypass;
 			this.location = location;
 			this.cooldown = cooldown;
+		}
+
+		public void bind(DropLocationKey location) throws DropLimitException {
+			DropAdmissionController.this.bind(this, location);
 		}
 
 		public void commitSpawn() {
@@ -239,7 +278,7 @@ public final class DropAdmissionController {
 		}
 
 		public boolean owns(DropLocationKey candidate) {
-			return location.equals(candidate);
+			return location != null && location.equals(candidate);
 		}
 
 		public LeaseState state() {

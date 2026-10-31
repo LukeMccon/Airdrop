@@ -1,13 +1,22 @@
 package com.airdropmc.ci;
 
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LightkeeperIntegrationConfigurationTest {
@@ -117,8 +126,8 @@ class LightkeeperIntegrationConfigurationTest {
 	void readmeDistinguishesFullCleanupFromDiagnosticPreservingReruns() throws IOException {
 		String readme = requiredContents(README);
 
-		assertContains(readme, "./gradlew --dependency-verification=strict clean lightkeeperTest");
-		assertContains(readme, "./gradlew --dependency-verification=strict lightkeeperTest");
+		assertContains(readme, "./gradlew clean lightkeeperTest");
+		assertContains(readme, "./gradlew lightkeeperTest");
 		assertContains(readme, "Failsafe reports");
 		assertContains(readme, "previous-server");
 		assertContains(readme, "adapter repository");
@@ -128,7 +137,11 @@ class LightkeeperIntegrationConfigurationTest {
 	void gradleExposesAnIsolatedLightkeeperTask() throws IOException {
 		String build = requiredContents(Path.of("build.gradle.kts"));
 
-		assertContains(build, "register<Exec>(\"lightkeeperTest\")");
+		assertContains(build, "register(\"lightkeeperTest\")");
+		assertContains(build, "\"lightkeeperScenarioTest\" to \"scenarios\"");
+		assertContains(build, "\"lightkeeperFreshInstallTest\" to \"fresh-install\"");
+		assertContains(build, "mustRunAfter(lightkeeperLanes[0])");
+		assertContains(build, "dependsOn(lightkeeperLanes)");
 		assertContains(build, "dependsOn(\"jar\")");
 		assertContains(build, "-Dairdrop.jar.path=");
 		assertFalse(Pattern.compile("(?s)(named|register).*\\(\"(test|check|build)\"\\).*dependsOn\\(.*lightkeeperTest")
@@ -144,7 +157,7 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(build, "inputs.file(consumerFixtureJar)");
 		assertContains(build, "-Dairdrop.consumer.jar.path=${consumerJar.path}");
 		assertContains(release,
-				"--dependency-verification=strict clean test build verifyApiCompatibility "
+				"clean test build verifyApiCompatibility "
 						+ "verifyReleaseArtifact lightkeeperTest");
 	}
 
@@ -156,9 +169,43 @@ class LightkeeperIntegrationConfigurationTest {
 		assertContains(pom, "${airdrop.consumer.jar.path}");
 		assertContains(pom, "<renameTo>Airdrop.jar</renameTo>");
 		assertContains(pom, "<renameTo>AirdropConsumerFixture.jar</renameTo>");
-		assertFalse(pom.contains("LuckPerms"), "The default real-server lane must exercise optional LuckPerms absence");
-		assertFalse(pom.contains("<sourceType>modrinth</sourceType>"),
-				"Every plugin under test must come from an exact packaged path");
+		String scenarios = pom.substring(pom.indexOf("<id>scenarios</id>"), pom.indexOf("<id>send-permissions</id>"));
+		assertFalse(scenarios.contains("LuckPerms"), "The default lane must exercise optional LuckPerms absence");
+		assertFalse(scenarios.contains("<sourceType>modrinth</sourceType>"));
+		assertContains(pom, "<modrinthVersionId>b0mk8uS6</modrinthVersionId>");
+		assertContains(pom, "runtime-manifest-send-permissions.json");
+		assertContains(pom, "**/SendPermissionsIT.java");
+	}
+
+	@Test
+	void freshInstallProvisioningOmitsOverlayAndOptionalPluginsWithIsolatedOutputs() throws Exception {
+		var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+		factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+		var document = factory.newDocumentBuilder().parse(LIGHTKEEPER_POM.toFile());
+		var xpath = javax.xml.xpath.XPathFactory.newInstance().newXPath();
+		String fresh = xpath.evaluate("/project/profiles/profile[id='fresh-install']", document);
+		String scenarios = xpath.evaluate("/project/profiles/profile[id='scenarios']", document);
+		String common = xpath.evaluate(
+				"/project/build/plugins/plugin[artifactId='lightkeeper-maven-plugin']/configuration", document);
+
+		assertContains(fresh, "Airdrop.jar");
+		assertContains(fresh, "AirdropConsumerFixture.jar");
+		assertContains(fresh, "**/FreshInstallIT.java");
+		assertContains(fresh, "runtime-manifest-fresh-install.json");
+		assertContains(fresh, "lightkeeper-server/fresh-install");
+		assertContains(fresh, "failsafe-reports/fresh-install");
+		assertFalse(fresh.contains("Vault.jar"));
+		assertFalse(fresh.contains("overlay"));
+		assertFalse(common.contains("Vault.jar"));
+		assertFalse(common.contains("overlay"));
+		assertContains(scenarios, "Vault.jar");
+		assertContains(scenarios, "src/test/resources/overlay");
+		assertContains(xpath.evaluate(
+				"/project/profiles/profile[id='scenarios']//excludes", document), "**/FreshInstallIT.java");
+		assertContains(requiredContents(Path.of("build.gradle.kts")),
+				"lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json");
+		assertContains(requiredContents(Path.of(".github", "workflows", "ci.yml")),
+				"lightkeeper/target/lightkeeper/runtime-manifest-fresh-install.json");
 	}
 
 	@Test
@@ -204,7 +251,7 @@ class LightkeeperIntegrationConfigurationTest {
 			assertContains(support, field);
 		}
 		assertContains(free, "READY, REQUEST, SPAWNED, LANDING_ATTEMPT, LANDED, OUTCOME");
-		assertContains(paid, "REQUEST, OUTCOME");
+		assertContains(paid, "HANDLE_OUTCOME");
 		assertContains(paid, "ECONOMY_PROVIDER_UNAVAILABLE");
 	}
 
@@ -213,12 +260,50 @@ class LightkeeperIntegrationConfigurationTest {
 		String workflow = requiredContents(Path.of(".github", "workflows", "ci.yml"));
 
 		assertContains(workflow, "lightkeeper-test:");
-		assertContains(workflow, "./gradlew --no-daemon --dependency-verification=strict lightkeeperTest");
+		assertContains(workflow, "./gradlew --no-daemon \"$LIGHTKEEPER_TASK\"");
 		assertContains(workflow, "lightkeeper/target/failsafe-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-reports");
 		assertContains(workflow, "lightkeeper/target/lightkeeper-diagnostics");
 		assertContains(workflow, "lightkeeper/target/lightkeeper/runtime-manifest.json");
 		assertContains(workflow, "del(.agentAuthToken)");
+	}
+
+	@Test
+	void ciShardsRunEveryIntegrationClassExactlyOnceInIndependentJobs() throws IOException {
+		Map<?, ?> workflow = new Yaml(new SafeConstructor(new LoaderOptions()))
+				.load(requiredContents(Path.of(".github", "workflows", "ci.yml")));
+		Map<?, ?> jobs = (Map<?, ?>) workflow.get("jobs");
+		Map<?, ?> job = (Map<?, ?>) jobs.get("lightkeeper-test");
+		Map<?, ?> strategy = (Map<?, ?>) job.get("strategy");
+		assertNotNull(strategy, "CI must split integration tests into independent matrix jobs");
+		assertEquals(Boolean.FALSE, strategy.get("fail-fast"), "Collect results from every shard");
+		Map<?, ?> matrix = (Map<?, ?>) strategy.get("matrix");
+		List<?> shards = (List<?>) matrix.get("include");
+		assertEquals(4, shards.size());
+		List<String> selectedTests = new ArrayList<>();
+		for (Object entry : shards) {
+			Map<?, ?> shard = (Map<?, ?>) entry;
+			List<String> tests = List.of(shard.get("tests").toString().split(","));
+			selectedTests.addAll(tests);
+			assertEquals(tests.contains("FreshInstallIT")
+					? "lightkeeperFreshInstallTest" : tests.contains("SendPermissionsIT")
+					? "lightkeeperSendPermissionsTest" : "lightkeeperScenarioTest", shard.get("task"));
+			if (tests.contains("FreshInstallIT")) {
+				assertEquals(List.of("FreshInstallIT"), tests, "Fresh install must retain its dependency-free server");
+			}
+		}
+		assertEquals(selectedTests.size(), new HashSet<>(selectedTests).size(), "Shards must not duplicate scenarios");
+		try (var files = Files.list(INTEGRATION_TESTS)) {
+			var integrationClasses = files.map(path -> path.getFileName().toString())
+					.filter(name -> name.endsWith("IT.java"))
+					.map(name -> name.substring(0, name.length() - ".java".length())).sorted().toList();
+			assertEquals(integrationClasses, selectedTests.stream().sorted().toList(), "CI must not omit integration scenarios");
+		}
+		String contents = requiredContents(Path.of(".github", "workflows", "ci.yml"));
+		assertContains(contents, "ORG_GRADLE_PROJECT_lightkeeperTests: ${{ matrix.tests }}");
+		assertContains(contents, "LIGHTKEEPER_TASK: ${{ matrix.task }}");
+		assertContains(contents, "name: lightkeeper-diagnostics-${{ matrix.lane }}");
+		assertContains(requiredContents(Path.of("build.gradle.kts")), "-Dit.test=");
 	}
 
 	@Test

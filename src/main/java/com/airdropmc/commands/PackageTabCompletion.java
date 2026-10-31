@@ -14,11 +14,16 @@ import java.util.List;
 public class PackageTabCompletion implements TabCompleter {
 	private static final String CREATE = "create";
 	private static final String DELETE = "delete";
+	private static final String PRICE = "price";
 
 	@Override
 	public List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command,
 			@NotNull String alias, String[] args) {
 
+		return complete(commandSender, args);
+	}
+
+	public List<String> complete(CommandSender commandSender, String[] args) {
 		String commandArg = args.length > 1 ? args[1] : "";
 		boolean isAdmin = PermissionsHelper.isAdmin(commandSender);
 		boolean canCreate = commandSender instanceof Player && isAdmin;
@@ -31,11 +36,12 @@ public class PackageTabCompletion implements TabCompleter {
 						commands.add(CREATE);
 					}
 					commands.add(DELETE);
+					commands.add(PRICE);
 				}
 				commands.addAll(PackageManager.getPackages());
 				return TabCompletionFilter.filter(commands, args[1]);
 			case 3:
-				if (DELETE.equals(commandArg) && isAdmin) {
+				if ((DELETE.equals(commandArg) || PRICE.equals(commandArg)) && isAdmin) {
 					return TabCompletionFilter.filter(PackageManager.getPackages(), args[2]);
 				}
 				return List.of();

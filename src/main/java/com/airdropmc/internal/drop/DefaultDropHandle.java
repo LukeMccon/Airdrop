@@ -23,6 +23,7 @@ public final class DefaultDropHandle implements DropHandle {
 	private final CompletionStage<DropSpawnResult> spawnView = spawn.minimalCompletionStage();
 	private final CompletionStage<DropOutcome> outcomeView = outcome.minimalCompletionStage();
 	private volatile ResolvedDropContext context;
+	private volatile BlockedSurface blockedSurface;
 
 	public DefaultDropHandle(DropRequestDescriptor descriptor) {
 		this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
@@ -46,6 +47,14 @@ public final class DefaultDropHandle implements DropHandle {
 	@Override
 	public CompletionStage<DropSpawnResult> spawn() {
 		return spawnView;
+	}
+
+	public Optional<BlockedSurface> blockedSurface() {
+		return Optional.ofNullable(blockedSurface);
+	}
+
+	void publishBlockedSurface(BlockedSurface surface) {
+		blockedSurface = surface;
 	}
 
 	@Override

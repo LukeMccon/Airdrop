@@ -51,7 +51,7 @@ class PackageEditorInventoryIntegrityTest {
 	private Airdrop plugin;
 
 	@BeforeEach
-	void setUp() {
+	void setUp() throws ReflectiveOperationException {
 		server = MockBukkit.mock();
 		PluginMock eventPlugin = MockBukkit.createMockPlugin("AirdropTestHarness");
 		plugin = mock(Airdrop.class);
@@ -60,6 +60,7 @@ class PackageEditorInventoryIntegrityTest {
 		when(plugin.getName()).thenReturn("Airdrop");
 		when(plugin.getServer()).thenReturn(server);
 		Airdrop.setPluginInstance(plugin);
+		setReady(true);
 	}
 
 	@AfterEach
@@ -67,6 +68,8 @@ class PackageEditorInventoryIntegrityTest {
 		PackageGui.closeOpenEditors();
 		try {
 			setPackagesGui(null);
+			setReady(false);
+			PackageManager.clear();
 		} catch (ReflectiveOperationException error) {
 			throw new IllegalStateException(error);
 		}
@@ -195,7 +198,7 @@ class PackageEditorInventoryIntegrityTest {
 	@Test
 	void packageEditorBottomRightClickCopiesOneWithoutConsumingSource() {
 		PlayerMock player = operator();
-		PackageGui gui = new PackageGui(new Package("starter", 3.0, List.of()));
+		PackageGui gui = new PackageGui(publishPackage(List.of()));
 		assertTrue(gui.openInventory(player));
 		Inventory editor = player.getOpenInventory().getTopInventory();
 		player.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 5));
@@ -216,7 +219,7 @@ class PackageEditorInventoryIntegrityTest {
 	@Test
 	void shiftClickFromPlayerInventoryIsACancelledNoOp() {
 		PlayerMock player = operator();
-		PackageGui gui = new PackageGui(new Package("starter", 3.0, List.of()));
+		PackageGui gui = new PackageGui(publishPackage(List.of()));
 		assertTrue(gui.openInventory(player));
 		Inventory editor = player.getOpenInventory().getTopInventory();
 		player.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 5));
@@ -521,7 +524,7 @@ class PackageEditorInventoryIntegrityTest {
 				createPlayer.getOpenInventory().getTopInventory().getItem(0));
 
 		PlayerMock updatePlayer = operator();
-		PackageGui updateGui = new PackageGui(new Package("starter", 3.0, List.of()));
+		PackageGui updateGui = new PackageGui(publishPackage(List.of()));
 		assertTrue(updateGui.openInventory(updatePlayer));
 		updatePlayer.getInventory().setItem(0, new ItemStack(Material.EMERALD, 3));
 		InventoryClickEvent updateClick = bottomClick(
@@ -550,6 +553,7 @@ class PackageEditorInventoryIntegrityTest {
 	private Player mockPlayer() {
 		Player player = mock(Player.class);
 		when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+		when(player.isOp()).thenReturn(true);
 		when(player.getInventory()).thenReturn(mock(PlayerInventory.class));
 		return player;
 	}
@@ -677,7 +681,19 @@ class PackageEditorInventoryIntegrityTest {
 		return item;
 	}
 
+	private static void setReady(boolean ready) throws ReflectiveOperationException {
+		Field field = Airdrop.class.getDeclaredField("ready");
+		field.setAccessible(true);
+		field.set(null, ready);
+	}
+
+	private Package publishPackage(List<ItemStack> items) {
+		Package pkg = new Package("starter", 3.0, items);
+		PackageManager.publishPackages(java.util.Map.of("starter", pkg));
+		return pkg;
+	}
+
 	private Package packageWithStone() {
-		return new Package("starter", 3.0, List.of(new ItemStack(Material.STONE, 2)));
+		return publishPackage(List.of(new ItemStack(Material.STONE, 2)));
 	}
 }

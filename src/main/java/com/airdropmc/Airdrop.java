@@ -2,7 +2,6 @@ package com.airdropmc;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.logging.Level;
@@ -39,7 +38,8 @@ import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.ApiStatus;
 
-import com.airdropmc.commands.CmdAirdrop;
+import com.airdropmc.commands.AirdropCommandRegistration;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 
 /**
  * Main plugin class
@@ -64,6 +64,12 @@ public class Airdrop extends JavaPlugin {
 	private AirdropServiceLifecycle airdropServiceLifecycle;
 
 	@Override
+	public void onLoad() {
+		getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
+				event -> AirdropCommandRegistration.register(event.registrar()));
+	}
+
+	@Override
 	public void onEnable() {
 		shuttingDown = false;
 		ready = false;
@@ -85,9 +91,6 @@ public class Airdrop extends JavaPlugin {
 
 			languageManager = new LanguageManager(this);
 			ChatHandler.init(languageManager);
-
-			Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setExecutor(new CmdAirdrop());
-			Objects.requireNonNull(this.getCommand(AIRDROP_COMMAND)).setTabCompleter(new AirdropTabCompleter());
 
 			Bukkit.getPluginManager().registerEvents(new EconomyProviderListener(this), this);
 			Bukkit.getPluginManager().registerEvents(new FallingCrateListener(), this);
@@ -294,6 +297,17 @@ public class Airdrop extends JavaPlugin {
 		}
 		return observeOperation(
 				coordinator.updatePackageInventory(packageName, items),
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
+				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
+	}
+
+	public CompletionStage<ConfigCoordinator.PackagePriceChange> updatePackagePriceAsync(String packageName, double price) {
+		ConfigCoordinator coordinator = configurationCoordinator;
+		if (coordinator == null || shuttingDown || !ready) {
+			return unavailableStage();
+		}
+		return observeOperation(
+				coordinator.updatePackagePrice(packageName, price),
 				AirdropDiagnostics.Category.PACKAGE_REGISTRY,
 				AirdropDiagnostics.Category.PACKAGE_REGISTRY);
 	}

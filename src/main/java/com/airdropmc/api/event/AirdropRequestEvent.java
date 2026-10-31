@@ -5,8 +5,9 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.HandlerList;
 
 /**
- * Fired after request resolution and before admission, payment, cooldown, or
- * entity side effects.
+ * Fired after provisional admission and terrain resolution, before payment,
+ * purchase cooldown commit, or entity side effects.
+ * Early permission, admission, and terrain rejections fire no lifecycle events.
  *
  * <p>Cancelling this synchronous primary-thread event rejects the request as
  * {@code CANCELLED}.</p>

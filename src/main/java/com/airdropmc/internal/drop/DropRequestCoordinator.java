@@ -34,6 +34,7 @@ import com.airdropmc.exceptions.PackageNotFoundException;
 import com.airdropmc.helpers.CrateManager;
 import com.airdropmc.helpers.AirdropLogger;
 import com.airdropmc.helpers.PermissionsHelper;
+import com.airdropmc.helpers.SendPermissions;
 import com.airdropmc.internal.api.ApiModelMapper;
 import com.airdropmc.limits.DropAdmissionController;
 import com.airdropmc.limits.DropLocationKey;
@@ -41,8 +42,11 @@ import com.airdropmc.packages.Package;
 import com.airdropmc.packages.PackageManager;
 import com.airdropmc.paid.PaidDropSession;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.command.CommandSender;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -56,6 +60,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 
 /** Coordinates all free, paid, player, and system request phases. */
 @ApiStatus.Internal
@@ -68,18 +73,25 @@ public final class DropRequestCoordinator {
 
 	private final Plugin plugin;
 	private final DropSettingsResolver settingsResolver;
+	private final RemoteChunkLoader remoteChunks;
 	private final Map<UUID, DropRequestProcess> processes = new LinkedHashMap<>();
+	private final Map<Runnable, org.bukkit.scheduler.BukkitTask> landedChunkCleanup = new LinkedHashMap<>();
 	private volatile int pendingCount;
 	private boolean accepting;
 	private boolean stopping;
 
 	public DropRequestCoordinator(Plugin plugin) {
-		this(plugin, new DropSettingsResolver());
+		this(plugin, new DropSettingsResolver(), System::nanoTime);
 	}
 
 	DropRequestCoordinator(Plugin plugin, DropSettingsResolver settingsResolver) {
+		this(plugin, settingsResolver, System::nanoTime);
+	}
+
+	DropRequestCoordinator(Plugin plugin, DropSettingsResolver settingsResolver, LongSupplier clock) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.settingsResolver = Objects.requireNonNull(settingsResolver, "settingsResolver");
+		this.remoteChunks = new RemoteChunkLoader(plugin, clock);
 	}
 
 	public void startAccepting() {
@@ -102,7 +114,36 @@ public final class DropRequestCoordinator {
 				requiredPlayer.getUniqueId(),
 				requiredPackage,
 				requested);
-		return begin(descriptor, requiredPlayer, requiredOptions, null);
+		return begin(descriptor, requiredPlayer, requiredOptions, null, null, false, null,
+				requiredPlayer.hasPermission("airdrop.cost.bypass"));
+	}
+
+	public DropHandle requestSendDrop(CommandSender sender, Player recipient, String packageName,
+			DropRequestOptions options, boolean requireRecipientPermission) {
+		requirePrimaryThread("requestSendDrop");
+		Objects.requireNonNull(recipient, "recipient");
+		return requestSendDrop(sender, recipient.getLocation(), recipient, packageName, options,
+				requireRecipientPermission);
+	}
+
+	public DropHandle requestSendDrop(CommandSender sender, Location location, String packageName,
+			DropRequestOptions options) {
+		requirePrimaryThread("requestSendDrop");
+		return requestSendDrop(sender, location, null, packageName, options, false);
+	}
+
+	private DropHandle requestSendDrop(CommandSender sender, Location location, Player recipient,
+			String packageName, DropRequestOptions options, boolean requireRecipientPermission) {
+		CommandSender requiredSender = Objects.requireNonNull(sender, "sender");
+		Player player = requiredSender instanceof Player initiator ? initiator : null;
+		// Capture the effective payment policy once; later permission changes cannot change the charge.
+		boolean costExempt = SendPermissions.isCostExempt(requiredSender);
+		DropRequestDescriptor descriptor = new DropRequestDescriptor(UUID.randomUUID(),
+				player == null ? DropSource.SYSTEM : DropSource.PLAYER,
+				player == null ? null : player.getUniqueId(), requirePackageName(packageName),
+				Objects.requireNonNull(location, "location"));
+		return begin(descriptor, player, Objects.requireNonNull(options, "options"), null, recipient,
+				requireRecipientPermission, requiredSender, costExempt);
 	}
 
 	public DropHandle requestSystemDrop(
@@ -117,7 +158,7 @@ public final class DropRequestCoordinator {
 				null,
 				requiredPackage,
 				requiredLocation);
-		return begin(descriptor, null, requiredOptions, null);
+		return begin(descriptor, null, requiredOptions, null, null, false, null, false);
 	}
 
 	/** Internal adapter for a package object already resolved by legacy code. */
@@ -130,7 +171,8 @@ public final class DropRequestCoordinator {
 		DropRequestDescriptor descriptor = new DropRequestDescriptor(
 				UUID.randomUUID(), DropSource.PLAYER, requiredPlayer.getUniqueId(),
 				requiredPackage.getName(), requiredPlayer.getLocation());
-		return begin(descriptor, requiredPlayer, requiredOptions, requiredPackage);
+		return begin(descriptor, requiredPlayer, requiredOptions, requiredPackage, null, false, null,
+				requiredPlayer.hasPermission("airdrop.cost.bypass"));
 	}
 
 	/** Internal adapter for a package object already resolved by legacy code. */
@@ -143,7 +185,7 @@ public final class DropRequestCoordinator {
 		DropRequestDescriptor descriptor = new DropRequestDescriptor(
 				UUID.randomUUID(), DropSource.SYSTEM, null,
 				requiredPackage.getName(), requiredLocation);
-		return begin(descriptor, null, requiredOptions, requiredPackage);
+		return begin(descriptor, null, requiredOptions, requiredPackage, null, false, null, false);
 	}
 
 	public void stop() {
@@ -156,6 +198,11 @@ public final class DropRequestCoordinator {
 		for (DropRequestProcess process : List.copyOf(processes.values())) {
 			stop(process);
 		}
+		for (var entry : List.copyOf(landedChunkCleanup.entrySet())) {
+			entry.getValue().cancel();
+			entry.getKey().run();
+		}
+		landedChunkCleanup.clear();
 	}
 
 	int incompleteCount() {
@@ -171,9 +218,15 @@ public final class DropRequestCoordinator {
 			DropRequestDescriptor descriptor,
 			Player player,
 			DropRequestOptions options,
-			Package suppliedPackage) {
+			Package suppliedPackage,
+			Player recipient,
+			boolean requireRecipientPermission,
+			CommandSender targetedSender,
+			boolean costExempt) {
 		DefaultDropHandle handle = new DefaultDropHandle(descriptor);
 		DropRequestProcess process = new DropRequestProcess(handle);
+		process.payment = costExempt ? PaymentStatus.NOT_APPLICABLE
+				: preResolutionPayment(descriptor.source());
 		processes.put(handle.requestId(), process);
 		publishPendingCount();
 		AirdropLogger.debugRequest(handle.requestId(), AirdropLogger.RequestPhase.CREATED);
@@ -184,7 +237,14 @@ public final class DropRequestCoordinator {
 					: DropRejectionReason.SERVICE_UNAVAILABLE;
 			return reject(process, reason,
 					stopping ? "Airdrop is shutting down" : "Airdrop is not ready",
-					preResolutionPayment(descriptor.source()));
+					process.payment);
+		}
+
+		if (targetedSender != null && (!SendPermissions.hasSendPermission(targetedSender)
+				|| player == null && !costExempt)) {
+			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
+					"Send requires authorization and a console cost exemption",
+					costExempt ? PaymentStatus.NOT_APPLICABLE : PaymentStatus.REJECTED);
 		}
 
 		Package pkg;
@@ -195,86 +255,188 @@ public final class DropRequestCoordinator {
 		} catch (PackageNotFoundException failure) {
 			return reject(process, DropRejectionReason.UNKNOWN_PACKAGE,
 					"Unknown package: " + descriptor.requestedPackageName(),
-					preResolutionPayment(descriptor.source()));
+					process.payment);
+		}
+		process.payment = costExempt ? PaymentStatus.NOT_APPLICABLE : paymentFor(descriptor.source(), pkg);
+		if (recipient != null && !recipient.isOnline()) {
+			return reject(process, DropRejectionReason.INVALID_TARGET,
+					"Send recipient is not online", process.payment);
 		}
 
 		ResolvedDropSettings settings;
 		AirdropPackage packageSnapshot;
-		DropTarget target;
+		Location requested = descriptor.requestedLocation();
 		try {
 			settings = settingsResolver.resolve(options);
 			packageSnapshot = ApiModelMapper.packageSnapshot(pkg);
-			target = resolveTarget(descriptor.requestedLocation(), settings);
-		} catch (SkyBlocked failure) {
-			return reject(process, DropRejectionReason.SKY_NOT_CLEAR,
-					"Target is not open to the sky", paymentFor(descriptor.source(), pkg));
+			validateDestination(requested);
 		} catch (RuntimeException failure) {
-			return reject(process, DropRejectionReason.INVALID_TARGET,
-					"Could not resolve the drop target", paymentFor(descriptor.source(), pkg));
+			return reject(process, invalidReason(failure),
+					"Invalid destination: " + failure.getMessage(), process.payment);
 		}
-
-		ResolvedDropContext context = new ResolvedDropContext(
-				descriptor, packageSnapshot, target.spawn(), target.landing(), settings);
-		process.context = context;
-		handle.publishContext(context);
-		AirdropLogger.debugRequest(handle.requestId(), AirdropLogger.RequestPhase.RESOLVED);
-		process.payment = paymentFor(descriptor.source(), packageSnapshot.price());
-		AirdropRequestEvent requestEvent = new AirdropRequestEvent(context);
-		process.requestEventPublished = true;
-		Bukkit.getPluginManager().callEvent(requestEvent);
-		if (process.phase == DropRequestProcess.Phase.TERMINAL) {
-			return handle;
-		}
-		if (requestEvent.isCancelled()) {
-			return reject(process, DropRejectionReason.CANCELLED,
-					"Request cancelled by an AirdropRequestEvent listener", process.payment);
-		}
-
-		if (player != null && !PermissionsHelper.hasPermission(player, pkg.getName())) {
+		process.payment = costExempt ? PaymentStatus.NOT_APPLICABLE
+				: paymentFor(descriptor.source(), packageSnapshot.price());
+		if (!hasRequestPermissions(player, recipient, targetedSender, pkg.getName(), requireRecipientPermission)) {
 			return reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION,
-					"Player lacks package permission", process.payment);
+					"Sender or recipient lacks package access", process.payment);
 		}
-
 		DropAdmissionController admission = Airdrop.getDropAdmissionController();
 		if (admission == null) {
 			return reject(process, DropRejectionReason.SERVICE_UNAVAILABLE,
 					"Drop admission is unavailable", process.payment);
 		}
 		try {
-			process.lease = player == null
-					? admission.acquireSystem(target.landingKey(), toLimitSettings(settings))
-					: admission.acquirePlayer(
-							player.getUniqueId(),
-							PermissionsHelper.hasCooldownBypass(player),
-							target.landingKey(),
+			process.lease = player == null ? admission.prepareSystem(toLimitSettings(settings))
+					: admission.preparePlayer(player.getUniqueId(), PermissionsHelper.hasCooldownBypass(player),
 							toLimitSettings(settings));
-			process.phase = DropRequestProcess.Phase.ADMITTED;
-			AirdropLogger.debugAdmission(
-					handle.requestId(), AirdropLogger.AdmissionDecision.ACCEPTED, null);
 		} catch (DropLimitException failure) {
-			return reject(process, mapLimit(failure), limitDiagnostic(failure), process.payment,
-					failure.getReason() == DropLimitException.Reason.COOLDOWN
-							? Optional.of(Duration.ofSeconds(failure.getRetryAfterSeconds()))
-							: Optional.empty());
+			return rejectLimit(process, failure);
 		}
+		Runnable resolve = () -> resolvePrepared(process, requested, packageSnapshot, settings,
+				player, recipient, targetedSender, requireRecipientPermission, costExempt);
+		World world = requested.getWorld();
+		int chunkX = requested.getBlockX() >> 4;
+		int chunkZ = requested.getBlockZ() >> 4;
+		if (world.isChunkLoaded(chunkX, chunkZ)
+				&& world.getChunkAt(chunkX, chunkZ).getLoadLevel() == Chunk.LoadLevel.ENTITY_TICKING) {
+			process.releaseChunk = remoteChunks.retain(world.getChunkAt(chunkX, chunkZ));
+			resolve.run();
+		} else {
+			// Cheap economy readiness avoids terrain work for a payment that cannot begin.
+			if (!economyAvailable(process)) return handle;
+			process.remoteLoad = remoteChunks.load(requested, descriptor.playerId().orElse(null), (load, chunk) -> {
+				process.remoteLoad = load;
+				if (process.phase == DropRequestProcess.Phase.TERMINAL || stopping) return;
+				try {
+					validateDestination(requested);
+					process.releaseChunk = remoteChunks.retain(chunk);
+					process.readinessTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+						if (process.phase == DropRequestProcess.Phase.TERMINAL) return;
+						if (load.expired()) {
+							load.timeout();
+						} else if (chunk.getLoadLevel() == Chunk.LoadLevel.ENTITY_TICKING) {
+							process.readinessTask.cancel();
+							resolve.run();
+						}
+					}, 1L, 1L);
+				} catch (RuntimeException failure) {
+					reject(process, DropRejectionReason.INVALID_TARGET, "Could not retain destination", process.payment);
+				}
+			}, rejection -> reject(process, rejection.reason(), rejection.diagnostic(), process.payment, rejection.retryAfter()));
+		}
+		return handle;
+	}
 
-		if (player == null || packageSnapshot.price().signum() == 0) {
+	private void resolvePrepared(DropRequestProcess process, Location requested, AirdropPackage packageSnapshot,
+			ResolvedDropSettings settings, Player player, Player recipient, CommandSender targetedSender,
+			boolean requireRecipientPermission, boolean costExempt) {
+		if (process.phase == DropRequestProcess.Phase.TERMINAL || stopping) return;
+		DropTarget target;
+		try {
+			validateDestination(requested);
+			target = resolveTarget(requested, settings);
+			process.lease.bind(target.landingKey());
+		} catch (SkyBlocked failure) {
+			process.handle.publishBlockedSurface(failure.surface);
+			reject(process, DropRejectionReason.SKY_NOT_CLEAR, "Target is not open to the sky", process.payment);
+			return;
+		} catch (DropLimitException failure) {
+			rejectLimit(process, failure);
+			return;
+		} catch (RuntimeException failure) {
+			reject(process, invalidReason(failure), "Could not resolve destination", process.payment);
+			return;
+		}
+		ResolvedDropContext context = new ResolvedDropContext(process.handle.descriptor(), packageSnapshot,
+				target.spawn(), target.landing(), settings);
+		process.context = context;
+		process.handle.publishContext(context);
+		AirdropLogger.debugRequest(process.handle.requestId(), AirdropLogger.RequestPhase.RESOLVED);
+		AirdropRequestEvent event = new AirdropRequestEvent(context);
+		process.requestEventPublished = true;
+		Bukkit.getPluginManager().callEvent(event);
+		if (process.phase == DropRequestProcess.Phase.TERMINAL) return;
+		if (event.isCancelled()) {
+			reject(process, DropRejectionReason.CANCELLED, "Request event cancelled", process.payment);
+			return;
+		}
+		if (!hasRequestPermissions(player, recipient, targetedSender, packageSnapshot.name(), requireRecipientPermission)) {
+			reject(process, DropRejectionReason.INSUFFICIENT_PERMISSION, "Package access changed", process.payment);
+			return;
+		}
+		try {
+			validateDestination(target.landing());
+		} catch (RuntimeException invalid) {
+			reject(process, invalidReason(invalid), "Destination changed during preparation", process.payment);
+			return;
+		}
+		if (process.remoteLoad != null) {
+			if (process.remoteLoad.expired()) {
+				process.remoteLoad.timeout();
+				return;
+			}
+			process.remoteLoad.close();
+		}
+		process.phase = DropRequestProcess.Phase.ADMITTED;
+		AirdropLogger.debugAdmission(process.handle.requestId(), AirdropLogger.AdmissionDecision.ACCEPTED, null);
+		if (player == null || costExempt || packageSnapshot.price().signum() == 0) {
 			process.payment = PaymentStatus.NOT_APPLICABLE;
 			spawn(process);
-			return handle;
+		} else if (economyAvailable(process)) {
+			startPayment(process, player, Airdrop.getEconomyProvider(), packageSnapshot.price());
 		}
-		if (!ConfigKeys.isEconomyEnabled()) {
-			return reject(process, DropRejectionReason.ECONOMY_DISABLED,
-					"Economy support is disabled", PaymentStatus.REJECTED);
-		}
-		EconomyProvider economy = Airdrop.getEconomyProvider();
-		if (economy == null) {
-			return reject(process, DropRejectionReason.ECONOMY_PROVIDER_UNAVAILABLE,
-					"No economy provider is available", PaymentStatus.REJECTED);
-		}
+	}
 
-		startPayment(process, player, economy, packageSnapshot.price());
-		return handle;
+	private boolean economyAvailable(DropRequestProcess process) {
+		if (process.payment == PaymentStatus.NOT_APPLICABLE) return true;
+		if (!ConfigKeys.isEconomyEnabled()) {
+			reject(process, DropRejectionReason.ECONOMY_DISABLED, "Economy support is disabled", PaymentStatus.REJECTED);
+			return false;
+		}
+		if (Airdrop.getEconomyProvider() == null) {
+			reject(process, DropRejectionReason.ECONOMY_PROVIDER_UNAVAILABLE, "No economy provider", PaymentStatus.REJECTED);
+			return false;
+		}
+		return true;
+	}
+
+	private static boolean hasRequestPermissions(Player player, Player recipient, CommandSender sender,
+			String name, boolean requireRecipientPermission) {
+		return (sender == null || SendPermissions.hasSendPermission(sender))
+				&& (player == null || PermissionsHelper.hasPermission(player, name))
+				&& (recipient == null || !requireRecipientPermission
+						|| PermissionsHelper.hasPermission(recipient, name));
+	}
+
+	private static void validateDestination(Location requested) {
+		World world = requested.getWorld();
+		if (world == null || Bukkit.getWorld(world.getUID()) != world) {
+			throw new IllegalArgumentException("World is not loaded");
+		}
+		if (!Double.isFinite(requested.getX()) || !Double.isFinite(requested.getY())
+				|| !Double.isFinite(requested.getZ()) || Math.abs(requested.getX()) >= 30_000_000
+				|| Math.abs(requested.getZ()) >= 30_000_000) {
+			throw new IllegalArgumentException("Coordinates exceed supported bounds");
+		}
+		Location centered = new Location(world, requested.getBlockX() + HALF_BLOCK,
+				requested.getY(), requested.getBlockZ() + HALF_BLOCK);
+		if (!world.getWorldBorder().isInside(centered)) {
+			throw new OutsideBorder();
+		}
+	}
+
+	private static DropRejectionReason invalidReason(RuntimeException failure) {
+		return failure instanceof OutsideBorder ? DropRejectionReason.OUTSIDE_WORLD_BORDER : DropRejectionReason.INVALID_TARGET;
+	}
+
+	private static final class OutsideBorder extends IllegalArgumentException {
+		OutsideBorder() { super("Destination is outside the world border"); }
+	}
+
+	private DropHandle rejectLimit(DropRequestProcess process, DropLimitException failure) {
+		return reject(process, mapLimit(failure), limitDiagnostic(failure), process.payment,
+				failure.getReason() == DropLimitException.Reason.COOLDOWN
+						? Optional.of(Duration.ofSeconds(failure.getRetryAfterSeconds())) : Optional.empty());
 	}
 
 	private void startPayment(
@@ -369,6 +531,13 @@ public final class DropRequestCoordinator {
 					WorldPosition.from(falling.getLocation()),
 					context);
 			process.phase = DropRequestProcess.Phase.FALLING;
+			long fallTicks = Math.max(2400, 2L * (long) Math.ceil(context.settings().dropHeight()
+					/ context.settings().fallingSpeed()) + 600);
+			process.fallingDeadline = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+				if (process.phase == DropRequestProcess.Phase.FALLING) {
+					CrateManager.removeCrateAndDestroy(process.crate);
+				}
+			}, fallTicks);
 			if (!process.handle.completeSpawned(
 					new DropSpawnResult.Spawned(context, view, process.payment))) {
 				throw new IllegalStateException("Could not complete the request spawn stage");
@@ -417,6 +586,28 @@ public final class DropRequestCoordinator {
 				|| process.phase == DropRequestProcess.Phase.LANDED
 				|| process.phase == DropRequestProcess.Phase.REFUNDING) {
 			return;
+		}
+		if (!crate.isPaid() && process.releaseChunk != null) {
+			// Free crates have no durable recovery. Keep their existing destination ticket
+			// through the captured expiry, transferring before any landed event can retire them.
+			crate.retainLandedChunk(process.releaseChunk);
+			process.releaseChunk = null;
+		}
+		if (process.remoteLoad != null) {
+			crate.cleanupParachutes();
+		} else if (process.releaseChunk != null) {
+			Runnable release = process.releaseChunk;
+			Runnable cleanup = () -> {
+				crate.cleanupParachutes();
+				release.run();
+			};
+			// The parachute task detects landing within two ticks, then flies away for 60.
+			var task = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+				landedChunkCleanup.remove(cleanup);
+				cleanup.run();
+			}, 62L);
+			landedChunkCleanup.put(cleanup, task);
+			process.releaseChunk = null;
 		}
 		ResolvedDropContext context = Objects.requireNonNull(process.context, "context");
 		LandedAirdropView view = new LandedAirdropView(
@@ -515,6 +706,7 @@ public final class DropRequestCoordinator {
 		DropRejection rejection = new DropRejection(reason, diagnostic, retryAfter);
 		DropOutcome.Rejected outcome = new DropOutcome.Rejected(
 				process.handle.descriptor(), Optional.ofNullable(process.context), rejection, payment);
+		cleanupPreparation(process);
 		process.phase = DropRequestProcess.Phase.TERMINAL;
 		processes.remove(process.handle.requestId(), process);
 		publishPendingCount();
@@ -534,6 +726,7 @@ public final class DropRequestCoordinator {
 		boolean spawned = process.handle.spawn().toCompletableFuture().isDone()
 				&& process.handle.spawn().toCompletableFuture().getNow(null)
 						instanceof DropSpawnResult.Spawned;
+		cleanupPreparation(process);
 		process.phase = DropRequestProcess.Phase.TERMINAL;
 		if (!spawned && process.lease != null) {
 			process.lease.close();
@@ -545,6 +738,7 @@ public final class DropRequestCoordinator {
 				? process.handle.completeOutcome(outcome)
 				: process.handle.completeNotSpawned(outcome);
 		if (completed) {
+			AirdropLogger.requestFailure(process.handle.requestId(), delivery, payment);
 			AirdropLogger.debugRequest(
 					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL, delivery);
 			publishOutcome(process, outcome);
@@ -552,6 +746,7 @@ public final class DropRequestCoordinator {
 	}
 
 	private void finishSpawned(DropRequestProcess process, DropOutcome outcome) {
+		cleanupPreparation(process);
 		process.phase = DropRequestProcess.Phase.TERMINAL;
 		processes.remove(process.handle.requestId(), process);
 		publishPendingCount();
@@ -561,6 +756,16 @@ public final class DropRequestCoordinator {
 					process.handle.requestId(), AirdropLogger.RequestPhase.TERMINAL,
 					outcome.delivery());
 			publishOutcome(process, outcome);
+		}
+	}
+
+	private void cleanupPreparation(DropRequestProcess process) {
+		if (process.remoteLoad != null) process.remoteLoad.close();
+		if (process.readinessTask != null) process.readinessTask.cancel();
+		if (process.fallingDeadline != null) process.fallingDeadline.cancel();
+		if (process.releaseChunk != null) {
+			process.releaseChunk.run();
+			process.releaseChunk = null;
 		}
 	}
 
@@ -604,7 +809,7 @@ public final class DropRequestCoordinator {
 		}
 		if (process.context == null) {
 			reject(process, DropRejectionReason.SHUTTING_DOWN,
-					"Airdrop is shutting down", preResolutionPayment(process.handle.descriptor().source()));
+					"Airdrop is shutting down", process.payment);
 			return;
 		}
 		finishFailure(process, DeliveryStatus.SHUTDOWN,
@@ -618,10 +823,10 @@ public final class DropRequestCoordinator {
 		if (world == null) {
 			throw new IllegalArgumentException("Requested location has no world");
 		}
-		Location ground = world.getHighestBlockAt(
-				requested.getBlockX(), requested.getBlockZ()).getLocation().add(HALF_BLOCK, 0, HALF_BLOCK);
+		Block surface = world.getHighestBlockAt(requested.getBlockX(), requested.getBlockZ());
+		Location ground = surface.getLocation().add(HALF_BLOCK, 0, HALF_BLOCK);
 		if (requested.getBlockY() < ground.getBlockY()) {
-			throw new SkyBlocked();
+			throw new SkyBlocked(new BlockedSurface(surface.getType(), ground.getBlockY()));
 		}
 		Location spawn = ground.clone().add(0, settings.dropHeight(), 0);
 		Location landing = ground.clone().add(0, 1, 0);
@@ -688,5 +893,10 @@ public final class DropRequestCoordinator {
 	}
 
 	private static final class SkyBlocked extends RuntimeException {
+		private final BlockedSurface surface;
+
+		private SkyBlocked(BlockedSurface surface) {
+			this.surface = surface;
+		}
 	}
 }

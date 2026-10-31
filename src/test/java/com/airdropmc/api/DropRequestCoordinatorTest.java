@@ -46,7 +46,10 @@ class DropRequestCoordinatorTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("request_world");
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "request_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);
 		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());
@@ -235,6 +238,22 @@ class DropRequestCoordinatorTest {
 	}
 
 	@Test
+	void playerAtSurfaceHeightKeepsExistingSpawnAndLandingTarget() {
+		world.getBlockAt(12, 82, 13).setType(Material.STONE_BRICKS);
+		PlayerMock player = server.addPlayer("ClearSky");
+		player.setOp(true);
+		player.teleport(new Location(world, 12.25, 82, 13.75));
+
+		DropHandle handle = api.requestPlayerDrop(player, "starter", quietOptions());
+
+		DropSpawnResult.Spawned spawned = assertInstanceOf(
+				DropSpawnResult.Spawned.class, handle.spawn().toCompletableFuture().join());
+		assertEquals(PaymentStatus.NOT_APPLICABLE, spawned.payment());
+		assertEquals(new Location(world, 12.5, 102, 13.5), handle.context().orElseThrow().spawnLocation());
+		assertEquals(new Location(world, 12.5, 83, 13.5), handle.context().orElseThrow().landingLocation());
+	}
+
+	@Test
 	void permissionAndSkyFailuresAreTypedBeforeAdmissionSideEffects() {
 		PlayerMock denied = server.addPlayer("Denied");
 		denied.teleport(new Location(world, 30, 100, 30));
@@ -245,7 +264,7 @@ class DropRequestCoordinatorTest {
 						.outcome().toCompletableFuture().join());
 		assertEquals(DropRejectionReason.INSUFFICIENT_PERMISSION,
 				permission.rejection().reason());
-		assertTrue(permission.context().isPresent());
+		assertTrue(permission.context().isEmpty());
 
 		PlayerMock blocked = server.addPlayer("Blocked");
 		blocked.setOp(true);
@@ -361,6 +380,54 @@ class DropRequestCoordinatorTest {
 		DropOutcome.Failed outcome = assertInstanceOf(
 				DropOutcome.Failed.class, handle.outcome().toCompletableFuture().join());
 		assertEquals(DeliveryStatus.FAILED, outcome.delivery());
+	}
+
+	@Test
+	void terminalFailureLogsOnceWithDebugOffEvenWhenLateSignalsRepeat() {
+		assertFalse(ConfigKeys.isDebugLoggingEnabled());
+		List<java.util.logging.LogRecord> records = new java.util.ArrayList<>();
+		java.util.logging.Handler capture = new java.util.logging.Handler() {
+			@Override
+			public void publish(java.util.logging.LogRecord record) {
+				records.add(record);
+			}
+
+			@Override
+			public void flush() { }
+
+			@Override
+			public void close() { }
+		};
+		plugin.getLogger().addHandler(capture);
+		try {
+			DropHandle handle = api.requestSystemDrop(
+					new Location(world, 80, 100, 80), "starter", quietOptions());
+			handle.spawn().toCompletableFuture().join();
+			FallingBlock falling = CrateManager.getCrateMap().keySet().iterator().next();
+			EntityChangeBlockEvent wrongLanding = new EntityChangeBlockEvent(
+					falling, world.getBlockAt(81, 1, 81), Material.BARREL.createBlockData());
+			assertThrows(IllegalStateException.class,
+					() -> server.getPluginManager().callEvent(wrongLanding));
+			DropOutcome.Failed failed = assertInstanceOf(DropOutcome.Failed.class,
+					handle.outcome().toCompletableFuture().join());
+			assertEquals(DeliveryStatus.FAILED, failed.delivery());
+			assertEquals(PaymentStatus.NOT_APPLICABLE, failed.payment());
+			server.getPluginManager().callEvent(wrongLanding);
+			server.getScheduler().performTicks(2);
+			api.requestSystemDrop(new Location(world, 90, 100, 90), "missing", quietOptions());
+			plugin.onDisable();
+
+			var failures = records.stream()
+					.filter(record -> record.getMessage().startsWith("Delivery failed request="))
+					.toList();
+			assertEquals(1, failures.size());
+			assertEquals(java.util.logging.Level.WARNING, failures.getFirst().getLevel());
+			assertEquals("Delivery failed request=" + handle.requestId()
+					+ " delivery=FAILED payment=NOT_APPLICABLE", failures.getFirst().getMessage());
+			assertTrue(records.stream().noneMatch(record -> record.getMessage().contains("[DEBUG]")));
+		} finally {
+			plugin.getLogger().removeHandler(capture);
+		}
 	}
 
 	private Airdrop preparedPlugin() throws Exception {

@@ -9,9 +9,11 @@ public final class AirdropCommandNames {
 	public static final String VERSION = "version";
 	public static final String STATUS = "status";
 	public static final String RELOAD = "reload";
+	public static final String SEND = "send";
 
 	private static final Set<String> TOP_LEVEL = Set.of(PACKAGE, PACKAGES, VERSION, STATUS, RELOAD);
 	private static final List<String> STANDARD = List.of(PACKAGE, VERSION);
+	private static final List<String> STANDARD_PLAYER = List.of(PACKAGE, PACKAGES, VERSION);
 	private static final List<String> ADMIN_PLAYER = List.of(PACKAGE, PACKAGES, VERSION, STATUS, RELOAD);
 	private static final List<String> ADMIN_NON_PLAYER = List.of(PACKAGE, VERSION, STATUS, RELOAD);
 
@@ -24,7 +26,7 @@ public final class AirdropCommandNames {
 
 	public static List<String> visibleTo(boolean admin, boolean player) {
 		if (!admin) {
-			return STANDARD;
+			return player ? STANDARD_PLAYER : STANDARD;
 		}
 		return player ? ADMIN_PLAYER : ADMIN_NON_PLAYER;
 	}

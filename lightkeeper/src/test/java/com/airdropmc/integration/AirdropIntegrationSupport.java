@@ -77,6 +77,10 @@ final class AirdropIntegrationSupport {
 	}
 
 	static void awaitReady(ILightkeeperFramework framework) {
+		awaitReady(framework, false);
+	}
+
+	static void awaitReady(ILightkeeperFramework framework, boolean withLuckPerms) {
 		eventually(Duration.ofSeconds(20), () ->
 				assertThat(framework.server().output())
 						.anyMatch(line -> line.contains(
@@ -89,8 +93,15 @@ final class AirdropIntegrationSupport {
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
 		assertThat(framework.server().plugin("Vault"))
 				.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
-		assertThat(framework.server().plugin("LuckPerms")).isEmpty();
-		awaitConsumerMarkers(framework, 0, List.of("READY"));
+		if (withLuckPerms) {
+			assertThat(framework.server().plugin("LuckPerms"))
+					.hasValueSatisfying(plugin -> assertThat(plugin.isEnabled()).isTrue());
+		} else {
+			assertThat(framework.server().plugin("LuckPerms")).isEmpty();
+		}
+		// Startup is shared by every method in the class; earlier requests remain in the log.
+		eventually(Duration.ofSeconds(20), () -> assertThat(consumerMarkers(framework, 0))
+				.filteredOn(marker -> "READY".equals(marker.type())).singleElement());
 	}
 
 	static void enableEconomyProvider(ILightkeeperFramework framework) {
@@ -114,12 +125,31 @@ final class AirdropIntegrationSupport {
 				.withSeed(26L)
 				.build();
 
-		for (int x = -2; x <= 2; x++) {
-			for (int z = -2; z <= 2; z++) {
-				world.setBlockAt(new BlockPos(x, PLATFORM_Y, z), "minecraft:stone");
-			}
-		}
+		remoteFixture(framework, "prepare", world, LANDING_X, LANDING_Z);
+		placeLandingPlatform(framework, world, PLATFORM_POSITION);
 		return world;
+	}
+
+	static String remoteFixture(ILightkeeperFramework framework, String action, WorldHandle world, int x, int z) {
+		String token = UUID.randomUUID().toString();
+		String marker = "AIRDR_73_REMOTE token=" + token + " action=" + action;
+		int offset = framework.server().output().size();
+		assertThat(framework.server().executeCommand(CommandSource.CONSOLE,
+				"lkremote " + action + " " + token + " " + world.name() + " " + x + " " + z).success()).isTrue();
+		framework.waitUntil(() -> newOutput(framework, offset)
+				.stream().anyMatch(line -> line.contains(marker)), Duration.ofSeconds(20));
+		String result = newOutput(framework, offset).stream()
+				.filter(line -> line.contains(marker)).findFirst().orElseThrow();
+		assertThat(result).contains("status=OK");
+		return result;
+	}
+
+	static void placeLandingPlatform(ILightkeeperFramework framework, WorldHandle world, BlockPos center) {
+		CommandResult result = framework.server().executeCommand(CommandSource.CONSOLE,
+				"airdrop-consumer platform %s %s %d %d %d".formatted(
+						UUID.randomUUID(), world.name(), center.x(), center.y(), center.z()));
+		assertThat(result.success()).as("place landing platform in %s", world.name()).isTrue();
+		assertThat(world.blockTypeAt(center)).as("landing platform was placed").isEqualTo("minecraft:stone");
 	}
 
 	static void keepLandingChunkLoaded(ILightkeeperFramework framework, WorldHandle world) {
@@ -144,6 +174,18 @@ final class AirdropIntegrationSupport {
 
 	static void moveAway(PlayerHandle player, WorldHandle world) {
 		player.teleport(world, 10.5, BARREL_Y, 10.5);
+	}
+
+	static void cleanupCrate(ILightkeeperFramework framework, WorldHandle world) {
+		// Teardown uses Paper's normal destruction/reconciliation, not a direct retirement call.
+		framework.server().executeCommand(CommandSource.CONSOLE,
+				"airdrop-lightkeeper-block-explode %s 0.5 81.5 0.5 4".formatted(world.name()));
+		awaitBlock(world, BARREL_POSITION, "minecraft:air");
+		long explodedAt = framework.server().currentTick();
+		eventually(Duration.ofSeconds(5), () ->
+				assertThat(framework.server().currentTick()).isGreaterThan(explodedAt + 1));
+		framework.server().executeCommand(CommandSource.CONSOLE,
+				"minecraft:execute in minecraft:%s run kill @e[type=minecraft:item]".formatted(world.name()));
 	}
 
 	static void awaitBlock(WorldHandle world, BlockPos position, String material) {

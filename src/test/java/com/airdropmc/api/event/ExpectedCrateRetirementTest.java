@@ -62,7 +62,7 @@ class ExpectedCrateRetirementTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("expected_retirement_world");
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "expected_retirement_world");
 		Airdrop plugin = (Airdrop) server.getPluginManager().loadPlugin(Airdrop.class, new Object[0]);
 		Files.createDirectories(plugin.getDataFolder().toPath());
 		Files.writeString(plugin.getDataFolder().toPath().resolve("config.yml"),

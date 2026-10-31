@@ -45,6 +45,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.locks.LockSupport;
@@ -72,7 +73,10 @@ class DropControllerEconomyFlowTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		server = MockBukkit.mock();
-		world = server.addSimpleWorld("economy_world");
+		// MockBukkit does not register plugin.yml permissions; model the production default.
+		server.getPluginManager().addPermission(new org.bukkit.permissions.Permission(
+				"airdrop.cost.bypass", org.bukkit.permissions.PermissionDefault.FALSE));
+		world = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "economy_world");
 		plugin = preparedPlugin();
 		server.getPluginManager().enablePlugin(plugin);
 		awaitCondition(() -> Airdrop.isReady() || !plugin.isEnabled());
@@ -89,6 +93,23 @@ class DropControllerEconomyFlowTest {
 		CrateManager.clearAll();
 		PackageManager.clear();
 		MockBukkit.unmock();
+	}
+
+	@Test
+	void blockedPaidRequestDoesNotAcquireAdmissionOrStartPayment() {
+		player.teleport(new Location(world, 0, 64, 0));
+		world.getBlockAt(0, 82, 0).setType(Material.OAK_LEAVES);
+
+		DropOutcome.Rejected outcome = assertInstanceOf(
+				DropOutcome.Rejected.class, request("paid").outcome().toCompletableFuture().join());
+
+		assertEquals(DropRejectionReason.SKY_NOT_CLEAR, outcome.rejection().reason());
+		assertEquals(PaymentStatus.REJECTED, outcome.payment());
+		assertEquals(0, Airdrop.getDropAdmissionController().snapshot().pending());
+		assertTrue(CrateManager.getCrateMap().isEmpty());
+		assertEquals(0, economy.affordabilityChecks);
+		assertEquals(0, economy.withdrawals);
+		assertEquals(0, economy.deposits);
 	}
 
 	@Test
@@ -473,7 +494,7 @@ class DropControllerEconomyFlowTest {
 		server.getScheduler().performOneTick();
 		assertEquals(1, economy.withdrawals);
 
-		WorldMock otherWorld = server.addSimpleWorld("other_world");
+		WorldMock otherWorld = com.airdropmc.testutil.TestWorlds.loadedWorld(server, "other_world");
 		player.teleport(new Location(otherWorld, 0, 120, 0));
 		assertTrue(server.unloadWorld(world, false));
 		assertNull(server.getWorld(world.getUID()));
@@ -587,6 +608,35 @@ class DropControllerEconomyFlowTest {
 		assertEquals(0, economy.deposits);
 	}
 
+	@ParameterizedTest
+	@ValueSource(doubles = {0.0, 25.5})
+	void pendingPaymentKeepsAcceptedPriceWhileLaterRequestsUseRepricedDefinition(double price) throws Exception {
+		DropHandle accepted = request("paid");
+		var context = accepted.context().orElseThrow();
+		assertEquals(new BigDecimal("10.0"), context.airdropPackage().price());
+		assertFalse(accepted.spawn().toCompletableFuture().isDone());
+		var repricing = plugin.updatePackagePriceAsync("PAID", price).toCompletableFuture();
+		awaitCondition(repricing::isDone);
+		assertEquals(10.0, repricing.join().oldPrice());
+		assertEquals(price, PackageManager.get("paid").getPrice());
+		completeCharge();
+		assertInstanceOf(DropSpawnResult.Spawned.class, accepted.spawn().toCompletableFuture().join());
+		assertSame(context, accepted.context().orElseThrow());
+		assertEquals(new BigDecimal("10.0"), economy.withdrawnAmounts.getFirst());
+		assertEquals(new BigDecimal("10.0"), context.airdropPackage().price());
+
+		PlayerMock later = server.addPlayer("Later");
+		later.setOp(true);
+		later.teleport(new Location(world, 30, 120, 30));
+		DropHandle request = DropController.requestPlayerDrop(later, "paid", options());
+		server.getScheduler().performTicks(3);
+		assertEquals(BigDecimal.valueOf(price), request.context().orElseThrow().airdropPackage().price());
+		var spawned = assertInstanceOf(DropSpawnResult.Spawned.class, request.spawn().toCompletableFuture().join());
+		assertEquals(price == 0 ? PaymentStatus.NOT_APPLICABLE : PaymentStatus.CHARGED, spawned.payment());
+		assertEquals(price == 0 ? List.of(new BigDecimal("10.0"))
+				: List.of(new BigDecimal("10.0"), BigDecimal.valueOf(price)), economy.withdrawnAmounts);
+	}
+
 	private DropHandle request(String packageName) {
 		return DropController.requestPlayerDrop(player, packageName, options());
 	}
@@ -653,6 +703,7 @@ class DropControllerEconomyFlowTest {
 		private final CompletableFuture<EconomyResult> refund = new CompletableFuture<>();
 		private int affordabilityChecks;
 		private int withdrawals;
+		private final List<BigDecimal> withdrawnAmounts = new ArrayList<>();
 		private int deposits;
 
 		@Override
@@ -669,6 +720,7 @@ class DropControllerEconomyFlowTest {
 		@Override
 		public CompletionStage<EconomyResult> withdraw(EconomyPlayer player, BigDecimal amount) {
 			withdrawals++;
+			withdrawnAmounts.add(amount);
 			return withdrawal;
 		}
 

@@ -53,7 +53,7 @@ class PackageNamePolicyTest {
 	@Test
 	void rejectsEveryReservedIdentityWithoutCaseDifferences() {
 		for (String name : List.of(
-				"all", "ALL", "*", "package", "PACKAGES", "Version", "staTUS", "reLOAD", "create", "DELETE")) {
+				"all", "ALL", "*", "package", "PACKAGES", "Version", "staTUS", "reLOAD", "create", "DELETE", "price", "PrIcE")) {
 			PackageNamePolicy.Result result = PackageNamePolicy.validate(name);
 
 			assertFalse(result.accepted(), name);
@@ -70,5 +70,8 @@ class PackageNamePolicyTest {
 				AirdropCommandNames.topLevel());
 		assertTrue(AirdropCommandNames.topLevel().stream()
 				.noneMatch(name -> PackageNamePolicy.validate(name).accepted()));
+		for (String name : List.of("catalog", "browse", "preview", "edit", "send", "gift", "grant")) {
+			assertTrue(PackageNamePolicy.validate(name).accepted(), name);
+		}
 	}
 }

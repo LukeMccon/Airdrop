@@ -114,7 +114,7 @@ class OptionalIntegrationExampleTest {
 
 	@Test
 	void bothGuidesUseTheExactCompiledExample() throws IOException {
-		for (String guide : List.of("modrinth.md", "migration-4.1.md")) {
+		for (String guide : List.of("reference.md", "migration-4.1.md")) {
 			String documentation = Files.readString(Path.of("docs", guide));
 			for (String sourceFile : List.of("ExamplePlugin.java", "AirdropIntegration.java")) {
 				String source = Files.readString(Path.of("consumer-fixture", "src", "main", "java",

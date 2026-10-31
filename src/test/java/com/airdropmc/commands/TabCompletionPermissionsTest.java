@@ -75,7 +75,27 @@ class TabCompletionPermissionsTest {
 		List<String> results = completer.onTabComplete(
 				player, mock(Command.class), "airdrop", new String[]{""});
 
-		assertEquals(List.of("package", "starter", "version"), results);
+		assertEquals(List.of("package", "packages", "starter", "version"), results);
+	}
+
+	@Test
+	void catalogIsDiscoverableBeforeAnyPackagePermissionIsGranted() {
+		Player player = mock(Player.class);
+
+		List<String> results = new AirdropTabCompleter().onTabComplete(
+				player, mock(Command.class), "airdrop", new String[]{""});
+
+		assertEquals(List.of("package", "packages", "version"), results);
+	}
+
+	@Test
+	void ordinaryNonPlayerCompletionOmitsInventoryCatalog() {
+		BlockCommandSender sender = mock(BlockCommandSender.class);
+
+		List<String> results = new AirdropTabCompleter().onTabComplete(
+				sender, mock(Command.class), "airdrop", new String[]{""});
+
+		assertEquals(List.of("package", "version"), results);
 	}
 
 	@Test
@@ -150,6 +170,7 @@ class TabCompletionPermissionsTest {
 
 		assertFalse(results.contains("create"));
 		assertFalse(results.contains("delete"));
+		assertFalse(results.contains("price"));
 	}
 
 	@Test
@@ -163,6 +184,7 @@ class TabCompletionPermissionsTest {
 
 		assertTrue(results.contains("create"));
 		assertTrue(results.contains("delete"));
+		assertTrue(results.contains("price"));
 	}
 
 	@Test
@@ -248,6 +270,22 @@ class TabCompletionPermissionsTest {
 				new String[]{"package", "create", "starter", ""});
 
 		assertEquals(List.of(), results);
+	}
+
+	@Test
+	void priceCompletionOffersPackageNamesForAdminsOnlyAndNoArbitraryPrice() {
+		Command command = mock(Command.class);
+		PackageTabCompletion completer = new PackageTabCompletion();
+		PlayerMock player = server.addPlayer();
+		assertEquals(List.of(), completer.onTabComplete(player, command, "airdrop",
+				new String[]{"package", "price", "pR"}));
+		player.setOp(true);
+		assertEquals(List.of("Premium"), completer.onTabComplete(player, command, "airdrop",
+				new String[]{"package", "price", "pR"}));
+		assertEquals(List.of(), completer.onTabComplete(player, command, "airdrop",
+				new String[]{"package", "price", "Premium", ""}));
+		assertTrue(completer.onTabComplete(server.getConsoleSender(), command, "airdrop",
+				new String[]{"package", ""}).contains("price"));
 	}
 
 	@Test

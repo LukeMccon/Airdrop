@@ -10,7 +10,7 @@ Integrations should use `com.airdropmc.api`.
 
 Declare `depend: [Airdrop]` when your plugin cannot run without it, or
 `softdepend: [Airdrop]` when the integration is optional. Compile against Airdrop
-without shading it, as shown in the [developer guide](modrinth.md#developer-integration).
+without shading it, as shown in the [developer guide](reference.md#developer-integration).
 A soft dependency controls load order but leaves API classes unavailable when
 Airdrop is absent. Keep all Airdrop API references, including listener types,
 in a separate integration class, and check availability in the plugin entry
@@ -95,6 +95,14 @@ terminal outcome instead of treating a method return as proof of payment or
 delivery. Payment status can remain `UNKNOWN` when an external economy result
 is ambiguous; integrations must not retry or refund that state automatically.
 
+`requestPlayerDrop(...)` bills the initiating player unless their effective
+`airdrop.cost.bypass` permission exempts them. `requestSystemDrop(...)` remains
+explicitly unpaid and does not take a command sender. For reward plugins using
+commands, native console and RCON `/airdrop send` requests are unpaid by default;
+effective Bukkit attachment denials of send or cost bypass still block them.
+See the [send command policy](reference.md#send-to-a-player-or-coordinates) for
+destination syntax and recipient eligibility.
+
 ## Replace legacy post-events with the supported lifecycle
 
 `PackageDropEvent` and `PackageLandEvent` are unsupported deprecated adapters.
@@ -123,3 +131,14 @@ API compatibility decisions.
 
 See [the API version policy](development/api-versioning.md) for the supported
 package boundary and compatibility commands.
+
+## Package price command
+
+`/airdrop package price <package> <new-price>` requires `airdrop.admin` and works
+from players, console, and RCON. It preserves package items and uses atomic
+configuration saving. `price` is now a reserved package name in any casing;
+rename an existing package with that name in `packages.yml` and update its
+permission nodes before upgrading. Invalid names reject the entire package
+configuration. New locale entries are `commands.help.admin-price`,
+`packages.price-usage`, and `packages.price-changed` (placeholders `{name}`,
+`{old_price}`, and `{new_price}`).

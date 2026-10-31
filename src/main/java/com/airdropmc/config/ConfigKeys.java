@@ -53,9 +53,14 @@ public final class ConfigKeys {
 	public static final String DROP_MAX_FALLING = "drop.limits.max-falling";
 	public static final String DROP_MAX_LANDED = "drop.limits.max-landed";
 	public static final String DROP_LANDED_LIFETIME_SECONDS = "drop.limits.landed-lifetime-seconds";
+	public static final String REMOTE_GENERATE = "drop.remote-loading.generate-new-chunks";
+	public static final String REMOTE_MAX_LOADS = "drop.remote-loading.max-concurrent-loads";
+	public static final String REMOTE_ATTEMPT_COOLDOWN = "drop.remote-loading.attempt-cooldown-seconds";
+	public static final String REMOTE_LOAD_TIMEOUT = "drop.remote-loading.load-timeout-seconds";
 
 	// General paths
 	public static final String LANGUAGE = "language";
+	public static final String GIFT_REQUIRE_RECIPIENT_PERMISSION = "gifting.require-recipient-permission";
 
     // Economy paths
     public static final String ECONOMY_ENABLED = "economy.enabled";
@@ -132,6 +137,22 @@ public final class ConfigKeys {
 				Duration.ofSeconds(cooldown), maxFalling, maxLanded, Duration.ofSeconds(lifetime));
 	}
 
+	public static boolean canGenerateRemoteChunks() {
+		return getConfig().getBoolean(REMOTE_GENERATE, false);
+	}
+
+	public static int getMaxRemoteLoads() {
+		return boundedInteger(getConfig(), REMOTE_MAX_LOADS, 1, 32, 2);
+	}
+
+	public static int getRemoteAttemptCooldownSeconds() {
+		return boundedInteger(getConfig(), REMOTE_ATTEMPT_COOLDOWN, 1, 3600, 5);
+	}
+
+	public static int getRemoteLoadTimeoutSeconds() {
+		return boundedInteger(getConfig(), REMOTE_LOAD_TIMEOUT, 1, 60, 10);
+	}
+
 	// General getters
 	public static String getLanguage() {
 		return getLanguage(getConfig());
@@ -140,6 +161,25 @@ public final class ConfigKeys {
 	static String getLanguage(FileConfiguration config) {
 		String language = config.getString(LANGUAGE, "en");
 		return language == null ? "en" : language;
+	}
+
+	public static boolean requiresGiftRecipientPermission() {
+		return requiresGiftRecipientPermission(getConfig());
+	}
+
+	static boolean requiresGiftRecipientPermission(FileConfiguration config) {
+		Object gifting = config.get("gifting");
+		if (gifting != null && !(gifting instanceof ConfigurationSection)) {
+			throw new IllegalArgumentException("gifting must be a configuration section");
+		}
+		Object configured = config.get(GIFT_REQUIRE_RECIPIENT_PERMISSION);
+		if (configured == null) {
+			return false;
+		}
+		if (configured instanceof Boolean required) {
+			return required;
+		}
+		throw new IllegalArgumentException(GIFT_REQUIRE_RECIPIENT_PERMISSION + " must be a Boolean");
 	}
 
     // Economy getters
