@@ -1,21 +1,112 @@
-# Airdrop 4.1.0 adds delivery messages and a supported plugin API
+# Airdrop 4.2.0 adds package previews and targeted deliveries
 
-## Development additions: AIRDR-73 targeted delivery and remote destinations
+Release notes covering changes since 4.1.0.
+
+<!-- AIRDR-93: Release preparation; catalog checkout (AIRDR-89) is not included. -->
+
+Players can browse rewards before ordering and send packages to another player
+or a location. Administrators can change prices without reopening an editor.
+
+## Browse package prices and rewards before ordering
+
+- `/airdrop packages` shows the packages a player can request, their prices,
+  and read-only reward previews with item names, enchantments, and lore.
+  Zero-price packages are labeled Free.
+- Browsing does not order a drop or charge the player. Use the self-order
+  command shown in the preview; GUI checkout is not included in this release.
+- Administrators can still edit packages in the shared view. Package and
+  permission changes refresh the catalog or close stale previews, while
+  unrelated package changes preserve an administrator's working draft.
+
+## Send packages to players or coordinates
 
 - AIRDR-101: Parachute chickens no longer drop lead items when their leash
-  breaks, including holder loss at remote destinations. Ordinary leashes keep
+  breaks, including holder loss at remote destinations. Ordinary leashes retain
   their normal drops.
-- `/airdrop send` delivers to named players or coordinates, with sender-only
-  payment, explicit cost exemption, and recipient notifications.
-- Remote terrain loads asynchronously after permission and admission checks.
-  New generation is disabled by default and requires the ticking neighborhood
-  to fit inside the world border; attempts, concurrency, and preparation
-  time are bounded. All deliveries retain their destination through landing
-  or failure. Local drops preserve their parachute fly-away animation before
-  releasing retention; remote preparations clean their parachutes on landing.
-- Extension API `1.0.0` fires request events after provisional admission and
-  terrain resolution. Early rejections have no context or lifecycle events.
-  There is no API migration while there are no public integrations.
+- Use `/airdrop send <package> to <player>` for an exact online player, or
+  `/airdrop send <package> at <x> <z> [world]` for absolute surface coordinates.
+  A player's current world is implicit; console must supply a world.
+- AIRDR-99: Completion offers explicit `to` and `at` destination choices. Bare
+  destinations are rejected. X/Z entry shows required-axis usage hints instead
+  of numeric suggestions, resolving locally without an empty server reply.
+  Player and world-name completion remain available.
+  Incomplete coordinates and extra arguments receive native syntax errors.
+  Unchanged stock English usage/help migrate; customized text is preserved.
+- The initiating player pays the package price, not the recipient.
+  `airdrop.cost.bypass` makes sends and self-orders free and defaults to false.
+  Operator status or `airdrop.admin` alone does not bypass payment.
+  Effective permission wildcards can include the cost bypass.
+- `airdrop.send` defaults to true; senders still need package access.
+  Native console and RCON sends are free by default; explicit send or cost
+  permission denials still block them. Other non-player senders need an
+  explicit cost exemption.
+  Free player requests still obey cooldowns, pending-request guards, capacity,
+  and protected landing rules.
+- Destinations are captured when accepted; movement or disconnects do not
+  retarget a drop. Recipients receive incoming and landed messages, including
+  the sender's name and, on supported clients, an inline player head.
+  Crates remain public barrels; offline rewards are not queued.
+- Set `gifting.require-recipient-permission: true` to require named recipients
+  to have package access. This optional check does not apply to coordinates.
+- Failed deliveries can refund confirmed charges to the original payer while
+  the plugin remains active. Ambiguous payment results and shutdown failures
+  retain the existing limitations; a failed paid request never becomes free.
+- The development-only gift/grant commands are replaced by send. Packages
+  named `send`, `gift`, or `grant` remain legal.
+
+## Remote deliveries prepare terrain before charging
+
+- Remote destinations load asynchronously after permission and admission
+  checks. The destination and its two-chunk ticking neighborhood must already
+  be generated unless `drop.remote-loading.generate-new-chunks` is enabled.
+- Remote preparations default to two concurrent loads, a five-second attempt
+  cooldown, and a ten-second timeout. Failed attempts also consume the attempt
+  delay. A preparation timeout does not charge the sender.
+- New generation requires the ticking neighborhood to fit inside the world
+  border. Destinations stay retained through landing or failure, and falling
+  time is bounded. Local drops keep their parachute fly-away animation;
+  remote preparations clean their parachutes on landing.
+- Free remote crates keep their destination loaded until collection, cleanup,
+  or their configured expiry (ten minutes by default). They remain free crates,
+  not paid recoverable barrels; unloading the world or stopping the plugin
+  still removes them. Paid crates keep their existing recovery behavior.
+
+## Change prices atomically and identify blocked drops
+
+- `/airdrop package price <package> <new-price>` saves a finite, non-negative
+  price atomically without changing reward items or unrelated packages.
+  Administrators, console, and RCON can run it; no reload is needed.
+  Failed validation or saving leaves the file and live registry unchanged.
+- Open catalogs refresh after repricing. Already accepted requests keep their
+  captured price; later requests use the new price.
+- Blocked player requests describe the highest surface material and Y
+  coordinate and suggest moving into open sky. Customize
+  `errors.sky-blocked-surface` with `{material}` and `{y}`.
+  Other destination failures use `errors.invalid-target`.
+
+## Review new settings and integration event timing before upgrading
+
+- If the destination surface changes while a crate is falling, delivery can
+  fail instead of moving the reserved destination. Confirmed charges follow
+  the normal refund path while the plugin remains active. The original
+  reported landing mismatch remains under investigation (AIRDR-100).
+- The supported runtime remains Paper 1.21.11 with Java 21. Back up the plugin
+  and its data before upgrading. Existing package files keep their rewards
+  and prices; missing new settings use the defaults above.
+- New English message keys merge into existing locales without replacing
+  customized values. Unchanged stock send messages update to explain the
+  new console policy. Custom locales can translate the catalog, send, price,
+  and destination feedback.
+- Extension API `1.0.0` remains the initial-adoption identifier. Request events
+  now fire after provisional admission and terrain resolution. Early
+  rejections have no request context or lifecycle events; integrations must
+  inspect the returned handle's result as well as listening for events.
+  See the [API version policy](docs/development/api-versioning.md).
+- Documentation now lives on GitHub, with a shorter Modrinth overview.
+  Real-Paper coverage has expanded, and the integration suite reuses servers
+  to reduce repeated startup work.
+
+# Airdrop 4.1.0 adds delivery messages and a supported plugin API
 
 Release notes covering changes since 4.0.0.
 
@@ -30,33 +121,8 @@ lets other plugins request drops and follow delivery outcomes.
 - Players receive an incoming message once their crate spawns, including the
   amount charged for a paid drop. A landing message gives the crate's block
   coordinates and names the world if the player has moved to another world.
-- AIRDR-75: Blocked player requests describe the highest surface material and
-  Y coordinate, with guidance to move into open sky. Customize this message with
-  `errors.sky-blocked-surface` (`{material}`, `{y}`) in the language file. Other
-  target-resolution failures use `errors.invalid-target` without blaming the sky.
 - Root help and tab completion show commands and packages available to the
   sender. Package deletion suggests existing package names.
-
-## Send packages to players or coordinates
-
-- AIRDR-99: Send destinations use explicit `to` and `at` keywords; bare
-  destinations and compatibility forms are not supported. Unchanged stock English
-  send usage and help migrate; customized messages are preserved. Required X/Z
-  usage resolves locally while typing, without current-coordinate suggestions or
-  waiting for an empty server completion reply.
-  Incomplete coordinates and extra arguments use native command syntax errors
-  before any request or payment.
-- AIRDR-73: `/airdrop send <package> to <player>` and
-  `/airdrop send <package> at <x> <z> [world]` replace the unshipped gift/grant commands.
-  Player coordinates default to the caller's world; console requires a world.
-- `airdrop.send` defaults to true. `airdrop.cost.bypass` defaults to false and
-  exempts the sender from payment for targeted sends and self-orders; admin
-  authority alone does not make purchases free. Console requires both permissions.
-- Free player sends retain package access, recipient eligibility, cooldown,
-  pending-request, capacity, and protected landing checks. Recipient permission
-  checks apply only to named targets. Failed charged requests refund the original payer.
-- Named recipients see who sent their package, including an inline player head,
-  once it spawns. Destinations remain captured and crates remain public.
 
 ## LuckPerms is now optional
 

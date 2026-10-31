@@ -33,7 +33,7 @@ first-start details.
 
 - [Check permissions, payment failures, and other common problems](reference.md#troubleshooting).
 - [Back up your files and upgrade safely](reference.md#backups-make-regeneration-and-rollback-predictable).
-- [See what changed in 4.1](../CHANGELOG.md).
+- [See what changed in 4.2](../CHANGELOG.md).
 - [Report a bug](https://github.com/LukeMccon/Airdrop/issues/new?labels=bug).
 
 ## Connect another plugin to Airdrop

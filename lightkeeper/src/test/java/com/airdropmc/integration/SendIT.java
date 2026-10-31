@@ -297,6 +297,76 @@ class SendIT {
 	}
 
 	@Test
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	void nativeLandingBelowReservedSurfaceRefundsAndReleasesDestination(ILightkeeperFramework framework)
+			throws Exception {
+		AirdropIntegrationSupport.awaitReady(framework);
+		Path configFile = configFile(framework);
+		byte[] originalConfig = Files.readAllBytes(configFile);
+		List<PlayerHandle> players = new ArrayList<>();
+		WorldHandle world = null;
+		try {
+			GuiReloadIntegrationSupport.enableEconomyProvider(framework);
+			Files.writeString(configFile, new String(originalConfig, StandardCharsets.UTF_8)
+					.replace("  height: 8", "  height: 40"), StandardCharsets.UTF_8);
+			GuiReloadIntegrationSupport.reloadSuccessfully(framework);
+			world = createWorld(framework);
+			world.setBlockAt(new BlockPos(0, BARREL_Y - 3, 0), "minecraft:stone");
+			PlayerHandle sender = player(framework, world, players, PREMIUM_PERMISSION);
+			moveToCallerPlatform(sender, world);
+			resetAccount(framework, sender.uniqueId(), "100.00");
+			try (var operations = framework.events().capture(OPERATION_EVENT);
+				 var landings = framework.events().capture(LAND_EVENT)) {
+				int offset = framework.server().output().size();
+				sender.executeCommand("airdrop send premium at 0 0 " + world.name());
+				var spawned = AirdropIntegrationSupport.awaitConsumerMarkers(framework, offset,
+						List.of("REQUEST", "SPAWNED"));
+				AirdropIntegrationSupport.assertCorrelatedPrimaryThreadSequence(spawned);
+				// AIRDR-100: change one support block; Paper must drive the lower native landing.
+				world.setBlockAt(AirdropIntegrationSupport.PLATFORM_POSITION, "minecraft:air");
+				assertOutcome(framework, offset, List.of("REQUEST", "SPAWNED", "LANDING_ATTEMPT", "OUTCOME"),
+						"FAILED", "REFUNDED", "FAILED");
+				assertAccountState(framework, sender.uniqueId(), "100.00", 1, 1, 1);
+				assertThat(operationsFor(operations.getCapturedEvents(), sender.uniqueId()))
+						.hasSize(3).satisfies(events -> {
+							assertOperation(events.get(0), sender, "CAN_WITHDRAW", "100.00");
+							assertOperation(events.get(1), sender, "WITHDRAW", "89.75");
+							assertOperation(events.get(2), sender, "DEPOSIT", "100.00");
+						});
+				assertThat(landings.getCapturedEvents()).isEmpty();
+				AirdropIntegrationSupport.awaitBlock(world, BARREL_POSITION, "minecraft:air");
+				AirdropIntegrationSupport.awaitBlock(world, new BlockPos(0, BARREL_Y - 2, 0), "minecraft:air");
+				AirdropIntegrationSupport.awaitNoDropEntities(world);
+				AirdropIntegrationSupport.awaitNoEntities(world, "minecraft:item");
+
+				world.setBlockAt(AirdropIntegrationSupport.PLATFORM_POSITION, "minecraft:stone");
+				PlayerHandle retryingPlayer = player(framework, world, players, PREMIUM_PERMISSION);
+				moveToCallerPlatform(retryingPlayer, world);
+				resetAccount(framework, retryingPlayer.uniqueId(), "100.00");
+				int retryOffset = framework.server().output().size();
+				retryingPlayer.executeCommand("airdrop send premium at 0 0 " + world.name());
+				assertOutcome(framework, retryOffset, LANDED_SEQUENCE, "LANDED", "CHARGED", "NONE");
+				assertThat(landings.getCapturedEvents()).hasSize(1);
+				assertLanding(landings.getCapturedEvents().getFirst(), world);
+				AirdropIntegrationSupport.assertStarterContents(framework, world, BARREL_POSITION);
+				assertAccountState(framework, retryingPlayer.uniqueId(), "89.75", 1, 1, 0);
+				AirdropIntegrationSupport.awaitNoDropEntities(world);
+				AirdropIntegrationSupport.awaitNoEntities(world, "minecraft:item");
+				assertThat(GuiReloadIntegrationSupport.outputSince(framework, offset)).anyMatch(line -> line.endsWith(
+						"java.lang.IllegalStateException: Landed block does not match the reserved location"));
+			}
+			nl.pim16aap2.lightkeeper.framework.assertions.LightkeeperAssertions.assertThat(framework)
+					.hasNoServerErrors(error -> AirdropIntegrationSupport.isExpectedServerError(
+							error.loggerName(), error.message())
+							|| (error.message().startsWith("Could not pass event EntityChangeBlockEvent to Airdrop v")
+							&& error.stackTrace().stream().anyMatch(line -> line.strip().endsWith(
+									"java.lang.IllegalStateException: Landed block does not match the reserved location"))));
+		} finally {
+			restoreAndCleanup(framework, world, players, configFile, originalConfig);
+		}
+	}
+
+	@Test
 	@Timeout(value = 90, unit = TimeUnit.SECONDS)
 	void installedNativeTreeUsesExplicitDestinationsAndRejectsBareOrIncompleteSends(
 			ILightkeeperFramework framework) throws Exception {
