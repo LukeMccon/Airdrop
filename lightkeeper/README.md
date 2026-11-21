@@ -16,6 +16,15 @@ Each Gradle lane can also be run individually. All depend on the same preparatio
 
 Scenario methods share one Paper process per test class, with separate worlds and players for each method. CI runs economy/GUI, physical lifecycle, send-permissions, and fresh-install coverage in four independent jobs. Each job has its own checkout and Maven outputs; local lanes remain serial because they share the Maven module. A coverage check requires every integration class to appear in exactly one CI shard.
 
+`FreeRemoteDeliveryIT` covers a cost-exempt console send into an unloaded,
+generated destination with no players or force-loads. It checks that Airdrop's
+ticket prevents native chunk unload through the configured 30-second lifetime,
+then verifies scheduled expiry releases the ticket and a real unload/reload
+does not recreate loot. The scenario scopes an explicit console cost-bypass
+attachment to dispatch because this lane has no permissions provider.
+Its shared-chunk explosion scenario also checks exact native loot and releases
+the ticket only after both free crates have retired.
+
 Platform setup uses the consumer fixture's console-only `platform` command to batch the same native Bukkit block writes into one server call. Setup finishes before bots and event captures are created, and preserves the chunk lifecycle behavior exercised by the persistence tests.
 
 Select specific scenario classes through Failsafe without changing the default full suite:

@@ -5,7 +5,7 @@ extension API, Paper compatibility, and Java requirement are separate values:
 
 | Signal | Current development value | Purpose |
 | --- | --- | --- |
-| Airdrop plugin | `4.1.0-SNAPSHOT` | Plugin features and releases |
+| Airdrop plugin | `4.2.0-SNAPSHOT` | Plugin features and releases |
 | Extension API | `1.0.0` | Supported types under `com.airdropmc.api` |
 | Paper compatibility | `1.21.11` | Exact Paper target in `plugin.yml` |
 | Java compatibility | `21` | Required JVM feature version |
@@ -82,5 +82,5 @@ manifest, the Java class-file target, the changelog heading, and the API
 compatibility result. Run it with the intended tag:
 
 ```bash
-./gradlew -PreleaseTag=4.1.0 verifyReleaseArtifact
+./gradlew -PreleaseTag=4.2.0 verifyReleaseArtifact
 ```

@@ -109,11 +109,11 @@ class ModrinthDocsContractTest {
 		}
 
 		for (String dependency : List.of(
-				"maven.modrinth:airdrop:4.1.0",
+				"maven.modrinth:airdrop:4.2.0",
 				"<id>papermc</id>",
 				"maven.modrinth</groupId>",
 				"airdrop</artifactId>",
-				"4.1.0</version>",
+				"4.2.0</version>",
 				"io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT",
 				"<scope>provided</scope>",
 				"depend: [Airdrop]",

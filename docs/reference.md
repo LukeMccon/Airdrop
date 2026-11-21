@@ -324,6 +324,18 @@ barrel. When a paid barrel expires with items still inside, Airdrop removes its
 metadata and effects and leaves it as an ordinary barrel rather than deleting
 paid contents.
 
+Free and cost-exempt sends retain their destination chunk while the landed
+crate is collectable, including when no player is nearby. The existing
+`max-landed` limit bounds these crates (default `10`, maximum `256`), and each
+ticket ends at the crate's captured lifetime (default `600` seconds, configurable
+from `30` to `86400` seconds) or earlier removal. Crates sharing a destination
+chunk share its ticket until the last retained crate is removed. Emptying,
+breaking, or clearing a crate releases its claim; expiry removes free contents.
+Paper may also keep neighboring chunks loaded for normal entity ticking.
+Reloading configuration does not extend an existing deadline. Explicit world
+unload and plugin/server shutdown still remove free crates and release their
+tickets. Free crates do not become paid or gain paid restart recovery.
+
 ## Package files
 
 Package definitions live in `plugins/Airdrop/packages.yml`. Prefer the in-game
@@ -515,10 +527,13 @@ wrappers, `Crate`, and `com.airdropmc.events` are implementation details.
 
 ### Compile against Airdrop without shading it
 
+The examples below target Airdrop 4.2.0. Use the dependency version matching
+the plugin installed on your server.
+
 Do not shade Airdrop into a consumer plugin. Use the released plugin as a
 compile-only dependency, and declare Paper explicitly because Airdrop's Maven
-POM deliberately has no transitive dependencies. A `v4.1.0` release tag is
-published at Maven version `4.1.0`; the tag prefix is never part of the
+POM deliberately has no transitive dependencies. The `v4.2.0` release tag maps
+to Maven version `4.2.0`; the tag prefix is never part of the
 consumer coordinate. For Gradle:
 
 ```kotlin
@@ -528,7 +543,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("maven.modrinth:airdrop:4.1.0")
+    compileOnly("maven.modrinth:airdrop:4.2.0")
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
 }
 ```
@@ -550,7 +565,7 @@ For Maven, use the same Modrinth coordinate and mark both plugins as provided:
   <dependency>
     <groupId>maven.modrinth</groupId>
     <artifactId>airdrop</artifactId>
-    <version>4.1.0</version>
+    <version>4.2.0</version>
     <scope>provided</scope>
   </dependency>
   <dependency>
